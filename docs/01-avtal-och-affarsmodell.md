@@ -25,6 +25,8 @@ Sammanfattning av D04 §§2–5 och D12:
 
 D12 anger att e-id-ersättningen saknar transaktionsgräns för ersättningsrätt. Digital posts separata volymkrav får inte överföras till e-id. Detta avgör inte ensamt när en ny tjänst utan användning anses avtalsenligt levererad.
 
+**Beslutad avgiftsändring från 2027-01-01:** enligt D12 höjs den offentliga aktörens avgift för identifiering/underskrift från 0,12 till 0,18 kronor. Digg anger uttryckligen att denna ändring inte påverkar leverantörsersättningen. Myndighetens avgift ska alltså inte användas som vår transaktionsintäkt.
+
 ### Vår räkneillustration – inte faktureringsspecifikation
 
 För ett helt kalenderår där samtliga villkor är uppfyllda hela året kan följande illustrera modellens storleksordning:
