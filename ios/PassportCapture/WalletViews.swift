@@ -357,6 +357,7 @@ struct EnrollmentView: View {
             }.background(Palette.paper).navigationTitle("Registrera").navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button(flow.busy ? "Avbryt" : "Stäng") { flow.cancel(); dismiss() } } }
                 .interactiveDismissDisabled(flow.busy)
+                .onDisappear { flow.cancel() }
         }
     }
 }

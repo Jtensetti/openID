@@ -120,3 +120,106 @@ körs, **inte** uppmätt biometrisk träffsäkerhet eller PAD-robusthet.
 
 Berör ID-05/ID-06, tillitsgränser och supply chain. Kravstatus höjs inte till
 accepterad. Läs även [komponentgranskningen](THIRD_PARTY.md).
+
+## Appens privata pilotregister
+
+Den kompletta [Xcode-appen](../ios/README.md) använder även `wallet.py`.
+Databasen innehåller publik enhetsnyckel, ett slumpmässigt pilotsubjekt,
+registreringsstatus, kortlivade inloggningsbegäranden och säkerhetshändelser.
+Den innehåller inga passnummer, bilder, namn eller ansiktsmallar.
+
+Skapa en privat katalog utanför repot. Ange den när verifieraren startas:
+
+```sh
+mkdir -m 700 /privat/openid-pilot
+.venv/bin/python server.py \
+  --native --team DITTTEAMID --bundle se.openid.PassportCapture \
+  --development-attestation \
+  --bind 192.168.1.20 --origin https://192.168.1.20:8765 \
+  --tls-cert /privat/server.pem --tls-key /privat/server-key.pem \
+  --csca /privat/trusted-csca.pem \
+  --wallet-db /privat/openid-pilot/wallet.sqlite
+```
+
+En ny serverprocess får en ny kopplingskod. Uppdatera koden i appens
+Inställningar utan att byta server/nyckel. Både kopplingskoden och en giltig
+enhetssignatur krävs för wallet-anrop; kopplingskoden ensam kan aldrig
+aktivera, legitimera eller spärra ett ID. Ingen admin-endpoint exponeras.
+
+### Aktivera och prova inloggning
+
+Efter godkänd NFC-/kamera-/attesteringskedja visas `PENDING_REVIEW`.
+Modellresultat aktiverar aldrig nyckeln. En operatör gör ett separat
+beslut för **enbart denna privata tekniska pilot**. Det är ingen verifierad
+civil identitet eller godkänd e-id-utgivning. Kommandot nedan ger giltighet
+i 24 timmar (max 72) och kräver en icke personlig beslutsreferens.
+
+```sh
+.venv/bin/python wallet_cli.py --db /privat/openid-pilot/wallet.sqlite pending
+.venv/bin/python wallet_cli.py --db /privat/openid-pilot/wallet.sqlite activate CREDENTIAL_ID --decision REVIEW-private-001 --private-pilot-only
+.venv/bin/python wallet_cli.py --db /privat/openid-pilot/wallet.sqlite request CREDENTIAL_ID
+```
+
+`CREDENTIAL_ID` är registreringsreferensen i appens Inställningar eller
+`pending`-utskriften. Testtjänstens `request`-kommando ger begärans-ID,
+kontrollkod och en hemlighet för att hämta resultatet. Behåll hemligheten i
+den lokala operatörsterminalen. Den skickas aldrig till iPhone-appen.
+
+I appen: uppdatera Mitt ID, gå till **Legitimera**, hämta begäran, kontrollera
+samma kod och godkänn. Hämta resultatet i testtjänsten med:
+
+```sh
+.venv/bin/python wallet_cli.py --db /privat/openid-pilot/wallet.sqlite consume REQUEST_ID
+```
+
+Klistra därefter in `secret` via standard input (inte som kommandoargument).
+Resultatet är `PENDING` eller ett engångsresultat `AUTHENTICATED`, med
+`audience=openid-local-demo` och `assurance=PRIVATE_PILOT`. Fel, nekat val,
+utgång, spärr eller upprepad konsumtion ger inget inloggningsresultat.
+Det är en lokal testmotpart, inte en anslutning till Sweden Connect.
+
+En QR-kod kan innehålla `openid://request/REQUEST_ID`. Koden är bara ett
+sätt att välja en redan existerande begäran; appen kontrollerar dess ägare
+och detaljer via sin fasta server innan användaren får godkänna.
+
+För förlorad telefon, spärra via den lokala operatörskanalen:
+
+```sh
+.venv/bin/python wallet_cli.py --db /privat/openid-pilot/wallet.sqlite revoke CREDENTIAL_ID
+```
+
+Spärr är permanent och stoppar även godkända men ännu inte konsumerade
+inloggningar. Ny telefon kräver ny nyckel, ny pass-/personkontroll och nytt
+beslut. Det finns ingen återaktivering eller e-poståterställning.
+
+### Tillstånd och säkerhetsmodell
+
+| Från | Händelse och behörighet | Till |
+|---|---|---|
+| Ingen nyckel | Attesterat underlag med publik nyckel och passerade tekniska kontroller | PENDING_REVIEW |
+| PENDING_REVIEW | Lokal operatörsaktivering inom 24 timmar efter kontrollen | ACTIVE |
+| ACTIVE | Giltighetstiden passerar | EXPIRED |
+| Valfritt befintligt tillstånd | Signerad spärr eller lokal operatörsspärr | REVOKED |
+| REVOKED / EXPIRED | Nytt försök att aktivera samma nyckel | Nekas |
+
+Varje wallet-operation binder protokollversion, HTTPS-ursprung,
+nyckelreferens, handling, begärans-ID, motpart, syfte, kontrollkod och
+utgångstid. Servern lagrar exakt bytes som ska signeras. Klienten validerar
+värdena mot det visade valet innan CryptoKit signerar; Node/OpenSSL gör
+ECDSA-validering. En felaktig signatur förbrukar utmaningen. Utmaningar
+försvinner vid omstart. Databastransaktioner serialiserar spärr, godkännande
+och resultatkonsumtion, och status kontrolleras på nytt i varje led.
+
+SQLite körs med full synkronisering och privat katalog/fil (0700/0600).
+Databasen är inte krypterad av appen. Skydda disk, operatörskonto och
+säkerhetskopior separat. **Återläsning av gamla databasfiler stöds inte:** en
+rollback kan återställa gammal status; ett externt oföränderligt spärrankare
+behövs innan sådan återställning får införas. Systemet är inte en
+produktionslösning för rollseparation eller drift. Den lokala operatören
+har faktisk kontroll över databasen. Ingen sådan egenskap döljs som två
+knappar eller automatiskt godkännande.
+
+Nya tester körs med `.venv/bin/python -m unittest -v test_wallet` och ingår
+i CI. Nycklar för dessa tester genereras vid körning; inga verkliga pass
+eller privata enhetsnycklar används. Testerna inkluderar verkliga signaturer,
+HTTP-gränser, motparts-/handlingsbyte, replay, samtidighet och spärr.

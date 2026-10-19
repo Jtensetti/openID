@@ -31,7 +31,7 @@ import LocalAuthentication
             defer { if generation == epoch { busy = false } }
             do {
                 let auth = LAContext(); context = auth
-                try await auth.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Öppna ditt openID")
+                guard try await auth.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Öppna ditt openID") else { throw WalletError.cancelled }
                 try Task.checkCancellation(); guard generation == epoch else { return }
                 if let saved = try vault.read("configuration", as: ServerConfiguration.self) {
                     configuration = try ServerConfiguration(origin: saved.origin, pairing: saved.pairing)
@@ -87,8 +87,8 @@ import LocalAuthentication
                 else {
                     auth = LAContext()
                     operationContext = auth
-                    try await auth.evaluatePolicy(.deviceOwnerAuthentication, localizedReason:
-                        action == "revoke" ? "Spärra ditt ID permanent" : "Bekräfta ditt val för \(request?.relyingParty ?? "openID")")
+                    guard try await auth.evaluatePolicy(.deviceOwnerAuthentication, localizedReason:
+                        action == "revoke" ? "Spärra ditt ID permanent" : "Bekräfta ditt val för \(request?.relyingParty ?? "openID")") else { throw WalletError.cancelled }
                 }
                 defer { if action != "snapshot" { auth.invalidate() } }
                 try Task.checkCancellation(); guard generation == epoch else { return }

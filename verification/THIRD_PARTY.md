@@ -61,3 +61,34 @@ Versions- och advisorykontroll finns i `dependency-audit.json` och
 `npm-audit.json`. Uppdateringsägare föreslås vara repoägaren Jtensetti,
 att bekräfta. Oberoende säkerhetsgranskning, biometrisk/PAD-kalibrering,
 dataskyddsbedömning och beslut om verklig utgivning är inte utförda här.
+
+## App-plånbok, 2026-10-19
+
+Den sammanhållna SwiftUI-appen använder Apples systemramverk SwiftUI,
+Foundation, CryptoKit/Secure Enclave, Security/Keychain, LocalAuthentication,
+CoreNFC, DeviceCheck och AVFoundation via Xcode 16.4. Inga nya externa
+runtimepaket eller modellvikter införs i denna etapp. NFC-/OpenSSL-versioner
+är oförändrade och låsta i `ios/PassportCapture.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`.
+
+Serverns enhetssignaturer verifieras med Node 24.19.0 `node:crypto`
+(createPublicKey/verify), SHA-256 och standard DER/SPKI för P-256.
+Python 3.12:s sqlite3, hashlib och secrets används för beständighet,
+standardhashar och slumputmaningar. Ingen egen kryptografisk primitiv.
+DB och application-protokollets konkreta användning är egen kod som kräver
+granskning; detta är inget nytt standardiserat SAML/OIDC-protokoll.
+
+Primärkällor kontrollerade 2026-10-19:
+- https://developer.apple.com/documentation/cryptokit/secureenclave/p256/signing/privatekey
+- https://developer.apple.com/documentation/security/protecting-keys-with-the-secure-enclave
+- https://developer.apple.com/documentation/security/secaccesscontrolcreateflags
+- https://developer.apple.com/documentation/security/ksecattraccessiblewhenpasscodesetthisdeviceonly
+- https://developer.apple.com/documentation/localauthentication/lacontext/invalidate()
+- https://nodejs.org/docs/latest-v24.x/api/crypto.html
+
+CI använder GitHubs `actions/upload-artifact` **v4.6.2**, full commit
+`ea165f8d65b6e75b540449e92b4886f43607fa02`, MIT. Taggreferens och LICENSE
+kontrollerade i `actions/upload-artifact` samma datum. Den används endast
+för simulatorbild och XCTest-resultat utan persondata, med 14 dagars
+retention. Workflowbehörigheter är fortsatt `contents: read`; inga Apple-
+eller produktionsnycklar läggs i CI. Projektgeneratorn är egen Pythonkod
+utan externa beroenden. Projektlicensen är fortsatt obeslutad.

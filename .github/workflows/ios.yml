@@ -26,6 +26,11 @@ jobs:
           git diff --exit-code -- ios/PassportCapture.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
       - name: Build actual iOS target without signing or deploying
         run: xcodebuild -project ios/PassportCapture.xcodeproj -scheme PassportCapture -configuration Release -destination 'generic/platform=iOS' -clonedSourcePackagesDirPath "$RUNNER_TEMP/packages" -derivedDataPath "$RUNNER_TEMP/ios-build" -disableAutomaticPackageResolution CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24.19.0'
+      - name: Verify CryptoKit signatures with the actual server verifier
+        run: swift ios/scripts/crypto-interop.swift | node verification/device-signature.mjs
       - name: Boot iPhone simulator
         run: |
           SIMULATOR_ID=$(xcrun simctl create 'openID CI iPhone' com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro com.apple.CoreSimulator.SimRuntime.iOS-18-5)

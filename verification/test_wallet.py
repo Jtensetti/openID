@@ -125,4 +125,42 @@ class WalletTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.wallet.execute({'challengeId':c['id'],'signature':'not base64'})
         with self.assertRaises(ValueError):self.wallet.execute(self.signed(c))
 
+class WalletHTTPTests(unittest.TestCase):
+    def setUp(self):
+        import threading
+        from http.server import HTTPServer
+        from server import handler
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
+        self.http=HTTPServer(('127.0.0.1',0),handler(Mock(),[],0))
+        self.port=self.http.server_port;self.origin=f'http://localhost:{self.port}';self.token='t'*43
+        self.wallet=Wallet(Path(self.temp.name)/'wallet.sqlite',self.origin)
+        self.key=json.loads(crypt(op='new'));self.id=self.wallet.enroll(self.key['publicKey'])['id']
+        self.http.RequestHandlerClass=handler(Mock(),[],self.port,origin=self.origin,token=self.token,browser_enabled=False,wallet=self.wallet)
+        self.thread=threading.Thread(target=self.http.serve_forever,daemon=True);self.thread.start()
+    def tearDown(self):self.http.shutdown();self.http.server_close();self.thread.join()
+    def call(self,path,body,headers=None,method='POST'):
+        import http.client
+        c=http.client.HTTPConnection('127.0.0.1',self.port,timeout=3)
+        try:
+            h={'Host':f'localhost:{self.port}','Origin':self.origin,'X-CSRF-Token':self.token,'Content-Type':'application/json'}
+            h.update(headers or {})
+            c.request(method,path,body if isinstance(body,str) else json.dumps(body),h)
+            r=c.getresponse();return r.status,json.loads(r.read())
+        finally:c.close()
+    def test_signed_status_over_real_http_and_no_remote_activation(self):
+        code,c=self.call('/wallet/challenge',{'credentialId':self.id,'action':'snapshot','requestId':None})
+        self.assertEqual(200,code)
+        signature=crypt(op='sign',key=self.key['privateKey'],payload=c['signingInput'])
+        code,result=self.call('/wallet/execute',{'challengeId':c['id'],'signature':signature})
+        self.assertEqual(200,code);self.assertEqual('PENDING_REVIEW',result['state'])
+        for path in ['/wallet/activate','/wallet/enroll','/rp/start','/session']:
+            self.assertEqual(404,self.call(path,{},method='GET' if path=='/session' else 'POST')[0])
+    def test_http_origin_host_pairing_size_duplicate_fields_and_no_unsigned_action(self):
+        body={'credentialId':self.id,'action':'snapshot','requestId':None}
+        for h in [{'Origin':'https://evil.invalid'},{'Host':'evil.invalid'},{'X-CSRF-Token':'wrong'}]:
+            self.assertEqual(403,self.call('/wallet/challenge',body,h)[0])
+        self.assertEqual(413,self.call('/wallet/challenge','x'*16385)[0])
+        self.assertEqual(400,self.call('/wallet/challenge','{"action":"approve","action":"snapshot"}')[0])
+        self.assertEqual(400,self.call('/wallet/execute',{'approved':True})[0])
+
 if __name__=='__main__':unittest.main()

@@ -78,7 +78,7 @@ import NFCPassportReader
             catch { status = "Verifieringen kunde inte slutföras. Kontrollera anslutning, passuppgifter och kamerabehörighet och börja om." }
         }
     }
-    func cancel() { task?.cancel(); camera.stop(); clearDocument() }
+    func cancel() { task?.cancel(); camera.stop(); clearDocument(); configuration = nil; credential = nil }
     private func clearDocument() { documentNumber = ""; birth = ""; expiry = "" }
     private func mrzKey() throws -> String {
         let number = documentNumber.uppercased()
