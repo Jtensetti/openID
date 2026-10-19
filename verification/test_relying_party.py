@@ -1,4 +1,3 @@
-"""Real SQLite, Node/OpenSSL signatures and loopback HTTP; no production identity data."""
 from concurrent.futures import ThreadPoolExecutor
 import http.client
 from http.server import HTTPServer
@@ -122,7 +121,7 @@ class RelyingPartyTests(RPFixture):
 
     def test_revocation_after_login_invalidates_next_protected_read(self):
         self.authenticate()
-        # Separate process/connection: cannot be satisfied from an in-process credential cache.
+        # Revoke through another connection to detect stale in-memory state.
         Wallet(self.wallet.path, 'operator', clock=lambda: self.time).revoke(self.credential)
         data = self.rp.poll(self.sid, self.csrf)[1]
         self.assertEqual('UNAVAILABLE', data['state']); self.assertNotIn('subject', data)

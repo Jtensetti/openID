@@ -1,5 +1,4 @@
-// Real browser WebAuthn APIs with Chromium's virtual CTAP2 authenticators.
-// These are synthetic keys, not a claim of physical device or OS-install testing.
+// WebAuthn tests with Chromium's virtual CTAP2 authenticators.
 const { chromium } = require('playwright');
 const { spawn, execFileSync } = require('node:child_process');
 const fs = require('node:fs');
@@ -76,7 +75,7 @@ async function run(transport) {
     assert.equal((await page.goto(sp + '/me')).status(), 401);
     await login();
     await page.goto(idp + '/wallet/');
-    await page.getByRole('button', {name: 'Spärra SYNTHETIC-alice i denna labbkörning'}).click();
+    await page.getByRole('button', {name: 'Spärra SYNTHETIC-alice'}).click();
     await page.waitForURL(idp + '/lab/revoke');
     assert.equal((await page.goto(sp + '/me')).status(), 401);
     await page.goto(sp);

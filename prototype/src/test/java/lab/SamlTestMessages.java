@@ -13,7 +13,7 @@ import se.swedenconnect.opensaml.xmlsec.signature.support.SAMLObjectSigner;
 import se.swedenconnect.security.credential.opensaml.OpenSamlCredential;
 import net.shibboleth.shared.xml.SerializeSupport;
 
-/** Adversarial messages for this lab only. All cryptography uses the upstream libraries. */
+/** Malformed and incorrectly bound SAML messages for negative tests. */
 final class SamlTestMessages {
   static Response decode(String encoded) throws Exception {
     return (Response) XMLObjectSupport.unmarshallFromInputStream(XMLObjectProviderRegistrySupport.getParserPool(),

@@ -1,9 +1,4 @@
-"""Private pilot device credentials. No federation, civil identity claims or automatic issuance.
-
-Only a verified capture can create PENDING_REVIEW. A separate, local operator
-decision is required for ACTIVE. All device mutations are signed one-shot
-operations; permanent revocation and RP consumption are serialized in SQLite.
-"""
+"""Device credentials, signed operations and revocation in SQLite."""
 import base64
 from contextlib import contextmanager
 import hashlib
@@ -108,7 +103,7 @@ class Wallet:
         return {'id': ident, 'state': 'PENDING_REVIEW'}
 
     def activate(self, ident, decision, hours=24):
-        # Local operator-only call, deliberately absent from the HTTP router.
+        # Operator-only; not exposed over HTTP.
         if not isinstance(decision, str) or not re.fullmatch('[A-Za-z0-9_-]{8,80}', decision):
             raise ValueError('non-personal decision reference required')
         if type(hours) is not int or not 1 <= hours <= 72: raise ValueError('pilot validity')
@@ -162,7 +157,6 @@ class Wallet:
                 'audience': 'openid-local-demo', 'assurance': 'PRIVATE_PILOT', 'requestId': request}
 
     def cancel_request(self, request, secret):
-        """Only the RP holding this request's secret can cancel an unconsumed login."""
         identifier(request)
         if not isinstance(secret, str) or not 32 <= len(secret) <= 64: raise ValueError('secret')
         with self.transaction() as db:
@@ -173,7 +167,6 @@ class Wallet:
             if changed: self.event(db, row['credential'], 'CANCELLED', request)
 
     def check_session(self, ident, subject):
-        """Every protected RP read checks current credential state, including after approval."""
         with self.transaction() as db:
             row = self.active(db, ident)
             if not isinstance(subject, str) or not secrets.compare_digest(row['subject'], subject):

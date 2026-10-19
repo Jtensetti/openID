@@ -24,12 +24,12 @@ jobs:
           xcodebuild -version
           xcodebuild -resolvePackageDependencies -project ios/PassportCapture.xcodeproj -scheme PassportCapture -clonedSourcePackagesDirPath "$RUNNER_TEMP/packages" -onlyUsePackageVersionsFromResolvedFile
           git diff --exit-code -- ios/PassportCapture.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
-      - name: Build actual iOS target without signing or deploying
+      - name: Build iOS target
         run: xcodebuild -project ios/PassportCapture.xcodeproj -scheme PassportCapture -configuration Release -destination 'generic/platform=iOS' -clonedSourcePackagesDirPath "$RUNNER_TEMP/packages" -derivedDataPath "$RUNNER_TEMP/ios-build" -disableAutomaticPackageResolution CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '24.19.0'
-      - name: Verify CryptoKit signatures with the actual server verifier
+      - name: Verify CryptoKit signatures with server
         run: swift ios/scripts/crypto-interop.swift | node verification/device-signature.mjs
       - name: Boot iPhone simulator
         run: |
@@ -37,12 +37,11 @@ jobs:
           printf 'SIMULATOR_ID=%s\n' "$SIMULATOR_ID" >> "$GITHUB_ENV"
           xcrun simctl boot "$SIMULATOR_ID"
           xcrun simctl bootstatus "$SIMULATOR_ID" -b
-      - name: Test signing boundaries and actual SwiftUI screens
+      - name: Test signing boundaries and SwiftUI screens
         run: xcodebuild -project ios/PassportCapture.xcodeproj -scheme PassportCapture -configuration Debug -destination "id=$SIMULATOR_ID" -clonedSourcePackagesDirPath "$RUNNER_TEMP/packages" -derivedDataPath "$RUNNER_TEMP/ios-simulator" -resultBundlePath "$RUNNER_TEMP/ios-evidence/Tests.xcresult" -disableAutomaticPackageResolution -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO test
-      - name: Capture actual app screenshot
+      - name: Capture app screenshot
         run: |
           xcrun simctl status_bar "$SIMULATOR_ID" override --time '9:41' --dataNetwork wifi --wifiMode active --wifiBars 3 --batteryState charged --batteryLevel 100
-          # Start on the real first-launch home, independent of the last UI test's navigation.
           xcrun simctl terminate "$SIMULATOR_ID" se.openid.PassportCapture || true
           xcrun simctl launch "$SIMULATOR_ID" se.openid.PassportCapture
           sleep 3

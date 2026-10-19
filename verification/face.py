@@ -1,4 +1,3 @@
-"""Local 1:1 inference. Not a liveness detector or an identity-issuance decision."""
 import hashlib
 import math
 import os

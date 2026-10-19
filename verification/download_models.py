@@ -1,4 +1,4 @@
-"""Explicit provisioning only: immutable source revision plus independently pinned SHA-256."""
+"""Download model files and verify their pinned SHA-256 hashes."""
 import hashlib
 from pathlib import Path
 import urllib.request

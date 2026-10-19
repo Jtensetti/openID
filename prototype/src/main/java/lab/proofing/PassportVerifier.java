@@ -13,8 +13,7 @@ import org.jmrtd.lds.SODFile;
 import org.jmrtd.lds.icao.DG1File;
 import org.jmrtd.lds.icao.DG2File;
 
-/** Real passive authentication, using JMRTD parsing, BC CMS and JCA PKIX/hash validation.
- * This does not authenticate a live chip or prove the presenter is the passport holder. */
+/** Passive authentication of SOD, DG1 and DG2 against an operator-provided CSCA. */
 public final class PassportVerifier {
   public record Result(byte[] portrait, String mimeType, LocalDate expires) {
     public Result { portrait = portrait.clone(); }

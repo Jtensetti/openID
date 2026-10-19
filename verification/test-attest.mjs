@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import {generateKeyPairSync,createHash,sign} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
 import cbor from 'cbor';
-// Fresh test-only keys and signatures. No Apple production credentials are used.
 const team='ABCDEFGHIJ',bundle='se.openid.PassportCapture';
 const keys=generateKeyPairSync('ec',{namedCurve:'prime256v1'});
 const publicKey=keys.publicKey.export({type:'spki',format:'pem'});

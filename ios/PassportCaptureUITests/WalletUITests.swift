@@ -2,7 +2,7 @@ import XCTest
 
 final class WalletUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
-    func testHomeAndRealSimulatorScreenshot() {
+    func testHomeAndScreenshot() {
         let app = XCUIApplication(); app.launch()
         XCTAssertTrue(app.staticTexts["home.heading"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["home.unlock"].exists)
@@ -11,7 +11,7 @@ final class WalletUITests: XCTestCase {
     func testAllTabsShowSafeLockedStates() {
         let app = XCUIApplication(); app.launch()
         app.tabBars.buttons["Legitimera"].tap()
-        XCTAssertTrue(app.staticTexts["Lås upp för att legitimera dig"].exists)
+        XCTAssertTrue(app.staticTexts["Lås upp för att se dina begäranden."].exists)
         XCTAssertFalse(app.buttons["Godkänn"].exists)
         app.tabBars.buttons["Aktivitet"].tap()
         XCTAssertTrue(app.staticTexts["Din aktivitet"].exists)
@@ -27,7 +27,7 @@ final class WalletUITests: XCTestCase {
         app.buttons["Klart"].tap()
         XCTAssertTrue(app.buttons["home.unlock"].exists)
     }
-    func testPrivacyAndRecoveryDoNotInventAnIdentity() {
+    func testPrivacyIsAvailableWhileLocked() {
         let app = XCUIApplication(); app.launch()
         app.tabBars.buttons["Inställningar"].tap()
         app.buttons["Personuppgifter och säkerhet"].tap()

@@ -24,7 +24,7 @@ struct WalletAPI {
         options.urlCache = nil; options.httpCookieStorage = nil
         let session = URLSession(configuration: options, delegate: NoRedirect(), delegateQueue: nil)
         defer { session.invalidateAndCancel() }
-        // Stream and bound responses; do not buffer unbounded server responses.
+        // Check size while streaming; data(for:) would buffer the entire response.
         let (stream, response) = try await session.bytes(for: request)
         guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw WalletError.rejected }
         var data = Data()

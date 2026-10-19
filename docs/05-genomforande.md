@@ -1,12 +1,10 @@
 # Genomförandeplan och teststrategi
 
-Datum: 2026-10-19. Planen nedan behåller sina beslutspunkter. **G1 har nu en körbar lokal implementation** för P0-02–P0-05 i [prototype/](../prototype/README.md), med exakt scope, tester och avvikelser i [verifieringsrapporten](../prototype/evidence/verification.md). Övriga aktiviteter är planerade om inget separat resultat anges. En komplett e-id-produkt eller oberoende accepterad grind finns inte.
+Plan upprättad 2026-10-19. Genomförda steg redovisas i komponenternas [körinstruktioner](../README.md#kör-och-utveckla) och i [verifieringsrapporterna](../prototype/evidence/). Övriga aktiviteter nedan är planerade. Ingen produktionsgrind har accepterats.
 
 ## 1. Två parallella spår
 
-Ett teknikspår kan skapa lärande utan att vi först köper en full produktionsorganisation. Ett verksamhetsspår måste samtidigt avgöra om ett verkligt utfärdaransvar går att finansiera och bemanna. Ingen av dem ersätter den andra.
-
-Prototypen får aldrig användas som bevis på att verksamhetsspåret är klart. En ekonomisk prognos får heller inte användas för att hoppa över ett negativt säkerhetstest.
+Teknikspåret omfattar implementation och verifiering. Verksamhetsspåret omfattar finansiering, bemanning, avtal och utfärdaransvar. Båda behöver vara klara inför produktionsstart.
 
 ## 2. Beslutspunkter
 
@@ -19,7 +17,7 @@ Prototypen får aldrig användas som bevis på att verksamhetsspåret är klart.
 | G4: formella beslut och kontrollerad introduktion | Inhämta erforderliga godkännanden, teckna relevanta avtal och genomföra accepterad teknisk anslutning. | Faktiska beslut/avtal med scope; godkänd drifts- och incidentberedskap; dokumenterat startbeslut. | Att använda tidigare labbresultat som generellt produktionsgodkännande. |
 | G5: löpande förvaltning | Drift, support, kontroll, revision, rapportering och förändringshantering. | Regelbundna kontrollresultat och hanterade avvikelser. | Ersättningsanspråk för testtrafik eller icke kvalificerande leverans. |
 
-G0 och G1 kan pågå parallellt inom en beslutad begränsad budget. Grinden är ett beslut, inte en kalenderdeadline. Projektet har ingen verifierad total kostnad eller garanterad ansökningstid.
+G0 och G1 kan pågå parallellt inom beslutad budget. Total kostnad och ansökningstid är ännu inte fastställda.
 
 ## 3. Prioriterad arbetskö
 
@@ -58,7 +56,7 @@ Formella ansökningar, avtalstecknande, godkänd anslutning, kontrollerad använ
 
 **Protokollintegration:** versionerade profiler och motparter; positiva och negativa SAML-/OIDC-fall för de flöden vi faktiskt implementerar.
 
-**Säkerhetsgranskning:** specialistbedömning av identitetskontroll, kryptografisk användning, federation, administration, återställning och leveranskedja. Vanlig kodtäckning räcker inte.
+**Säkerhetsgranskning:** specialistbedömning av identitetskontroll, kryptografisk användning, federation, administration, återställning och leveranskedja.
 
 **Driftprov:** last, kapacitet, tjänstebortfall, nyckel-/certifikatbyte, återläsning och operativ incidenthantering. Avtalsmätning ska ha tydlig avgränsning.
 
@@ -108,7 +106,7 @@ Agenten får inte byta `OPEN` till `ACCEPTED` för att den själv tycker att lö
 
 Ekonomin förutsätter en obekräftad ersättningsrätt; ensam kontroll över utgivning inte går att undanröja; nödvändig register-/identitetskontroll saknar stöd; en kritisk komponent saknar hållbart underhåll; återställning blir en svag genväg; eller oberoende verifiering inte kan finansieras.
 
-Att avbryta det egna utfärdarspåret behöver inte göra teknikspåret värdelöst. En separat, ärligt avgränsad produkt som testverktyg, integrationsstöd eller förvaltningskomponent kan vara ett annat affärsbeslut. Den får inte marknadsföras som samma sak som en godkänd e-legitimation.
+Testverktyg, integrationsstöd eller förvaltningskomponenter kan prövas som separata affärsalternativ.
 
 G2-fortsättningen inför beständig syntetisk livscykel, atomisk revisionslogg, backup/återläsning och offline-avstämning samt ett separat stängt driftpaket. Se [körinstruktioner](../prototype/README.md) och [driftpaketets status](../ops/README.md). P0-06 är delvis implementerat: inga verkliga underlag skickas och transport/kvittens/korrigering återstår. Ingen G2–G4-grind har accepterats.
 

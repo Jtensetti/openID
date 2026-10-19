@@ -1,15 +1,14 @@
-# Isolerad e-id-prototyp – SAML, WebAuthn och beständig labbdrift
+# SAML/WebAuthn-labb
 
-En körbar lokal IdP och testtjänst med ett riktigt SAML-flöde. Webbläget använder WebAuthn för att bevisa kontroll över en testnyckel. **Identitetskontrollen är alltid simulerad. Ingen verklig person, tillitsnivå, Digg-anslutning eller Digg-godkännande har verifierats.** Det äldre `start`-läget simulerar även innehavarautentiseringen.
+Lokal IdP och testtjänst med Sweden Connect. WebAuthn bevisar kontroll över
+en testnyckel; identitetskontrollen är simulerad. Det äldre `start`-läget
+simulerar även användarens godkännande.
 
-## Webbklient utan obligatorisk appbutik
+## Kör webbklienten
 
-Kräver JDK 21, Linux/POSIX, lediga portar 8443/8444 och en WebAuthn-webbläsare.
+Kräver JDK 21, Linux/POSIX, portar 8443/8444 och en WebAuthn-webbläsare.
 Använd en separat testprofil och en passkey eller FIDO2-nyckel som stöder
-användarverifiering (PIN eller lokal biometrisk verifiering). Servern får ingen
-PIN eller biometrisk uppgift. Ingen Apple-/Google-inloggning eller
-leverantörsattestering krävs av labben. En vald passkey-leverantör kan däremot
-ha sådana krav och synkronisera nyckeln.
+användarverifiering. En passkey kan synkroniseras av sin leverantör.
 
 Från `prototype/`, med `JAVA_HOME` satt till JDK 21:
 
@@ -19,62 +18,42 @@ java -jar target/isolated-eid-lab.jar init .local/web-test
 java -jar target/isolated-eid-lab.jar start-web .local/web-test
 ```
 
-1. Använd en **ny** katalog: tidigare TLS-certifikat kan sakna `localhost`.
-   Inspektera `keytool -printcert -file .local/web-test/tls.crt` och etablera
-   tillit till just detta certifikat i din disponibla testprofil. WebAuthn och
-   service workers kräver säker kontext; att klicka förbi en certifikatvarning
-   räcker inte i alla webbläsare. Installera inte ett allmänt systemankare.
-2. Öppna <https://localhost:8443/wallet/>. Bekräfta den simulerade kontrollen
-   och välj **Registrera testnyckel**. Följ webbläsarens val av passkey eller
-   extern nyckel. Använd **localhost**, eftersom WebAuthn RP-ID inte är en IP-adress.
-3. Öppna <https://localhost:8444/>, välj **Starta testinloggning**, kontrollera
-   motparten och välj **Godkänn med testnyckel**. Efter nyckelns användarverifiering
-   ska `/me` visa `SYNTHETIC-alice`.
-4. Prova utloggning och spärr från testplånboken. En spärr nekar nya flöden och
-   redan aktiva SP-sessioner. Alice gäller en timme från `init`. Omstart
-   förlänger inte giltigheten och tar inte bort spärren.
-5. Använd webbläsarens installationsmeny eller den installationsknapp som visas
-   när webbläsaren erbjuder den. Installation är valfri. Utan nätanslutning
-   till labben visas endast en 503-sida; ingen autentisering eller identitetscache
-   finns offline.
+1. Använd en ny katalog; äldre certifikat kan sakna `localhost`.
+   Inspektera certifikatet med
+   `keytool -printcert -file .local/web-test/tls.crt` och betro det i
+   testprofilen. WebAuthn kräver säker kontext.
+2. Öppna <https://localhost:8443/wallet/>, bekräfta den simulerade kontrollen
+   och välj **Registrera testnyckel**. Använd `localhost`, inte IP-adressen:
+   WebAuthn RP-ID är ett domännamn.
+3. Öppna <https://localhost:8444/> och välj **Starta testinloggning**.
+   Kontrollera motparten och välj **Godkänn med testnyckel**.
+   `/me` ska därefter visa `SYNTHETIC-alice`.
+4. Prova utloggning och spärr från testplånboken. Spärr stoppar även aktiva
+   SP-sessioner. Alice gäller i en timme från `init`.
+5. Installation på hemskärmen är valfri. Utan kontakt med servern visas
+   en 503-sida; inloggning fungerar inte offline.
 
-Webbläget har **ingen simulerad godkännandegenväg**. En lagrad testnyckel kan
-inte skrivas över med en ny registrering. `start` vägrar använda ett register
-med WebAuthn-nycklar. Normal omstart med `start-web` behåller publika nycklar
-och signaturräknare; privata nycklar finns hos autentiseraren. Registerschema 1
-migreras atomiskt till 2 utan att spärrar tas bort. En återläst backup eller
-okontrollerad processavslutning spärrar samtliga credentials.
+`start-web` behåller publika nycklar och signaturräknare vid normal omstart.
+En registrerad nyckel kan inte skrivas över. `start` vägrar använda ett
+register med WebAuthn-nycklar. Schema 1 migreras atomiskt till 2.
+Krasch och backupåterläsning spärrar alla credentials.
 
-TLS kan provas utan generellt certifikatundantag:
-
-```sh
-curl --cacert .local/web-test/tls.crt https://localhost:8444/
-```
-
-För Chromium på Linux kan en separat testprofil lita på **just labbens
-publika certifikatnyckel**, utan systemomfattande certifikatimport. Med
-OpenSSL installerat, kör i en andra terminal från `prototype/`:
+För Chromium på Linux kan tilliten begränsas till labbcertifikatets
+publika nyckel. Kör i en andra terminal med OpenSSL installerat:
 
 ```sh
 LAB_SPKI=$(openssl x509 -in .local/web-test/tls.crt -pubkey -noout | openssl pkey -pubin -outform DER | openssl dgst -sha256 -binary | openssl base64 -A)
 chromium --user-data-dir="$PWD/.local/web-browser" --ignore-certificate-errors-spki-list="$LAB_SPKI" https://localhost:8443/wallet/
+curl --cacert .local/web-test/tls.crt https://localhost:8444/
 ```
 
-Anpassa endast namnet på Chromium-programmet till din installation. Använd
-profilen enbart för labben. Samma certifikatspecifika undantag används i de
-automatiserade browserproven; ett generellt `--ignore-certificate-errors`
-behövs inte.
+Använd profilen enbart för labben. Installera inget systemomfattande
+tillitsankare och använd inte ett generellt certifikatundantag.
+Automatiserade browserprov använder samma certifikatspecifika tillit.
 
-Automatiserade tester använder Chromium med virtuella USB- och
-plattformsautentiserare och certifikatspecifik testtillit; ingen manuell
-certifikatimport behövs för dem. Fysiska nycklar, telefoner och faktisk
-OS-installation är ännu inte provade. [Körda tester och gränser](evidence/web-verification.md).
+## Äldre protokolläge
 
-## Äldre protokolläge med simulerat godkännande
-
-Kräver JDK **21**, Python **3** för beroendekontroll och lediga portar **8443/8444**. Maven **3.9.11** hämtas av den medföljande wrappern och verifieras med SHA-256. Första bygget behöver internet för offentliga Maven-beroenden; den startade labben behöver ingen extern tjänst. Linux med POSIX-filrättigheter är verifierat. Det beständiga registret kräver en privat katalog med läge 0700; kör på Linux, även från Windows via WSL. En delad nätverksdisk stöds inte.
-
-Från repositoryroten:
+Från repots rot:
 
 ```sh
 cd prototype
@@ -83,89 +62,94 @@ cd prototype
 ./scripts/lab.sh start
 ```
 
-`JAVA_HOME` ska peka på JDK 21 om den inte är standard. `init` skapar tre nya, separata RSA-testnycklar för TLS, IdP och SP i `.local/`, med 30 dagars certifikatgiltighet. Befintlig katalog skrivs aldrig över. Testlösenordet i koden är avsiktligt offentligt och skyddar inte mot användaren som kör labben. Inga privata nycklar följer med i Git.
+Maven 3.9.11 hämtas och SHA-256-kontrolleras av wrappern. Första bygget
+kräver internet. `init` skapar separata RSA-testnycklar för TLS, IdP och SP
+i `.local/`, med 30 dagars certifikatgiltighet. Katalogen skrivs inte över.
+Testlösenordet är offentligt; privata nycklar checkas inte in.
 
-1. Öppna först <https://127.0.0.1:8443/> och sedan <https://127.0.0.1:8444/> i en separat testprofil i webbläsaren. Båda använder det självsignerade certifikatet från just din `.local/tls.crt`. Kontrollera certifikatet och godta endast dessa lokala testadresser. Installera inte certifikatet som allmänt systemankare. Använd `127.0.0.1`, inte `localhost`.
-2. Välj **Starta testinloggning**, behåll `SYNTHETIC-alice`, läs motparten, markera att kontrollen är simulerad och välj **Godkänn testinloggning**. Du ska komma tillbaka till testtjänstens `/me` med den syntetiska identiteten.
-3. Prova `SYNTHETIC-revoked`, `SYNTHETIC-expired` eller **Avbryt**: ingen testsession ska skapas.
-4. På IdP:ns startsida kan du spärra Alice. Det spärrar nya flöden och gör redan skapade SP-sessioner oanvändbara vid nästa kontroll. Öppna `/me` igen för att kontrollera detta.
+1. Öppna <https://127.0.0.1:8443/> och <https://127.0.0.1:8444/> i en separat
+   testprofil. Kontrollera certifikatet mot `.local/tls.crt` och godta bara
+   dessa adresser. Detta läge använder `127.0.0.1`, inte `localhost`.
+2. Starta testinloggningen, välj `SYNTHETIC-alice`, bekräfta simuleringen
+   och välj **Godkänn testinloggning**. `/me` ska visa identiteten.
+3. Prova `SYNTHETIC-revoked`, `SYNTHETIC-expired` och **Avbryt**:
+   ingen session ska skapas.
+4. Spärra Alice på IdP:ns startsida och kontrollera att `/me` nekar sessionen.
 
-Stoppa med **Ctrl+C**. Stoppa också labben innan du bygger om JAR-filen. En normal omstart behåller register, spärrar, revisionshändelser och ursprunglig giltighet; webbläsarsessioner försvinner. Alice gäller en timme från **init**, inte från varje start. En krasch medför spärr av alla credentials före nästa autentisering. För en helt ny, uttrycklig testomgång: stoppa först, flytta `.local/` åt sidan och kör `init` igen. En äldre G1-katalog utan `registry.sqlite` migreras inte automatiskt och kan inte startas.
-
-Certifikatet kan inspekteras med `keytool -printcert -file .local/tls.crt`. Ett TLS-prov med explicit tillit till endast labbcertifikatet:
+Stoppa med **Ctrl+C**, även före ombyggnad av JAR-filen. Normal omstart
+behåller register, spärrar, händelser och ursprunglig giltighet, men tappar
+webbsessioner. För en ny testomgång: stoppa, flytta `.local/` åt sidan och kör
+`init` igen. G1-kataloger utan `registry.sqlite` kan inte startas.
 
 ```sh
+keytool -printcert -file .local/tls.crt
 curl --cacert .local/tls.crt https://127.0.0.1:8444/
 ```
 
 ## Tester och beroenden
 
+Stoppa den manuella labben före process- och webbläsartesterna.
+
 ```sh
 ./mvnw -B -ntp clean verify dependency:list -DoutputAbsoluteArtifactFilename=true -DoutputFile=target/dependencies.txt
 python3 scripts/dependencies.py
-# Kör när den manuella labben är stoppad; startar och stoppar sin egen process.
 python3 scripts/smoke.py
 python3 scripts/recovery-smoke.py
-# Generera ny SBOM vid en granskad beroendeuppdatering.
-./mvnw -B -ntp org.cyclonedx:cyclonedx-maven-plugin:2.9.1:makeBom
-```
-
-JUnit startar riktiga HTTPS-lyssnare på lediga loopbackportar och genererar tillfälliga nycklar. Klienterna verifierar certifikat och värdnamn mot exakt labbcertifikat. Negativa SAML-fall skapas med OpenSAML/Sweden Connect, inklusive **giltigt signerade men semantiskt felaktiga** meddelanden. Testerna ligger i `src/test/java/lab/`; ursprungliga resultat finns i [G1-rapporten](evidence/verification.md), och aktuell verifiering av lagring/drift i [G2-rapporten](evidence/g2-verification.md).
-
-`dependencies.lock.json` låser den upplösta grafen inklusive testberoenden och SHA-256 för varje JAR. Kontrollskriptet nekar ändrad graf, checksumma, versionsintervall och snapshotberoenden. Ändring av låset är ett separat granskningsbart steg: `python3 scripts/dependencies.py --write`. Kör först ny `dependency:list`, granska ändringarna, licenser och säkerhetsmeddelanden samt kör testerna. Byggpluginer är versionslåsta via POM och dess låsta parent; deras hela transitiva graf omfattas **inte** av JAR-låset.
-
-### Test i en riktig webbläsarmotor
-
-Kräver Node.js 22–24 (CI: 24.19.0). Playwright 1.62.1 och dess graf är låsta i `package-lock.json`:
-
-```sh
 npm ci --ignore-scripts
 npx --no-install playwright install chromium --only-shell
 npm run test:browser
 ```
 
-På Linux kan Playwright behöva systembibliotek: använd vid behov dess `install --with-deps chromium --only-shell` i din disponibla testmiljö. Testerna genererar egna nycklar, startar JAR-filen och provar både det äldre protokolläget och WebAuthn: registrering, inloggning, verkliga Origin-headers, automatisk POST, utloggning, spärr, PWA-manifest och nekad offlineanvändning. `npm run test:web` kör endast WebAuthn-varianterna med virtuell USB- respektive plattformsnyckel. TLS-undantaget är bundet till just det tillfälliga certifikatets publika nyckel och all sidtrafik begränsas till loopbackadresserna. `CHROMIUM_EXECUTABLE` kan ange samma Chromium-version från en separat installation. Stoppa den manuella labben först.
+Browserproven kräver Node 22–24 (CI: 24.19.0). Playwright 1.62.1 är låst i
+`package-lock.json`. På Linux kan `install --with-deps chromium --only-shell`
+behövas. `CHROMIUM_EXECUTABLE` kan ange motsvarande lokala browser.
+`npm run test:web` kör bara WebAuthn-varianterna.
 
-## Vad som körs och vad som simuleras
+JUnit provar HTTPS, SAML-validering, WebAuthn, livscykel och lagring.
+Negativa meddelanden omfattar giltiga signaturer med fel protokollinnehåll.
+Chromium provar registrering, inloggning, Origin, automatisk POST,
+utloggning, spärr, PWA och offlinebeteende med virtuella USB- och
+plattformsautentiserare. Fysiska nycklar och OS-installation återstår.
 
-| Del | Implementation och gräns |
+`dependencies.lock.json` låser version och SHA-256 för varje upplöst JAR,
+inklusive testberoenden. Byggpluginer styrs av POM/parent; deras transitiva
+graf omfattas inte av JAR-låset. Efter en granskad beroendeändring:
+
+```sh
+./mvnw -B -ntp dependency:list -DoutputAbsoluteArtifactFilename=true -DoutputFile=target/dependencies.txt
+python3 scripts/dependencies.py --write
+./mvnw -B -ntp org.cyclonedx:cyclonedx-maven-plugin:2.9.1:makeBom
+```
+
+Granska diff, licenser och advisories och kör testerna.
+Resultat: [SAML](evidence/verification.md), [lagring](evidence/g2-verification.md),
+[WebAuthn](evidence/web-verification.md).
+
+## Protokoll och tillstånd
+
+| Del | Utförande |
 |---|---|
-| IdP | Sweden Connect Spring Authentication Server 1.0.3 med en egen, tydligt simulerad autentiseringsprovider. |
-| Testtjänst/SP | Minimal lokal tjänst; Sweden Connect/OpenSAML genererar och validerar protokollet. En adapter från Test Client 1.0.19 återanvänds, inte hela dess konfigurerbara testapplikation. |
-| Protokoll | Signerad AuthnRequest via HTTP-Redirect, signerad Response med krypterad och signerad Assertion via HTTP-POST. Endast RSA-SHA256 och SHA256 accepteras för signaturvalidering. |
-| Profil | Privat labbkontext `urn:openid:lab:simulated`, inte verklig LoA. Enbart attributet `displayName=SYNTHETIC-…` efterfrågas och accepteras. Ingen komplett Sweden Connect-profilcertifiering. |
-| Tillit | Lokalt genererade, fasta metadata för exakt en IdP och en SP; ingen metadatahämtning från internet. Separata lokala IdP-/SP-signaturnycklar. |
-| Flödesbindning | Bibliotekets kontroll av issuer, audience, destination, recipient, InResponseTo, RelayState, signatur, tid och replay; därutöver engångskonsumtion av webbläsarsession och rotation av sessionscookie. |
-| Identitet | Fördefinierade syntetiska poster och uttryckligen simulerad identitetskontroll i båda lägena. Ingen ID-handling, bild eller personuppgift efterfrågas. |
-| Testnyckel | `start-web`: Yubico WebAuthn Server 2.10.1 validerar challenge, ursprung, RP-ID, signatur och användarverifiering. ES256/RS256, attestering `none`, inga fabrikatslistor eller externa metadataanrop. Ingen hårdvarubindning eller verklig identitet intygas. `start` har fortsatt enbart simulerat godkännande. |
-| Livscykel | SQLite-register för väntande, simulerat kontrollerad, aktiv, utgången och spärrad credential. Status, spärrversion och revisionshändelse skrivs i samma transaktion. Ersättning kräver ny simulerad kontroll av samma identitet och spärrar den gamla atomärt. Ersättning provas genom tester, inte via ett support-/återställningsgränssnitt. |
-| Spärr | Status kontrolleras också vid återupptagning före signering. SP använder samma lokala register och en spärrversion per identitet; ny credential återupplivar inte gamla sessioner eller pågående svar. Detta är en labbkoppling, ingen lösning för distribuerad federationsspärr. |
-| Tider | Begäran och godkännandeflöde: 60 s. Assertion: 30 s. Svar måste nå SP inom ±5 s från dess IssueInstant. SP-session: högst 5 min. SSO är avstängt. |
+| IdP | Sweden Connect Spring Authentication Server 1.0.3 med lokal autentiseringsprovider. |
+| SP | Sweden Connect/OpenSAML och adapter från Test Client 1.0.19. |
+| SAML | Signerad AuthnRequest via Redirect; signerad Response och signerad/krypterad Assertion via POST. RSA-SHA256/SHA256 för signaturvalidering. |
+| Profil | `urn:openid:lab:simulated`, attribut `displayName=SYNTHETIC-…`. |
+| Tillit | Fasta lokala metadata för en IdP och en SP, med separata signaturnycklar. |
+| Bindning | Issuer, audience, destination, recipient, InResponseTo, RelayState, signatur, tid, replay, engångssession och cookiesbyte. |
+| WebAuthn | Yubico Server 2.10.1, ES256/RS256, användarverifiering, attestering `none`. Challenge, ursprung, RP-ID och signatur kontrolleras. |
+| Livscykel | PENDING → PROOFED → ACTIVE; utgång och permanent spärr. Ersättning spärrar den gamla nyckeln atomärt och testas utan supportgränssnitt. |
+| Spärr | Samma lokala register läses av IdP och SP. Ny credential återupplivar inte gamla sessioner. |
+| Tider | Begäran/godkännande 60 s, Assertion 30 s, mottaget svar inom ±5 s från IssueInstant, SP-session högst 5 min. SSO avstängt. |
 
-Tillståndsmodellen och negativa övergångar finns i `SyntheticRegistry.java` och `SyntheticRegistryTest.java`. Ersättning går från en **ny** `PENDING` post via `PROOFED` till `ACTIVE`; den gamla posten förblir `REVOKED`. En spärrad credential kan inte återaktiveras.
+## Lagring, spärr och återläsning
 
-## Förtroendegränser och kvarstående hinder
+`registry.sqlite` innehåller testidentiteter, publika WebAuthn-nycklar,
+räknare, backupflaggor, spärrversioner, revisionshändelser och terminala
+SP-utfall. SQLite 3.53.4 använder WAL och `synchronous=FULL`.
+Ett processlås nekar en andra JVM. Katalogen kräver POSIX-rättighet 0700;
+delad nätverksdisk stöds inte. Händelsetriggers stoppar vanlig UPDATE/DELETE,
+men databasägaren kan kringgå dem.
 
-Två HTTPS-adresser binds enbart till `127.0.0.1` i **en disponibel JVM**. De representerar separata protokollroller, men är inte säkerhetsisolerade processer. Datorn, operativsystemkontot och testprofilen måste vara betrodda. Vanliga Spring-miljövariabler/CLI kan inte byta till publik bindning, externa metadata eller produktionsnycklar. Det är inte en OS-sandbox eller ett skydd mot den som får ändra programmet/filerna. Kör helst i en disponibel utvecklingsmiljö, utan porttunnlar eller reverse proxy.
-
-Labben har inga produktionsanslutningar, betalningar, rapporteringsanrop, dokumentunderskrifter eller AI-baserade identitetsbeslut. Den utfärdar ingen riktig e-legitimation. Den saknar distribuerad beständig lagring, robust missbruksbegränsning, oberoende skyddad full revisionslogg, HSM, verifierad personbindning, registerkontroller, återställningskanal, driftberedskap och oberoende granskning. Inga krav i huvudmatrisen har därför stängts.
-
-OpenSAML-adapterns korta svarsfönster och ett upstream-varningsmeddelande om audit-autokonfiguration behandlas i [verifieringsrapporten](evidence/verification.md). Om ett flöde tar för lång tid: börja om; förläng inte säkerhetsfönstret för att få en demo att gå igenom.
-
-Licenser, fullständiga upstream-revisioner, underhållsstatus och uppdateringsansvar finns i [THIRD_PARTY.md](../THIRD_PARTY.md). Projektets egen licens är fortfarande ett ägarbeslut. Ett passerat labbtest innebär varken oberoende säkerhetsacceptans eller Digg-godkännande.
-
-## Beständig drift, spärr och återläsning
-
-`registry.sqlite` innehåller endast syntetiska credentialposter, publika
-WebAuthn-nycklar med opaka ID:n/räknare/backupflaggor, spärrversioner,
-append-only revisionshändelser och terminala SP-utfall. SQLite 3.53.4 använder
-WAL och `synchronous=FULL`. Ett exklusivt processlås nekar en andra JVM; detta är
-**enprocessdrift**, inte en HA- eller distribuerad databaslösning. SQL-triggers
-skyddar händelser mot vanlig UPDATE/DELETE, men en ägare av databasfilen kan
-kringgå dem. Det är inte ett oberoende eller manipulationssäkert bevisarkiv.
-
-Stoppa labben före följande administrativa CLI-kommandon. De har ingen
-nätverksadministration och kräver åtkomst till den privata labbkatalogen:
+Stoppa labben före administrativa kommandon:
 
 ```sh
 java -jar target/isolated-eid-lab.jar revoke .local TEST-CREDENTIAL-alice
@@ -177,26 +161,32 @@ java -jar target/isolated-eid-lab.jar restore .local-backups/before-test.sqlite 
 java -jar target/isolated-eid-lab.jar start .local-restored
 ```
 
-Backup använder SQLite `VACUUM INTO`, inte filkopiering av en aktiv WAL-databas.
-Målet måste vara nytt och ligga i en privat katalog med läge 0700. Återläsning
-kräver en ny katalog, genererar nya testnycklar och spärrar **alla** återställda
-credentials. En äldre backup kan därmed inte återuppliva en senare spärrad
-credential. Det finns avsiktligt inget kommando som återaktiverar dem; starta en
-ny separat syntetisk testomgång om du behöver aktiva fixtures.
+Backup använder `VACUUM INTO` och kräver ett nytt mål i en privat katalog.
+Restore kräver ny katalog, skapar nya testnycklar och spärrar alla återställda
+credentials. Återaktivering stöds inte.
 
-`GET https://127.0.0.1:8444/health/ready` kontrollerar registrets åtkomlighet;
-lagringsfel spärrar fortsatta autentiseringsbeslut i processen. Efter ett
-misslyckat skrivförsök behålls markeringen för osäker avstängning. Den måste
-hanteras genom återstartens spärrregel, inte genom att ta bort markörfilen.
+`GET https://127.0.0.1:8444/health/ready` kontrollerar registret.
+Lagringsfel stoppar autentisering. Efter skrivfel behålls markeringen för
+osäker avstängning; ta inte bort den manuellt.
 
-Offline-rapporten är intern avstämning, **inte Diggs API-format**. Den räknar
-SP:ns accepterade SAML-svar och nekade konsumerade svar, deduplicerar terminala
-händelser och använder kalenderperiod i Europe/Stockholm. Avbrutna SAML-flöden
-som når SP räknas som `failed`; `cancelled` finns i domänmodellen men kan ännu
-inte särskiljas säkert från andra fel vid SP. Övergivna begäranden utan svar
-räknas inte. Inga personidentifierare finns i rapporten. `compensableTransactions`
-är alltid **0**, och `submission` är alltid **INTE SKICKAT**. Rapporten gör inga
-nätverksanrop och har ingen API-nyckel, anslutnings- eller faktureringsfunktion.
+Rapporten räknar accepterade och nekade konsumerade SAML-svar, deduplicerar
+terminala händelser och grupperar efter kalenderperiod i Europe/Stockholm.
+Avbrutna flöden som når SP räknas som `failed`; övergivna begäranden utan svar
+räknas inte. `compensableTransactions` är alltid 0 och `submission` är
+`INTE SKICKAT`. Rapporten innehåller inga personidentifierare och skickas
+inte till Digg.
 
-Produktionspaketet i [ops/](../ops/README.md) är en separat stängd miljögrund;
-labben, registret och testnycklarna ingår aldrig i dess container.
+## Begränsningar
+
+IdP och SP kör i samma JVM på loopback. Operativsystemkonto och testprofil
+måste vara betrodda; exponera inte labben via tunnel eller proxy.
+Miljövariabler och CLI kan inte byta bindning, metadata eller nycklar.
+
+Labben saknar verifierad personbindning, distribuerad spärr/lagring,
+HSM, oberoende bevisarkiv, produktionsåterställning och driftberedskap.
+Tillitsgodkännande och oberoende säkerhetsacceptans återstår.
+Det korta SAML-svarsfönstret och upstreams audit-varning beskrivs i
+[verifieringsrapporten](evidence/verification.md).
+
+[Driftcontainern](../ops/README.md) innehåller inte labben eller dess nycklar.
+Versioner, licenser och underhåll finns i [THIRD_PARTY.md](../THIRD_PARTY.md).

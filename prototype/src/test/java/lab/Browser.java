@@ -7,7 +7,7 @@ import java.util.*;
 import javax.net.ssl.SSLContext;
 import org.jsoup.Jsoup;
 
-/** Small HTTP browser: real TLS, cookies, redirects and form posts; no trust-all TLS. */
+/** HTTP test client with TLS, cookies, redirects and form posts. */
 final class Browser {
   final CookieManager cookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
   final HttpClient client;

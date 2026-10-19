@@ -20,9 +20,6 @@ import LocalAuthentication
     private var pendingLink: String?
     let verification = VerificationFlow()
 
-    init() {
-        // Keychain access is deferred until explicit local authentication.
-    }
     func unlock() {
         guard !busy else { return }
         busy = true; error = nil
@@ -41,7 +38,6 @@ import LocalAuthentication
             } catch { if generation == epoch { self.error = "Kunde inte låsa upp. Försök igen med Face ID, Touch ID eller din enhetskod." } }
         }
     }
-    // An empty first-launch home is safe to show; no account is read or action performed.
     func lock() {
         generation = UUID(); task?.cancel(); context?.invalidate(); context = nil
         operationContext?.invalidate(); operationContext = nil
@@ -52,7 +48,7 @@ import LocalAuthentication
     func saveConfiguration(origin: String, pairing: String) throws {
         guard unlocked, !busy, !verification.busy else { throw WalletError.rejected }
         let value = try ServerConfiguration(origin: origin, pairing: pairing)
-        // Existing credentials stay bound to their server; updating its per-process pairing code is allowed.
+        // Only the pairing code may change after enrollment.
         if credential != nil, configuration?.origin != value.origin { throw WalletError.rejected }
         try vault.save(value, account: "configuration"); configuration = value; snapshot = nil
     }
@@ -106,7 +102,7 @@ import LocalAuthentication
             } catch {
                 if generation == epoch {
                     snapshot = nil; focusedRequest = nil
-                    self.error = "Status kunde inte hämtas eller åtgärden slutföras. Ingen inloggning bekräftas lokalt. Kontrollera servern och uppdatera."
+                    self.error = "Åtgärden kunde inte slutföras. Kontrollera anslutningen och uppdatera ditt ID."
                 }
             }
         }

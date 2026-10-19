@@ -72,6 +72,5 @@ class NativeTests(unittest.TestCase):
         detector=PresentationAttackDetector(Path(__file__).parent/'models')
         score=detector.score(np.zeros((320,320,3),dtype=np.uint8),np.array([90,90,100,100]))
         self.assertTrue(np.isfinite(score));self.assertGreaterEqual(score,0);self.assertLessEqual(score,1)
-        # Inference only; this does not measure presentation-attack detection accuracy.
 
 if __name__=='__main__':unittest.main()

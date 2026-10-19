@@ -33,7 +33,7 @@ struct ServerConfiguration: Codable, Equatable {
 enum CredentialState: String, Codable {
     case pending = "PENDING_REVIEW", active = "ACTIVE", revoked = "REVOKED", expired = "EXPIRED"
     var title: String {
-        switch self { case .pending: return "Inväntar aktivering"; case .active: return "Aktivt i privat pilot"; case .revoked: return "Spärrat"; case .expired: return "Utgånget" }
+        switch self { case .pending: return "Inväntar aktivering"; case .active: return "Aktivt"; case .revoked: return "Spärrat"; case .expired: return "Utgånget" }
     }
 }
 struct LocalCredential: Codable {
@@ -56,7 +56,7 @@ struct WalletEvent: Codable, Identifiable {
     var title: String {
         switch kind {
         case "CAPTURE_VERIFIED": return "Pass- och personkontroll slutförd"
-        case "ACTIVATED": return "Aktiverat för privat pilot"
+        case "ACTIVATED": return "ID aktiverat"
         case "REQUESTED": return "Ny begäran om legitimering"
         case "APPROVED": return "Begäran godkänd"
         case "REJECTED": return "Begäran nekad"
@@ -84,7 +84,7 @@ struct WalletSnapshot: Decodable {
 struct DeviceChallenge: Decodable {
     let id: String
     let signingInput: String
-    // Displayed request details and operation MUST be identical to the signed input.
+    // Sign only the request details shown to the user.
     func validatedBytes(configuration: ServerConfiguration, credentialID: String, action: String,
                         request: WalletRequest?, now: TimeInterval = Date().timeIntervalSince1970) throws -> Data {
         guard let bytes = Data(base64Encoded: signingInput), bytes.count <= 4096 else { throw WalletError.rejected }

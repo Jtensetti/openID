@@ -1,12 +1,12 @@
 # Återanvändning: Sweden Connect, Digg och Ena
 
-Kontrollerat 2026-10-19. Käll-ID och lästa README-versioner finns i [SOURCES.md](SOURCES.md). **Tabellen nedan är den ursprungliga dokumentationsinventeringen.** Den efterföljande G1-implementationens faktiska val, kompilerade versioner och lästa licenser finns i [THIRD_PARTY.md](../THIRD_PARTY.md) och [verifieringsrapporten](../prototype/evidence/verification.md). Ingen komponent är godkänd för produktion genom denna labb.
+Ursprunglig inventering, 2026-10-19. Käll-ID och granskade revisioner finns i [SOURCES.md](SOURCES.md). För implementationens valda versioner, licenser och testresultat, se [THIRD_PARTY.md](../THIRD_PARTY.md) och [verifieringsrapporten](../prototype/evidence/verification.md).
 
 ## 1. Rekommenderad riktning
 
 Utred Sweden Connects aktuella **Spring Authentication Server** som protokollgrund. Lägg vår egen identitetslivscykel och verkliga autentisering bakom dess integrationspunkter. Utred separat nyckelhantering och underskrift. Börja inte med att skriva en egen SAML-, OIDC- eller kryptografisk implementation.
 
-Detta är ett föreslaget arkitekturbeslut, inte ett konstaterande att komponenterna redan uppfyller våra samlade produktkrav. Versionsval återstår.
+Riktningen nedan låg till grund för den första prototypen.
 
 ## 2. Inventering
 
@@ -22,11 +22,9 @@ Detta är ett föreslaget arkitekturbeslut, inte ett konstaterande att komponent
 | G08: `diggsweden/wallet-account` | Java-tjänst för plånbokskonton och API-first-utveckling. | Repositorysidan anger EUPL-1.2; README-avsnitt lästa, licensfil och kod ej fullgranskade. | Senare referens för kontomodell. Ingen grund för att påstå att en plånbokstjänst är en svensk e-id-utfärdare. |
 | G09: `diggsweden/ena-samverkansplattform-os` | Arbetsyta för utforskande samverkan om öppen programvara; README beskriver `no-code` och arbetsdokument. | Licens för eventuell kopiering är inte verifierad. | Läs som bakgrund till samverkan, inte som installerbar e-id-komponent. |
 
-## 3. Vad Ena kan och inte kan ge oss
+## 3. Ena
 
-Ena-materialet i G09 handlar här om samverkan och öppen programvara. Det ska inte förväxlas med en sammanhängande e-id-produkt. Vi kan använda dess erfarenheter för förvaltning och samarbete, men den konkreta tekniska återanvändningen i denna inventering finns framför allt hos Sweden Connect.
-
-Vår praktiska fördel är därför inte att ett färdigt BankID-alternativ ligger och väntar. Fördelen är att protokoll, nyckelgränssnitt, underskriftskomponenter och testmotparter inte behöver uppfinnas från grunden.
+G09 är bakgrundsmaterial om samverkan och förvaltning. De tekniska komponenterna i inventeringen finns främst hos Sweden Connect.
 
 ## 4. Första tekniska undersökningen
 
@@ -50,7 +48,7 @@ ansvarig för framtida uppdateringar:
 beslut och kvarvarande risker:
 ```
 
-En README-blob-SHA i källregistret är inte en versionslåsning av biblioteket. En etikett `latest`, en grön badge eller frånvaro av kända sårbarheter är heller inte ett godkännande.
+Lås bibliotekets revision och artefakt, inte bara den lästa README-filen.
 
 ### Steg B: bygg en sluten protokoll-labb
 
@@ -74,8 +72,6 @@ EUPL-licensierade kandidater ska bedömas separat från Apache-komponenter. Ett 
 
 Granska importerade CI-arbetsflöden lika noga som källkod: behörigheter, hemligheter, nätverksåtkomst, externa actions och versionslåsning. Kopiera aldrig ett upstream-workflow med produktionsbehörighet bara för att avsändaren är en myndighet.
 
-Projektets egna agent-skills är nyskrivna instruktioner med källhänvisningar. De är inte kopierade från Digg och innebär inte att Digg har granskat arbetssättet. Se [THIRD_PARTY.md](../THIRD_PARTY.md).
-
 ## 6. Återstående kunskapsluckor
 
-Ingen release är ännu vald. Ingen kompabilitetsmatris, SBOM, fullständig licenskontroll, sårbarhetsrevision eller prestandamätning är genomförd. Inga driftsgarantier från upstream har verifierats. Dessa luckor är uppgifter i genomförandeplanen, inte små detaljer som kan hoppas över när prototypen börjar fungera.
+Aktuella komponentbeslut och återstående granskningar finns i [THIRD_PARTY.md](../THIRD_PARTY.md). Den ursprungliga inventeringen ovan fastställde inga driftsgarantier från upstream.

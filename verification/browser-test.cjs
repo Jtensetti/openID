@@ -23,7 +23,7 @@ const assert=require('node:assert/strict');
       external.push(route.request().url());return route.abort();
     });
     await page.goto('http://localhost:8765');
-    await page.getByText('Verifieraren är tillgänglig lokalt.').waitFor();
+    await page.locator('#status').filter({hasText:'Redo.'}).waitFor();
     await page.getByRole('button',{name:'Öppna kameran',exact:true}).click();
     await page.waitForFunction(()=>document.querySelector('video').videoWidth>0);
     await page.evaluate(()=>{window.testTrack=document.querySelector('video').srcObject.getVideoTracks()[0];});
@@ -34,8 +34,7 @@ const assert=require('node:assert/strict');
     await page.getByRole('button',{name:'Öppna kameran',exact:true}).click();
     await page.waitForFunction(()=>document.querySelector('video').videoWidth>0);
     await page.getByRole('button',{name:'Ta bild och verifiera underlaget'}).click();
-    // Signed fixture contains deliberately invalid JPEG bytes. Real passport verification passes,
-    // then real image decoding refuses it; the browser must never display a successful identity.
+    // The fixture has a valid passport signature but invalid JPEG data.
     await page.locator('#status').filter({hasText:'Kontrollen kunde inte slutföras'}).waitFor();
     assert.equal(await page.locator('#result').isVisible(),false);
     assert.equal(await page.evaluate(()=>document.querySelector('video').srcObject),null);

@@ -8,7 +8,7 @@ import org.springframework.core.env.*;
 import se.swedenconnect.opensaml.*;
 import se.swedenconnect.opensaml.sweid.xmlsec.config.SwedishEidSecurityConfiguration;
 
-/** Two loopback HTTPS listeners in one disposable JVM. No external federation or production configuration. */
+/** IdP and SP loopback HTTPS listeners in one JVM. */
 public final class Lab implements AutoCloseable {
   public final TestKeys keys;
   public final String idpBase, spBase;

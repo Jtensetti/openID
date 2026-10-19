@@ -1,4 +1,3 @@
-// Real loopback HTTP + SQLite + ECDSA test-device approvals. No browser API mocks.
 const {chromium} = require('../prototype/node_modules/playwright');
 const {spawn, spawnSync} = require('node:child_process');
 const {createInterface} = require('node:readline');
@@ -55,7 +54,7 @@ const path = require('node:path');
     }
     async function logout() { await page.locator('#logout').click(); await visible('ready'); }
 
-    // Positive end-to-end flow; decode the QR image actually rendered in Chromium.
+    // Decode the rendered image to catch broken QR output.
     let request = await start(); const prelogin = await cookie();
     const qrPath = path.join(temporary,'qr.png');
     await page.locator('#qr').screenshot({path:qrPath});

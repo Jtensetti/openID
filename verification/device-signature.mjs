@@ -1,5 +1,4 @@
 import {createPublicKey, verify} from 'node:crypto';
-// Private subprocess API. Node/OpenSSL performs all key parsing and ECDSA operations.
 let input = '';
 for await (const chunk of process.stdin) {
   input += chunk;

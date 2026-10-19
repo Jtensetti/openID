@@ -1,4 +1,3 @@
-"""One-shot native capture binding. App Attest validation is delegated to the pinned library."""
 import base64
 import json
 from pathlib import Path
@@ -53,7 +52,7 @@ class NativeSessions:
         ident=request['id'];pending=self.current(ident,'capture');self.pending.pop(ident)
         raw=base64.b64decode(request['payload'],validate=True)
         if len(raw)>10_000_000 or not isinstance(request['assertion'],str) or len(request['assertion'])>10000:raise ValueError('size')
-        # Verify the EXACT bytes before parsing them; no JSON reserialization discrepancy.
+        # Verify original bytes; reserializing JSON can change the signed content.
         checked=self.attest.check('assertion',assertion=request['assertion'],payload=request['payload'],publicKey=pending['publicKey'],signCount=0)
         if checked['signCount']<=0:raise ValueError('counter')
         data=json.loads(raw,object_pairs_hook=unique_object)
@@ -76,7 +75,7 @@ class NativeSessions:
             face_scores.append(self.matcher.compare(portrait,frame))
             image,face=self.matcher.decode_face(frame)
             pad_scores.append(self.pad.score(image,face))
-        # Technical evaluation thresholds, NOT a calibrated issuance policy.
+        # Experimental thresholds; calibration is pending.
         passed=min(face_scores)>=0.5 and min(pad_scores)>=0.8
         credential=None
         if passed and 'devicePublicKey' in data:

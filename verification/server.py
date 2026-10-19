@@ -1,4 +1,3 @@
-"""Loopback-only verification workbench. No issuance endpoint, uploads on disk or request logging."""
 import argparse
 import base64
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -167,7 +166,7 @@ def main():
     if args.origin and (urlsplit(origin).scheme!='https' or urlsplit(origin).path not in ('','/') or not args.tls_cert or not args.tls_key):
         parser.error('An explicit origin requires HTTPS and a TLS certificate/key')
     pairing=secrets.token_urlsafe(32)
-    # Serial requests also protect OpenCV's stateful detector; this is a local workbench, not a public service.
+    # OpenCV's stateful detector requires serial requests.
     with HTTPServer((args.bind, args.port), handler(matcher, command, args.port,native,origin,pairing,not remote,pad,wallet)) as server:
         if args.tls_cert:
             context=ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER);context.minimum_version=ssl.TLSVersion.TLSv1_2

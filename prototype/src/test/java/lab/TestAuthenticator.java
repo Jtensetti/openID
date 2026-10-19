@@ -14,7 +14,7 @@ import java.security.spec.ECGenParameterSpec;
 import java.util.*;
 import java.util.function.Consumer;
 
-/** Synthetic authenticator test fixture. Every hash, random value and signature comes from JCA. */
+/** Authenticator fixture using JCA test keys. */
 final class TestAuthenticator {
   static final ObjectMapper JSON = new ObjectMapper();
   final KeyPair key;
