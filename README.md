@@ -33,7 +33,7 @@ Instruktionerna är projektspecifika originaltexter. De är inte officiella Digg
 
 ## Nuvarande avgränsning
 
-Repot innehåller nu en avgränsad lokal prototyp, dokumentation och arbetsmetodik. Prototypens konkreta beroendeval, attribution och licensunderlag finns i `THIRD_PARTY.md`; övriga komponenter i förstudien är fortsatt kandidater. Ingen mobilapp har implementerats. Ett separat [driftpaket](ops/README.md) och en Render Blueprint för en stängd produktionsgrund finns; det är inte en driftsatt eller godkänd e-id-tjänst. [Aktuell teknisk evidens](prototype/evidence/g2-verification.md) skiljer körda tester från återstående kriterier.
+Repot innehåller nu en avgränsad lokal prototyp, dokumentation och arbetsmetodik. Prototypens konkreta beroendeval, attribution och licensunderlag finns i `THIRD_PARTY.md`; övriga komponenter i förstudien är fortsatt kandidater. Ingen mobilapp har implementerats. Ett separat [driftpaket](ops/README.md) är driftsatt i Render och verifierat över HTTPS som en stängd produktionsgrund. Det innehåller ingen e-id-funktion; autentiseringsprototypen körs fortsatt lokalt. [Aktuell teknisk evidens](prototype/evidence/g2-verification.md) skiljer körda tester från återstående kriterier.
 
 All prototyputveckling ska använda syntetiska identiteter och isolerade testnycklar. Inga verkliga personuppgifter, ID-handlingar, produktionsnycklar eller ersättningsanspråk hör hemma här. Ingen AI-komponent ska besluta vem en person är eller om en inloggning/underskrift ska godkännas.
 

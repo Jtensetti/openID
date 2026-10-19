@@ -1,0 +1,35 @@
+{
+  "recorded_at": "2026-10-19T11:41:08.400Z",
+  "provider": "Render",
+  "workspace": "OpenID",
+  "service_id": "srv-dbb01e49v7es73a6bvr0",
+  "deploy_id": "dep-dbb01es9v7es73a6c2k0",
+  "deploy_status": "live",
+  "deploy_finished_at": "2026-10-19T11:37:09.06183Z",
+  "commit": "0299d31b458fd72b2251dc2cc192858e66beab45",
+  "branch": "feat/g2-durable-state-and-operations",
+  "repository": "https://github.com/Jtensetti/openID",
+  "url": "https://openid-production-sealed.onrender.com",
+  "dashboard_url": "https://dashboard.render.com/web/srv-dbb01e49v7es73a6bvr0",
+  "region": "frankfurt",
+  "plan": "free",
+  "num_instances": 1,
+  "docker_context": "./ops",
+  "dockerfile": "./ops/Dockerfile",
+  "auto_deploy": "off",
+  "platform_health_check": "TCP",
+  "platform_health_check_path": "",
+  "blueprint_synced": false,
+  "project_environment_assignment_verified": false,
+  "evidence_sources": [
+    "Render get_service",
+    "Render get_deploy",
+    "Render application logs",
+    "render-https.json"
+  ],
+  "limitations": [
+    "Sealed infrastructure only; no identity system",
+    "Free compute plan; no availability guarantee established",
+    "No provider-level read-only, capability or network-isolation assertion"
+  ]
+}

@@ -35,8 +35,9 @@ funktioner; ingen gransknings- eller tillitsgrind är accepterad.
 | `npm run test:browser` | Chromium: inloggning, automatiskt POST-svar, Origin, utloggning, nekad credential och aktiv sessionsspärr godkänt. |
 | `python3 -m unittest discover -s ops/tests -v` | 6 verkliga HTTP/processtester godkända. Negativa vägar, metoder, aktiveringsförsök via miljövariabler, fel port, loggkanariefågel och verifierad timeout för ofullständig request. |
 | OSV | 171 Maven-artefakter, inga publicerade fynd vid kontrolltillfället; se `osv.json`. |
-| Docker-image på lokal arbetsvärd | Inte körd: Docker/Podman saknas. Separat GitHub Actions-jobb bygger och testar den med nät avstängt, read-only, non-root och borttagna capabilities. CI-resultat ska länkas från PR:n. |
-| Render-deploy | Inte körd: plugin installerad men dess anropsverktyg har inte exponerats i sessionen. Ingen tjänst-ID, deploy-ID eller verifierad extern URL finns. |
+| Docker-image | Docker/Podman saknas på arbetsvärden. [GitHub Actions](https://github.com/Jtensetti/openID/actions/runs/39244622896) byggde och testade den driftsatta källrevisionen med nät avstängt, read-only, non-root och borttagna capabilities: godkänt. |
+| Render-deploy | `dep-dbb01es9v7es73a6c2k0` blev `live` 2026-10-19 11:37:09 UTC, från revision `0299d31b458fd72b2251dc2cc192858e66beab45`. Frankfurt/free, auto-deploy av, TCP-hälsokontroll. [Faktisk konfiguration](../../ops/evidence/render-deployment.json). |
+| Extern HTTPS | 13 kontroller godkända med certifikatvalidering och utan redirects: liveness 200/SEALED, readiness och autentiseringsvägar 503, testmaterial otillgängligt, aktivering via query/POST nekad, säkerhetsheaders bevarade. [Maskinläsbart resultat](../../ops/evidence/render-https.json), [omkörning](../../ops/README.md). |
 
 Maskinläsbara JUnit-fall: [test-results.json](test-results.json). Nya tester
 utökar den tidigare G1-körningen; äldre [verification.md](verification.md)
@@ -68,7 +69,9 @@ spärr, full federationsprofil och uppmätt drift. Organisationsbehörighet,
 finansiering, försäkring, leverantörsavtal, ansvariga personer, juridisk
 prövning, projektlicens samt relevanta Digg-beslut kräver dessutom verkliga
 underlag och behöriga beslut. Ingen av dessa har fabricerats eller markerats
-ACCEPTED. Ingen extern kontakt, ansökan, betalning eller fakturering har gjorts.
+ACCEPTED. Inga meddelanden till tredje part, ansökningar, betalningar eller
+fakturering har gjorts. En separat stängd tjänst har skapats i användarens
+Render-arbetsyta med gratis compute-plan; den innebär inget e-id-godkännande.
 
 Upstream-frågan om Response IssueInstant och audit-autokonfiguration kvarstår
 från G1. Vår nya livscykellogg är inte en ersättning för ett komplett,
