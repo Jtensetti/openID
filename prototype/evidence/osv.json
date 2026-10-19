@@ -1,7 +1,7 @@
 {
-  "checkedAt": "2026-10-19T12:59:22.655844+00:00",
+  "checkedAt": "2026-10-19T14:02:53.658778+00:00",
   "source": "https://api.osv.dev/v1/querybatch",
-  "lockSha256": "0cf12366db1a482176f56f1272e420328b4976c382419246a15f002da194ddf8",
-  "artifactCount": 177,
+  "lockSha256": "1239521004ef5db61e62f869771fe1e6e9f65a14dd31f6c1869a0abe19dfc445",
+  "artifactCount": 180,
   "findings": []
 }

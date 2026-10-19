@@ -2,9 +2,9 @@ name: Isolated synthetic e-id lab
 on:
   push:
     branches: [main, 'feat/**']
-    paths: ['prototype/**', 'ops/**', '.github/workflows/prototype.yml']
+    paths: ['prototype/**', 'ops/**', 'verification/**', '.github/workflows/prototype.yml']
   pull_request:
-    paths: ['prototype/**', 'ops/**', '.github/workflows/prototype.yml']
+    paths: ['prototype/**', 'ops/**', 'verification/**', '.github/workflows/prototype.yml']
 permissions:
   contents: read
 jobs:
@@ -45,3 +45,22 @@ jobs:
         run: npx --no-install playwright install --with-deps chromium --only-shell
       - name: Browser SAML, WebAuthn USB/platform, PWA and revocation
         run: npm run test:browser
+
+      - name: Install locked local verification dependencies and models
+        working-directory: verification
+        run: |
+          python3.12 -m venv .venv
+          .venv/bin/pip install --require-hashes --only-binary=:all: -r requirements.lock
+          npm ci --ignore-scripts
+          .venv/bin/python download_models.py
+      - name: Export generated passport fixtures and ensure executable packaging
+        run: ./mvnw -B -ntp -Dtest=PassportVerifierTest -Dproofing.fixtureDirectory=/tmp/openid-proofing-fixtures test package spring-boot:repackage
+      - name: Actual verifier, PAD, native binding and negative tests
+        working-directory: verification
+        run: |
+          export PROOFING_FIXTURES=/tmp/openid-proofing-fixtures
+          export PROOFING_JAVA="$JAVA_HOME/bin/java"
+          export PROOFING_PYTHON="$PWD/.venv/bin/python"
+          .venv/bin/python -m unittest -v test_verification test_native
+          node --test test-attest.mjs
+          node browser-test.cjs

@@ -1,0 +1,26 @@
+name: iPhone capture build
+on:
+  push:
+    branches: ['feat/**', main]
+    paths: ['ios/**', '.github/workflows/ios.yml']
+  pull_request:
+    paths: ['ios/**', '.github/workflows/ios.yml']
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 20
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Record compiler and resolve locked Swift dependencies
+        run: |
+          xcodebuild -version
+          xcodebuild -resolvePackageDependencies -project ios/PassportCapture.xcodeproj -scheme PassportCapture -clonedSourcePackagesDir "$RUNNER_TEMP/packages" -onlyUsePackageVersionsFromResolvedFile
+          git diff --exit-code -- ios/PassportCapture.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+      - name: Build actual iOS target without signing or deploying
+        run: xcodebuild -project ios/PassportCapture.xcodeproj -scheme PassportCapture -configuration Release -destination 'generic/platform=iOS' -clonedSourcePackagesDir "$RUNNER_TEMP/packages" -derivedDataPath "$RUNNER_TEMP/ios-build" -disableAutomaticPackageResolution CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
