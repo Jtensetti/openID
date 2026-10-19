@@ -2,6 +2,8 @@
 {archiveVersion = 1; classes = {}; objectVersion = 56; objects = {
 4EDB99F18D96861035C64281 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CaptureCamera.swift"; sourceTree = "<group>"; };
 689FCDF270C4C338AE28A10B = { isa = PBXBuildFile; fileRef = 4EDB99F18D96861035C64281; };
+3E07D3428D44BFCF3985A83F = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PassportAccessKey.swift"; sourceTree = "<group>"; };
+F8DB648825C60E7D36368DAD = { isa = PBXBuildFile; fileRef = 3E07D3428D44BFCF3985A83F; };
 6E9C495B28D811F3774E9918 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PassportCaptureApp.swift"; sourceTree = "<group>"; };
 0E37C1B9856F6000975BA70B = { isa = PBXBuildFile; fileRef = 6E9C495B28D811F3774E9918; };
 95AE9072163F214851704537 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "QRScanView.swift"; sourceTree = "<group>"; };
@@ -18,8 +20,8 @@ F8CF901FBDEAC620BF5C0902 = { isa = PBXBuildFile; fileRef = F2EF51640F6636A8CBEDF
 EE42F9DDB459C95F77C7C906 = { isa = PBXBuildFile; fileRef = 4B6D071EF757E47FF5AAE536; };
 53DE0F5F88806D13B595B2E6 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WalletViews.swift"; sourceTree = "<group>"; };
 64288D8BD81D5F5CDAA6B428 = { isa = PBXBuildFile; fileRef = 53DE0F5F88806D13B595B2E6; };
-4658E38DFFDE4378535F39B4 = { isa = PBXGroup; children = (4EDB99F18D96861035C64281,6E9C495B28D811F3774E9918,95AE9072163F214851704537,22266E105A0010F1F4F67232,127DF986AA4E4FD3BDE94AB4,6E07452550D6920A41724A5B,F2EF51640F6636A8CBEDF1BC,4B6D071EF757E47FF5AAE536,53DE0F5F88806D13B595B2E6,); path = PassportCapture; sourceTree = "<group>"; };
-4C4A4FAFEE02B971AAB3E06C = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (689FCDF270C4C338AE28A10B,0E37C1B9856F6000975BA70B,B91D3B311E4FC7AC4FD386E6,19760075CB3A286850D89536,CB860C9C1F47F59C3626AB5F,99FD0F3164ABFF087530D347,F8CF901FBDEAC620BF5C0902,EE42F9DDB459C95F77C7C906,64288D8BD81D5F5CDAA6B428,); runOnlyForDeploymentPostprocessing = 0; };
+4658E38DFFDE4378535F39B4 = { isa = PBXGroup; children = (4EDB99F18D96861035C64281,3E07D3428D44BFCF3985A83F,6E9C495B28D811F3774E9918,95AE9072163F214851704537,22266E105A0010F1F4F67232,127DF986AA4E4FD3BDE94AB4,6E07452550D6920A41724A5B,F2EF51640F6636A8CBEDF1BC,4B6D071EF757E47FF5AAE536,53DE0F5F88806D13B595B2E6,); path = PassportCapture; sourceTree = "<group>"; };
+4C4A4FAFEE02B971AAB3E06C = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (689FCDF270C4C338AE28A10B,F8DB648825C60E7D36368DAD,0E37C1B9856F6000975BA70B,B91D3B311E4FC7AC4FD386E6,19760075CB3A286850D89536,CB860C9C1F47F59C3626AB5F,99FD0F3164ABFF087530D347,F8CF901FBDEAC620BF5C0902,EE42F9DDB459C95F77C7C906,64288D8BD81D5F5CDAA6B428,); runOnlyForDeploymentPostprocessing = 0; };
 ED266BE4C12A2C9B9CAF76A8 = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (E4DF37F89A660D6C5E7C19E8,); runOnlyForDeploymentPostprocessing = 0; };
 A8CE78F278ABAA245F154943 = { isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 57E22DF2FCF18E685BEEF469 = { isa = PBXFileReference; explicitFileType = wrapper.application; path = PassportCapture.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -27,10 +29,12 @@ A8CE78F278ABAA245F154943 = { isa = PBXResourcesBuildPhase; buildActionMask = 214
 29ED71355D795002CAD677D2 = { isa = XCBuildConfiguration; buildSettings = {IPHONEOS_DEPLOYMENT_TARGET = 16.0; SDKROOT = iphoneos; SWIFT_VERSION = 5.0; CLANG_ENABLE_MODULES = YES; CODE_SIGN_STYLE = Automatic; TARGETED_DEVICE_FAMILY = 1; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; PRODUCT_BUNDLE_IDENTIFIER = se.openid.PassportCapture; PRODUCT_NAME = "$(TARGET_NAME)"; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks"; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG; ENABLE_TESTABILITY = YES; DEBUG_INFORMATION_FORMAT = dwarf; ONLY_ACTIVE_ARCH = YES; INFOPLIST_FILE = PassportCapture/Info.plist; CODE_SIGN_ENTITLEMENTS = PassportCapture/PassportCapture.entitlements; }; name = Debug; };
 AD3F69BCF09A1A6539F1BA77 = { isa = XCBuildConfiguration; buildSettings = {IPHONEOS_DEPLOYMENT_TARGET = 16.0; SDKROOT = iphoneos; SWIFT_VERSION = 5.0; CLANG_ENABLE_MODULES = YES; CODE_SIGN_STYLE = Automatic; TARGETED_DEVICE_FAMILY = 1; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; PRODUCT_BUNDLE_IDENTIFIER = se.openid.PassportCapture; PRODUCT_NAME = "$(TARGET_NAME)"; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks"; SWIFT_OPTIMIZATION_LEVEL = "-O"; DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym"; INFOPLIST_FILE = PassportCapture/Info.plist; CODE_SIGN_ENTITLEMENTS = PassportCapture/PassportCapture.entitlements; }; name = Release; };
 80F43BD0CCBDCB4C56BAC358 = { isa = XCConfigurationList; buildConfigurations = (29ED71355D795002CAD677D2,AD3F69BCF09A1A6539F1BA77,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+AE4551666E194E406CFC884F = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PassportAccessKeyTests.swift"; sourceTree = "<group>"; };
+A07A45D43CF126DBCEC63AA0 = { isa = PBXBuildFile; fileRef = AE4551666E194E406CFC884F; };
 7643D9E549405ED04AEE6A29 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WalletSecurityTests.swift"; sourceTree = "<group>"; };
 858B42E70219727D2B026F17 = { isa = PBXBuildFile; fileRef = 7643D9E549405ED04AEE6A29; };
-82C20967B70FF2435A306BED = { isa = PBXGroup; children = (7643D9E549405ED04AEE6A29,); path = PassportCaptureTests; sourceTree = "<group>"; };
-4A94F7F23FF0B4948A0B6D60 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (858B42E70219727D2B026F17,); runOnlyForDeploymentPostprocessing = 0; };
+82C20967B70FF2435A306BED = { isa = PBXGroup; children = (AE4551666E194E406CFC884F,7643D9E549405ED04AEE6A29,); path = PassportCaptureTests; sourceTree = "<group>"; };
+4A94F7F23FF0B4948A0B6D60 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A07A45D43CF126DBCEC63AA0,858B42E70219727D2B026F17,); runOnlyForDeploymentPostprocessing = 0; };
 6095377D80DFE098A9385FB1 = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 C9302160C375BCC1418FAE6E = { isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 CEEF757FDD278E77CA7114BE = { isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = PassportCaptureTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };

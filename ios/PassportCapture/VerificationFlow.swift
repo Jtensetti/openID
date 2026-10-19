@@ -32,7 +32,7 @@ import NFCPassportReader
                 guard let configuration, let credential else { throw FlowError.rejected }
                 let api = WalletAPI(configuration: configuration)
                 phase = 1
-                let key = try mrzKey()
+                let key = try PassportAccessKey.encode(documentNumber: documentNumber, birth: birth, expiry: expiry)
                 let service = DCAppAttestService.shared
                 guard service.isSupported else { throw FlowError.rejected }
                 status = "Binder appen till verifieringssessionen…"
@@ -80,19 +80,5 @@ import NFCPassportReader
     }
     func cancel() { task?.cancel(); camera.stop(); clearDocument(); configuration = nil; credential = nil }
     private func clearDocument() { documentNumber = ""; birth = ""; expiry = "" }
-    private func mrzKey() throws -> String {
-        let number = documentNumber.uppercased()
-        guard number.range(of: "^[A-Z0-9<]{1,9}$", options: .regularExpression) != nil,
-              birth.range(of: "^[0-9]{6}$", options: .regularExpression) != nil,
-              expiry.range(of: "^[0-9]{6}$", options: .regularExpression) != nil else { throw FlowError.rejected }
-        // ICAO MRZ check digits are format checks, not cryptographic authentication.
-        // Adapted from AndyQ/NFCPassportReader's MIT-licensed PassportUtils.
-        func checked(_ value: String) -> String {
-            let alphabet = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-            let values = value.enumerated().map { index, character in (alphabet.firstIndex(of: character) ?? 0) * [7,3,1][index % 3] }
-            return value + String(values.reduce(0,+) % 10)
-        }
-        return checked(number + String(repeating: "<", count: 9-number.count)) + checked(birth) + checked(expiry)
-    }
     enum FlowError: Error { case rejected }
 }

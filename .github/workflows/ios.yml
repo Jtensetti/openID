@@ -42,6 +42,8 @@ jobs:
       - name: Capture actual app screenshot
         run: |
           xcrun simctl status_bar "$SIMULATOR_ID" override --time '9:41' --dataNetwork wifi --wifiMode active --wifiBars 3 --batteryState charged --batteryLevel 100
+          # Start on the real first-launch home, independent of the last UI test's navigation.
+          xcrun simctl terminate "$SIMULATOR_ID" se.openid.PassportCapture || true
           xcrun simctl launch "$SIMULATOR_ID" se.openid.PassportCapture
           sleep 3
           xcrun simctl io "$SIMULATOR_ID" screenshot "$RUNNER_TEMP/ios-evidence/openID-iphone.png"
