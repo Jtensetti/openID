@@ -24,8 +24,9 @@ class AppAttest:
         return json.loads(result.stdout)
 
 class NativeSessions:
-    def __init__(self,attest,passport,matcher,pad,clock=time.monotonic):
+    def __init__(self,attest,passport,matcher,pad,clock=time.monotonic,wallet=None):
         self.attest,self.passport,self.matcher,self.pad,self.clock=attest,passport,matcher,pad,clock
+        self.wallet=wallet
         self.pending={}
     def start(self):
         self.pending={k:v for k,v in self.pending.items() if v['expires']>self.clock()}
@@ -56,7 +57,11 @@ class NativeSessions:
         checked=self.attest.check('assertion',assertion=request['assertion'],payload=request['payload'],publicKey=pending['publicKey'],signCount=0)
         if checked['signCount']<=0:raise ValueError('counter')
         data=json.loads(raw,object_pairs_hook=unique_object)
-        if set(data)!={'id','nonce','sod','dg1','dg2','frames','chipAuthentication'} or data['id']!=ident or data['nonce']!=pending['nonce']:
+        expected={'id','nonce','sod','dg1','dg2','frames','chipAuthentication'}
+        if 'devicePublicKey' in data:
+            expected.add('devicePublicKey')
+            if self.wallet is None:raise ValueError('wallet not configured')
+        if set(data)!=expected or data['id']!=ident or data['nonce']!=pending['nonce']:
             raise ValueError('capture binding')
         if data['chipAuthentication'] is not True:raise ValueError('chip authentication required')
         if not isinstance(data['frames'],list) or len(data['frames'])!=3:raise ValueError('frames')
@@ -73,6 +78,9 @@ class NativeSessions:
             pad_scores.append(self.pad.score(image,face))
         # Technical evaluation thresholds, NOT a calibrated issuance policy.
         passed=min(face_scores)>=0.5 and min(pad_scores)>=0.8
+        credential=None
+        if passed and 'devicePublicKey' in data:
+            credential=self.wallet.enroll(data['devicePublicKey'])
         return {'checksPassed':passed,'passiveAuthentication':True,'appAttest':True,
             'chipAuthentication':'ATTESTED_NATIVE_RESULT','faceScores':face_scores,'padLiveScores':pad_scores,
-            'policy':'EXPERIMENTAL_0.5_FACE_0.8_PAD','issuanceEnabled':False}
+            'policy':'EXPERIMENTAL_0.5_FACE_0.8_PAD','issuanceEnabled':False,'credential':credential}

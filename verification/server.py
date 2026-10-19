@@ -9,6 +9,7 @@ import ssl
 import ipaddress
 from urllib.parse import urlsplit
 import subprocess
+import sqlite3
 from face import FaceMatcher, FaceRejected
 
 ROOT = Path(__file__).parent
@@ -34,7 +35,7 @@ def verify_document(command, request):
         raise ValueError('passport verification failed')
     return base64.b64decode(document['portrait'], validate=True)
 
-def handler(matcher, command, port, native=None, origin=None, token=None, browser_enabled=True, pad=None):
+def handler(matcher, command, port, native=None, origin=None, token=None, browser_enabled=True, pad=None, wallet=None):
     origin = origin or f'http://localhost:{port}'
     token = token or secrets.token_urlsafe(32)
     authority = urlsplit(origin).netloc
@@ -78,17 +79,21 @@ def handler(matcher, command, port, native=None, origin=None, token=None, browse
                     not secrets.compare_digest(self.headers.get('X-CSRF-Token', ''), token)):
                 return self.respond(403, {'error': 'DENIED'})
             native_route = self.path in {'/native/start', '/native/attest', '/native/finish'}
-            if self.path != '/verify' and not (native_route and native is not None):
+            wallet_route = self.path in {'/wallet/challenge', '/wallet/execute'}
+            if self.path != '/verify' and not (native_route and native is not None) and not (wallet_route and wallet is not None):
                 return self.respond(404, {'error': 'NOT_FOUND'})
             if self.headers.get('Content-Type') != 'application/json' or self.headers.get('Transfer-Encoding'):
                 return self.respond(415, {'error': 'CONTENT_TYPE'})
             try:
                 length = int(self.headers.get('Content-Length', '0'))
-                if not 0 < length <= (14_000_000 if native_route else MAX_BODY):
+                if not 0 < length <= (16384 if wallet_route else 14_000_000 if native_route else MAX_BODY):
                     return self.respond(413, {'error': 'SIZE_LIMIT'})
                 self.connection.settimeout(15)
                 data = self.rfile.read(length)
                 request = json.loads(data, object_pairs_hook=unique_object)
+                if wallet_route:
+                    result = wallet.challenge(request) if self.path == '/wallet/challenge' else wallet.execute(request)
+                    return self.respond(200, result)
                 if native_route:
                     if not isinstance(request, dict):raise ValueError('fields')
                     if self.path == '/native/start':
@@ -114,7 +119,7 @@ def handler(matcher, command, port, native=None, origin=None, token=None, browse
                     'faceDecision': 'NOT_CALIBRATED', 'liveness': 'RGB_PAD_SCORE_ONLY' if pad is not None else 'NOT_PERFORMED',
                     'chipAuthentication': 'NOT_PERFORMED', 'revocation': 'NOT_CHECKED',
                     'identityVerified': False, 'issuanceEnabled': False})
-            except (ValueError, TypeError, KeyError, OSError, subprocess.SubprocessError, FaceRejected):
+            except (ValueError, TypeError, KeyError, OSError, subprocess.SubprocessError, sqlite3.Error, FaceRejected):
                 return self.respond(400, {'error': 'Kontrollen kunde inte slutföras. Kontrollera chipfiler, tillitsankare och att båda bilderna innehåller exakt ett tydligt ansikte.'})
     return Handler
 
@@ -132,6 +137,7 @@ def main():
     parser.add_argument('--origin')
     parser.add_argument('--tls-cert', type=Path)
     parser.add_argument('--tls-key', type=Path)
+    parser.add_argument('--wallet-db', type=Path, help='Enable private pilot credentials in a private 0700 directory')
     args = parser.parse_args()
     if not 1024 <= args.port <= 65535 or not args.csca.is_file() or not args.jar.is_file():
         parser.error('A valid trust bundle, built JAR and unprivileged port are required')
@@ -139,13 +145,19 @@ def main():
     command = [args.java, '-Xmx128m', '-jar', str(args.jar.resolve()), 'verify-passport', str(args.csca.resolve())]
     from pad import PresentationAttackDetector
     pad=PresentationAttackDetector(ROOT/'models')
+    origin=args.origin or f'http://localhost:{args.port}'
+    wallet=None
+    if args.wallet_db:
+        if not args.native:parser.error('--wallet-db requires --native')
+        from wallet import Wallet
+        wallet=Wallet(args.wallet_db,origin)
     native = None
     if args.native:
         if not args.team or len(args.team)!=10:parser.error('--team requires an Apple Team ID')
         from native import AppAttest, NativeSessions
         from pad import PresentationAttackDetector
         native=NativeSessions(AppAttest(args.team,args.bundle,args.development_attestation),
-            lambda data: verify_document(command,data),matcher,pad)
+            lambda data: verify_document(command,data),matcher,pad,wallet=wallet)
     address=ipaddress.ip_address(args.bind)
     remote=not address.is_loopback
     if address.is_unspecified or not address.is_private:parser.error('Only explicit private-network or loopback addresses are allowed')
@@ -156,7 +168,7 @@ def main():
         parser.error('An explicit origin requires HTTPS and a TLS certificate/key')
     pairing=secrets.token_urlsafe(32)
     # Serial requests also protect OpenCV's stateful detector; this is a local workbench, not a public service.
-    with HTTPServer((args.bind, args.port), handler(matcher, command, args.port,native,origin,pairing,not remote,pad)) as server:
+    with HTTPServer((args.bind, args.port), handler(matcher, command, args.port,native,origin,pairing,not remote,pad,wallet)) as server:
         if args.tls_cert:
             context=ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER);context.minimum_version=ssl.TLSVersion.TLSv1_2
             context.load_cert_chain(args.tls_cert,args.tls_key);server.socket=context.wrap_socket(server.socket,server_side=True)
