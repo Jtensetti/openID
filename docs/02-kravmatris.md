@@ -6,6 +6,8 @@ Matrisen prioriterar etableringskritiska delar. Den är inte en fullständig gen
 
 ## Status och ansvar
 
+G1-labbens begränsade implementation och testkopplingar för FED-01/02, SEC-01/03, ID-06/08/09/10, TEST-01 och INT-01–06 redovisas i [verifieringsrapporten](../prototype/evidence/verification.md). **Status för kraven förblir OPEN**: syntetiska tester av delar av en kontroll ersätter inte fullständigt bevis eller oberoende acceptans.
+
 Tillåtna statusvärden: `OPEN`, `DESIGNED`, `IMPLEMENTED`, `INDEPENDENTLY_TESTED`, `ACCEPTED`, `NOT_APPLICABLE_WITH_REASON`.
 
 `ACCEPTED` ska alltid ange vem som accepterat vad och med vilket mandat. Intern acceptans, ett passerat test och Diggs formella beslut är olika saker. Rollnamnen nedan är föreslagna funktioner; ingen person är ännu utsedd. Externa specialister kan bidra men får inte vara en osynlig ansvarslucka.

@@ -1,0 +1,4 @@
+prototype/target/
+prototype/.local/
+prototype/node_modules/
+*.log

@@ -2,7 +2,9 @@
 
 ## Nuvarande status
 
-Detta repository innehåller förstudie, arkitekturförslag och arbetsinstruktioner. Det är inte en godkänd e-legitimation och har ingen deklarerad produktionsrelease eller garanterad drifts-/supportnivå.
+Detta repository innehåller förstudie, arkitekturförslag, arbetsinstruktioner och en isolerad lokal prototyp i `prototype/`. Den använder enbart syntetiska identiteter, simulerad kontroll och lokalt genererade testnycklar. Det är inte en godkänd e-legitimation och har ingen deklarerad produktionsrelease eller garanterad drifts-/supportnivå.
+
+Labbens faktiska negativa tester och begränsningar finns i [verifieringsrapporten](prototype/evidence/verification.md). Spärrar och sessioner ligger i minnet och återställs vid omstart. Loopbackbindning är inte en OS-sandbox; exponera inte tjänsten via tunnel eller proxy. De genererade nycklarna under `prototype/.local/` och byggresultaten är Git-ignorerade.
 
 Det finns ännu ingen genomförd oberoende säkerhetsrevision, konfigurerad produktionsmiljö eller verifierad komplett testsvit för en produkt. Frånvaro av rapporterade sårbarheter ska inte tolkas som att en säkerhetsgranskning har utförts.
 

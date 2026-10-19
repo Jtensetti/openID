@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>se.swedenconnect.spring.authnserver</groupId>
+    <artifactId>spring-authentication-server-parent</artifactId>
+    <version>1.0.3</version>
+    <relativePath/>
+  </parent>
+  <groupId>io.github.jtensetti.openid</groupId>
+  <artifactId>isolated-eid-lab</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <name>Isolated synthetic e-id lab — NOT an approved e-id</name>
+  <description>Disposable loopback SAML prototype with explicitly simulated identity proofing</description>
+  <url>https://github.com/Jtensetti/openID</url>
+  <organization><name>openID prototype</name><url>https://github.com/Jtensetti/openID</url></organization>
+  <licenses><license><name>NOASSERTION</name><comments>Project license decision pending; see THIRD_PARTY.md. Dependency licenses remain separate.</comments></license></licenses>
+  <scm><url>https://github.com/Jtensetti/openID</url><connection>scm:git:https://github.com/Jtensetti/openID.git</connection><developerConnection>scm:git:https://github.com/Jtensetti/openID.git</developerConnection><tag>HEAD</tag></scm>
+  <properties>
+    <java.version>21</java.version>
+    <!-- Security patch overrides of the pinned upstream parent; see evidence/verification.md. -->
+    <tomcat.version>11.0.26</tomcat.version>
+    <jackson-2-bom.version>2.21.7</jackson-2-bom.version>
+    <jackson-bom.version>3.1.7</jackson-bom.version>
+  </properties>
+  <repositories>
+    <repository><id>central</id><url>https://repo.maven.apache.org/maven2</url></repository>
+  </repositories>
+  <dependencyManagement>
+    <dependencies>
+      <!-- The upstream parent imports Boot's BOM; setting Boot properties alone does not override it. -->
+      <dependency><groupId>com.fasterxml.jackson</groupId><artifactId>jackson-bom</artifactId><version>${jackson-2-bom.version}</version><type>pom</type><scope>import</scope></dependency>
+      <dependency><groupId>tools.jackson</groupId><artifactId>jackson-bom</artifactId><version>${jackson-bom.version}</version><type>pom</type><scope>import</scope></dependency>
+      <dependency><groupId>org.apache.tomcat.embed</groupId><artifactId>tomcat-embed-core</artifactId><version>${tomcat.version}</version></dependency>
+      <dependency><groupId>org.apache.tomcat.embed</groupId><artifactId>tomcat-embed-el</artifactId><version>${tomcat.version}</version></dependency>
+      <dependency><groupId>org.apache.tomcat.embed</groupId><artifactId>tomcat-embed-websocket</artifactId><version>${tomcat.version}</version></dependency>
+    </dependencies>
+  </dependencyManagement>
+  <dependencies>
+    <dependency><groupId>se.swedenconnect.spring.authnserver</groupId><artifactId>authn-server-saml-spring-boot-starter</artifactId><version>1.0.3</version></dependency>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-thymeleaf</artifactId><version>4.1.1</version></dependency>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test-classic</artifactId><version>4.1.1</version><scope>test</scope></dependency>
+    <dependency><groupId>org.jsoup</groupId><artifactId>jsoup</artifactId><version>1.23.2</version><scope>test</scope></dependency>
+  </dependencies>
+  <build>
+    <finalName>isolated-eid-lab</finalName>
+    <plugins>
+      <plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId><version>4.1.1</version><configuration><mainClass>lab.Lab</mainClass></configuration><executions><execution><goals><goal>repackage</goal></goals></execution></executions></plugin>
+      <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-enforcer-plugin</artifactId><version>3.6.2</version><executions><execution><id>lab-toolchain</id><goals><goal>enforce</goal></goals><configuration><rules><requireJavaVersion><version>[21,22)</version></requireJavaVersion><requireMavenVersion><version>[3.9.11,4)</version></requireMavenVersion></rules></configuration></execution></executions></plugin>
+      <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId><version>3.5.6</version></plugin>
+      <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-jar-plugin</artifactId><version>3.5.1</version><configuration><forceCreation>true</forceCreation></configuration></plugin>
+      <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-dependency-plugin</artifactId><version>3.8.1</version></plugin>
+      <plugin><groupId>org.cyclonedx</groupId><artifactId>cyclonedx-maven-plugin</artifactId><version>2.9.1</version><configuration><includeTestScope>true</includeTestScope></configuration></plugin>
+    </plugins>
+  </build>
+</project>

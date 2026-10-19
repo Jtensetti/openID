@@ -1,6 +1,8 @@
-# openID – förstudie för en öppen svensk e-legitimation
+# openID – förstudie och isolerad e-id-prototyp
 
-**Status: förstudie och agentarbetsyta, inte en utfärdad eller godkänd e-legitimation.**
+**Status: förstudie och lokal G1-prototyp med simulerad identitetskontroll. Inte en utfärdad eller godkänd e-legitimation.**
+
+Körbar kod, automatiserade säkerhetstester och startinstruktioner finns i [prototype/](prototype/README.md). Labben använder Sweden Connect för ett signerat och krypterat SAML-flöde mellan två lokala HTTPS-adresser. Läs [faktiska verifieringsresultat och återstående hinder](prototype/evidence/verification.md).
 
 Målet är att undersöka en självständig svensk e-legitimation med öppen källkod, med tillitsnivå 3 som föreslaget första produktionsmål och möjlighet till anslutning till Diggs auktorisationssystem. Namnet är ett arbetsnamn, inte ett påstående om koppling till OpenID Foundation, Digg eller någon offentlig arbetsgivare.
 
@@ -31,7 +33,7 @@ Instruktionerna är projektspecifika originaltexter. De är inte officiella Digg
 
 ## Nuvarande avgränsning
 
-Det här steget innehåller dokumentation och arbetsmetodik, inte en mobilapp, produktionsinfrastruktur eller kopierad tredjepartskod. Återanvändbara komponenter är kandidater tills version, licens, beroenden, byggbarhet och säkerhet har granskats.
+Repot innehåller nu en avgränsad lokal prototyp, dokumentation och arbetsmetodik. Prototypens konkreta beroendeval, attribution och licensunderlag finns i `THIRD_PARTY.md`; övriga komponenter i förstudien är fortsatt kandidater. Ingen mobilapp eller produktionsinfrastruktur har implementerats.
 
 All prototyputveckling ska använda syntetiska identiteter och isolerade testnycklar. Inga verkliga personuppgifter, ID-handlingar, produktionsnycklar eller ersättningsanspråk hör hemma här. Ingen AI-komponent ska besluta vem en person är eller om en inloggning/underskrift ska godkännas.
 
