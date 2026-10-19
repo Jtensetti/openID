@@ -14,3 +14,5 @@
 Playwright 1.62.1 används enbart som installerat utvecklingsverktyg, inte kopierad produktkod. Officiell tagg: <https://github.com/microsoft/playwright/tree/26a9e470a7b3c7822084b09fb7f13902c5f37b51>; Apache-2.0. Npm-låset innehåller paketens integritetshashar och licensdeklarationer. Chromium levereras separat av Playwright; dess tredjeparters licenser och systembibliotek ingår inte i Java-SBOM.
 
 Övriga bibliotek hämtas som oförändrade Maven-artefakter. Se [THIRD_PARTY.md](../../THIRD_PARTY.md), beroendelåset och SBOM för omfattning, licensavvikelser och kvarstående distributionsbeslut. Denna attribution ger ingen ny licens till projektets egen kod och innebär inget stöd eller godkännande från Sweden Connect eller Apache.
+
+SQLite JDBC 3.53.4.0, Xerial (Apache-2.0), innehåller Zentus-kod av David Crawshaw (BSD-2-Clause). Se `sqlite-jdbc-LICENSE.zentus` och Apache-2.0-texten i denna katalog. Biblioteket är oförändrat; SQLite-motorn är public domain.

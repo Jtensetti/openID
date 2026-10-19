@@ -2,3 +2,7 @@ prototype/target/
 prototype/.local/
 prototype/node_modules/
 *.log
+
+prototype/.local-*/
+**/__pycache__/
+ops/.build/

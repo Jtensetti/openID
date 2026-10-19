@@ -1,10 +1,10 @@
 {
   "bomFormat" : "CycloneDX",
   "specVersion" : "1.6",
-  "serialNumber" : "urn:uuid:d9bb8ab0-a34a-3ac5-adfd-5a0d7ff0b173",
+  "serialNumber" : "urn:uuid:733ed4f9-707f-3210-82c5-2e7f5a79e12b",
   "version" : 1,
   "metadata" : {
-    "timestamp" : "2026-10-19T09:37:52Z",
+    "timestamp" : "2026-10-19T11:17:48Z",
     "lifecycles" : [
       {
         "phase" : "build"
@@ -86,7 +86,7 @@
     "properties" : [
       {
         "name" : "maven.goal",
-        "value" : "makeBom"
+        "value" : "makeAggregateBom"
       },
       {
         "name" : "maven.scopes",
@@ -95,6 +95,67 @@
     ]
   },
   "components" : [
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/org.xerial/sqlite-jdbc@3.53.4.0?type=jar",
+      "group" : "org.xerial",
+      "name" : "sqlite-jdbc",
+      "version" : "3.53.4.0",
+      "description" : "SQLite JDBC library",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "f4efbbf74fd258368ebb6529ec0099dc"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "47e21dd53efe1524fe0df6965cb65003ffe17172"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "bcb1f51e36f940867e83342f9efbf5968ac44a6bef4d397bb4af7b17b45cd2fb"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "9ce8a7ceff6b5ba7c7ce0db760461e23e2b7b04828cc7a2d1818b86e6895c7214226c3c21ee0e19f09714895058898dbdc7d4cf2ec78deac88f647d3a3715ee7"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "c778de14c254d7829e74ed8e95229a3cf2075a1f7a47377fafdda57b0b7cb1c4f9577208c9146f859412554b096c4e38"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "710206c5b613b3e79cecea13bcd85e7ad4585df1e3e4fa9cb94e23d1786836a3a889dd17182c034cf81fd1f3835fe3db"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "40d298e5873c713b433f75e803c1c1e292d613fd52d7448aac96759cd7966ddb"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "a4c8e3337169e8a46ea7b4892df49418dcd952da7f589ff9c0f9c70aaf08701dd53207ea01786d8247caa1e43f6806ed8e2c27828030ff6e293084fe032a5460"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "id" : "Apache-2.0"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/org.xerial/sqlite-jdbc@3.53.4.0?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://github.com/xerial/sqlite-jdbc"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://github.com/xerial/sqlite-jdbc"
+        }
+      ]
+    },
     {
       "type" : "library",
       "bom-ref" : "pkg:maven/se.swedenconnect.spring.authnserver/authn-server-saml-spring-boot-starter@1.0.3?type=jar",
@@ -11513,6 +11574,7 @@
     {
       "ref" : "pkg:maven/io.github.jtensetti.openid/isolated-eid-lab@0.1.0-SNAPSHOT?type=jar",
       "dependsOn" : [
+        "pkg:maven/org.xerial/sqlite-jdbc@3.53.4.0?type=jar",
         "pkg:maven/se.swedenconnect.spring.authnserver/authn-server-saml-spring-boot-starter@1.0.3?type=jar",
         "pkg:maven/org.springframework.boot/spring-boot-starter-thymeleaf@4.1.1?type=jar",
         "pkg:maven/org.springframework.boot/spring-boot-starter-test-classic@4.1.1?type=jar",
@@ -11524,6 +11586,10 @@
         "pkg:maven/org.mockito/mockito-junit-jupiter@5.23.0?type=jar",
         "pkg:maven/org.assertj/assertj-core@3.27.7?type=jar"
       ]
+    },
+    {
+      "ref" : "pkg:maven/org.xerial/sqlite-jdbc@3.53.4.0?type=jar",
+      "dependsOn" : [ ]
     },
     {
       "ref" : "pkg:maven/se.swedenconnect.spring.authnserver/authn-server-saml-spring-boot-starter@1.0.3?type=jar",

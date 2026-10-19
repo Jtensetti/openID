@@ -81,7 +81,7 @@ Formella ansökningar, avtalstecknande, godkänd anslutning, kontrollerad använ
 | NEG-11 | Metadata pekar på otillåtna interna nätverksmål. | Ingen godtycklig serverförfrågan till interna resurser. |
 | NEG-12 | Loggning råkar få hemlighet eller känsligt underlag. | Testet upptäcker läckan; artefakten får inte publiceras eller releasas. |
 
-NEG-10 körs mot lokal stub i prototypen tills Diggs verkliga protokollregler är bekräftade. Samtliga testresultat är för närvarande okörda.
+NEG-10 körs mot lokal stub i prototypen tills Diggs verkliga protokollregler är bekräftade. Körda G1- och G2-fall samt kvarstående luckor redovisas i [aktuell verifieringsrapport](../prototype/evidence/g2-verification.md); NEG-10 är ännu inte kört.
 
 ## 6. Definition av klart för en utvecklingsuppgift
 
@@ -109,3 +109,5 @@ Agenten får inte byta `OPEN` till `ACCEPTED` för att den själv tycker att lö
 Ekonomin förutsätter en obekräftad ersättningsrätt; ensam kontroll över utgivning inte går att undanröja; nödvändig register-/identitetskontroll saknar stöd; en kritisk komponent saknar hållbart underhåll; återställning blir en svag genväg; eller oberoende verifiering inte kan finansieras.
 
 Att avbryta det egna utfärdarspåret behöver inte göra teknikspåret värdelöst. En separat, ärligt avgränsad produkt som testverktyg, integrationsstöd eller förvaltningskomponent kan vara ett annat affärsbeslut. Den får inte marknadsföras som samma sak som en godkänd e-legitimation.
+
+G2-fortsättningen inför beständig syntetisk livscykel, atomisk revisionslogg, backup/återläsning och offline-avstämning samt ett separat stängt driftpaket. Se [körinstruktioner](../prototype/README.md) och [driftpaketets status](../ops/README.md). P0-06 är delvis implementerat: inga verkliga underlag skickas och transport/kvittens/korrigering återstår. Ingen G2–G4-grind har accepterats.

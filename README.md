@@ -1,6 +1,6 @@
 # openID – förstudie och isolerad e-id-prototyp
 
-**Status: förstudie och lokal G1-prototyp med simulerad identitetskontroll. Inte en utfärdad eller godkänd e-legitimation.**
+**Status: lokal SAML-prototyp, beständig syntetisk labbdrift och stängt driftpaket. Inte en utfärdad eller godkänd e-legitimation.**
 
 Körbar kod, automatiserade säkerhetstester och startinstruktioner finns i [prototype/](prototype/README.md). Labben använder Sweden Connect för ett signerat och krypterat SAML-flöde mellan två lokala HTTPS-adresser. Läs [faktiska verifieringsresultat och återstående hinder](prototype/evidence/verification.md).
 
@@ -33,7 +33,7 @@ Instruktionerna är projektspecifika originaltexter. De är inte officiella Digg
 
 ## Nuvarande avgränsning
 
-Repot innehåller nu en avgränsad lokal prototyp, dokumentation och arbetsmetodik. Prototypens konkreta beroendeval, attribution och licensunderlag finns i `THIRD_PARTY.md`; övriga komponenter i förstudien är fortsatt kandidater. Ingen mobilapp eller produktionsinfrastruktur har implementerats.
+Repot innehåller nu en avgränsad lokal prototyp, dokumentation och arbetsmetodik. Prototypens konkreta beroendeval, attribution och licensunderlag finns i `THIRD_PARTY.md`; övriga komponenter i förstudien är fortsatt kandidater. Ingen mobilapp har implementerats. Ett separat [driftpaket](ops/README.md) och en Render Blueprint för en stängd produktionsgrund finns; det är inte en driftsatt eller godkänd e-id-tjänst. [Aktuell teknisk evidens](prototype/evidence/g2-verification.md) skiljer körda tester från återstående kriterier.
 
 All prototyputveckling ska använda syntetiska identiteter och isolerade testnycklar. Inga verkliga personuppgifter, ID-handlingar, produktionsnycklar eller ersättningsanspråk hör hemma här. Ingen AI-komponent ska besluta vem en person är eller om en inloggning/underskrift ska godkännas.
 
