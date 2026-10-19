@@ -97,9 +97,9 @@
       "sha256": "0edd2fbaab79e13f87d145d021f85a5c59956b2b6b5e761c0d664c87f94cda15"
     },
     {
-      "coordinate": "com.upokecenter:cbor:jar:5.0.0-alpha2",
+      "coordinate": "com.upokecenter:cbor:jar:4.5.6",
       "scope": "runtime",
-      "sha256": "fee3398eb29d3bf885a15a9a28a75feb0e0034f79b9e7b738ba0eb90622ef7a2"
+      "sha256": "415630df447588834ac747800a6b7fac67ff8b8092862f4e3f5283f568bfc2ec"
     },
     {
       "coordinate": "com.vaadin.external.google:android-json:jar:0.0.20131108.vaadin1",

@@ -77,7 +77,10 @@ kryptografisk primitiv. Chromium-proven använder webbläsarens riktiga
 
 Under arbetet upptäcktes och rättades saknad CSP på upstreams `/lab`-kedja.
 Maven upptäckte också olika Guava-versioner; de förenades uttryckligen till
-Yubicos 33.7.2-jre och hela SAML-/WebAuthn-sviten kördes med den grafen.
+33.7.2-jre och hela SAML-/WebAuthn-sviten kördes med den grafen. Yubicos
+CBOR-intervall valde initialt 5.0.0-alpha2; slutversionen låser i stället
+stabila 4.5.6 inom samma tillåtna intervall. JUnit- och browserproven kördes
+om med den stabila parsern och dess checksumma finns i låset.
 
 ## Scope, krav och kvarstående gränser
 
@@ -107,7 +110,7 @@ dokument-/ansiktskontroll, extern federation, belastning/HA och oberoende
 säkerhetsgranskning. Den tillgängliga miljön gav Chromium och virtuella
 autentiserare; det räcker inte som fälttest eller certifiering.
 
-CBOR 5.0.0-alpha2 är en uttrycklig transitive beroenderisk; se THIRD_PARTY.
+Fullständig oberoende beroendegranskning återstår; se THIRD_PARTY.
 Egen projektlicens är inte beslutad (förslag: Apache-2.0 för egen kod).
 Databas-/OS-ägaren är betrodd och kan ändra program eller register. Robust
 missbruksbegränsning, verifierad utgivning, HSM, full återställningskanal,

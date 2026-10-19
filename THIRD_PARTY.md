@@ -103,19 +103,22 @@ och inga Render-nycklar eller produktionshemligheter.
   dependency-convergence-kontroll har stängts av. Även `failureaccess` 1.0.3
   och `j2objc-annotations` 3.1 uppdateras. Jackson CBOR/JDK8 2.21.7 är
   Apache-2.0 och följer den redan låsta Jackson-BOM:en.
-- Yubicos graf inför **CBOR 5.0.0-alpha2**, Numbers **1.8.2** och
-  DataUtilities **1.1.0**, utan lokala ändringar. CBOR:s POM anger Unlicense
-  men har en CC0-URL; upstream `LICENSE.md` innehåller Unlicense. Numbers
+- **CBOR 4.5.6** låses uttryckligen i dependency management, tillsammans med
+  transitiva Numbers **1.8.2** och DataUtilities **1.1.0**, utan lokala ändringar.
+  CBOR:s POM och upstream `LICENSE.md` anger Unlicense. Numbers
   och DataUtilities anger public domain/CC0 i de publicerade versionernas
   käll-JAR:er. CBOR:s och Numbers repositoryn var inte arkiverade, med
   senaste push 2026-06-04 respektive 2026-04-20. DataUtilities var inte
   arkiverat, senast pushat 2025-08-11; den äldre publicerade versionens
-  källhuvud användes för licenskontrollen. **CBOR-versionen är en
-  förhandsversion som väljs av Yubicos låsta parent**, inte en stabil
-  produktionskomponent som projektet har säkerhetsgodkänt. Detta är en
-  uttrycklig kvarstående beroendegranskningspunkt före produktion. Ingen
-  matchande Git-tagg hittades för just CBOR 5.0.0-alpha2; Maven-artefaktens
+  källhuvud användes för licenskontrollen. Yubicos parent anger intervallet
+  `[4.5.1,5)`, som Maven först upplöste till **5.0.0-alpha2**. Den
+  förhandsversionen har ersatts med den senaste publicerade stabila
+  4.5-versionen vid kontrollen, **4.5.6**, inom upstreams intervall. Guava
+  och CBOR väljs nu exakt i vår POM; övriga intervall styrs av låsta BOM:er.
+  Ingen matchande Git-tagg hittades för CBOR 4.5.6; Maven-artefaktens
   checksumma och publicerade käll-JAR används för versionsspårningen.
+  Käll-JAR:ens SHA-256 är
+  `05384f450f77728579caba69c79a9c7752826356e14610927b11e75de05b652e`.
 - Den upplösta grafen är nu **177 JAR-artefakter**. Alla är versions-/SHA-256-låsta;
   uppdaterad CycloneDX-SBOM och OSV-resultat finns i `prototype/evidence/`.
   OSV gav **0 publicerade fynd** vid kontrollen 2026-10-19. Det är ingen

@@ -28,8 +28,9 @@
   </repositories>
   <dependencyManagement>
     <dependencies>
-      <!-- Converge Sweden Connect and Yubico on Yubico 2.10.1's Guava baseline. -->
+      <!-- Pin Yubico's version ranges and converge with Sweden Connect's graph. -->
       <dependency><groupId>com.google.guava</groupId><artifactId>guava</artifactId><version>33.7.2-jre</version></dependency>
+      <dependency><groupId>com.upokecenter</groupId><artifactId>cbor</artifactId><version>4.5.6</version></dependency>
       <!-- The upstream parent imports Boot's BOM; setting Boot properties alone does not override it. -->
       <dependency><groupId>com.fasterxml.jackson</groupId><artifactId>jackson-bom</artifactId><version>${jackson-2-bom.version}</version><type>pom</type><scope>import</scope></dependency>
       <dependency><groupId>tools.jackson</groupId><artifactId>jackson-bom</artifactId><version>${jackson-bom.version}</version><type>pom</type><scope>import</scope></dependency>

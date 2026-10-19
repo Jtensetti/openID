@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-19T12:49:01.988521+00:00",
+  "checkedAt": "2026-10-19T12:59:22.655844+00:00",
   "command": "./mvnw -B -ntp verify dependency:list -DoutputAbsoluteArtifactFilename=true -DoutputFile=target/dependencies.txt",
   "java": "Temurin 21.0.12.1+1",
   "maven": "3.9.11",
@@ -592,5 +592,7 @@
     "failures": 0,
     "errors": 0,
     "skipped": 0
-  }
+  },
+  "webauthnServer": "2.10.1",
+  "cbor": "4.5.6"
 }

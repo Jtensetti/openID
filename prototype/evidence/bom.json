@@ -4,7 +4,7 @@
   "serialNumber" : "urn:uuid:733ed4f9-707f-3210-82c5-2e7f5a79e12b",
   "version" : 1,
   "metadata" : {
-    "timestamp" : "2026-10-19T12:42:13Z",
+    "timestamp" : "2026-10-19T12:59:11Z",
     "lifecycles" : [
       {
         "phase" : "build"
@@ -1042,44 +1042,44 @@
     },
     {
       "type" : "library",
-      "bom-ref" : "pkg:maven/com.upokecenter/cbor@5.0.0-alpha2?type=jar",
+      "bom-ref" : "pkg:maven/com.upokecenter/cbor@4.5.6?type=jar",
       "group" : "com.upokecenter",
       "name" : "cbor",
-      "version" : "5.0.0-alpha2",
+      "version" : "4.5.6",
       "description" : "A Java implementation of Concise Binary Object Representation (CBOR), a general-purpose binary data format defined in RFC 8949.",
       "scope" : "required",
       "hashes" : [
         {
           "alg" : "MD5",
-          "content" : "43a6c339c65cb4e0c8d25f637fcfe42e"
+          "content" : "a79a34670f26978f3840f3b29ef59a9f"
         },
         {
           "alg" : "SHA-1",
-          "content" : "5a0cced512c49070d49fe42524690745e6a153b2"
+          "content" : "9a2a67135f89822362838683a70b7fa8248dc984"
         },
         {
           "alg" : "SHA-256",
-          "content" : "fee3398eb29d3bf885a15a9a28a75feb0e0034f79b9e7b738ba0eb90622ef7a2"
+          "content" : "415630df447588834ac747800a6b7fac67ff8b8092862f4e3f5283f568bfc2ec"
         },
         {
           "alg" : "SHA-512",
-          "content" : "1f9dc5c2ae57328a393a864a3df1b85b90c5f7aff2651c5be09cb7a90bc4ae622887c2f74afaedede53acf07328162652f7aa2834c02a085bd68660448dbbb7e"
+          "content" : "a7c33760561a8347194afeb3bf1512b7d59aef8a05af6136dcd81657c8e9f1a6dc229a677848da994172b2a5c68e5694a509e778a607aca1d0156f1025ad3fa7"
         },
         {
           "alg" : "SHA-384",
-          "content" : "cee0ba218c6a8a0f1316498f83d13067a324716a1ba0a95e54de1ad68e57d5d820f1398d0156f21f496cce53eb5608cc"
+          "content" : "752ac75c5e2fe8ab7fff87051e07c06267a5efac04f32b716ae3ba453dcf857c777abc08f3c22de40315a84aba56dfa1"
         },
         {
           "alg" : "SHA3-384",
-          "content" : "275c90765bde9f3cf8bbbfe7480db4fc5fcebcc77cd3421d321c021bb4a033224cdf19ab3bc5f0097263c7efb88c728b"
+          "content" : "f7a71cb1dfa0104973f84316d57a47591c8c360e8d02636bd97a2b103dffe9118c8f5e8cb279d3ee8cec3a5e3ae59326"
         },
         {
           "alg" : "SHA3-256",
-          "content" : "96528ef069fa33664b42dbaa85ce2288799136ed740b2b93daf8ac969ec25e0d"
+          "content" : "40dab83fdff6a2df877cf60de58372e92b69bd6b7e005bd3c08223794e497a24"
         },
         {
           "alg" : "SHA3-512",
-          "content" : "f82913df3b500b8f3de454745f9d65bd542e6611a3a9f7b6d6d9413c2de64f35292f5eae7545131281c3ace36670a1ebac042f8acd20fd8e471875593736aac0"
+          "content" : "f71c761373a72a6d2a3dfabc7c1a33c7c72472c69507152a9d9fc819362054b955f11519a709ab47b90ff9d0f4cfc9bd7265ada84e8599537e4df3f9e1d9f1cc"
         }
       ],
       "licenses" : [
@@ -1090,7 +1090,7 @@
           }
         }
       ],
-      "purl" : "pkg:maven/com.upokecenter/cbor@5.0.0-alpha2?type=jar",
+      "purl" : "pkg:maven/com.upokecenter/cbor@4.5.6?type=jar",
       "externalReferences" : [
         {
           "type" : "website",
@@ -11981,7 +11981,7 @@
         "pkg:maven/com.yubico/yubico-util@2.10.1?type=jar",
         "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.21.7?type=jar",
         "pkg:maven/com.google.guava/guava@33.7.2-jre?type=jar",
-        "pkg:maven/com.upokecenter/cbor@5.0.0-alpha2?type=jar",
+        "pkg:maven/com.upokecenter/cbor@4.5.6?type=jar",
         "pkg:maven/org.apache.httpcomponents.client5/httpclient5@5.6.4?type=jar",
         "pkg:maven/org.slf4j/slf4j-api@2.0.18?type=jar"
       ]
@@ -11993,7 +11993,7 @@
         "pkg:maven/com.fasterxml.jackson.dataformat/jackson-dataformat-cbor@2.21.7?type=jar",
         "pkg:maven/com.fasterxml.jackson.datatype/jackson-datatype-jdk8@2.21.7?type=jar",
         "pkg:maven/com.fasterxml.jackson.datatype/jackson-datatype-jsr310@2.21.7?type=jar",
-        "pkg:maven/com.upokecenter/cbor@5.0.0-alpha2?type=jar",
+        "pkg:maven/com.upokecenter/cbor@4.5.6?type=jar",
         "pkg:maven/org.slf4j/slf4j-api@2.0.18?type=jar"
       ]
     },
@@ -12035,7 +12035,7 @@
       ]
     },
     {
-      "ref" : "pkg:maven/com.upokecenter/cbor@5.0.0-alpha2?type=jar",
+      "ref" : "pkg:maven/com.upokecenter/cbor@4.5.6?type=jar",
       "dependsOn" : [
         "pkg:maven/com.github.peteroupc/numbers@1.8.2?type=jar",
         "pkg:maven/com.github.peteroupc/datautilities@1.1.0?type=jar"
