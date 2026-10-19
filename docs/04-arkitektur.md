@@ -2,7 +2,25 @@
 
 **Designförslag, inte en implementerad eller godkänd lösning.** Datum: 2026-10-19. Krav hänvisar till [kravmatrisen](02-kravmatris.md); primärkällor till [SOURCES.md](SOURCES.md).
 
-Den avgränsade G1-labben i [prototype/](../prototype/README.md) implementerar endast ett lokalt SAML-flöde och en simulerad livscykelmodell med beständig SQLite-lagring, revisionshändelser, fail-closed återläsning och offline-avstämning. Ett separat stängt driftpaket finns i `ops/`; det innehåller ingen IdP eller credential. Den större produktarkitekturen nedan är fortsatt ett förslag; särskilt gäller detta enheter, HSM, verklig utgivning, distribuerad spärr och drift.
+Den avgränsade labben i [prototype/](../prototype/README.md) implementerar lokalt SAML, WebAuthn-testnycklar och en webbklient samt simulerad identitetskontroll med beständig SQLite-lagring, revisionshändelser, fail-closed återläsning och offline-avstämning. Ett separat stängt driftpaket finns i `ops/`; det innehåller ingen IdP eller credential. Den större produktarkitekturen nedan är fortsatt ett förslag; särskilt gäller detta verifierad enhetssäkerhet, HSM, verklig utgivning, distribuerad spärr och drift.
+
+### Appbutiksoberoende som arkitekturkrav
+
+Daglig autentisering ska kunna ske från webben med öppna standarder utan
+obligatorisk App Store/Google Play-installation eller ett visst molnkonto.
+Den nu implementerade labben använder WebAuthn och kan välja externa
+FIDO2-nycklar med användarverifiering eller plattformsnycklar. PWA-installation
+är valfri. Inga krav på Play Integrity, App Attest eller en fabrikatslista
+införs. Detta bevisar inte kompatibilitet med alla operativsystem eller en
+viss tillitsnivå; aktuella enhets- och webbläsartester redovisas separat.
+
+Utgivning behöver ett eget tillgänglighetskrav. Ett framtida NFC-spår får inte
+göra en butiksdistribuerad mobilapp till den enda vägen att få eller ersätta
+en e-legitimation. Fysisk registrering eller en granskad dator-/läsarlösning
+kan vara alternativ, men är inte implementerade. En passkey är ett nyckelbevis;
+pass-/dokumentkontroll och personbindning är separata funktioner. Projektet
+har ännu inte valt egen licens och ska inte beskrivas som färdiglicensierad
+öppen källkod före det beslutet.
 
 ## 1. Avgränsning och beslut som återstår
 

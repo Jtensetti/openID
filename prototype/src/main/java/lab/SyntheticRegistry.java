@@ -4,12 +4,13 @@ import java.nio.file.*;
 import java.time.*;
 import java.util.*;
 
-/** Deliberately simulated proofing and credentials. No real person or device is verified. */
+/** Deliberately simulated proofing. WebAuthn can bind a real test key, never a verified person. */
 public final class SyntheticRegistry implements AutoCloseable {
   public enum State { PENDING, PROOFED, ACTIVE, REVOKED, EXPIRED }
   public record Entry(String identity, String credential, State state, Instant expires, String replaces) {}
   private Map<String, Entry> entries = Map.of();
   private Map<String, Long> revocations = Map.of();
+  private Map<String, Passkey> passkeys = Map.of();
   private final Clock clock;
   private final RegistryStore store;
   private final Map<String, OfflineReport.Event> memoryOutcomes = new HashMap<>();
@@ -18,7 +19,7 @@ public final class SyntheticRegistry implements AutoCloseable {
   public SyntheticRegistry(Clock clock) { this.clock = clock; store = null; }
   private SyntheticRegistry(Clock clock, RegistryStore store) {
     this.clock = clock; this.store = store;
-    var saved = store.load(); entries = saved.entries(); revocations = saved.versions();
+    var saved = store.load(); entries = saved.entries(); revocations = saved.versions(); passkeys = saved.passkeys();
     if (store.uncleanShutdown) revokeAll("UNCLEAN_RECOVERY");
   }
   public static SyntheticRegistry open(Path directory, Clock clock) throws Exception {
@@ -87,6 +88,22 @@ public final class SyntheticRegistry implements AutoCloseable {
     if (e.state() != State.ACTIVE) throw new IllegalStateException("Credential is not active");
     return e;
   }
+  public synchronized Map<String, Passkey> passkeys() { check(); return passkeys; }
+  public synchronized void registerPasskey(String credential, Passkey key) {
+    authorize(credential);
+    if (passkeys.containsKey(credential) || passkeys.values().stream().anyMatch(k ->
+        k.credentialId().equals(key.credentialId()) || k.userHandle().equals(key.userHandle())))
+      throw new IllegalStateException("A test credential can be enrolled only once");
+    var next = new HashMap<>(passkeys); next.put(credential, key);
+    commit(entries, revocations, next, "REGISTER_TEST_PASSKEY", credential);
+  }
+  public synchronized void usePasskey(String credential, Passkey expected, long count, boolean backup) {
+    authorize(credential);
+    if (!expected.equals(passkeys.get(credential)) || (count <= expected.signatureCount() && (count != 0 || expected.signatureCount() != 0)))
+      throw new IllegalStateException("Stale authenticator state");
+    var next = new HashMap<>(passkeys); next.put(credential, expected.used(count, backup));
+    commit(entries, revocations, next, "AUTHENTICATE_TEST_PASSKEY", credential);
+  }
   public synchronized Map<String, Long> revocationVersions() {
     check(); Map<String, Long> snapshot = new HashMap<>();
     entries.values().forEach(e -> snapshot.put(e.identity(), revocations.getOrDefault(e.identity(), 0L)));
@@ -130,9 +147,13 @@ public final class SyntheticRegistry implements AutoCloseable {
   }
   private void update(Entry e, String action) { var next = new HashMap<>(entries); next.put(e.credential(), e); commit(next, revocations, action, e.credential()); }
   private void commit(Map<String, Entry> next, Map<String, Long> versions, String action, String credential) {
+    commit(next, versions, passkeys, action, credential);
+  }
+  private void commit(Map<String, Entry> next, Map<String, Long> versions, Map<String, Passkey> keys, String action, String credential) {
     check();
-    if (store != null) store.commit(new RegistryStore.Snapshot(next, versions), action, credential, clock.instant());
+    if (store != null) store.commit(new RegistryStore.Snapshot(next, versions, keys), action, credential, clock.instant());
     entries = Map.copyOf(next); revocations = Map.copyOf(versions); // Only publish after durable commit.
+    passkeys = Map.copyOf(keys);
   }
   private void check() { if (closed) throw new IllegalStateException("Registry is closed"); if (store != null) store.check(); }
   private Entry require(String credential) {

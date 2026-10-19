@@ -78,6 +78,57 @@ Sweden Connect, SQLite, prototypens JAR och testnycklar ingår inte. Blueprinten
 låser region och stänger automatiska releaser. CI har endast `contents: read`
 och inga Render-nycklar eller produktionshemligheter.
 
+## Tillägg: WebAuthn och webbklient, 2026-10-19
+
+- **Yubico Java WebAuthn Server 2.10.1** (`webauthn-server-core` och
+  `yubico-util`), release 2026-10-09, commit
+  `6c1b6cc19beae08cd6a310a40db1acee3673b98d` i
+  [Yubico/java-webauthn-server](https://github.com/Yubico/java-webauthn-server/tree/6c1b6cc19beae08cd6a310a40db1acee3673b98d).
+  Oförändrade Maven-artefakter; ingen kopierad validator eller egen fork.
+  `COPYING`, `SECURITY.md`, releaseanteckningar och relevanta API-källfiler
+  lästa. BSD-2-Clause samt Google-kod under BSD-3-Clause; hela
+  [COPYING](prototype/licenses/Yubico-COPYING.txt) bevaras. GitHub-repot var
+  inte arkiverat, senast pushat 2026-10-13, och listan över publicerade
+  repository-advisories var tom. Detta är underhållsindikatorer, ingen SLA.
+- Yubicos API sköter WebAuthn-valideringen och JCA kryptografin. Labben
+  tillåter ES256/RS256, kräver användarverifiering och använder attestering
+  `none`. Ingen attesteringsmodul, FIDO-metadatahämtare eller molntjänst
+  införs. En kompletterande lokal policy nekar `crossOrigin=true` och
+  förekomst av `topOrigin`; dessa Level 3-fält kontrolleras inte av Yubicos
+  `CollectedClientData` vid den låsta revisionen. Jackson används för
+  fältläsning, inklusive avvisning av duplicerade fält. Detta är ingen ny
+  signatur- eller protokollvalidator.
+- **Guava 33.7.2-jre** (Apache-2.0) låses uttryckligen i dependency management
+  för att förena Yubicos och Sweden Connects beroendegrafer. Ingen
+  dependency-convergence-kontroll har stängts av. Även `failureaccess` 1.0.3
+  och `j2objc-annotations` 3.1 uppdateras. Jackson CBOR/JDK8 2.21.7 är
+  Apache-2.0 och följer den redan låsta Jackson-BOM:en.
+- Yubicos graf inför **CBOR 5.0.0-alpha2**, Numbers **1.8.2** och
+  DataUtilities **1.1.0**, utan lokala ändringar. CBOR:s POM anger Unlicense
+  men har en CC0-URL; upstream `LICENSE.md` innehåller Unlicense. Numbers
+  och DataUtilities anger public domain/CC0 i de publicerade versionernas
+  käll-JAR:er. CBOR:s och Numbers repositoryn var inte arkiverade, med
+  senaste push 2026-06-04 respektive 2026-04-20. DataUtilities var inte
+  arkiverat, senast pushat 2025-08-11; den äldre publicerade versionens
+  källhuvud användes för licenskontrollen. **CBOR-versionen är en
+  förhandsversion som väljs av Yubicos låsta parent**, inte en stabil
+  produktionskomponent som projektet har säkerhetsgodkänt. Detta är en
+  uttrycklig kvarstående beroendegranskningspunkt före produktion. Ingen
+  matchande Git-tagg hittades för just CBOR 5.0.0-alpha2; Maven-artefaktens
+  checksumma och publicerade käll-JAR används för versionsspårningen.
+- Den upplösta grafen är nu **177 JAR-artefakter**. Alla är versions-/SHA-256-låsta;
+  uppdaterad CycloneDX-SBOM och OSV-resultat finns i `prototype/evidence/`.
+  OSV gav **0 publicerade fynd** vid kontrollen 2026-10-19. Det är ingen
+  garanti om frånvaro av sårbarheter, och omfattar inte webbläsaren, JDK,
+  OS eller byggpluginernas hela graf.
+- HTML, CSS, JavaScript, service worker, SVG-ikon och applikationsintegration
+  är projektspecifik kod. Inga CDN-skript, frontendramverk, externa typsnitt,
+  analys-SDK:er eller appbutiks-SDK:er införs. Playwright används bara i test.
+
+Uppdateringsägare föreslås fortsatt vara Jtensetti, att bekräfta vid granskning.
+Egen projektlicens och oberoende granskning återstår. Den nya koden publiceras
+som källkod för granskning i en separat PR, utan produktionsdriftsättning.
+
 ## Kandidater och kontrollstatus
 
 | Kandidat | Nu känd licensuppgift | Kvar före eventuell införsel |

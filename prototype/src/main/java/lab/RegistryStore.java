@@ -9,7 +9,7 @@ import java.util.*;
 
 /** Single-process synthetic lab storage. SQLite supplies transactions, locking and backup. */
 final class RegistryStore implements AutoCloseable {
-  record Snapshot(Map<String, SyntheticRegistry.Entry> entries, Map<String, Long> versions) {}
+  record Snapshot(Map<String, SyntheticRegistry.Entry> entries, Map<String, Long> versions, Map<String, Passkey> passkeys) {}
   record Audit(long sequence, String time, String action, String credential) {}
   private final Path directory, database;
   private FileChannel lockChannel;
@@ -38,9 +38,13 @@ final class RegistryStore implements AutoCloseable {
       execute("PRAGMA journal_mode=WAL");
       execute("PRAGMA synchronous=FULL");
       if (initialize) initializeSchema();
+      int version;
       try (var s = connection.createStatement(); var r = s.executeQuery("PRAGMA user_version")) {
-        if (!r.next() || r.getInt(1) != 1) throw new IllegalStateException("Unsupported registry schema");
+        if (!r.next()) throw new IllegalStateException("Unsupported registry schema");
+        version = r.getInt(1);
       }
+      if (version == 1) migratePasskeys();
+      else if (version != 2) throw new IllegalStateException("Unsupported registry schema");
       try (var s = connection.createStatement(); var r = s.executeQuery("PRAGMA integrity_check")) {
         if (!r.next() || !r.getString(1).equals("ok")) throw new IllegalStateException("Registry integrity check failed");
       }
@@ -53,6 +57,15 @@ final class RegistryStore implements AutoCloseable {
     } catch (Exception e) {
       failed = true; close(); throw e;
     }
+  }
+  private void migratePasskeys() throws SQLException {
+    connection.setAutoCommit(false);
+    try {
+      execute("CREATE TABLE passkeys (credential TEXT PRIMARY KEY, credential_id TEXT UNIQUE NOT NULL, user_handle TEXT UNIQUE NOT NULL, public_key_cose TEXT NOT NULL, signature_count INTEGER NOT NULL CHECK(signature_count>=0), backup_eligible INTEGER NOT NULL CHECK(backup_eligible IN (0,1)), backed_up INTEGER NOT NULL CHECK(backed_up IN (0,1)))");
+      execute("PRAGMA user_version=2");
+      connection.commit();
+    } catch (SQLException e) { connection.rollback(); throw e; }
+    finally { connection.setAutoCommit(true); }
   }
 
   static void requirePrivateDirectory(Path directory) throws Exception {
@@ -82,6 +95,7 @@ final class RegistryStore implements AutoCloseable {
     try {
       Map<String, SyntheticRegistry.Entry> entries = new HashMap<>();
       Map<String, Long> versions = new HashMap<>();
+      Map<String, Passkey> passkeys = new HashMap<>();
       try (var s = connection.createStatement(); var r = s.executeQuery("SELECT * FROM credentials")) {
         while (r.next()) {
           var e = new SyntheticRegistry.Entry(r.getString("identity"), r.getString("credential"),
@@ -96,7 +110,15 @@ final class RegistryStore implements AutoCloseable {
           versions.put(r.getString("identity"), r.getLong("version"));
         }
       }
-      return new Snapshot(Map.copyOf(entries), Map.copyOf(versions));
+      try (var s = connection.createStatement(); var r = s.executeQuery("SELECT * FROM passkeys")) {
+        while (r.next()) {
+          String credential = r.getString("credential");
+          if (!entries.containsKey(credential)) throw new IllegalStateException("Orphaned passkey");
+          passkeys.put(credential, new Passkey(r.getString("credential_id"), r.getString("user_handle"),
+              r.getString("public_key_cose"), r.getLong("signature_count"), r.getBoolean("backup_eligible"), r.getBoolean("backed_up")));
+        }
+      }
+      return new Snapshot(Map.copyOf(entries), Map.copyOf(versions), Map.copyOf(passkeys));
     } catch (SQLException | IllegalArgumentException e) { throw unavailable(); }
   }
   void commit(Snapshot next, String action, String credential, Instant now) {
@@ -104,6 +126,7 @@ final class RegistryStore implements AutoCloseable {
     try {
       connection.setAutoCommit(false);
       execute("DELETE FROM credentials"); execute("DELETE FROM revocations");
+      execute("DELETE FROM passkeys");
       try (var p = connection.prepareStatement("INSERT INTO credentials VALUES (?,?,?,?,?)")) {
         for (var e : next.entries().values()) {
           p.setString(1, e.credential()); p.setString(2, e.identity()); p.setString(3, e.state().name());
@@ -117,6 +140,15 @@ final class RegistryStore implements AutoCloseable {
       }
       try (var p = connection.prepareStatement("INSERT INTO audit(time,action,credential) VALUES (?,?,?)")) {
         p.setString(1, now.toString()); p.setString(2, action); p.setString(3, credential); p.executeUpdate();
+      }
+      try (var p = connection.prepareStatement("INSERT INTO passkeys VALUES (?,?,?,?,?,?,?)")) {
+        for (var e : next.passkeys().entrySet()) {
+          Passkey k = e.getValue();
+          p.setString(1, e.getKey()); p.setString(2, k.credentialId()); p.setString(3, k.userHandle());
+          p.setString(4, k.publicKeyCose()); p.setLong(5, k.signatureCount());
+          p.setBoolean(6, k.backupEligible()); p.setBoolean(7, k.backedUp()); p.addBatch();
+        }
+        p.executeBatch();
       }
       connection.commit(); connection.setAutoCommit(true);
     } catch (SQLException e) {

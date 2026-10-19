@@ -1,4 +1,4 @@
 <!doctype html><html lang="sv" xmlns:th="http://www.thymeleaf.org"><head><meta charset="utf-8"><title>Lokal e-id-labb</title></head><body>
 <h1>Endast syntetiska testidentiteter</h1><p>Ingen verklig identitetskontroll. Inget Digg-godkännande.</p><p><a th:href="${sp}">Öppna den lokala testtjänsten</a></p>
 <form method="post" th:action="@{/lab/revoke}"><button>Spärra SYNTHETIC-alice i denna labbkörning</button></form>
-<p>Spärren är oåterkallelig under körningen. En omstart återställer hela den simulerade labben, inklusive spärrregistret.</p></body></html>
+<p>Spärren bevaras vid omstart. Använd en ny separat labbkatalog för en ny testomgång.</p></body></html>

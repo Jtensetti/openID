@@ -111,3 +111,10 @@ Ekonomin förutsätter en obekräftad ersättningsrätt; ensam kontroll över ut
 Att avbryta det egna utfärdarspåret behöver inte göra teknikspåret värdelöst. En separat, ärligt avgränsad produkt som testverktyg, integrationsstöd eller förvaltningskomponent kan vara ett annat affärsbeslut. Den får inte marknadsföras som samma sak som en godkänd e-legitimation.
 
 G2-fortsättningen inför beständig syntetisk livscykel, atomisk revisionslogg, backup/återläsning och offline-avstämning samt ett separat stängt driftpaket. Se [körinstruktioner](../prototype/README.md) och [driftpaketets status](../ops/README.md). P0-06 är delvis implementerat: inga verkliga underlag skickas och transport/kvittens/korrigering återstår. Ingen G2–G4-grind har accepterats.
+
+Nästa tekniska del är nu implementerad i labben: WebAuthn-registrering och
+inloggning med testnyckel samt webbklient/PWA utan obligatorisk appbutik.
+[Verifieringen](../prototype/evidence/web-verification.md) beskriver positiva
+och negativa prov, beständig nyckel/spärr och återstående enhets-/utgivningstest.
+Detta är teknisk evidens för ett alternativ, inte slutligt val av godkänd
+autentiseringsbärare eller accepterad G2-grind.

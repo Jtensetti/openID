@@ -1,8 +1,8 @@
 # openID – förstudie och isolerad e-id-prototyp
 
-**Status: lokal SAML-prototyp, beständig syntetisk labbdrift och stängt driftpaket. Inte en utfärdad eller godkänd e-legitimation.**
+**Status: lokal SAML-/WebAuthn-prototyp, webbklient, beständig syntetisk labbdrift och stängt driftpaket. Inte en utfärdad eller godkänd e-legitimation.**
 
-Körbar kod, automatiserade säkerhetstester och startinstruktioner finns i [prototype/](prototype/README.md). Labben använder Sweden Connect för ett signerat och krypterat SAML-flöde mellan två lokala HTTPS-adresser. Läs [faktiska verifieringsresultat och återstående hinder](prototype/evidence/verification.md).
+Körbar kod, automatiserade säkerhetstester och startinstruktioner finns i [prototype/](prototype/README.md). Labben använder Sweden Connect för ett signerat och krypterat SAML-flöde mellan två lokala HTTPS-adresser. Webbläget använder WebAuthn med passkey eller extern säkerhetsnyckel; webbklienten kräver ingen appbutik eller ett visst molnkonto. Identitetskontrollen är uttryckligen simulerad. Läs [faktiska verifieringsresultat och återstående hinder](prototype/evidence/web-verification.md).
 
 Målet är att undersöka en självständig svensk e-legitimation med öppen källkod, med tillitsnivå 3 som föreslaget första produktionsmål och möjlighet till anslutning till Diggs auktorisationssystem. Namnet är ett arbetsnamn, inte ett påstående om koppling till OpenID Foundation, Digg eller någon offentlig arbetsgivare.
 

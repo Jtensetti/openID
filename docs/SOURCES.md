@@ -118,6 +118,21 @@ https://docs.swedenconnect.se/technical-framework/latest/OpenID_Connect_Profile_
 
 OIDC-profilen ska läsas tillsammans med de kompletterande metadata-, attribut- och federationsspecifikationer som indexet hänvisar till. Samtliga detaljkrav är ännu inte mappade i projektet.
 
+### W01 – WebAuthn och den införda serverkomponenten
+
+Kontrollerat 2026-10-19:
+
+- [W3C WebAuthn Level 3](https://www.w3.org/TR/webauthn-3/): RP-ID,
+  ursprungsbindning, användarverifiering, backupflaggor och klientdata.
+  Specifikationen är en teknisk källa, inget e-id-godkännande.
+- [Yubico Java WebAuthn Server](https://developers.yubico.com/java-webauthn-server/):
+  registrerings-/autentiserings-API och credential repository.
+- [Release 2.10.1](https://github.com/Yubico/java-webauthn-server/releases/tag/2.10.1),
+  full commit `6c1b6cc19beae08cd6a310a40db1acee3673b98d`:
+  `COPYING`, `SECURITY.md`, `CollectedClientData`, `RelyingParty`,
+  registrerings-/assertionssteg och byggfiler lästa. Faktiska beroenden,
+  licensavvikelser och underhållskontroll redovisas i `THIRD_PARTY.md`.
+
 ## Kontrollerade GitHub-kandidater
 
 README har lästs helt eller i relevanta avsnitt. Detta är dokumentationsinventering, inte kodrevision, kompilering, sårbarhetskontroll eller drifttest. Blob-SHA identifierar den lästa README-filen, **inte** en release eller hela repots commit.

@@ -30,6 +30,57 @@ class PersistentRegistryTest {
       assertEquals("REVOKE", r.audit().getLast().action());
     }
   }
+  @Test void publicKeyAndSignatureCounterSurviveOrderlyRestart() throws Exception {
+    var authenticator = new TestAuthenticator(); var session = new org.springframework.mock.web.MockHttpSession();
+    Passkey saved;
+    try (var r = open()) {
+      var web = new lab.idp.WebAuthnService(r, authenticator.origin, Clock.systemUTC(), true);
+      web.finishRegistration(session, authenticator.registration(web.beginRegistration(session, ALICE, "acknowledged")));
+      web.finishAuthentication(session, "flow", authenticator.assertion(web.beginAuthentication(session, ALICE, "flow"), 1));
+      saved = r.passkeys().get(ALICE);
+    }
+    try (var r = open()) {
+      assertEquals(saved, r.passkeys().get(ALICE));
+      var web = new lab.idp.WebAuthnService(r, authenticator.origin, Clock.systemUTC(), true);
+      assertEquals(ALICE, web.finishAuthentication(session, "flow", authenticator.assertion(web.beginAuthentication(session, ALICE, "flow"), 2)));
+      assertEquals(2, r.passkeys().get(ALICE).signatureCount());
+    }
+  }
+  @Test void schemaOneMigratesWithoutLosingRevocations() throws Exception {
+    try (var r = open()) { r.revoke(ALICE); }
+    try (var c = sql(); var s = c.createStatement()) { s.execute("DROP TABLE passkeys"); s.execute("PRAGMA user_version=1"); }
+    try (var r = open(); var c = sql(); var s = c.createStatement()) {
+      assertTrue(r.passkeys().isEmpty()); assertThrows(IllegalStateException.class, () -> r.authorize(ALICE));
+      try (var rows = s.executeQuery("PRAGMA user_version")) { assertTrue(rows.next()); assertEquals(2, rows.getInt(1)); }
+    }
+  }
+  @Test void enrollmentAndAuditCommitAtomically() throws Exception {
+    var authenticator = new TestAuthenticator(); var session = new org.springframework.mock.web.MockHttpSession();
+    try (var r = open(); var c = sql(); var s = c.createStatement()) {
+      var web = new lab.idp.WebAuthnService(r, authenticator.origin, Clock.systemUTC(), true);
+      String response = authenticator.registration(web.beginRegistration(session, ALICE, "acknowledged"));
+      s.execute("CREATE TRIGGER inject_audit_failure BEFORE INSERT ON audit BEGIN SELECT RAISE(ABORT, 'injected'); END");
+      assertThrows(lab.idp.WebAuthnService.Rejected.class, () -> web.finishRegistration(session, response));
+      assertFalse(r.ready());
+      try (var rows = s.executeQuery("SELECT COUNT(*) FROM passkeys")) { assertTrue(rows.next()); assertEquals(0, rows.getInt(1)); }
+      s.execute("DROP TRIGGER inject_audit_failure");
+    }
+  }
+  @Test void restoringAnOldPublicKeyBackupNeverRestoresItsUsability() throws Exception {
+    var authenticator = new TestAuthenticator(); var session = new org.springframework.mock.web.MockHttpSession();
+    Path backup = state.resolve("keys-backup.sqlite"), restored = temporary.resolve("restored-key");
+    try (var r = open()) {
+      var web = new lab.idp.WebAuthnService(r, authenticator.origin, Clock.systemUTC(), true);
+      web.finishRegistration(session, authenticator.registration(web.beginRegistration(session, ALICE, "acknowledged")));
+      r.backup(backup); r.revoke(ALICE);
+    }
+    SyntheticRegistry.restore(backup, restored);
+    try (var r = SyntheticRegistry.open(restored, Clock.systemUTC())) {
+      assertTrue(r.passkeys().containsKey(ALICE));
+      var web = new lab.idp.WebAuthnService(r, authenticator.origin, Clock.systemUTC(), true);
+      assertThrows(IllegalStateException.class, () -> web.beginAuthentication(session, ALICE, "flow"));
+    }
+  }
   @Test void orderlyRestartKeepsExistingValidityAndDoesNotExtendLifetime() throws Exception {
     Instant expires;
     try (var r = open()) { expires = r.authorize(ALICE).expires(); }
@@ -53,7 +104,7 @@ class PersistentRegistryTest {
     try (var r = open()) { assertThrows(IllegalStateException.class, () -> r.authorize(ALICE)); }
   }
   @Test void incompatibleSchemaAndCorruptionFailClosed() throws Exception {
-    try (var c = sql(); var s = c.createStatement()) { s.execute("PRAGMA user_version=2"); }
+    try (var c = sql(); var s = c.createStatement()) { s.execute("PRAGMA user_version=99"); }
     assertThrows(IllegalStateException.class, this::open);
     Files.writeString(state.resolve("registry.sqlite"), "corrupt");
     assertThrows(Exception.class, this::open);
@@ -142,7 +193,7 @@ class PersistentRegistryTest {
     }
     assertThrows(IllegalArgumentException.class, () -> SyntheticRegistry.restore(backup, restored));
   }
-  @Test void backupDoesNotOverwriteAndDoesNotContainKeys() throws Exception {
+  @Test void backupDoesNotOverwriteAndContainsOnlyRegistryAndPublicKeys() throws Exception {
     Path backup = state.resolve("backup.sqlite");
     try (var r = open()) {
       r.backup(backup);
@@ -151,7 +202,7 @@ class PersistentRegistryTest {
     try (var c = DriverManager.getConnection("jdbc:sqlite:" + backup); var s = c.createStatement();
         var rows = s.executeQuery("SELECT name FROM sqlite_master WHERE type='table'")) {
       var names = new java.util.HashSet<String>(); while (rows.next()) names.add(rows.getString(1));
-      assertEquals(java.util.Set.of("configuration", "credentials", "revocations", "audit", "outcomes", "sqlite_sequence"), names);
+      assertEquals(java.util.Set.of("configuration", "credentials", "revocations", "audit", "outcomes", "sqlite_sequence", "passkeys"), names);
     }
   }
 }

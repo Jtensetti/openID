@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="sv" xmlns:th="http://www.thymeleaf.org"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Godkänn testinloggning · openID</title>
+  <link rel="stylesheet" href="/wallet/wallet.css"><script src="/wallet/wallet.js" defer></script>
+</head><body><main>
+  <p class="eyebrow">openID / testinloggning</p><h1>Logga in med din testnyckel.</h1>
+  <p class="notice">Identitetskontrollen är simulerad. WebAuthn kontrollerar nyckeln; labben intygar ingen verklig identitet eller Digg-godkänd tillitsnivå.</p>
+  <section><h2>Lokal syntetisk testtjänst</h2><p>Åtgärd: inloggning.</p>
+    <p>Verifierad motpart: <code th:text="${requester}"></code></p>
+    <form id="authentication" method="post" th:action="@{/lab/webauthn/finish}">
+      <input type="hidden" name="authnId" th:value="${authnId}"><input type="hidden" name="response" value="">
+      <label>Testidentitet <select name="credential"><option value="TEST-CREDENTIAL-alice">SYNTHETIC-alice</option><option value="TEST-CREDENTIAL-revoked">SYNTHETIC-revoked (spärrad)</option><option value="TEST-CREDENTIAL-expired">SYNTHETIC-expired (utgången)</option></select></label>
+      <button type="submit">Godkänn med testnyckel</button>
+    </form>
+    <form method="post" th:action="@{/lab}"><input type="hidden" name="authnId" th:value="${authnId}"><button class="secondary" name="action" value="cancel">Avbryt</button></form>
+    <p>Begäran gäller i 60 sekunder. Registrera först din testnyckel i <a href="/wallet/">testplånboken</a> och starta sedan en ny inloggning.</p>
+  </section><p id="status" role="status" aria-live="polite"></p>
+  <noscript>JavaScript och WebAuthn krävs. Ingen alternativ simulerad godkännandeknapp är tillgänglig i detta flöde.</noscript>
+</main></body></html>

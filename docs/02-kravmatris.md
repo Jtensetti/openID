@@ -10,6 +10,11 @@ G1-labbens begränsade implementation och testkopplingar för FED-01/02, SEC-01/
 
 Beständig lagring, återläsning och offline-avstämning för delar av ID-06/08/10, OPS-07, FIN-01/02 och INT-03 har nu körbar evidens i [G2-rapporten](../prototype/evidence/g2-verification.md). Det stängda driftpaketet uppfyller inte OPS-01/02 eller en produktionsgrind.
 
+WebAuthn-testnycklar och webbklient utan obligatorisk appbutik har ytterligare
+avgränsad evidens för ID-06/07/08/09/10, FED-01/02 och SEC-01/03 i
+[webbverifieringen](../prototype/evidence/web-verification.md). Identitetskontroll
+är simulerad, enheterna i browserproven virtuella och kravstatus fortsatt OPEN.
+
 Tillåtna statusvärden: `OPEN`, `DESIGNED`, `IMPLEMENTED`, `INDEPENDENTLY_TESTED`, `ACCEPTED`, `NOT_APPLICABLE_WITH_REASON`.
 
 `ACCEPTED` ska alltid ange vem som accepterat vad och med vilket mandat. Intern acceptans, ett passerat test och Diggs formella beslut är olika saker. Rollnamnen nedan är föreslagna funktioner; ingen person är ännu utsedd. Externa specialister kan bidra men får inte vara en osynlig ansvarslucka.
