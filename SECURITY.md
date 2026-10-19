@@ -34,7 +34,7 @@ Skilj utveckling, extern testanslutning och produktion åt med separata nycklar,
 
 Följ grindarna i `docs/05-genomforande.md`. Minst följande ska ha verkliga bevis och ansvariga: utgivningskontroll, befogenhetsseparation, säker nyckelhantering, spärr och återställning, protokollvalidering, dataskydd, incidenthantering, kontinuitet, oberoende tester samt nödvändiga formella beslut och avtal.
 
-Branschskydd, CODEOWNERS, CI-kontroller och privat rapportering ska kontrolleras i GitHubs faktiska inställningar. Förekomsten av den här filen betyder inte att sådana skydd är aktiverade. En kodagent får inte godkänna sin egen produktionsrelease.
+Skydd av grenar (branch protection), CODEOWNERS, CI-kontroller och privat rapportering ska kontrolleras i GitHubs faktiska inställningar. Förekomsten av den här filen betyder inte att sådana skydd är aktiverade. En kodagent får inte godkänna sin egen produktionsrelease.
 
 ## Arkitektur och beroenden
 
