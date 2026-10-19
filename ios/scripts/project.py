@@ -34,7 +34,7 @@ for key,name in sets.items():
         settings='IPHONEOS_DEPLOYMENT_TARGET = 16.0; SDKROOT = iphoneos; SWIFT_VERSION = 5.0; CLANG_ENABLE_MODULES = YES; CODE_SIGN_STYLE = Automatic; TARGETED_DEVICE_FAMILY = 1; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; '
         settings+=f'PRODUCT_BUNDLE_IDENTIFIER = se.openid.{name}; PRODUCT_NAME = "$(TARGET_NAME)"; '
         settings+='LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks"; '
-        if config=='Debug':settings+='SWIFT_OPTIMIZATION_LEVEL = "-Onone"; SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG; ENABLE_TESTABILITY = YES; DEBUG_INFORMATION_FORMAT = dwarf; '
+        if config=='Debug':settings+='SWIFT_OPTIMIZATION_LEVEL = "-Onone"; SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG; ENABLE_TESTABILITY = YES; DEBUG_INFORMATION_FORMAT = dwarf; ONLY_ACTIVE_ARCH = YES; '
         else:settings+='SWIFT_OPTIMIZATION_LEVEL = "-O"; DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym"; '
         if key=='app':settings+='INFOPLIST_FILE = PassportCapture/Info.plist; CODE_SIGN_ENTITLEMENTS = PassportCapture/PassportCapture.entitlements; '
         else:settings+='GENERATE_INFOPLIST_FILE = YES; '
