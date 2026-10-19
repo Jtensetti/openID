@@ -18,10 +18,14 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
-        with:
-          distribution: temurin
-          java-version: '21.0.12.1+1'
+      - name: Install exact Temurin JDK with verified archive checksum
+        shell: bash
+        run: |
+          curl --fail --location --retry 3 'https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jdk_x64_linux_hotspot_21.0.12.1_1.tar.gz' --output "$RUNNER_TEMP/lab-jdk.tar.gz"
+          printf '%s  %s\n' 'ce79869e1307ed8ee1e2baa86a412b1eb5b75d10a01006d788a6f968bcfaee94' "$RUNNER_TEMP/lab-jdk.tar.gz" | sha256sum --check --strict
+          tar --extract --gzip --file "$RUNNER_TEMP/lab-jdk.tar.gz" --directory "$RUNNER_TEMP"
+          printf 'JAVA_HOME=%s\n' "$RUNNER_TEMP/jdk-21.0.12.1+1" >> "$GITHUB_ENV"
+          printf '%s\n' "$RUNNER_TEMP/jdk-21.0.12.1+1/bin" >> "$GITHUB_PATH"
       - name: Compile, real HTTPS flows, adversarial SAML and lifecycle tests
         run: ./mvnw -B -ntp clean verify dependency:list -DoutputAbsoluteArtifactFilename=true -DoutputFile=target/dependencies.txt
       - name: Verify resolved versions and SHA-256 checksums

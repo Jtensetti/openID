@@ -25,7 +25,7 @@ Miljö: Linux, Temurin **21.0.12.1+1**, Maven **3.9.11**, Python **3.12**, Node 
 | `npm audit --json` | 0 rapporterade sårbarheter i det låsta testverktygets npm-graf vid kontrolltillfället; `npm-audit.json`. Chromium/systembibliotek omfattas inte. |
 | OSV `POST /v1/querybatch` | **170** slutliga Maven-koordinater kontrollerade, **0 träffar vid kontrolltillfället**. Resultat i `osv.json`; inget intyg om sårbarhetsfrihet. |
 
-GitHub Actions konfigureras med `contents: read`, inga hemligheter eller produktionssteg, och SHA-låsta checkout/setup-java/setup-node. CI-resultat ska läsas för PR:ns aktuella commit; lokal verifiering är inte ett påstående om en avslutad Actions-körning. Ingen release, merge eller extern testanslutning har gjorts.
+GitHub Actions konfigureras med `contents: read`, inga hemligheter eller produktionssteg, SHA-låsta checkout/setup-node samt exakt Temurin-arkiv med verifierad SHA-256. Första CI-körningen stoppade före testerna eftersom setup-java 4.7.1 inte accepterade JDK-versionens fyrdelade versionsnummer; installationen ändrades till det exakta officiella arkiv som användes lokalt. CI-resultat ska läsas för PR:ns aktuella commit; lokal verifiering är inte ett påstående om en avslutad Actions-körning. Ingen release, merge eller extern testanslutning har gjorts.
 
 ## Testkopplingar och negativa fall
 
