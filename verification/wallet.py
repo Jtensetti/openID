@@ -161,6 +161,25 @@ class Wallet:
             return {'state': 'AUTHENTICATED', 'subject': credential['subject'],
                 'audience': 'openid-local-demo', 'assurance': 'PRIVATE_PILOT', 'requestId': request}
 
+    def cancel_request(self, request, secret):
+        """Only the RP holding this request's secret can cancel an unconsumed login."""
+        identifier(request)
+        if not isinstance(secret, str) or not 32 <= len(secret) <= 64: raise ValueError('secret')
+        with self.transaction() as db:
+            row = db.execute('SELECT * FROM requests WHERE id=?', (request,)).fetchone()
+            if row is None or not secrets.compare_digest(row['secret_hash'], hashlib.sha256(secret.encode()).hexdigest()):
+                raise ValueError('RP binding')
+            changed = db.execute("UPDATE requests SET state='CANCELLED' WHERE id=? AND state IN ('PENDING','APPROVED')", (request,)).rowcount
+            if changed: self.event(db, row['credential'], 'CANCELLED', request)
+
+    def check_session(self, ident, subject):
+        """Every protected RP read checks current credential state, including after approval."""
+        with self.transaction() as db:
+            row = self.active(db, ident)
+            if not isinstance(subject, str) or not secrets.compare_digest(row['subject'], subject):
+                raise ValueError('subject binding')
+            return row['expires']
+
     def challenge(self, request):
         if not isinstance(request, dict) or set(request) != {'credentialId', 'action', 'requestId'}: raise ValueError('fields')
         ident, action, req = identifier(request['credentialId']), request['action'], request['requestId']
