@@ -50,6 +50,7 @@ class ClusterTests(unittest.TestCase):
             'maintenance':['rewrap/openid-profile','hmac/openid-index/sha2-256'],
         }.items():
             policy='\n'.join('path "transit/'+p+'" { capabilities = ["update"] }' for p in paths)
+            if role=='maintenance':policy+='\npath "transit/keys/openid-profile" { capabilities = ["read"] }'
             cls.bao_request('sys/policies/acl/'+role, {'policy':policy})
             response=cls.bao_request('auth/token/create', {'policies':[role], 'no_default_policy':True, 'ttl':'1h'})
             path=cls.root/(role+'.token'); path.write_text(response['auth']['client_token']); path.chmod(0o600)
@@ -223,6 +224,90 @@ class ClusterTests(unittest.TestCase):
         self.sql('revoker','SELECT revoke_all_after_restore()')
         with self.assertRaises(ValueError):self.b.execute(signed)
         self.assertEqual('REVOKED',self.b.execute(self.signed())['state'])
+
+    def test_retention_and_rotation_maintenance_is_bounded_and_repeatable(self):
+        from maintenance import maintain
+        maintenance=self.store('maintenance')
+        self.bao_request('transit/keys/openid-profile/rotate',{})
+        result=maintain(maintenance,profile_days=7,event_days=30,batch=1)
+        self.assertEqual(1,result['rewrapped'])
+        self.assertEqual(0,maintain(maintenance,profile_days=7,event_days=30)['rewrapped'])
+        self.activate()
+        with self.psycopg.connect(DSN) as db:
+            db.execute('UPDATE openid.credentials SET expires=%s',(int(time.time())-8*86400,))
+        maintain(maintenance,profile_days=7,event_days=30)
+        with self.a.transaction() as db:
+            self.assertEqual(0,db.execute('SELECT count(*) FROM profiles').fetchone()[0])
+            self.assertEqual(1,db.execute('SELECT count(*) FROM credentials').fetchone()[0])
+        with self.assertRaises(ValueError):self.enroller.enroll(self.keys[0]['publicKey'],document())
+
+    def test_four_tls_workers_share_state_and_survive_instance_loss(self):
+        import socket,ssl,sys
+        self.activate()
+        directory=Path(tempfile.mkdtemp(dir=self.root))
+        cert,key=directory/'cert.pem',directory/'key.pem'
+        subprocess.run(['openssl','req','-x509','-newkey','rsa:2048','-nodes','-days','1','-subj','/CN=localhost',
+            '-addext','subjectAltName=DNS:localhost','-keyout',str(key),'-out',str(cert)],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        context=ssl.create_default_context(cafile=str(cert));processes=[];ports=[];logs=[]
+        self.addCleanup(lambda:[p.kill() for p in processes if p.poll() is None])
+        for index in range(2):
+            with socket.socket() as sock:sock.bind(('127.0.0.1',0));ports.append(sock.getsockname()[1])
+            for name,value in [('dsn',self.dsns['wallet']),('pairing','x'*43),('metrics','y'*43)]:
+                path=directory/name;path.write_text(value);path.chmod(0o600)
+            config={'bind':'127.0.0.1','port':ports[-1],'origin':self.a.origin,'workers':2,'role':'wallet',
+                'databaseFile':str(directory/'dsn'),'baoAddress':self.address,'baoTokenFile':str(self.token_files['wallet']),
+                'baoCA':str(cert),'tlsCert':str(cert),'tlsKey':str(key),'pairingFile':str(directory/'pairing'),'metricsFile':str(directory/'metrics')}
+            path=directory/(str(index)+'.json');path.write_text(json.dumps(config))
+            log=open(directory/(str(index)+'.log'),'w+');logs.append(log);self.addCleanup(log.close)
+            process=subprocess.Popen([sys.executable,'-c',
+                'import json,sys;from cluster_serve import run;run(json.load(open(sys.argv[1])),local_test=True)',str(path)],stdout=log,stderr=log)
+            processes.append(process)
+        headers={'Host':'localhost:8765','Origin':self.a.origin,'X-CSRF-Token':'x'*43,'Content-Type':'application/json'}
+        def request(index,path,body=None,extra=None):
+            c=http.client.HTTPSConnection('localhost',ports[index],context=context,timeout=10)
+            try:
+                c.request('POST' if body is not None else 'GET',path,json.dumps(body) if body is not None else None,headers|(extra or {}))
+                r=c.getresponse();return r.status,json.loads(r.read())
+            finally:c.close()
+        for index in range(2):
+            for _ in range(100):
+                if processes[index].poll() is not None:
+                    logs[index].seek(0);raise AssertionError(logs[index].read())
+                try:
+                    if request(index,'/health/ready')[0]==200:break
+                except OSError:pass
+                time.sleep(.1)
+            else:raise AssertionError('TLS service did not become ready')
+        self.assertEqual(404,request(0,'/native/start',{})[0])
+        self.assertEqual(403,request(0,'/metrics')[0])
+        self.assertEqual(200,request(0,'/metrics',extra={'Authorization':'Bearer '+'y'*43})[0])
+        code,c=request(0,'/wallet/challenge',{'credentialId':self.ident,'action':'snapshot','requestId':None});self.assertEqual(200,code)
+        signed={'challengeId':c['id'],'signature':crypt(op='sign',key=self.keys[0]['privateKey'],payload=c['signingInput'])}
+        processes[0].terminate();self.assertEqual(0,processes[0].wait(timeout=65))
+        self.assertEqual(200,request(1,'/wallet/execute',signed)[0])
+        self.assertEqual(400,request(1,'/wallet/execute',signed)[0])
+        def operation(_):
+            start=time.monotonic()
+            code,c=request(1,'/wallet/challenge',{'credentialId':self.ident,'action':'snapshot','requestId':None})
+            if code!=200:return code,time.monotonic()-start
+            signed={'challengeId':c['id'],'signature':crypt(op='sign',key=self.keys[0]['privateKey'],payload=c['signingInput'])}
+            code,result=request(1,'/wallet/execute',signed)
+            if code==200:self.assertEqual('ALICE SYNTHETIC',result['identity']['displayName'])
+            return code,time.monotonic()-start
+        started=time.monotonic()
+        with ThreadPoolExecutor(max_workers=8) as pool:results=list(pool.map(operation,range(80)))
+        self.assertEqual({200},{code for code,_ in results})
+        duration=time.monotonic()-started
+        report={'operations':80,'concurrency':8,'workers':2,'instancesRemaining':1,'errors':0,
+            'operationsPerSecond':round(80/duration,2),'p95Seconds':round(sorted(t for _,t in results)[75],3)}
+        print(json.dumps(report))
+        if os.environ.get('OPENID_TEST_REPORT'):Path(os.environ['OPENID_TEST_REPORT']).write_text(json.dumps(report,indent=2)+'\n')
+        self.sql('revoker','SELECT revoke_credential(%s)',(self.ident,))
+        self.assertEqual('REVOKED',self.b.execute(self.signed())['state'])
+        processes[1].terminate();self.assertEqual(0,processes[1].wait(timeout=65))
+        for log in logs:
+            log.seek(0);output=log.read()
+            for secret in (self.ident,'ALICE','x'*43,'y'*43,self.token):self.assertNotIn(secret,output)
 
     def test_disconnected_database_fails_closed_and_recovers(self):
         from postgres import RegistryUnavailable

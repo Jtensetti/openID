@@ -103,25 +103,8 @@ def open_wallet(database, origin):
     return wallet
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=Path, required=True)
-    parser.add_argument('--check', action='store_true')
-    args = parser.parse_args()
-    config = load_config(args.config)
-    # Reject overrides which could split in-memory NFC sessions across workers.
-    if os.environ.get('GUNICORN_CMD_ARGS'): raise ValueError('GUNICORN_CMD_ARGS is not supported')
-    subprocess.run([sys.executable, str(ROOT/'biometric_worker.py'), '--check'],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=60)
-    lease = Lease(config['database'])
-    wallet = open_wallet(config['database'], config['origin'])
-    if args.check:
-        lease.close()
-        print('Configuration, models and database checked. Physical iPhone verification is separate.')
-        return
-    from gunicorn.app.base import BaseApplication
+def bounded_worker():
     from gunicorn.workers.gthread import ThreadWorker
-
     class Worker(ThreadWorker):
         header_timer = threading.local()
 
@@ -145,6 +128,29 @@ def main():
         def handle_exit(self, sig, frame):
             if hasattr(self.wsgi, 'drain'): self.wsgi.drain()
             super().handle_exit(sig, frame)
+
+    return Worker
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', type=Path, required=True)
+    parser.add_argument('--check', action='store_true')
+    args = parser.parse_args()
+    config = load_config(args.config)
+    # Reject overrides which could split in-memory NFC sessions across workers.
+    if os.environ.get('GUNICORN_CMD_ARGS'): raise ValueError('GUNICORN_CMD_ARGS is not supported')
+    subprocess.run([sys.executable, str(ROOT/'biometric_worker.py'), '--check'],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=60)
+    lease = Lease(config['database'])
+    wallet = open_wallet(config['database'], config['origin'])
+    if args.check:
+        lease.close()
+        print('Configuration, models and database checked. Physical iPhone verification is separate.')
+        return
+    from gunicorn.app.base import BaseApplication
+
+    Worker = bounded_worker()
 
     class Application(BaseApplication):
         def load_config(self):
@@ -185,7 +191,8 @@ def main():
 def close_worker(server, worker):
     app = getattr(worker, 'wsgi', None)
     if app is not None:
-        app.native.close()
+        if app.native is not None: app.native.close()
+        if hasattr(app.wallet, 'close'): app.wallet.close()
         if hasattr(app, 'crypto'): app.crypto.close()
 
 

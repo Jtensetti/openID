@@ -57,11 +57,15 @@ class RateLimit:
 
 
 class Runtime:
-    def __init__(self, native, wallet, origin, pairing, body_timeout=15):
+    def __init__(self, native, wallet, origin, pairing, body_timeout=15, metrics_token=None, role='combined'):
         self.authority = validate_origin(origin).netloc
         if not isinstance(pairing, str) or len(pairing) < 43 or not pairing.isascii():
             raise ValueError('Pairing secret must contain at least 43 ASCII characters')
         self.native, self.wallet, self.origin, self.pairing = native, wallet, origin, pairing
+        if role not in ('combined', 'wallet', 'proofing'): raise ValueError('runtime role')
+        if metrics_token is not None and (len(metrics_token) < 43 or not metrics_token.isascii() or metrics_token == pairing):
+            raise ValueError('Separate metrics credential required')
+        self.metrics_token, self.role = metrics_token, role
         self.body_timeout = body_timeout
         self.native_slots = threading.BoundedSemaphore(1)
         self.wallet_slots = threading.BoundedSemaphore(8)
@@ -71,6 +75,7 @@ class Runtime:
         self.counters = Counter()
         self.metrics_lock = threading.Lock()
         self.started = time.monotonic()
+        self.latency = Counter()
 
     def drain(self):
         self.draining.set()
@@ -97,7 +102,7 @@ class Runtime:
         try:
             self.wallet.health()
             return True
-        except (OSError, ValueError, sqlite3.Error):
+        except (OSError, ValueError, RuntimeError, sqlite3.Error):
             return False
 
     def __call__(self, environ, start_response):
@@ -113,6 +118,9 @@ class Runtime:
             status, result = 503, {'error': 'UNAVAILABLE'}
         with self.metrics_lock:
             self.counters[(route, status)] += 1
+            elapsed = time.monotonic()-started
+            for boundary in (0.1, 0.5, 1, 5, 15, 60):
+                if elapsed <= boundary: self.latency[(route, boundary)] += 1
         data = json.dumps(result, allow_nan=False, separators=(',', ':')).encode()
         headers = [('Content-Type', 'application/json'), ('Content-Length', str(len(data))),
             ('Cache-Control', 'no-store'), ('X-Content-Type-Options', 'nosniff'),
@@ -133,16 +141,21 @@ class Runtime:
             return 200, {'status': 'LIVE'}
         if method == 'GET' and path == '/health/ready':
             return (200, {'status': 'READY'}) if self.ready() else (503, {'status': 'NOT_READY'})
+        if method == 'GET' and path == '/metrics' and self.metrics_token is not None:
+            token = env.get('HTTP_AUTHORIZATION', '')
+            if not token.isascii() or not secrets.compare_digest(token, 'Bearer '+self.metrics_token):
+                return 403, {'error': 'DENIED'}
+            return self.metrics()
         token = env.get('HTTP_X_CSRF_TOKEN', '')
         if not isinstance(token, str) or not token.isascii() or not secrets.compare_digest(token, self.pairing):
             return 403, {'error': 'DENIED'}
         if method == 'GET' and path == '/metrics':
-            with self.metrics_lock:
-                rows = [{'route': r, 'status': s, 'count': n} for (r, s), n in self.counters.items()]
-            return 200, {'uptimeSeconds': int(time.monotonic()-self.started), 'requests': rows}
+            return self.metrics()
         if method != 'POST': return 405, {'error': 'METHOD'}
         if env.get('HTTP_ORIGIN') != self.origin: return 403, {'error': 'DENIED'}
         if path not in NATIVE_ROUTES and path not in WALLET_ROUTES: return 404, {'error': 'NOT_FOUND'}
+        if (self.role == 'wallet' and path in NATIVE_ROUTES) or (self.role == 'proofing' and path in WALLET_ROUTES):
+            return 404, {'error': 'NOT_FOUND'}
         if self.draining.is_set(): return 503, {'error': 'DRAINING'}
         client = env.get('REMOTE_ADDR', 'unknown')
         if not self.rate.allow(client): return 429, {'error': 'RATE_LIMIT'}
@@ -174,3 +187,9 @@ class Runtime:
             return 503, {'error': 'UNAVAILABLE'}
         finally:
             slots.release()
+
+    def metrics(self):
+        with self.metrics_lock:
+            rows = [{'route': r, 'status': s, 'count': n} for (r, s), n in self.counters.items()]
+            latency = [{'route': r, 'seconds': b, 'count': n} for (r, b), n in self.latency.items()]
+        return 200, {'uptimeSeconds': int(time.monotonic()-self.started), 'requests': rows, 'latencyBuckets': latency}

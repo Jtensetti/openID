@@ -18,7 +18,7 @@ jobs:
           POSTGRES_PASSWORD: disposable-ci-password
           POSTGRES_DB: openid_test
         ports: ['5432:5432']
-        options: --health-cmd pg_isready --health-interval 5s --health-timeout 3s --health-retries 10
+        options: --health-cmd "pg_isready -U postgres -d openid_test" --health-interval 5s --health-timeout 3s --health-retries 10
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -29,7 +29,7 @@ jobs:
       - name: Install locked dependencies and key service
         run: |
           python3.12 -m venv verification/.venv
-          verification/.venv/bin/pip install --require-hashes --only-binary=:all: -r verification/cluster-requirements.lock -r verification/runtime-requirements.lock
+          verification/.venv/bin/pip install --require-hashes --only-binary=:all: -r verification/cluster-requirements.lock -r verification/runtime-requirements.lock -r verification/rp-requirements.lock
           sed -n '/^numpy==/p; /^opencv-python-headless==/p' verification/requirements.lock > "$RUNNER_TEMP/image-requirements.lock"
           verification/.venv/bin/pip install --require-hashes --only-binary=:all: -r "$RUNNER_TEMP/image-requirements.lock"
           curl --fail --location --retry 3 'https://github.com/openbao/openbao/releases/download/v2.7.1/openbao_2.7.1_linux_amd64.tar.gz' --output "$RUNNER_TEMP/bao.tar.gz"
@@ -41,4 +41,10 @@ jobs:
         env:
           OPENID_TEST_POSTGRES: 'host=127.0.0.1 port=5432 dbname=openid_test user=postgres password=disposable-ci-password'
           OPENID_TEST_BAO: '${{ runner.temp }}/bao/bao'
+          OPENID_TEST_REPORT: '${{ runner.temp }}/cluster-capacity.json'
         run: .venv/bin/python test_cluster.py -v
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cluster-capacity
+          path: '${{ runner.temp }}/cluster-capacity.json'
+          retention-days: 14
