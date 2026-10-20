@@ -61,6 +61,6 @@ jobs:
           export PROOFING_FIXTURES=/tmp/openid-proofing-fixtures
           export PROOFING_JAVA="$JAVA_HOME/bin/java"
           export PROOFING_PYTHON="$PWD/.venv/bin/python"
-          .venv/bin/python -m unittest -v test_verification test_native
+          .venv/bin/python -m unittest -v test_verification test_native test_wallet
           node --test test-attest.mjs
           node browser-test.cjs

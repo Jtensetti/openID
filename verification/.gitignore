@@ -10,3 +10,6 @@ __pycache__/
 *.jpeg
 *.png
 *.jp2
+*.sqlite*
+*.db*
+private/

@@ -33,9 +33,9 @@ Instruktionerna är projektspecifika originaltexter. De är inte officiella Digg
 
 ## Nuvarande avgränsning
 
-Repot innehåller nu en avgränsad lokal prototyp, dokumentation och arbetsmetodik. Prototypens konkreta beroendeval, attribution och licensunderlag finns i `THIRD_PARTY.md`; övriga komponenter i förstudien är fortsatt kandidater. Ingen mobilapp har implementerats. Ett separat [driftpaket](ops/README.md) är driftsatt i Render och verifierat över HTTPS som en stängd produktionsgrund. Det innehåller ingen e-id-funktion; autentiseringsprototypen körs fortsatt lokalt. [Aktuell teknisk evidens](prototype/evidence/g2-verification.md) skiljer körda tester från återstående kriterier.
+Repot innehåller en lokal prototyp samt en [sammanhållen iPhone-app](ios/README.md) för passregistrering, enhetsautentisering och spärr i en privat pilot. Prototypens konkreta beroendeval, attribution och licensunderlag finns i `THIRD_PARTY.md`; övriga komponenter i förstudien är fortsatt kandidater. Ett separat [driftpaket](ops/README.md) är driftsatt i Render och verifierat över HTTPS som en stängd produktionsgrund. Det innehåller ingen e-id-funktion; autentiseringsprototypen körs fortsatt lokalt. [Aktuell teknisk evidens](prototype/evidence/g2-verification.md) skiljer körda tester från återstående kriterier.
 
-All prototyputveckling ska använda syntetiska identiteter och isolerade testnycklar. Inga verkliga personuppgifter, ID-handlingar, produktionsnycklar eller ersättningsanspråk hör hemma här. Ingen AI-komponent ska besluta vem en person är eller om en inloggning/underskrift ska godkännas.
+Automatiserade tester och CI använder genererade testidentiteter och isolerade testnycklar. Verkliga pass får endast användas i användarens uttryckligen valda privata testmiljö. Inga verkliga personuppgifter, ID-handlingar, produktionsnycklar eller ersättningsanspråk hör hemma i repot. Ingen AI-komponent ensam beslutar vem en person är eller aktiverar ett ID; ingen generativ modell ingår i säkerhetsbesluten.
 
 Se [SECURITY.md](SECURITY.md) och [THIRD_PARTY.md](THIRD_PARTY.md). Finansiering, organisation, driftansvar och projektlicens behöver beslutas innan ett produktionsspår öppnas.
 

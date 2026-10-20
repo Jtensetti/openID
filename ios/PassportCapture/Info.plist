@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDisplayName</key>
-	<string>openID Capture</string>
+	<string>openID</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -13,7 +13,7 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.1.0</string>
+	<string>0.2.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
 	<key>NFCReaderUsageDescription</key>
@@ -35,6 +35,19 @@
 	<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
 	<array>
 		<string>A0000002471001</string>
+	</array>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Öppna ditt ID och bekräfta dina val med Face ID.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>se.openid.request</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>openid</string>
+			</array>
+		</dict>
 	</array>
 </dict>
 </plist>
