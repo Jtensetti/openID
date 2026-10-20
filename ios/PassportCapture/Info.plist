@@ -17,9 +17,9 @@
 	<key>CFBundleVersion</key>
 	<string>1</string>
 	<key>NFCReaderUsageDescription</key>
-	<string>Läs passets signerade uppgifter och utför chipautentisering.</string>
+	<string>Läs uppgifterna i ditt pass och kontrollera att chipet är äkta.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Ta tre färska bilder för ansiktsjämförelse och liveness mot ditt pass.</string>
+	<string>Ta tre bilder för att jämföra ditt ansikte med passfotot och kontrollera att du är framför kameran.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Anslut till din verifieringsserver på ditt privata nätverk.</string>
 	<key>UILaunchScreen</key>

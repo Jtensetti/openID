@@ -27,7 +27,7 @@ npm ci --ignore-scripts
 Öppna `http://localhost:8765`. Välj ursprungliga EF.SOD, DG1 och DG2 från en
 NFC-läsare och öppna kameran. Servern extraherar referensporträttet ur
 signerad DG2. Filer och kamerabild behandlas i minnet utan externa anrop.
-Kameran stängs efter fångst, när sidan döljs eller när den stängs manuellt.
+Kameran stängs när bilden har tagits, när sidan döljs eller när den stängs manuellt.
 Detta analysgränssnitt registrerar ingen nyckel.
 
 ## Appens privata pilotregister
@@ -113,7 +113,7 @@ nyckeln separat för piloten. Standardgiltigheten är 24 timmar, högst 72.
 .venv/bin/python wallet_cli.py --db /privat/openid-pilot/wallet.sqlite activate CREDENTIAL_ID --decision REVIEW-private-001 --private-pilot-only
 ```
 
-`CREDENTIAL_ID` är registreringsreferensen i appens Inställningar eller
+`CREDENTIAL_ID` är registrerings-ID:t i appens Inställningar eller
 `pending`-utskriften. Använd en beslutsreferens utan personuppgifter.
 
 Prova inloggningen i [webbgränssnittet](#logga-in-i-testtjänsten-via-webbläsaren)
@@ -158,7 +158,7 @@ Betro det genererade `tls.crt` i datorns testwebbläsare. Öppna
 **https://localhost:8444**, välj **Logga in med openID**, skanna QR-koden i
 appen och kontrollera tjänst, uppgifter och kod. Efter godkännandet visar
 kontotjänsten ditt namn, passfoto och födelsedatum från MRZ. Du behöver inte
-klistra in någon registreringsreferens.
+klistra in något registrerings-ID.
 
 MRZ använder tvåsiffrigt årtal. Sekel, ålder och svenskt personnummer
 härleds inte. Namnet följer passets MRZ-translitterering.
@@ -199,7 +199,7 @@ cd verification
 ```
 
 Öppna **http://localhost:8766** i datorns webbläsare. Klistra in appens
-registreringsreferens och välj **Logga in med openID**. I appen: välj
+registrerings-ID och välj **Logga in med openID**. I appen: välj
 **Legitimera → Skanna en QR-kod**, kontrollera tjänst och kod och godkänn.
 Webbsidan visar pilotsubjektet. Avbryt stoppar även godkännanden som ännu
 inte konsumerats; Logga ut avslutar sessionen.

@@ -1,6 +1,6 @@
 # Testning
 
-## Senast verifierad appintegration
+## Daterat verifieringsresultat
 
 Revision `246118bbd3dc754ad075852037248a011c4510ab`, 2026-10-20:
 
@@ -19,21 +19,21 @@ Tabellen är ett daterat resultat för revisionen ovan.
 | Pass | Bouncy Castle/JMRTD/JCA mot genererad CSCA, DSC, SOD, MRZ och bild. Fel signatur, hash, ankare, datum och format nekas. | Ingen myndighetsutfärdad testhandling eller certifikatspärrtjänst. |
 | Chip | Serverstyrd PACE, CA och färsk skyddad läsning mot ett mjukvaruchip. Kopierad data utan chipnyckel, återspelning, fel MAC och fel dokument nekas. Även CLI-transport och processgränser provas. | Testpeer använder JMRTD/JCA; det ersätter inte fysisk NFC eller oberoende protokollprovning. |
 | Bildmodeller | Låsta OpenCV- och MiniFASNet-vikter, modellinferens och felhantering. | Ingen mätning av biometrisk träffsäkerhet eller attackmotstånd. |
-| Fångstguidning | XCTest för huvudpositioner, kvalitet, tidskontinuitet, stabilitet och negativa mätvärden. XCUITest för ringens status och instruktioner. | Testade observationer är fixturer. Vision-inferens, fysisk kamera och tillgänglighet behöver enhetsprov; detta är inget liveness-test. |
+| Kameraguide | XCTest för huvudpositioner, kvalitet, tidskontinuitet, stabilitet och negativa mätvärden. XCUITest för ringens status och instruktioner. | Testade observationer är fixturer. Vision-inferens, fysisk kamera och tillgänglighet behöver enhetsprov; detta är inget liveness-test. |
 | App Attest | Verifiering av signatur, appbindning, räknare och ändrade bytes. | Ingen fysisk Apple-attestering i CI. |
-| Register | Verklig SQLite, AES-GCM och ECDSA; samtidighet, spärr, ersättning och krypteringsfel. | Samma OS-konto; ingen HSM eller produktionsrestore. |
+| Register | Verklig SQLite, AES-GCM och ECDSA; samtidighet, spärr, ersättning och krypteringsfel. | Samma OS-konto; ingen HSM eller återställning i produktion. |
 | SAML/webbläsare | Separata verifierar-, IdP- och SP-processer, signerade/krypterade meddelanden och Chromium. | Chiptransport, kamera, App Attest och biometriska poäng är testdubblar i helkedjefixturen. |
-| WebAuthn | Riktig browser-API och Yubico-validering med virtuella USB-/plattformsautentiserare. | Inga fysiska nycklar eller OS-installationsprov. |
+| WebAuthn | Webbläsarens WebAuthn-API och Yubico-validering med virtuella USB-/plattformsautentiserare. | Inga fysiska nycklar eller OS-installationsprov. |
 | iOS | Bygge, signerade bytes, tillstånd och SwiftUI i simulator. | NFC, Secure Enclave, Face ID och App Attest måste provas på telefon. |
 | Drift | Hälsoroutes och stängda e-id-routes över HTTP samt containerisolering i CI. | Containern innehåller ingen e-id-tjänst. |
 
 ## Negativa säkerhetsfall
 
 - Fel signatur, mottagare, ursprung, session eller signerad avsikt.
-- Återspelning, dubbla godkännanden och konkurrerande konsumtion.
+- Återspelning, dubbla godkännanden och samtidiga försök att använda samma begäran.
 - Nekande, avbrott, utgång och spärr före och efter inloggning.
-- Ersatt enhetsnyckel, registeravbrott och stale sessionsvärden.
-- Manipulerad profil, utbytt ciphertext och saknad/fel krypteringsnyckel.
+- Ersatt enhetsnyckel, registeravbrott och inaktuella sessionsvärden.
+- Manipulerad profil, utbytta krypterade data och saknad/fel krypteringsnyckel.
 - Klientangivna identitetsfält, NaN/oändliga modellvärden och felaktiga meddelanden.
 - CSRF, annan webbläsare, externa callbacks, proxyhuvuden och överstora anrop.
 
@@ -53,5 +53,5 @@ får inte innehålla verkliga handlingar, bilder, tokens eller privata nycklar.
 [SAML](../prototype/evidence/verification.md),
 [beständig lagring](../prototype/evidence/g2-verification.md) och
 [WebAuthn](../prototype/evidence/web-verification.md) dokumenterar tidigare
-revisioner. Deras testantal och scope gäller respektive daterade körning.
+revisioner. Deras testantal och omfattning gäller respektive daterade körning.
 Maskinläsbara rapporter bevaras för spårbarhet.

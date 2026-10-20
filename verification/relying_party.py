@@ -235,7 +235,7 @@ def handler(rp, port):
                 else: result_sid, result = rp.poll(sid, csrf[0])
                 return self.respond(200, result, sid=result_sid if result_sid != sid else None)
             except (ValueError, TypeError, CookieError, OSError, sqlite3.Error):
-                return self.respond(400, {'error': 'Inloggningen kunde inte slutföras. Kontrollera registreringsreferens och aktuell status i appen.'})
+                return self.respond(400, {'error': 'Inloggningen kunde inte slutföras. Kontrollera registrerings-ID och aktuell status i appen.'})
     return Handler
 
 

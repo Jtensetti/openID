@@ -91,10 +91,10 @@ import NFCPassportReader
                       registeredCredential["state"] as? String == "PENDING_REVIEW" else { throw FlowError.rejected }
                 phase = 3; completed = true
                 status = "Registreringen väntar på aktivering."
-            } catch is CancellationError { status = "Avbrutet." }
+            } catch is CancellationError { status = "Registreringen avbröts." }
             catch CaptureCamera.CaptureError.denied { status = "Tillåt kameraåtkomst i Inställningar och försök igen." }
-            catch CaptureCamera.CaptureError.timeout { status = "Kamerakontrollen tog för lång tid. Välj en plats med bra ljus och försök igen." }
-            catch { status = "Verifieringen kunde inte slutföras. Kontrollera anslutning, passuppgifter och kamerabehörighet och börja om." }
+            catch CaptureCamera.CaptureError.timeout { status = "Kamerakontrollen tog för lång tid. Välj en väl upplyst plats och försök igen." }
+            catch { status = "Verifieringen kunde inte slutföras. Kontrollera internetanslutningen, passuppgifterna och appens åtkomst till kameran. Försök sedan igen." }
         }
     }
     func cancel() { task?.cancel(); chipRelay.cancel(); camera.stop(); clearDocument(); configuration = nil; credential = nil }

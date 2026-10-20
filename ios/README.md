@@ -18,7 +18,8 @@ open ios/PassportCapture.xcodeproj
    Aktivera **NFC Tag Reading** och **App Attest** i App ID/provisioneringsprofilen.
    Standard-ID är `se.openid.PassportCapture`. Samma team och bundle-ID ska
    anges på servern.
-3. Starta servern enligt [instruktionerna](../verification/README.md#appens-privata-pilotregister).
+3. Starta servern enligt
+[instruktionerna](../verification/README.md#appens-privata-pilotregister).
    Telefonen måste nå HTTPS-adressen och lita på certifikatet. För en privat
    test-CA behöver dess rot installeras och betros på telefonen.
 4. Kör appen, välj **Öppna openID** och därefter **Anslut till servern**.
@@ -30,7 +31,8 @@ open ios/PassportCapture.xcodeproj
    respektive bild har tagits. NFC-kontrollen kräver kontakt med servern hela tiden.
 6. Uppdatera **Mitt ID**. Registreringen väntar på ett separat
    [aktiveringsbeslut](../verification/README.md#aktivera-och-prova-inloggning).
-   Prova sedan [QR-inloggningen](../verification/README.md#saml-inloggning-med-passets-identitet).
+   Prova sedan
+   [QR-inloggningen](../verification/README.md#saml-inloggning-med-passets-identitet).
 
 App Attest-entitlement är `development`; använd serverflaggan
 `--development-attestation` för detta bygge. Installation från Xcode kräver
@@ -51,24 +53,26 @@ ingår inte i byggkonfigurationen.
 Förlorad telefon spärras av operatören. Ny telefon kräver ny registrering
 och aktivering. Aktivering för samma pass spärrar den äldre nyckeln.
 
-## Kamerafångst
+## Fotografering
 
-Vision kontrollerar ett ansikte, placering, storlek, huvudvinkel och bildkvalitet
+Vision kontrollerar att ett enda ansikte syns samt dess placering, storlek, huvudvinkel
+och bildkvalitet
 på telefonen. Första bilden tas framifrån. Användaren väljer sedan sida; sista
 bilden kräver motsatt huvudvridning. Förhandsvisningen är speglad, skickade
-bilder är ospeglade och stående. Ovalen visar fångstförloppet.
+bilder är ospeglade och stående. Ringen runt ovalen visar hur långt fotograferingen har kommit.
 
 Varje position kräver minst 0,65 sekunders stabilitet och sex observationer.
-Avbrott över 0,3 sekunder nollställer pågående hålltid. Fångsten avslutas efter
+Avbrott över 0,3 sekunder nollställer tiden för den aktuella positionen. Fotograferingen
+avbryts efter
 45 sekunder, vid avbrott eller kamerafel. Bilderna lämnar inte kameraflödet
 förrän alla tre har tagits; ingen partiell serie skickas.
 
-Rakt fram tillåter högst 8 graders vridning; sidobilder cirka 15–34 grader.
+Bilden framifrån tillåter högst 8 graders vridning; sidobilder cirka 15–34 grader.
 Pitch/roll begränsas till cirka 13 grader. Visions kvalitetsvärde ska vara
-minst 0,25. Detta är startvärden för fångstguidning och behöver provas på
+minst 0,25. Detta är startvärden för kameraguiden och behöver provas på
 fysiska enheter, inklusive sidobilder, glasögon och olika ljusförhållanden.
 
-Ringen visar bildfångst, inte verifierad identitet eller liveness. Servern
+Ringen visar fotograferingens förlopp, inte verifierad identitet eller liveness. Servern
 kontrollerar fortfarande App Attest, bildunikhet, ansiktsjämförelse och PAD
 för alla tre bilderna. Den verifierar inte huvudrörelsernas förlopp. Skydd mot
 film, deepfake och kamerainjektion behöver separat utvärdering.
@@ -125,6 +129,7 @@ Den fysiska integrationen återstår att prova på en signerad iPhone-installati
 ## Kvar att verifiera
 
 Biometrisk/PAD-kalibrering, modellrättigheter, certifikatspärr, registerkontroll
-och oberoende granskning återstår; se [verifierarens begränsningar](../verification/README.md#begränsningar).
+och oberoende granskning återstår; se [verifierarens
+begränsningar](../verification/README.md#begränsningar).
 Appen utfärdar ingen godkänd e-legitimation. Myndighetsanslutning,
 dokumentunderskrift och pushnotiser ingår inte.
