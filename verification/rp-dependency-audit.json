@@ -1,0 +1,7 @@
+{
+  "date": "2026-10-19",
+  "source": "https://api.osv.dev/v1/query",
+  "query": {"package": {"name": "qrcode", "ecosystem": "PyPI"}, "version": "8.2"},
+  "response": {},
+  "scope": "Only the new QR dependency; not a complete security audit"
+}

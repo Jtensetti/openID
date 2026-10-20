@@ -92,3 +92,35 @@ för simulatorbild och XCTest-resultat utan persondata, med 14 dagars
 retention. Workflowbehörigheter är fortsatt `contents: read`; inga Apple-
 eller produktionsnycklar läggs i CI. Projektgeneratorn är egen Pythonkod
 utan externa beroenden. Projektlicensen är fortsatt obeslutad.
+
+## QR för lokal testmotpart, 2026-10-19
+
+`qrcode` **8.2** används endast för servergenererade SVG-koder. Officiellt
+repository: [lincolnloop/python-qrcode](https://github.com/lincolnloop/python-qrcode/tree/3704f57a1107dbf553a50f5b531da3859abe19cf).
+Tagg `v8.2` pekar via annoterad tagg på commit
+`3704f57a1107dbf553a50f5b531da3859abe19cf`. Repositoryt var inte arkiverat,
+senaste push 2026-03-25. [PyPI-versionen](https://pypi.org/project/qrcode/8.2/)
+publicerades 2025-05-01 och var inte återkallad vid kontrollen. Detta ger
+spårbarhet, inte ett löfte om säkerhet eller framtida underhåll.
+
+Det installerade rena Python-hjulets SHA-256 är
+`16e64e0716c14960108e85d853062c9e8bba5ca8252c0b4d0231b9df4060ff4f`,
+låst i `rp-requirements.lock`. Inga extras väljs: SVG kräver varken Pillow
+eller pypng. Inga transitiva runtimeberoenden installeras på målplattformen
+Linux/Python 3.12. Windows-villkoret för colorama omfattas inte av vårt lås
+eller plattformsstöd.
+
+Upstreams [LICENSE](https://github.com/lincolnloop/python-qrcode/blob/3704f57a1107dbf553a50f5b531da3859abe19cf/LICENSE)
+är BSD-3-Clause med ursprunglig MIT-attribution till Kazuhiko Arase.
+Fullständig licenstext/attribution bevaras i `licenses/qrcode-LICENSE` och
+i paketet. Ingen bibliotekskod modifieras. GitHubs automatiska
+licensklassificering var NOASSERTION; bedömningen ovan utgår från filen.
+
+OSV-frågan för exakt version gav inga publicerade fynd 2026-10-19, sparat i
+`rp-dependency-audit.json`; PyPI rapporterade också en tom sårbarhetslista.
+Det är ingen fullständig säkerhetsrevision. `rp-sbom.cdx.json` förtecknar
+detta enda tillkommande paket, inte hela verifierarens befintliga graf.
+Uppdateringsägare föreslås vara Jtensetti, att bekräfta vid granskning.
+CI-behörigheter och tidigare låst Playwright är oförändrade. Befintliga
+Sweden Connect-komponenter i SAML-labben påverkas inte; QR är en lokal
+valmekanism för appens signerade begäran och inget nytt federationsprotokoll.

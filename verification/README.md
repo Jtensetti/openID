@@ -19,6 +19,7 @@ cd prototype
 cd ../verification
 python3.12 -m venv .venv
 .venv/bin/pip install --require-hashes --only-binary=:all: -r requirements.lock
+.venv/bin/pip install --require-hashes --only-binary=:all: -r rp-requirements.lock
 npm ci --ignore-scripts
 .venv/bin/python download_models.py
 .venv/bin/python server.py --csca /privat/sokvag/trusted-csca.pem
@@ -106,9 +107,10 @@ cd ../verification
 export PROOFING_FIXTURES=/tmp/openid-proofing-fixtures
 export PROOFING_JAVA="$JAVA_HOME/bin/java"
 export PROOFING_PYTHON="$PWD/.venv/bin/python"
-.venv/bin/python -m unittest -v test_verification test_native
+.venv/bin/python -m unittest -v test_verification test_native test_wallet test_relying_party
 node --test test-attest.mjs
 node browser-test.cjs
+node rp-browser-test.cjs
 ```
 
 Webbläsartestet använder den tidigare låsta Playwright-installationen i
@@ -223,3 +225,83 @@ Nya tester körs med `.venv/bin/python -m unittest -v test_wallet` och ingår
 i CI. Nycklar för dessa tester genereras vid körning; inga verkliga pass
 eller privata enhetsnycklar används. Testerna inkluderar verkliga signaturer,
 HTTP-gränser, motparts-/handlingsbyte, replay, samtidighet och spärr.
+
+## Logga in i testtjänsten via webbläsaren
+
+Starta verifieraren med `--wallet-db` enligt ovan och aktivera pilotnyckeln
+efter separat operatörsbeslut. Öppna en andra terminal på **samma dator**,
+med samma operativsystemskonto och samma databasfil:
+
+```sh
+cd verification
+.venv/bin/pip install --require-hashes --only-binary=:all: -r rp-requirements.lock
+.venv/bin/python relying_party.py --db /privat/openid-pilot/wallet.sqlite
+```
+
+Öppna **http://localhost:8766** i datorns webbläsare. Kopiera appens
+registreringsreferens från Inställningar, klistra in den och välj **Logga in
+med openID**. I telefonen: **Legitimera → Skanna en QR-kod**, kontrollera tjänst
+och kontrollkod, godkänn med enhetsnyckeln. Webbsidan visar därefter det lokala
+pilotsubjektet. **Logga ut** avslutar webbsessionen. **Avbryt inloggningen**
+stoppar även ett godkännande som ännu inte hämtats av testtjänsten.
+
+Webbläsaren körs på datorn som har databasen; telefonen använder fortfarande
+verifierarens privata HTTPS-adress på port 8765. Testtjänsten binder enbart
+`127.0.0.1` och accepterar exakt `Host: localhost:8766` (eller vald `--port`).
+Använd alltså `localhost`, inte IP-adressen i webbläsaren. Den här processen
+är en lokal testmotpart med Python HTTPServer, **inte** en publik server eller
+en Render-installation. Ingen nätverksproxy eller tunnel konfigureras.
+
+### Sessions- och förtroendegränser
+
+QR-koden innehåller endast `openid://request/REQUEST_ID`. RP-hemligheten
+som kan konsumera resultatet stannar i serverprocessens minne. Webbsessionen
+och CSRF-token byts vid lyckad inloggning; det gamla paret kan inte användas
+igen. Inga namn, passnummer eller bilder lämnas till testtjänsten. Den
+får samma slumpmässiga lokala pilotsubjekt för denna nyckel, inte en civil
+identitet eller ett federerat SAML/OIDC-intyg.
+
+| Tillstånd | Tillåten övergång och kontroll |
+|---|---|
+| READY | Rätt webbsession, CSRF och aktiv pilotnyckel får starta PENDING. |
+| PENDING | Signerat appgodkännande + serverns RP-hemlighet konsumerar begäran en gång och byter session till AUTHENTICATED. |
+| PENDING | Avbrott, nekat val, spärr eller 120 sekunders utgång stoppar konsumtion. |
+| AUTHENTICATED | Varje `/poll` läser aktuell credential och subjektbindning i SQLite. Spärr/utgång/databasfel ger inget autentiserat svar. |
+| Alla | Utloggning och högst 10 minuters absolut sessionslivstid tar bort sessionen. Omstart tappar alla webbsessioner. |
+
+Webbsidan hämtar väntande begäran varje sekund och aktiv sessionsstatus
+varannan sekund. Visningen kan därför ligga efter en spärr med pollintervallet
+och nätverksfördröjningen; nästa serverkontroll nekar direkt. Nätverksfel,
+dold flik och sidbyte tar bort framgångsvyn. Återkomst hämtar status på nytt.
+Giltighetstiden begränsas även av nyckelns utgångstid. Vid timeout tas vyn
+bort lokalt. Inga andra skyddade verksamhetsoperationer finns i testtjänsten.
+
+Cookies är HttpOnly/SameSite=Strict. `Secure` används inte på denna avgränsade
+loopback-HTTP-tjänst. Exakt Origin, Host och CSRF krävs för POST; korsande
+Fetch Metadata, proxyhuvuden, dubbla JSON-fält, dubbla säkerhetshuvuden,
+godtycklig callback och administrativa routes nekas. Svar är `no-store`,
+CSP begränsar innehåll till den egna tjänsten, inga CDN:er används. Högst
+64 sessioner hålls i minnet; begäranden och kroppsstorlekar begränsas.
+Operativsystemets betrodda lokala konto förblir en förtroendegräns.
+
+### Verifierat i denna etapp
+
+`test_relying_party` innehåller 20 tester av riktiga SQLite-transaktioner,
+Node/OpenSSL-signaturer och HTTP. De omfattar fel session/CSRF, annan
+webbläsare, fel RP-hemlighet, återspelning, samtidig konsumtion, nekande,
+utloggning före/efter godkännande, spärr efter inloggning, utgång, omstart,
+databasfel och HTTP-gränser. Hela verifierarsviten har 61 Python-tester.
+
+`rp-browser-test.cjs` kör Chromium mot den riktiga lokala HTTP-tjänsten.
+Det avkodar den renderade QR-bilden med OpenCV, jämför appens kontrollkod,
+signerar godkännanden med en tillfällig Node/OpenSSL-nyckel och provar
+cookiesbyte, annan webbläsare, utloggning, nekande, avbrott, spärr,
+nätverksavbrott/återanslutning, utgång, mobil layout och frånvaro av extern
+trafik/webblagring. `RP_SCREENSHOT=/absolut/sokvag/bild.png` sparar en riktig
+skärmbild. Fixturens kontrollkanal är enbart subprocessens stdin och den
+skapar alltid en ny temporär DB; inga testgodkännanderoutes finns i tjänsten.
+
+Testnyckeln ersätter telefonen i dessa automatiserade tester. De bevisar
+inte fysisk NFC, Secure Enclave, Face ID eller Apple App Attest på användarens
+iPhone. Berörda krav är ID-09/10, SEC-01/03, FED-02 och TEST-01; deras formella
+status ändras inte. Oberoende granskning och fysisk iPhone-verifiering återstår.
