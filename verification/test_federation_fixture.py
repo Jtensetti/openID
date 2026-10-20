@@ -8,6 +8,7 @@ import time
 from unittest.mock import Mock
 from federation import FederationServer
 from native import NativeSessions
+from test_chip_fixture import ChipFixture, capture_ready
 from server import verify_document
 from test_wallet import crypt
 from wallet import Wallet
@@ -19,10 +20,10 @@ def main():
     fixture = Path(os.environ['PROOFING_FIXTURES'])
     jar = Path(__file__).resolve().parent.parent/'prototype/target/isolated-eid-lab.jar'
     command = [os.environ['PROOFING_JAVA'], '-jar', str(jar), 'verify-passport', str(fixture/'csca.der')]
-    attest = Mock(); attest.check.side_effect = lambda op,**kw: {'publicKey':'test double'} if op == 'attestation' else {'signCount':1}
+    attest = Mock(); attest.check.side_effect = lambda op,**kw: {'publicKey':'test double'} if op == 'attestation' else {'signCount':kw['signCount']+1}
     matcher = Mock(); matcher.compare.return_value = 0.95; matcher.decode_face.return_value = ('image','face')
     pad = Mock(); pad.score.return_value = 0.95
-    native = NativeSessions(attest, lambda data:verify_document(command, data), matcher, pad, wallet=wallet)
+    native = NativeSessions(attest, lambda data:verify_document(command, data), matcher, pad, wallet=wallet, chip_factory=ChipFixture)
     key = ident = None
     print(json.dumps({'ready':True}), flush=True)
     try:
@@ -34,7 +35,8 @@ def main():
                     start = native.start(); capture = native.register({'id':start['id'], 'keyId':'fixture', 'attestation':'fixture'})
                     payload = {k:v for k,v in capture.items() if k != 'frameCount'}
                     payload.update({k:base64.b64encode((fixture/(k+'.bin')).read_bytes()).decode() for k in ('sod','dg1','dg2')})
-                    payload.update(chipAuthentication=True, frames=['YQ==','Yg==','Yw=='], devicePublicKey=key['publicKey'])
+                    payload.update(dg14='YQ==', devicePublicKey=key['publicKey'])
+                    payload = capture_ready(native, capture, payload)
                     result = native.finish({'id':start['id'], 'payload':base64.b64encode(json.dumps(payload).encode()).decode(), 'assertion':'fixture'})
                     ident = result['credential']['id']; wallet.activate(ident, 'TEST-federation-001')
                     result = {'credentialId':ident}

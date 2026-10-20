@@ -5,8 +5,8 @@ redovisas i repots [THIRD_PARTY.md](../THIRD_PARTY.md).
 
 | Komponent | Låsning och faktisk användning | Licens/underhåll |
 |---|---|---|
-| JMRTD | 0.8.9 från Maven Central; DG1/DG2/SOD-parsning. JAR SHA-256 `89959d0c8cb8cf7b93699b18d135675a7b8760489bddd924ee3174c447fa5409` | Källhuvud LGPL-2.1-or-later; release i Maven-metadata 2026-10-03. Fullständig passkontroll och trust management ingår inte i bibliotekets löfte. |
-| Scuba Smartcards | 0.0.21, transitivt från JMRTD, hash i Maven-låset | LGPL enligt POM. Ingen NFC-serveranslutning; modeller/format används av JMRTD. Förvaltnings-/SLA-garanti saknas. |
+| JMRTD | 0.8.9 från Maven Central; LDS-parsning, serverstyrd PACE/CA och Secure Messaging. JAR SHA-256 `89959d0c8cb8cf7b93699b18d135675a7b8760489bddd924ee3174c447fa5409` | Källhuvud LGPL-2.1-or-later; release i Maven-metadata 2026-10-03. Fullständig passkontroll och trust management ingår inte i bibliotekets löfte. |
+| Scuba Smartcards | 0.0.21, transitivt från JMRTD, hash i Maven-låset. APDU- och TLV-format samt `CardService` för serverns NFC-transport. | LGPL enligt POM. Förvaltnings-/SLA-garanti saknas. |
 | EJBCA cert-cvc | 1.4.13, transitivt från JMRTD, hash i Maven-låset | LGPL-2.1 enligt POM. Ingen modifiering. |
 | Bouncy Castle | Befintlig 1.86 | Befintlig MIT-liknande BC-licens. CMS och X.509, ingen egen signaturmotor. |
 | OpenCV Python | 4.13.0.92, exakt Linux-hjulhash i `requirements.lock` | Apache-2.0, med hjulens bevarade tredjepartslicenser. |
@@ -116,6 +116,21 @@ OSV-frågan för exakt version gav inga publicerade fynd 2026-10-19, sparat i
 Det är ingen fullständig säkerhetsrevision. `rp-sbom.cdx.json` förtecknar
 detta enda tillkommande paket, inte hela verifierarens befintliga graf.
 QR-koden identifierar den begäran som appen hämtar och godkänner.
+
+## Serverstyrd chipkontroll, 2026-10-20
+
+JMRTD **0.8.9** återanvänds utan versionsbyte eller modifiering. Maven Centrals
+metadata anger fortsatt 0.8.9 som release. Källartefaktens SHA-256 är
+`a3065ec0891c3cd8e57b8c39f9073bb003bd8f417439803aff8f676169ede908`.
+`PACEProtocol`, `EACCAProtocol`, `PassportService` och Secure Messaging lästes
+i denna källartefakt; licenshuvudena anger LGPL-2.1-or-later. Biblioteket
+sköter nyckelöverenskommelse, nyckelderivering, kryptering och MAC-kontroll.
+Den egna transporten begränsar och vidarebefordrar APDU-meddelanden.
+
+CoreNFC:s `NFCTagReaderSession` och `NFCISO7816Tag.sendCommand` används för
+transporten i iPhone. NFCPassportReader behålls oförändrad för första
+dokumentläsningen. Inga nya runtimeberoenden införs; Maven-/Swift-lås och
+SBOM gäller samma artefakter. Mjukvaruchippet finns enbart i Java-testkoden.
 
 ## Personprofil och SAML, 2026-10-20
 

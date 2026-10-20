@@ -2,6 +2,23 @@ import XCTest
 
 final class WalletUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
+    func testCaptureGuideInstructionsProgressAndCorrection() {
+        let app = XCUIApplication(); app.launchArguments = ["--capture-guide-preview"]; app.launch()
+        XCTAssertTrue(app.staticTexts["capture.instruction"].waitForExistence(timeout: 10))
+        XCTAssertEqual(app.staticTexts["capture.instruction"].label, "Titta rakt mot kameran")
+        XCTAssertEqual(app.otherElements["capture.ring"].value as? String, "0 av 3 bilder tagna")
+        app.buttons["capture.preview.next"].tap()
+        XCTAssertEqual(app.staticTexts["capture.instruction"].label, "Vrid huvudet lite åt sidan")
+        XCTAssertEqual(app.otherElements["capture.ring"].value as? String, "1 av 3 bilder tagna")
+        let image = XCTAttachment(screenshot: app.screenshot()); image.name = "openID-capture-guide"; image.lifetime = .keepAlways; add(image)
+        app.buttons["capture.preview.missing"].tap()
+        XCTAssertEqual(app.staticTexts["capture.hint"].label, "Placera ansiktet i ovalen")
+        XCTAssertEqual(app.otherElements["capture.ring"].value as? String, "1 av 3 bilder tagna")
+        app.buttons["capture.preview.next"].tap()
+        XCTAssertEqual(app.staticTexts["capture.instruction"].label, "Vrid åt andra hållet")
+        XCTAssertFalse(app.staticTexts["Verifierad"].exists)
+        XCTAssertFalse(app.buttons["Godkänn"].exists)
+    }
     func testHomeAndScreenshot() {
         let app = XCUIApplication(); app.launch()
         XCTAssertTrue(app.staticTexts["home.heading"].waitForExistence(timeout: 10))

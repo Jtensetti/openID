@@ -81,6 +81,7 @@ public final class Lab implements AutoCloseable {
   }
   public static void main(String[] args) throws Exception {
     if (args.length == 2 && args[0].equals("verify-passport")) { lab.proofing.PassportCommand.run(args[1]); return; }
+    if (args.length == 2 && args[0].equals("authenticate-chip")) { lab.proofing.ChipCommand.run(args[1]); return; }
     if (args.length == 2 && args[0].equals("phone-init")) { TestKeys.initialize(Path.of(args[1])); return; }
     if (args.length == 3 && Set.of("phone-idp", "phone-sp").contains(args[0])) {
       var bridge = new lab.phone.PhoneBridge(Path.of(args[2]), "https://localhost:8444/sp");

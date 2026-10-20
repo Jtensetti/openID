@@ -22,18 +22,27 @@ Versioner och licenser finns i [komponentregistret](../THIRD_PARTY.md).
 
 1. Appen skapar en P-256-nyckel i Secure Enclave. Keychain lagrar den omslutna
    nyckelrepresentationen med `WhenPasscodeSetThisDeviceOnly`.
-2. NFCPassportReader läser DG1, DG2, DG14 och SOD med PACE/BAC och
-   chipautentisering. AVFoundation tar tre kamerabilder.
-3. App Attest binder underlag och publik nyckel till en kortlivad serversession.
+2. NFCPassportReader läser DG1, DG2, DG14 och SOD med PACE/BAC.
+3. App Attest binder dokument och publik nyckel till en kortlivad serversession.
    Servern kontrollerar app-ID, certifikat, signatur, räknare och session.
 4. Passverifieraren kontrollerar SOD-signaturen, kedjan till operatörens CSCA
-   och DG1/DG2-hasharna innan personuppgifter eller porträtt används.
-5. YuNet/SFace jämför varje bild med passfotot. MiniFASNet beräknar PAD-värden.
+   och DG1/DG2/DG14-hasharna. JMRTD utför PACE och CA på servern genom en
+   andra CoreNFC-session i telefonen. Ny SELECT/READ av DG14 med verifierad
+   MAC bekräftar chipnyckeln; sessionsnycklar lämnar inte serverprocessen.
+5. Efter chipkontrollen får appen ett nytt engångsvärde och tar tre
+   AVFoundation-bilder. Vision vägleder fångsten framifrån och från båda sidor
+   med position, kvalitet och stabil hålltid. En ny App Attest-assertion binder bilderna till
+   sessionen. YuNet/SFace jämför dem med passfotot. MiniFASNet beräknar PAD-värden.
    Godkända kontroller skapar `PENDING_REVIEW`; operatören aktiverar separat.
+
+Kameraringen är lokal fångstguidning. Ingen klientrapporterad färg, vinkel
+eller liveness-flagga används i serverns beslut. Servern analyserar de tre
+bilderna men verifierar inte rörelseförloppet mellan dem.
 
 Face ID/Touch ID bekräftar senare nyckelanvändning på telefonen. Jämförelsen
 med passfotot sker på servern. App Attest styrker appinstans och signerade
-data, men inte kamerans fysiska ursprung eller ett oberoende chiptranskript.
+data, men inte kamerans fysiska ursprung. Chipkontrollen bevisar nyckelinnehav,
+inte närhet mellan pass och telefon; NFC-relä behöver prövas separat.
 
 ## Inloggning med SAML
 

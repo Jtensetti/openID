@@ -17,6 +17,7 @@ import NFCPassportReader
     let camera = CaptureCamera()
     private var task: Task<Void, Never>?
     private var reader: PassportReader?
+    private let chipRelay = PassportChipRelay()
 
     func prepare(configuration: ServerConfiguration, credential: LocalCredential) {
         self.configuration = configuration; self.credential = credential
@@ -31,6 +32,10 @@ import NFCPassportReader
             do {
                 guard let configuration, let credential else { throw FlowError.rejected }
                 let api = WalletAPI(configuration: configuration)
+                var activeChip: [String: Any]?
+                defer {
+                    if let activeChip { Task { _ = try? await api.postObject("/native/cancel", body: activeChip) } }
+                }
                 phase = 1
                 let key = try PassportAccessKey.encode(documentNumber: documentNumber, birth: birth, expiry: expiry)
                 let service = DCAppAttestService.shared
@@ -45,28 +50,40 @@ import NFCPassportReader
                 try Task.checkCancellation()
                 status = "Håll telefonen mot passet tills läsningen är klar."
                 let passportReader = PassportReader(); reader = passportReader
-                let passport = try await passportReader.readPassport(mrzKey: key, tags: [.DG1, .DG2, .DG14, .SOD], skipCA: false, skipPACE: false)
+                let passport = try await passportReader.readPassport(mrzKey: key, tags: [.DG1, .DG2, .DG14, .SOD], skipCA: true, skipPACE: false)
                 clearDocument()
                 try Task.checkCancellation()
-                guard passport.chipAuthenticationStatus == .success,
-                      let sod = passport.dataGroupsRead[.SOD]?.data,
+                guard let sod = passport.dataGroupsRead[.SOD]?.data,
                       let dg1 = passport.dataGroupsRead[.DG1]?.data,
-                      let dg2 = passport.dataGroupsRead[.DG2]?.data else { throw FlowError.rejected }
-                status = "Håll telefonen stilla. Tre bilder tas automatiskt."
+                      let dg2 = passport.dataGroupsRead[.DG2]?.data,
+                      let dg14 = passport.dataGroupsRead[.DG14]?.data else { throw FlowError.rejected }
+                let document: [String: Any] = ["id": id, "nonce": nonce, "sod": Data(sod).base64EncodedString(),
+                    "dg1": Data(dg1).base64EncodedString(), "dg2": Data(dg2).base64EncodedString(),
+                    "dg14": Data(dg14).base64EncodedString(), "devicePublicKey": credential.publicKey.base64EncodedString()]
+                let documentBytes = try JSONSerialization.data(withJSONObject: document, options: [.sortedKeys])
+                let documentAssertion = try await service.generateAssertion(keyID, clientDataHash: Data(SHA256.hash(data: documentBytes)))
+                status = "Kontrollerar passet…"
+                let chipStart = try await api.postObject("/native/chip/start", body: ["id": id,
+                    "payload": documentBytes.base64EncodedString(), "assertion": documentAssertion.base64EncodedString()])
+                guard let chipToken = chipStart["chipToken"] as? String else { throw FlowError.rejected }
+                activeChip = ["id": id, "chipToken": chipToken]
+                status = "Håll telefonen mot passet igen för säkerhetskontrollen."
+                let chipResult = try await chipRelay.authenticate(api: api, initial: chipStart)
+                guard let captureNonce = chipResult["nonce"] as? String else { throw FlowError.rejected }
+                status = ""
                 phase = 2
                 cameraVisible = true
                 let frames = try await camera.capture()
                 cameraVisible = false
                 try Task.checkCancellation()
-                let payload: [String: Any] = ["id": id, "nonce": nonce, "sod": Data(sod).base64EncodedString(),
-                    "dg1": Data(dg1).base64EncodedString(), "dg2": Data(dg2).base64EncodedString(),
-                    "chipAuthentication": true, "frames": frames.map { $0.base64EncodedString() },
-                    "devicePublicKey": credential.publicKey.base64EncodedString()]
+                let payload: [String: Any] = ["id": id, "nonce": captureNonce,
+                    "frames": frames.map { $0.base64EncodedString() }]
                 let bytes = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
                 let assertion = try await service.generateAssertion(keyID, clientDataHash: Data(SHA256.hash(data: bytes)))
                 try Task.checkCancellation()
                 status = "Kontrollerar pass och kamerabilder…"
                 let result = try await api.postObject("/native/finish", body: ["id": id,"payload":bytes.base64EncodedString(),"assertion":assertion.base64EncodedString()])
+                activeChip = nil
                 try Task.checkCancellation()
                 guard result["checksPassed"] as? Bool == true,
                       let registeredCredential = result["credential"] as? [String: Any],
@@ -75,10 +92,12 @@ import NFCPassportReader
                 phase = 3; completed = true
                 status = "Registreringen väntar på aktivering."
             } catch is CancellationError { status = "Avbrutet." }
+            catch CaptureCamera.CaptureError.denied { status = "Tillåt kameraåtkomst i Inställningar och försök igen." }
+            catch CaptureCamera.CaptureError.timeout { status = "Kamerakontrollen tog för lång tid. Välj en plats med bra ljus och försök igen." }
             catch { status = "Verifieringen kunde inte slutföras. Kontrollera anslutning, passuppgifter och kamerabehörighet och börja om." }
         }
     }
-    func cancel() { task?.cancel(); camera.stop(); clearDocument(); configuration = nil; credential = nil }
+    func cancel() { task?.cancel(); chipRelay.cancel(); camera.stop(); clearDocument(); configuration = nil; credential = nil }
     private func clearDocument() { documentNumber = ""; birth = ""; expiry = "" }
     enum FlowError: Error { case rejected }
 }
