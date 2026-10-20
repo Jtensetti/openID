@@ -32,6 +32,8 @@ public class IdpApplication {
       http.csrf(AbstractHttpConfigurer::disable);
       http.csrf(csrf -> csrf.ignoringRequestMatchers("/saml2/post/authn"));
       configurer.authnFlowMaxAge(java.time.Duration.ofSeconds(phone ? 120 : 60));
+      if (phone) configurer.protocol(se.swedenconnect.spring.authnserver.saml.config.Saml2IdpConfigurer.class,
+          saml -> saml.attributeMapping(lab.phone.PhoneAttributes.mapping()));
     };
   }
   @Bean @Order(2)

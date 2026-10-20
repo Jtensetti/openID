@@ -23,15 +23,13 @@ public final class PhoneProvider extends AbstractUserRedirectAuthenticationProvi
   }
   @Override public String getName() { return "PASSPORT-DEVICE"; }
   @Override public List<String> getSupportedAuthnContextUris() { return List.of(PhoneIdentity.CONTEXT); }
-  @Override public List<String> getSupportedAttributes() { return PhoneIdentity.ATTRIBUTES; }
+  @Override public List<String> getSupportedAttributes() { return PhoneAttributes.supported(); }
   @Override public boolean supportsUserAuthenticationToken(Authentication token) { return token instanceof Approval; }
   @Override protected UserAuthentication createUserAuthentication(ResumedAuthenticationToken token) throws AuthenticationErrorException {
     try {
       var approval = (Approval)token.getAuthnToken();
       var identity = bridge.consume(approval.pending);
-      var attributes = new ArrayList<GenericAttribute<?>>();
-      identity.attributes().forEach((name, value) -> attributes.add(GenericAttribute.of(name, value)));
-      return new UserAuthentication(new AuthenticatedUser(attributes, PhoneIdentity.SUBJECT, PhoneIdentity.CONTEXT, Instant.now(), "127.0.0.1"));
+      return new UserAuthentication(new AuthenticatedUser(PhoneAttributes.values(identity), PhoneIdentity.SUBJECT, PhoneIdentity.CONTEXT, Instant.now(), "127.0.0.1"));
     } catch (IllegalArgumentException | IllegalStateException e) {
       throw new AuthenticationErrorException(AuthenticationError.AUTHN_FAILED, "Device approval unavailable");
     }

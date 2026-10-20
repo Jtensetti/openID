@@ -127,6 +127,7 @@ const https = require('node:https');
     assert.equal((await context.request.get('https://localhost:8444/health/ready')).status(),503);
     for (const endpoint of ['/lab','/wallet/','/lab/revoke']) assert.notEqual((await context.request.get('https://localhost:8443'+endpoint)).status(),200);
     assert.deepEqual(errors,[]); assert.deepEqual(external,[]);
+    assert.ok(!logs.includes('ALICE') && !logs.includes('900101'), 'Identity fields leaked to service logs');
     await outsider.close();
     console.log('PASS: replacement, revocation and registry outage stop existing sessions; simulated provider unavailable');
   } catch (error) {

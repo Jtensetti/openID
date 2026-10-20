@@ -2,6 +2,7 @@ package lab;
 
 import java.util.*;
 import lab.phone.PhoneIdentity;
+import lab.phone.PhoneAttributes;
 import org.junit.jupiter.api.Test;
 import se.swedenconnect.opensaml.saml2.attribute.AttributeBuilder;
 import static org.junit.jupiter.api.Assertions.*;
@@ -29,5 +30,14 @@ class PhoneIdentityTest {
   @Test void identityToStringDoesNotExposePersonData() {
     String message = identity().toString();
     assertFalse(message.contains("ALICE")); assertFalse(message.contains("900101"));
+  }
+  @Test void providerAndRequestedAttributesSurviveSwedenConnectMapping() {
+    var mapping = PhoneAttributes.mapping();
+    var requested = mapping.toGeneric(PhoneIdentity.ATTRIBUTES.stream()
+        .map(name -> se.swedenconnect.spring.authnserver.saml.attributes.SamlRequestedAttribute.of(name, null, true)).toList());
+    assertEquals(PhoneIdentity.ATTRIBUTES.size(), requested.size());
+    var provider = new ArrayList<se.swedenconnect.spring.authnserver.attributes.GenericAttribute<? extends java.io.Serializable>>();
+    for (var value : PhoneAttributes.values(identity())) provider.add(se.swedenconnect.spring.authnserver.attributes.GenericAttribute.of(value.getIdentifier(), value.getStringValues()));
+    assertEquals(identity(), PhoneIdentity.fromAttributes(mapping.toSaml(provider, requested)));
   }
 }
