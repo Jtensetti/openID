@@ -58,7 +58,7 @@ const path = require('node:path');
     let request = await start(); const prelogin = await cookie();
     const qrPath = path.join(temporary,'qr.png');
     await page.locator('#qr').screenshot({path:qrPath});
-    const decoded = spawnSync(python,['-c','import cv2,sys; print(cv2.QRCodeDetector().detectAndDecode(cv2.imread(sys.argv[1]))[0])',qrPath],{encoding:'utf8'});
+    const decoded = spawnSync(python,['-c','import cv2,sys; print(cv2.QRCodeDetectorAruco().detectAndDecode(cv2.imread(sys.argv[1]))[0])',qrPath],{encoding:'utf8'});
     assert.equal(decoded.status,0,decoded.stderr);
     assert.equal(decoded.stdout.trim(),'openid://request/' + request.id);
     if (process.env.RP_SCREENSHOT) await page.screenshot({path:process.env.RP_SCREENSHOT,fullPage:true});

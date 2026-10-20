@@ -5,13 +5,14 @@ import unittest
 from unittest.mock import Mock
 import numpy as np
 from native import NativeSessions, AppAttest
+from identity import VerifiedDocument
 from pad import PresentationAttackDetector
 
 class NativeTests(unittest.TestCase):
     def setUp(self):
         self.time=100
         self.attest=Mock();self.attest.check.side_effect=lambda op,**kw: {'publicKey':'key'} if op=='attestation' else {'signCount':1}
-        self.passport=Mock(return_value=b'authenticated portrait')
+        self.passport=Mock(return_value=VerifiedDocument(b'authenticated portrait', {}))
         self.matcher=Mock();self.matcher.compare.return_value=0.95;self.matcher.decode_face.return_value=('image','face')
         self.pad=Mock();self.pad.score.return_value=0.95
         self.sessions=NativeSessions(self.attest,self.passport,self.matcher,self.pad,lambda:self.time)
@@ -58,6 +59,17 @@ class NativeTests(unittest.TestCase):
         self.assertFalse(self.sessions.finish(self.request(ident,payload))['checksPassed'])
         self.pad.score.return_value=0.95;self.matcher.compare.return_value=0.1
         ident,payload=self.capture();self.assertFalse(self.sessions.finish(self.request(ident,payload))['checksPassed'])
+    def test_nan_infinite_and_out_of_range_scores_fail_closed(self):
+        for model in (self.pad.score, self.matcher.compare):
+            for value in (float('nan'), float('inf'), -float('inf'), 1.01):
+                model.side_effect=[0.95,value,0.95]
+                ident,payload=self.capture()
+                with self.assertRaises(ValueError):self.sessions.finish(self.request(ident,payload))
+            model.side_effect=None
+    def test_client_supplied_identity_fields_are_rejected(self):
+        ident,payload=self.capture();payload['identity']={'displayName':'OTHER PERSON'}
+        with self.assertRaises(ValueError):self.sessions.finish(self.request(ident,payload))
+        self.passport.assert_not_called()
     def test_only_authenticated_portrait_reaches_matcher(self):
         ident,payload=self.capture();self.sessions.finish(self.request(ident,payload))
         for call in self.matcher.compare.call_args_list:self.assertEqual(b'authenticated portrait',call.args[0])

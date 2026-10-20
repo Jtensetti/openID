@@ -108,7 +108,8 @@ class WalletTests(unittest.TestCase):
         attest=Mock();attest.check.side_effect=lambda op,**kw: {'publicKey':'attested key'} if op=='attestation' else {'signCount':1}
         matcher=Mock();matcher.compare.return_value=0.95;matcher.decode_face.return_value=('image','face')
         pad=Mock();pad.score.return_value=0.95
-        session=NativeSessions(attest,lambda _:b'portrait',matcher,pad,wallet=self.wallet)
+        from test_identity import document
+        session=NativeSessions(attest,lambda _:document(),matcher,pad,wallet=self.wallet)
         def finish():
             start=session.start();registered=session.register({'id':start['id'],'keyId':'key','attestation':'test'})
             payload={k:v for k,v in registered.items() if k!='frameCount'}

@@ -17,6 +17,14 @@ avgränsad evidens för ID-06/07/08/09/10, FED-01/02 och SEC-01/03 i
 
 Tillåtna statusvärden: `OPEN`, `DESIGNED`, `IMPLEMENTED`, `INDEPENDENTLY_TESTED`, `ACCEPTED`, `NOT_APPLICABLE_WITH_REASON`.
 
+Personprofil, appnyckel och lokal SAML-inloggning har ytterligare testfall
+för ID-05/06/08/09/10, FED-01/02 och SEC-01/03 i
+`verification/test_identity.py`, `verification/federation-browser-test.cjs`
+och `prototype/src/test/java/lab/PhoneIdentityTest.java`.
+[Körinstruktionen](../verification/README.md#saml-inloggning-med-passets-identitet)
+beskriver personuppgifter, tillitsgränser och testdubblar. Fysisk
+personkontroll och kravacceptans återstår; status ändras inte.
+
 `ACCEPTED` ska alltid ange vem som accepterat vad och med vilket mandat. Intern acceptans, ett passerat test och Diggs formella beslut är olika saker. Rollnamnen nedan är föreslagna funktioner; ingen person är ännu utsedd. Externa specialister kan bidra men får inte vara en osynlig ansvarslucka.
 
 ## A. Företag, ledning och oberoende

@@ -124,3 +124,18 @@ Uppdateringsägare föreslås vara Jtensetti, att bekräfta vid granskning.
 CI-behörigheter och tidigare låst Playwright är oförändrade. Befintliga
 Sweden Connect-komponenter i SAML-labben påverkas inte; QR är en lokal
 valmekanism för appens signerade begäran och inget nytt federationsprotokoll.
+
+## Personprofil och SAML, 2026-10-20
+
+Inga beroenden ändras. Sweden Connect `spring-authentication-server`
+**1.0.3** återanvänds via `AbstractUserRedirectAuthenticationProvider`;
+[senaste upstreamrelease](https://github.com/swedenconnect/spring-authentication-server/releases/tag/v1.0.3)
+kontrollerades 2026-10-20 och var fortsatt 1.0.3 (publicerad 2026-10-13).
+Apache-2.0, revision, transitiva licenser och JAR-hashar finns i rotens
+komponentregister och befintliga Maven-lås.
+
+Profilkryptering använder Node **24.19.0** `node:crypto` AES-256-GCM.
+Dokumentreferenser och tjänstesubjekt använder Python 3.12 `hmac`/SHA-256
+med separat nyckel. De befintliga OpenCV- och qrcode-versionerna används
+för passfotots storlek respektive QR. Inga nya SDK:er, modeller eller
+kryptografiska implementationer kopieras. CI-behörigheter är oförändrade.

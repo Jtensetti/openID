@@ -23,7 +23,7 @@ public final class PassportCommand {
       var result = new PassportVerifier(anchors, Clock.systemUTC()).verify(decoder.decode(request.required("sod").asText()),
           decoder.decode(request.required("dg1").asText()), decoder.decode(request.required("dg2").asText()));
       System.out.println(json.writeValueAsString(Map.of("passiveAuthentication", true,
-          "portrait", Base64.getEncoder().encodeToString(result.portrait()), "mimeType", result.mimeType(),
+          "portrait", Base64.getEncoder().encodeToString(result.portrait()), "mimeType", result.mimeType(), "identity", result.identity(),
           "chipAuthentication", "NOT_PERFORMED", "revocation", "NOT_CHECKED")));
     } catch (Exception e) {
       System.out.println("{\"passiveAuthentication\":false,\"error\":\"VERIFICATION_FAILED\"}");

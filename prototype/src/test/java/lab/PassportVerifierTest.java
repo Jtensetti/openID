@@ -21,14 +21,16 @@ import org.junit.jupiter.params.provider.ValueSource;
 import static org.junit.jupiter.api.Assertions.*;
 
 class PassportVerifierTest {
-  static final Instant NOW = Instant.parse("2026-10-19T12:00:00Z");
+  static final Instant NOW = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
   static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
   KeyPair caKey, signerKey;
   X509Certificate ca, signer;
   byte[] sod, dg1, dg2;
-  final byte[] image = new byte[]{(byte)0xff,(byte)0xd8,1,2,3,(byte)0xff,(byte)0xd9};
+  byte[] image;
   PassportVerifier verifier;
   @BeforeEach void setup() throws Exception {
+    var picture = new java.awt.image.BufferedImage(32, 32, java.awt.image.BufferedImage.TYPE_INT_RGB);
+    var output = new ByteArrayOutputStream(); javax.imageio.ImageIO.write(picture, "jpeg", output); image = output.toByteArray();
     caKey = key(); signerKey = key();
     ca = certificate(caKey, "CN=SYNTHETIC-CSCA", caKey, "CN=SYNTHETIC-CSCA", true);
     signer = certificate(signerKey, "CN=SYNTHETIC-DSC", caKey, "CN=SYNTHETIC-CSCA", false);
@@ -58,11 +60,13 @@ class PassportVerifierTest {
   @Test void verifiesRealCmsPkixHashesAndExtractsOnlySignedPortrait() throws Exception {
     var result = verifier.verify(sod,dg1,dg2);
     assertArrayEquals(image,result.portrait()); assertEquals(LocalDate.of(2030,10,19),result.expires());
+    assertEquals(new PassportVerifier.Identity("ALICE", "SYNTHETIC", "900101", "UTO", "UTO", "TEST00001", "2030-10-19"), result.identity());
     byte[] copy = result.portrait(); copy[0]=0; assertArrayEquals(image,result.portrait());
     String export = System.getProperty("proofing.fixtureDirectory");
     if (export != null) {
       var directory = java.nio.file.Path.of(export); java.nio.file.Files.createDirectories(directory);
       java.nio.file.Files.write(directory.resolve("csca.der"),ca.getEncoded());
+      java.nio.file.Files.write(directory.resolve("portrait.jpg"),image);
       for (var entry : Map.of("sod",sod,"dg1",dg1,"dg2",dg2).entrySet())
         java.nio.file.Files.write(directory.resolve(entry.getKey()+".bin"),entry.getValue());
     }

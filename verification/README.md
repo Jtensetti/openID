@@ -1,8 +1,8 @@
 # Passverifierare och testtjänst
 
 Server för passkontroll, ansiktsjämförelse, liveness och iPhone-appens
-pilotregister. Testtjänsten erbjuder QR-inloggning med appens enhetsnyckel.
-SAML/WebAuthn-labben i `prototype/` körs separat.
+pilotregister. [SAML-inloggningen](#saml-inloggning-med-passets-identitet) binder
+appens nyckel till passets personuppgifter och använder Sweden Connect.
 
 ## Körning på Linux x86_64
 
@@ -44,7 +44,8 @@ mkdir -m 700 /privat/openid-pilot
   --bind 192.168.1.20 --origin https://192.168.1.20:8765 \
   --tls-cert /privat/server.pem --tls-key /privat/server-key.pem \
   --csca /privat/trusted-csca.pem \
-  --wallet-db /privat/openid-pilot/wallet.sqlite
+  --wallet-db /privat/openid-pilot/wallet.sqlite \
+  --federation-socket /privat/openid-pilot/federation.sock
 ```
 
 Byt adresser och sökvägar till din miljö. Telefonen måste lita på
@@ -62,9 +63,16 @@ och signerade bytes före pass- och bildanalys. Fångstsessioner gäller i fem
 minuter, förbrukas även vid fel och försvinner vid omstart. Högst 16 får
 vänta samtidigt. App Attest registreras på nytt för varje försök.
 
-Registret sparar publik enhetsnyckel, slumpmässigt pilotsubjekt, status,
-inloggningsbegäranden och säkerhetshändelser. Passnummer, bilder, namn och
-ansiktsmallar sparas inte.
+Registret sparar publik nyckel, status och händelser. Namn, födelsedatum i
+MRZ-format, nationalitet, utfärdarland, passets giltighet och en förminskad
+version av det signerade passfotot sparas krypterat. Rå chipdata,
+kamerabilder och ansiktsmallar sparas inte. Passnumret ingår endast i en
+HMAC-referens för att känna igen samma pass vid nyregistrering.
+
+Personen får ett internt slump-ID. Tjänsten får ett separat pseudonymt
+subjekt. Aktivering av en ny nyckel för samma pass spärrar äldre nycklar
+atomiskt. Ett annat pass med samma namn och födelsedatum slås inte ihop.
+Passförnyelse och registerkontroll kräver en framtida återställningsprocess.
 
 ## Aktivera och prova inloggning
 
@@ -93,6 +101,63 @@ till `consume`; lägg den inte i kommandoargument. Resultatet är `PENDING`
 eller ett engångsresultat `AUTHENTICATED` med
 `audience=openid-local-demo` och `assurance=PRIVATE_PILOT`.
 Avbrott, nekande, utgång, spärr och upprepad konsumtion nekas.
+
+## SAML-inloggning med passets identitet
+
+Starta verifieraren ovan med `--federation-socket`. Den nya inloggningen
+kräver en registrering som innehåller verifierade passuppgifter. Äldre
+registreringar utan personprofil kan inte användas.
+
+Kör följande från repots rot. Skapa tillfälliga TLS-/SAML-nycklar en gång:
+
+```sh
+java -jar prototype/target/isolated-eid-lab.jar phone-init /privat/openid-federation
+```
+
+Starta IdP och kontotjänst i varsin terminal på samma Linux-dator och
+operativsystemskonto som verifieraren:
+
+```sh
+java -jar prototype/target/isolated-eid-lab.jar phone-idp /privat/openid-federation /privat/openid-pilot/federation.sock
+```
+
+```sh
+java -jar prototype/target/isolated-eid-lab.jar phone-sp /privat/openid-federation /privat/openid-pilot/federation.sock
+```
+
+Betro det genererade `tls.crt` i datorns testwebbläsare. Öppna
+**https://localhost:8444**, välj **Logga in med openID**, skanna QR-koden i
+appen och kontrollera tjänst, uppgifter och kod. Efter godkännandet visar
+kontotjänsten ditt namn, passfoto och födelsedatum från MRZ. Du behöver inte
+klistra in någon registreringsreferens.
+
+MRZ använder tvåsiffrigt årtal. Vi härleder varken sekel, ålder eller
+svenskt personnummer. Namnet följer passets MRZ-translitterering.
+
+IdP och SP körs i separata processer på loopback-HTTPS. Sweden Connect
+1.0.3 verifierar den signerade begäran och skapar ett signerat, krypterat
+SAML-svar. SP använder bibliotekets validering för signatur, mottagare,
+InResponseTo, RelayState och giltighet. Profilen är projektets
+`urn:openid:authn:passport-native:v1`, utan LoA3-anspråk. Attributen är
+namn, MRZ-födelsedatum, passfoto, tjänstesubjekt, credentialreferens och
+profilversion. Passnummer och nationalitet lämnas inte till tjänsten.
+
+Bryggan är en Unix-socket med 0600 i en katalog med 0700. Den kan skapa,
+läsa, avbryta och konsumera inloggningar samt kontrollera spärr; den har
+ingen utgivnings- eller aktiveringsoperation. Samma OS-konto är fortfarande
+en gemensam administrativ tillitsgräns. Flytta den inte till en publik TCP-port.
+
+QR-koden innehåller enbart begärans-ID. Hemligheten stannar hos IdP och
+begäran binds till autentiseringsflöde och tillåten SP. Appens `inspect`
+hämtar uppgifter utan att godkänna. `approve` signerar exakt visad tjänst,
+syfte och kod. Bara en nyckel och en konsumtion kan vinna. Begäran gäller
+120 sekunder; SP-sessionen högst fem minuter. Varje skyddad SP-förfrågan
+kontrollerar aktuell nyckel, personbindning och profilversion. Spärr,
+nyckelbyte eller otillgängligt register stoppar fortsatt åtkomst.
+
+De genererade servernycklarna är testnycklar med 30 dagars giltighet.
+Ingen extern tjänst eller federation ansluts av dessa kommandon. Den
+simulerade `/lab`-providern är avstängd i `phone-idp`.
 
 ## Logga in i testtjänsten via webbläsaren
 
@@ -150,8 +215,18 @@ version, ursprung, nyckel, handling, begäran, motpart, syfte, kod och utgångst
 Felaktig signatur förbrukar utmaningen. Utmaningar försvinner vid omstart.
 
 SQLite serialiserar spärr, godkännande och konsumtion med full synkronisering.
-Katalog och fil kräver 0700/0600. Databasen är inte krypterad av applikationen;
-operatör, disk och säkerhetskopior måste skyddas separat.
+Katalog och fil kräver 0700/0600. Personprofiler krypteras med Node 24.19.0 AES-256-GCM, slumpmässig 96-bitars
+nonce och credential/person-ID som autentiserade kontextdata. Separata
+256-bitars nycklar används för kryptering och HMAC-SHA-256. Nyckelfilen
+`wallet.identity-key` skapas med 0600. Saknad eller fel nyckel stoppar
+profilåtkomst; den ersätts inte automatiskt när profiler finns.
+
+Nyckeln ligger i samma privata katalog som databasen, utan HSM. Detta
+skyddar en separat databasfil men inte ett övertaget serverkonto eller en
+kopia av hela katalogen. Metadata och händelser är okrypterade. Profiler
+behålls efter spärr men lämnas inte ut till appen eller tjänsten. Automatisk
+gallring och nyckelrotation saknas; operatören måste fastställa lagringstid
+och radera pilotens data och nyckel efter provet.
 **Återläsning av gamla databasfiler stöds inte**: den kan återställa en spärrad
 nyckel. Ett externt spärrankare saknas. Inga adminfunktioner exponeras via HTTP.
 
@@ -184,7 +259,7 @@ Passiva passkontroller, ansiktsjämförelse och liveness avgör inte utgivning;
 - Operatören kontrollerar databasen. Rollseparation, swap/kraschdumpar,
   dataskydd, modellrättigheter och oberoende granskning återstår.
 
-Detta är en privat pilot utan godkänd e-id-utgivning eller federation.
+Detta är en privat pilot med lokal SAML-federation, utan godkänd e-id-utgivning.
 Se [komponentregistret](THIRD_PARTY.md) för versioner och licenser.
 
 ## Tester
@@ -200,10 +275,11 @@ cd ../verification
 export PROOFING_FIXTURES=/tmp/openid-proofing-fixtures
 export PROOFING_JAVA="$JAVA_HOME/bin/java"
 export PROOFING_PYTHON="$PWD/.venv/bin/python"
-.venv/bin/python -m unittest -v test_verification test_native test_wallet test_relying_party
+.venv/bin/python -m unittest -v test_verification test_native test_wallet test_relying_party test_identity
 node --test test-attest.mjs
 node browser-test.cjs
 node rp-browser-test.cjs
+node federation-browser-test.cjs
 ```
 
 Python-testerna omfattar passkedja, modellinferens, sessionsbindning,
@@ -220,3 +296,9 @@ stdin och inga HTTP-testvägar läggs till.
 Fysisk NFC, Secure Enclave, Face ID och Apple App Attest på iPhone återstår
 att prova. Testerna berör ID-05/06/09/10, SEC-01/03, FED-02 och TEST-01;
 formell kravstatus ändras inte.
+
+SAML-webbtestet kör verifierare, IdP och SP i separata processer. Passets
+CMS/PKIX/hashar, profilkryptering, ECDSA-godkännande och SAML-validering körs
+på riktigt. NFC, kamera, App Attest och biometriska poäng ersätts med
+explicita testdubblar i just denna fixtur. Testet bevisar integrationen,
+inte fysisk personkontroll. Linux med Unix-sockets krävs.

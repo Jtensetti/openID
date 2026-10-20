@@ -25,7 +25,12 @@ import LocalAuthentication
         busy = true; error = nil
         let epoch = generation
         task = Task {
-            defer { if generation == epoch { busy = false } }
+            defer {
+                if generation == epoch {
+                    busy = false
+                    if unlocked, credential != nil { refresh() }
+                }
+            }
             do {
                 let auth = LAContext(); context = auth
                 guard try await auth.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Öppna ditt openID") else { throw WalletError.cancelled }
@@ -63,30 +68,38 @@ import LocalAuthentication
             registrationPresented = true
         } catch { self.error = error.localizedDescription }
     }
-    func refresh() { perform("snapshot") }
+    func refresh() {
+        if let id = pendingLink { perform("inspect", inspectID: id) }
+        else { perform("snapshot") }
+    }
     func decide(_ request: WalletRequest, approve: Bool) { perform(approve ? "approve" : "reject", request: request) }
     func revoke() { perform("revoke") }
-    private func perform(_ action: String, request: WalletRequest? = nil) {
+    private func perform(_ action: String, request: WalletRequest? = nil, inspectID: String? = nil) {
         guard unlocked, !busy, let configuration, let credential else { return }
         busy = true; error = nil
         let epoch = generation
         task = Task {
-            defer { if generation == epoch { busy = false } }
+            defer {
+                if generation == epoch {
+                    busy = false
+                    if pendingLink != nil { refresh() }
+                }
+            }
             do {
                 let api = WalletAPI(configuration: configuration)
                 let challenge = try await api.post("/wallet/challenge", body: ["credentialId": credential.id,
-                    "action": action, "requestId": request?.id as Any? ?? NSNull()], as: DeviceChallenge.self)
-                let bytes = try challenge.validatedBytes(configuration: configuration, credentialID: credential.id, action: action, request: request)
+                    "action": action, "requestId": (request?.id ?? inspectID) as Any? ?? NSNull()], as: DeviceChallenge.self)
+                let bytes = try challenge.validatedBytes(configuration: configuration, credentialID: credential.id, action: action, request: request, inspectID: inspectID)
                 try Task.checkCancellation(); guard generation == epoch else { return }
                 let auth: LAContext
-                if action == "snapshot", let current = context { auth = current }
+                if ["snapshot", "inspect"].contains(action), let current = context { auth = current }
                 else {
                     auth = LAContext()
                     operationContext = auth
                     guard try await auth.evaluatePolicy(.deviceOwnerAuthentication, localizedReason:
                         action == "revoke" ? "Spärra ditt ID permanent" : "Bekräfta ditt val för \(request?.relyingParty ?? "openID")") else { throw WalletError.cancelled }
                 }
-                defer { if action != "snapshot" { auth.invalidate() } }
+                defer { if !["snapshot", "inspect"].contains(action) { auth.invalidate() } }
                 try Task.checkCancellation(); guard generation == epoch else { return }
                 let signature = try vault.sign(bytes, credential: credential, context: auth)
                 let result = try await api.post("/wallet/execute", body: ["challengeId": challenge.id,
@@ -94,13 +107,14 @@ import LocalAuthentication
                 try result.validate(for: credential.id)
                 try Task.checkCancellation(); guard generation == epoch else { return }
                 snapshot = result; focusedRequest = nil
-                if let link = pendingLink {
+                if let link = inspectID {
                     focusedRequest = result.requests.first { $0.id == link }
-                    pendingLink = nil
+                    if pendingLink == link { pendingLink = nil }
                     if focusedRequest == nil { self.error = "Begäran finns inte eller har gått ut." }
                 }
             } catch {
                 if generation == epoch {
+                    if pendingLink == inspectID { pendingLink = nil }
                     snapshot = nil; focusedRequest = nil
                     self.error = "Åtgärden kunde inte slutföras. Kontrollera anslutningen och uppdatera ditt ID."
                 }

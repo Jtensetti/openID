@@ -4,6 +4,9 @@ Lokal IdP och testtjänst med Sweden Connect. WebAuthn bevisar kontroll över
 en testnyckel; identitetskontrollen är simulerad. Det äldre `start`-läget
 simulerar även användarens godkännande.
 
+Appens passbaserade flöde använder samma SAML-bibliotek med en separat
+provider. Se [phone-idp och phone-sp](../verification/README.md#saml-inloggning-med-passets-identitet).
+
 ## Kör webbklienten
 
 Kräver JDK 21, Linux/POSIX, portar 8443/8444 och en WebAuthn-webbläsare.

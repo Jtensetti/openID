@@ -13,6 +13,7 @@ import se.swedenconnect.spring.authnserver.error.*;
 import se.swedenconnect.spring.authnserver.sso.SsoPolicy;
 
 @Component
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name="lab.phone", havingValue="false", matchIfMissing=true)
 public final class LabProvider extends AbstractUserRedirectAuthenticationProvider {
   private final SyntheticRegistry registry;
   private final WebAuthnService webAuthn;

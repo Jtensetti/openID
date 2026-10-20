@@ -1,8 +1,9 @@
 # openID
 
 Ett projekt för svensk e-legitimation. Repot innehåller en iPhone-app, en
-pass- och ansiktsverifierare och en lokal autentiseringstjänst. Separat finns
-en SAML/WebAuthn-labb som använder Sweden Connect.
+pass- och ansiktsverifierare och SAML-inloggning med Sweden Connect. Appens
+nyckel knyts till personuppgifter från passet. En separat lokal tjänst
+tar emot de uppgifter användaren godkänner att dela.
 
 Projektet är under utveckling och har inget Digg-godkännande. Tillitsnivå 3
 är ett mål. Projektlicens, utgivningsvillkor och produktionsansvar återstår.
@@ -12,7 +13,7 @@ Projektet är under utveckling och har inget Digg-godkännande. Tillitsnivå 3
 | Del | Innehåll |
 |---|---|
 | [iPhone-app](ios/README.md) | Xcode-projekt med passläsning, kamerafångst, enhetsnyckel, legitimering och spärr. |
-| [Verifierare och testtjänst](verification/README.md) | Passkontroll, ansiktsjämförelse, liveness, pilotregister och QR-inloggning i webbläsaren. |
+| [Verifierare och testtjänst](verification/README.md) | Passkontroll, ansiktsjämförelse, liveness, krypterat personregister och QR-inloggning med SAML. |
 | [SAML/WebAuthn-labb](prototype/README.md) | Lokal IdP och SP, testnycklar och simulerad identitetskontroll. |
 | [Driftpaket](ops/README.md) | Render-container med hälsokontroller. E-id-funktioner är avstängda. |
 

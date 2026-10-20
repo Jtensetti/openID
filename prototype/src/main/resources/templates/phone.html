@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="sv" xmlns:th="http://www.thymeleaf.org"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Logga in · openID</title><link rel="stylesheet" href="/phone/page.css"><script src="/phone/page.js" defer></script>
+</head><body><main>
+  <p class="brand">openID</p><h1>Godkänn i appen</h1><p th:text="${service}"></p>
+  <img class="qr" th:src="@{/phone/qr(authnId=${authnId})}" width="256" height="256" alt="Skanna med openID-appen">
+  <p>Kontrollkod <strong id="code" th:text="${code}"></strong></p><p th:text="${purpose}"></p>
+  <p><a th:href="@{${'openid://request/' + requestId}}">Öppna openID</a></p>
+  <p id="status" role="status">Väntar på ditt godkännande.</p>
+  <form id="complete" method="post" th:action="@{/phone/complete}"><input type="hidden" name="authnId" th:value="${authnId}"><noscript><button>Jag har godkänt</button></noscript></form>
+  <form method="post" th:action="@{/phone/cancel}"><input type="hidden" name="authnId" th:value="${authnId}"><button>Avbryt</button></form>
+</main></body></html>

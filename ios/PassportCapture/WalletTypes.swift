@@ -75,10 +75,30 @@ struct WalletSnapshot: Decodable {
     let events: [WalletEvent]
     let environment: String
     let legalIdentityIssued: Bool
+    var identity: PassportIdentity? = nil
     func validate(for id: String) throws {
         guard credentialId == id, environment == "PRIVATE_PILOT", !legalIdentityIssued,
               requests.count <= 5, events.count <= 50,
-              state == .active || requests.isEmpty else { throw WalletError.rejected }
+              state == .active || requests.isEmpty,
+              (state == .active || state == .pending) || identity == nil else { throw WalletError.rejected }
+        try identity?.validate()
+        for request in requests {
+            guard request.id.range(of: "^[a-f0-9]{64}\\z", options: .regularExpression) != nil,
+                  !request.relyingParty.isEmpty, request.relyingParty.count <= 100,
+                  !request.purpose.isEmpty, request.purpose.count <= 200,
+                  request.code.range(of: "^[0-9]{6}\\z", options: .regularExpression) != nil else { throw WalletError.rejected }
+        }
+    }
+}
+struct PassportIdentity: Decodable {
+    let displayName: String
+    let birthDateMrz: String
+    let portraitJpeg: String
+    func validate() throws {
+        guard displayName.range(of: "^[A-Z ]{1,89}\\z", options: .regularExpression) != nil,
+              birthDateMrz.range(of: "^[0-9]{6}\\z", options: .regularExpression) != nil,
+              let image = Data(base64Encoded: portraitJpeg), image.count <= 24000,
+              image.starts(with: [0xff, 0xd8]), image.suffix(2) == Data([0xff, 0xd9]) else { throw WalletError.rejected }
     }
 }
 struct DeviceChallenge: Decodable {
@@ -86,14 +106,16 @@ struct DeviceChallenge: Decodable {
     let signingInput: String
     // Sign only the request details shown to the user.
     func validatedBytes(configuration: ServerConfiguration, credentialID: String, action: String,
-                        request: WalletRequest?, now: TimeInterval = Date().timeIntervalSince1970) throws -> Data {
+                        request: WalletRequest?, inspectID: String? = nil, now: TimeInterval = Date().timeIntervalSince1970) throws -> Data {
         guard let bytes = Data(base64Encoded: signingInput), bytes.count <= 4096 else { throw WalletError.rejected }
         let value = try JSONDecoder().decode(SigningEnvelope.self, from: bytes)
         guard value.version == 1, value.origin == configuration.origin, value.credentialId == credentialID,
-              value.action == action, value.challengeId == id, value.requestId == request?.id,
+              value.action == action, value.challengeId == id, value.requestId == (request?.id ?? inspectID),
               value.expiresAt > now, value.expiresAt <= now + 90,
               value.relyingParty == request?.relyingParty, value.purpose == request?.purpose,
-              value.code == request?.code, ["snapshot", "approve", "reject", "revoke"].contains(action),
+              value.code == request?.code, ["snapshot", "inspect", "approve", "reject", "revoke"].contains(action),
+              (action == "inspect") == (inspectID != nil),
+              inspectID == nil || inspectID!.range(of: "^[a-f0-9]{64}\\z", options: .regularExpression) != nil,
               (action == "approve" || action == "reject") == (request != nil),
               request == nil || request!.expiresAt > now else { throw WalletError.rejected }
         return bytes

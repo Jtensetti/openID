@@ -25,19 +25,21 @@ public class IdpApplication {
     return new WebAuthnService(registry, base, java.time.Clock.systemUTC(), enabled);
   }
   @Bean
-  AuthnServerConfigurerAdapter labProtocolSecurity() {
+  AuthnServerConfigurerAdapter labProtocolSecurity(@Value("${lab.phone:false}") boolean phone) {
     return (http, configurer) -> {
       // Replace the upstream matcher that exempts ALL protocol/provider endpoints from CSRF.
       // Only the signed SAML HTTP-POST binding is exempt; /lab approval remains protected.
       http.csrf(AbstractHttpConfigurer::disable);
       http.csrf(csrf -> csrf.ignoringRequestMatchers("/saml2/post/authn"));
-      configurer.authnFlowMaxAge(java.time.Duration.ofSeconds(60));
+      configurer.authnFlowMaxAge(java.time.Duration.ofSeconds(phone ? 120 : 60));
+      if (phone) configurer.protocol(se.swedenconnect.spring.authnserver.saml.config.Saml2IdpConfigurer.class,
+          saml -> saml.attributeMapping(lab.phone.PhoneAttributes.mapping()));
     };
   }
   @Bean @Order(2)
   SecurityFilterChain labPages(HttpSecurity http) throws Exception {
     // CSRF stays enabled for the simulated approval and revocation forms.
-    return http.authorizeHttpRequests(a -> a.requestMatchers("/", "/lab", "/lab/revoke", "/lab/webauthn/**", "/wallet/**", "/error").permitAll().anyRequest().denyAll())
+    return http.authorizeHttpRequests(a -> a.requestMatchers("/", "/phone/**", "/lab", "/lab/revoke", "/lab/webauthn/**", "/wallet/**", "/error").permitAll().anyRequest().denyAll())
         .headers(h -> h.contentSecurityPolicy(c -> c.policyDirectives(PAGE_CSP)))
         .build();
   }
@@ -47,7 +49,7 @@ public class IdpApplication {
       @Override protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
         if (!request.getRemoteAddr().equals("127.0.0.1") || !java.net.URI.create(base).getAuthority().equals(request.getHeader("Host")) ||
             request.getHeader("Forwarded") != null || request.getHeader("X-Forwarded-Host") != null ||
-            ((request.getRequestURI().startsWith("/lab") || request.getRequestURI().startsWith("/wallet")) && request.getMethod().equals("POST") && !base.equals(request.getHeader("Origin")))) {
+            ((request.getRequestURI().startsWith("/lab") || request.getRequestURI().startsWith("/wallet") || request.getRequestURI().startsWith("/phone")) && request.getMethod().equals("POST") && !base.equals(request.getHeader("Origin")))) {
           response.sendError(403); return;
         }
         // no-referrer makes browser form POSTs send Origin:null, defeating the strict origin check.
@@ -56,7 +58,8 @@ public class IdpApplication {
         response.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), publickey-credentials-create=(self), publickey-credentials-get=(self)");
         // The provider's /lab endpoints use upstream's filter chain, not labPages.
         // /lab/resume renders upstream's separately protected SAML auto-POST page.
-        if (request.getRequestURI().startsWith("/lab") && !request.getRequestURI().equals("/lab/resume"))
+        if ((request.getRequestURI().startsWith("/lab") && !request.getRequestURI().equals("/lab/resume")) ||
+            (request.getRequestURI().startsWith("/phone") && !request.getRequestURI().equals("/phone/resume")))
           response.setHeader("Content-Security-Policy", PAGE_CSP);
         // Linearization boundary: a revoke cannot interleave status verification and SAML response signing.
         try {
