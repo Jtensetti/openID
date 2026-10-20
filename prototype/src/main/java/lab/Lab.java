@@ -62,11 +62,34 @@ public final class Lab implements AutoCloseable {
     try { sp = new RelyingParty(keys, idpBase, spBase, registry); }
     catch (Exception e) { idp.close(); throw e; }
   }
-  @Override public void close() { sp.close(); idp.close(); }
+  @Override public void close() {
+    try { sp.close(); idp.close(); }
+    finally { try { registry.close(); } catch (Exception e) { throw new IllegalStateException("Could not close persistent registry"); } }
+  }
   public static void main(String[] args) throws Exception {
-    if (args.length == 2 && args[0].equals("init")) { TestKeys.initialize(Path.of(args[1])); return; }
-    if (args.length != 2 || !args[0].equals("start")) throw new IllegalArgumentException("Usage: init|start <disposable-key-directory>");
-    Lab lab = new Lab(Path.of(args[1]), 8443, 8444, SyntheticRegistry.fixtures());
+    if (args.length == 2 && args[0].equals("init")) {
+      TestKeys.initialize(Path.of(args[1])); SyntheticRegistry.initialize(Path.of(args[1])); return;
+    }
+    if (args.length == 3 && args[0].equals("restore")) { SyntheticRegistry.restore(Path.of(args[1]), Path.of(args[2])); return; }
+    if (args.length >= 2 && Set.of("audit", "report", "backup", "revoke").contains(args[0])) {
+      if ((args[0].equals("audit") && args.length != 2) || (!args[0].equals("audit") && args.length != 3)) throw new IllegalArgumentException("Invalid command arguments");
+      try (var registry = SyntheticRegistry.open(Path.of(args[1]), java.time.Clock.systemUTC())) {
+        switch (args[0]) {
+          case "backup" -> registry.backup(Path.of(args[2]));
+          case "revoke" -> registry.revoke(args[2]);
+          case "audit" -> System.out.println(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(registry.audit()));
+          case "report" -> System.out.println(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(
+              OfflineReport.reconcile(java.time.YearMonth.parse(args[2]), registry.outcomes())));
+          default -> throw new IllegalStateException();
+        }
+      }
+      return;
+    }
+    if (args.length != 2 || !args[0].equals("start")) throw new IllegalArgumentException("Usage: init|start|audit <directory>; report|backup|revoke <directory> <value>; restore <backup> <new-directory>");
+    var registry = SyntheticRegistry.open(Path.of(args[1]), java.time.Clock.systemUTC());
+    Lab lab;
+    try { lab = new Lab(Path.of(args[1]), 8443, 8444, registry); }
+    catch (Exception e) { registry.close(); throw e; }
     Runtime.getRuntime().addShutdownHook(new Thread(lab::close));
     System.out.println("SYNTHETIC LAB ONLY — start at " + lab.spBase + " — no Digg approval, no real proofing");
   }

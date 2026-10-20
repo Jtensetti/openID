@@ -44,6 +44,40 @@ Denna PR inför källkod för en intern lokal labb och publicerar ingen binär r
 
 Föreslagen uppdateringsägare för labben är repositoryägaren **Jtensetti**, att bekräfta vid granskning; ingen produktionsförvaltare eller oberoende säkerhetsgranskare är ännu utsedd. Uppdateringar ska innehålla ändrad låsfil/SBOM, ny advisory-/licenskontroll och samma negativa flödes- och paketeringstester. Beslutet här är **labbunderlag för granskning**, inte godkänd produktion.
 
+## Tillägg: beständig labbdrift och stängd driftgrund, 2026-10-19
+
+- **Xerial SQLite JDBC 3.53.4.0**, release 2026-08-26, commit
+  `cab7981c19ce04d691f0675f0b2586afc2bbf803` i
+  [xerial/sqlite-jdbc](https://github.com/xerial/sqlite-jdbc/tree/cab7981c19ce04d691f0675f0b2586afc2bbf803).
+  Projektet var inte arkiverat, senast pushat 2026-10-15. Apache-2.0 samt
+  inbäddad Zentus-kod under BSD-2-Clause; den faktiska JAR-filens
+  [LICENSE.zentus](prototype/licenses/sqlite-jdbc-LICENSE.zentus) bevaras här.
+  SQLite-motorn är 3.53.4 och har [public domain-dedikation](https://sqlite.org/copyright.html).
+  Ingen fork eller modifiering av biblioteket. Används enbart i syntetisk labb.
+  Den publicerade advisoryn [CVE-2023-32697](https://github.com/xerial/sqlite-jdbc/security/advisories/GHSA-6phf-6h5g-97j2)
+  granskades: rättad i 3.41.2.2, äldre än vår låsta version. JDBC-adressen
+  konstrueras enbart från en lokal privat katalog; ingen nätverksklient väljer den.
+- Den uppdaterade Maven-grafen är **171 JAR-artefakter**, alla låsta med SHA-256.
+  Uppdaterad SBOM och OSV-kontroll finns i `prototype/evidence/`; kontrollen
+  gav **0 träffar** 2026-10-19. Detta ersätter det tidigare antalet 170 ovan.
+- **Eclipse Temurin 21.0.12.1+1**, officiella JDK/JRE-containrar på Ubuntu Noble,
+  för `ops/`. Fulla image-index-digests finns i Dockerfile; de hämtades från
+  Docker Hubs officiella `library/eclipse-temurin`-register 2026-10-19.
+  [Official-images-manifestet](https://github.com/docker-library/official-images/blob/master/library/eclipse-temurin)
+  kopplade båda taggarna till Dockerfile-källan
+  [adoptium/containers@511f9356dc4d50932a0a5f8cfb0f87ed1aef4f07](https://github.com/adoptium/containers/tree/511f9356dc4d50932a0a5f8cfb0f87ed1aef4f07).
+  Dockerfile-källan är Apache-2.0. JDK/JRE har GPL-2.0 med Classpath Exception
+  och separata tredjepartslicenser i `legal/`, vilket bevaras i basimagen.
+  Ubuntu-paket har egna licenser i `/usr/share/doc`; deras kompletta
+  sårbarhets-/licensinventering är **inte** täckt av Maven-SBOM/OSV-kontrollen.
+  Ingen publik binär release eller generell distributionslicens för egen kod
+  har utfärdats. Ägarens projektlicensbeslut kvarstår.
+
+Den stängda driftimagen byggs enbart från `ops/src/SealedEnvironment.java`.
+Sweden Connect, SQLite, prototypens JAR och testnycklar ingår inte. Blueprinten
+låser region och stänger automatiska releaser. CI har endast `contents: read`
+och inga Render-nycklar eller produktionshemligheter.
+
 ## Kandidater och kontrollstatus
 
 | Kandidat | Nu känd licensuppgift | Kvar före eventuell införsel |

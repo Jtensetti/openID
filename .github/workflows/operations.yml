@@ -1,0 +1,38 @@
+name: Sealed production infrastructure
+on:
+  push:
+    branches: [main, 'feat/**']
+    paths: ['ops/**', 'render.yaml', '.github/workflows/operations.yml']
+  pull_request:
+    paths: ['ops/**', 'render.yaml', '.github/workflows/operations.yml']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Build the digest-pinned production bootstrap image
+        run: docker build --tag openid-sealed:ci ops
+      - name: Run with no network, read-only filesystem and no Linux capabilities
+        run: |
+          docker run --detach --name openid-sealed --network none --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 64 --memory 192m --cpus 0.5 --tmpfs /tmp:rw,noexec,nosuid,nodev,size=16m,mode=1777 openid-sealed:ci
+          for attempt in $(seq 1 20); do
+            if docker exec openid-sealed java -cp /app SealedEnvironment probe; then break; fi
+            sleep 1
+          done
+          docker exec openid-sealed java -cp /app SealedEnvironment probe
+          test "$(docker exec openid-sealed id -u)" = 10001
+          if docker exec openid-sealed touch /app/must-not-be-writable; then exit 1; fi
+          docker image inspect openid-sealed:ci --format '{{.Id}}'
+      - name: Verify there is no lab artifact in the production image
+        run: |
+          docker exec openid-sealed sh -c 'test ! -e /app/isolated-eid-lab.jar && test ! -e /app/TestKeys.class && test ! -e /app/registry.sqlite'
+      - name: Collect status and stop
+        if: always()
+        run: |
+          docker logs openid-sealed || true
+          docker rm --force openid-sealed || true

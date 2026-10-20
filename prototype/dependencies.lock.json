@@ -762,6 +762,11 @@
       "sha256": "597cf87d5b1a4f385b9d1cec974b7b483abb3ee85fc5b3f8b62af8e4bec95c2c"
     },
     {
+      "coordinate": "org.xerial:sqlite-jdbc:jar:3.53.4.0",
+      "scope": "compile",
+      "sha256": "bcb1f51e36f940867e83342f9efbf5968ac44a6bef4d397bb4af7b17b45cd2fb"
+    },
+    {
       "coordinate": "org.xmlunit:xmlunit-core:jar:2.11.0",
       "scope": "test",
       "sha256": "50970e6069c21182689eb44ae9f8193970e080b6f37fc13f22aa4201cca2dfe4"

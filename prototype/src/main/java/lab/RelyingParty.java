@@ -70,6 +70,8 @@ public final class RelyingParty implements AutoCloseable {
     });
   }
   private void handle(HttpExchange x) throws IOException {
+    String consumedTransaction = null;
+    boolean terminalRecorded = false;
     try {
       if (!x.getRemoteAddress().getAddress().getHostAddress().equals("127.0.0.1") ||
           !URI.create(base).getAuthority().equals(x.getRequestHeaders().getFirst("Host")) ||
@@ -77,7 +79,9 @@ public final class RelyingParty implements AutoCloseable {
         send(x, 403, "Fel lokal motpart"); return;
       }
       String path = x.getRequestURI().getPath(), method = x.getRequestMethod();
-      if (path.equals("/") && method.equals("GET")) {
+      if (path.equals("/health/ready") && method.equals("GET")) {
+        boolean ready = registry.ready(); send(x, ready ? 200 : 503, ready ? "SYNTHETIC_ONLY: READY" : "SYNTHETIC_ONLY: STORAGE_UNAVAILABLE");
+      } else if (path.equals("/") && method.equals("GET")) {
         send(x, 200, "<h1>Lokal syntetisk testtjänst</h1><p>Ingen verklig identitetskontroll eller Digg-godkänd e-legitimation.</p><p><a href='/login'>Starta testinloggning</a></p><p><a href='/me'>Visa min testsession</a></p><p><a href='" + idpBase + "'>Labbens spärrfunktion</a></p>");
       } else if (path.equals("/login") && method.equals("GET")) {
         String sid = UUID.randomUUID().toString(), relay = UUID.randomUUID().toString();
@@ -98,6 +102,8 @@ public final class RelyingParty implements AutoCloseable {
         if (pending == null || pending.request() == null || !pending.expires().isAfter(Instant.now())) {
           send(x, 400, "Ingen aktiv begäran i denna webbläsarsession"); return;
         }
+        consumedTransaction = HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+            .digest(pending.request().getID().getBytes(StandardCharsets.UTF_8)));
         var result = processor.processSamlResponse(Objects.requireNonNull(form.get("SAMLResponse")), form.get("RelayState"), input(pending), null);
         if (!Metadata.LAB_CONTEXT.equals(result.getAuthnContextClassUri()) || result.getAttributes().size() != 1 ||
             !Metadata.DISPLAY_NAME.equals(result.getAttributes().getFirst().getName())) throw new IllegalArgumentException("Unexpected lab claims");
@@ -105,6 +111,8 @@ public final class RelyingParty implements AutoCloseable {
         synchronized (registry) {
           if (!registry.activeIdentity(identity, pending.revocations().get(identity))) throw new IllegalStateException("Test identity no longer active");
           String sid = UUID.randomUUID().toString();
+          registry.recordOutcome(consumedTransaction, OfflineReport.Outcome.SUCCESS);
+          terminalRecorded = true;
           synchronized (sessions) { sessions.put(sid, new Session(null, null, identity, UUID.randomUUID().toString(), Instant.now().plusSeconds(300), pending.revocations())); }
           setCookie(x, sid); redirect(x, "/me");
         }
@@ -123,6 +131,10 @@ public final class RelyingParty implements AutoCloseable {
         x.getResponseHeaders().add("Set-Cookie", COOKIE + "=; Path=/; Max-Age=0; Secure; HttpOnly; SameSite=Strict"); redirect(x, "/");
       } else send(x, 404, "Sidan finns inte");
     } catch (Exception e) {
+      if (consumedTransaction != null && !terminalRecorded) {
+        try { registry.recordOutcome(consumedTransaction, OfflineReport.Outcome.FAILED); }
+        catch (IllegalStateException ignored) { /* Storage failure also denies the login. No success is reported. */ }
+      }
       // Never log SAML payloads, cookies, identities, request parameters or exception text.
       send(x, 400, "Testinloggningen nekades. Starta ett nytt flöde.");
     } finally { x.close(); }

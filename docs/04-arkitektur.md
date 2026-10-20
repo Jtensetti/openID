@@ -2,7 +2,7 @@
 
 **Designförslag, inte en implementerad eller godkänd lösning.** Datum: 2026-10-19. Krav hänvisar till [kravmatrisen](02-kravmatris.md); primärkällor till [SOURCES.md](SOURCES.md).
 
-Den avgränsade G1-labben i [prototype/](../prototype/README.md) implementerar endast ett lokalt SAML-flöde och en simulerad livscykelmodell. Den större produktarkitekturen nedan är fortsatt ett förslag; särskilt gäller detta enheter, HSM, verklig utgivning, distribuerad spärr och drift.
+Den avgränsade G1-labben i [prototype/](../prototype/README.md) implementerar endast ett lokalt SAML-flöde och en simulerad livscykelmodell med beständig SQLite-lagring, revisionshändelser, fail-closed återläsning och offline-avstämning. Ett separat stängt driftpaket finns i `ops/`; det innehåller ingen IdP eller credential. Den större produktarkitekturen nedan är fortsatt ett förslag; särskilt gäller detta enheter, HSM, verklig utgivning, distribuerad spärr och drift.
 
 ## 1. Avgränsning och beslut som återstår
 

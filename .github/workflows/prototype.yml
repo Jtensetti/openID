@@ -2,9 +2,9 @@ name: Isolated synthetic e-id lab
 on:
   push:
     branches: [main, 'feat/**']
-    paths: ['prototype/**', '.github/workflows/prototype.yml']
+    paths: ['prototype/**', 'ops/**', '.github/workflows/prototype.yml']
   pull_request:
-    paths: ['prototype/**', '.github/workflows/prototype.yml']
+    paths: ['prototype/**', 'ops/**', '.github/workflows/prototype.yml']
 permissions:
   contents: read
 jobs:
@@ -32,6 +32,10 @@ jobs:
         run: python3 scripts/dependencies.py
       - name: Packaged CLI smoke test with certificate verification
         run: python3 scripts/smoke.py
+      - name: Restart, durable revocation, backup and restore drill
+        run: python3 scripts/recovery-smoke.py
+      - name: Production bootstrap HTTP and negative route tests
+        run: python3 -m unittest discover -s ../ops/tests -v
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '24.19.0'

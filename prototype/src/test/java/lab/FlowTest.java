@@ -24,10 +24,14 @@ class FlowTest {
   Lab lab;
   @BeforeAll void start() throws Exception {
     TestKeys.initialize(directory.resolve("keys"));
-    lab = new Lab(directory.resolve("keys"), freePort(), freePort(), SyntheticRegistry.fixtures());
+    SyntheticRegistry.initialize(directory.resolve("keys"));
+    lab = new Lab(directory.resolve("keys"), freePort(), freePort(), SyntheticRegistry.open(directory.resolve("keys"), java.time.Clock.systemUTC()));
   }
   @AfterAll void stop() { if (lab != null) lab.close(); }
   static int freePort() throws Exception { try (var s = new ServerSocket(0, 1, java.net.InetAddress.getByName("127.0.0.1"))) { return s.getLocalPort(); } }
+  @Test void readinessUsesThePersistentRegistry() throws Exception {
+    var b = new Browser(lab); assertEquals(200, b.get(lab.spBase + "/health/ready").statusCode());
+  }
 
   @Test @Order(1) void signedEncryptedLoginWorks() throws Exception {
     var b = new Browser(lab);
@@ -89,8 +93,10 @@ class FlowTest {
     assertEquals(400, b.approve(page, Map.of()).statusCode());
   }
   @Test void responseCannotBeReplayed() throws Exception {
+    long before = lab.registry.outcomes().stream().filter(e -> e.outcome() == OfflineReport.Outcome.SUCCESS).count();
     var b = new Browser(lab); var response = b.approve(b.start(), Map.of()); assertEquals(200, b.receive(response).statusCode());
     assertEquals(400, b.receive(response).statusCode());
+    assertEquals(before + 1, lab.registry.outcomes().stream().filter(e -> e.outcome() == OfflineReport.Outcome.SUCCESS).count());
   }
   @Test void parallelResponseConsumptionSucceedsOnce() throws Exception {
     var b = new Browser(lab); var response = b.approve(b.start(), Map.of());
