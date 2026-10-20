@@ -528,8 +528,9 @@ class ClusterTests(unittest.TestCase):
         soak_seconds=int(os.environ.get('OPENID_TEST_SOAK_SECONDS','0'))
         if soak_seconds:
             self.assertTrue(30<=soak_seconds<=600)
-            # A single client address has a deliberate request limit. Pace below it;
-            # this measures sustained resource use, not a maximum-throughput claim.
+            # Each operation makes two requests. Stay below one worker's 10 requests/s
+            # even when the shared listener distributes connections unevenly.
+            target_rate=4
             master=processes[1].pid
             def resources():
                 children=Path(f'/proc/{master}/task/{master}/children').read_text().split()
@@ -541,11 +542,11 @@ class ClusterTests(unittest.TestCase):
                 return result
             before=resources();samples=[];begin=time.monotonic();end=begin+soak_seconds
             def paced(client):
-                values=[];scheduled=begin+client/8
+                values=[];scheduled=begin+client/target_rate
                 while scheduled<end:
                     time.sleep(max(0,scheduled-time.monotonic()))
                     values.append(operation(client))
-                    scheduled+=1
+                    scheduled+=8/target_rate
                 return values
             with ThreadPoolExecutor(max_workers=8) as pool:
                 futures=[pool.submit(paced,client) for client in range(8)]
@@ -553,6 +554,7 @@ class ClusterTests(unittest.TestCase):
                     samples.append(resources());time.sleep(1)
                 sustained=[item for future in futures for item in future.result()]
             elapsed=time.monotonic()-begin;after=resources()
+            self.assertEqual(soak_seconds*target_rate,len(sustained))
             self.assertEqual({200},{code for code,_ in sustained})
             self.assertEqual(set(before),set(after))
             for pid in before:
@@ -560,7 +562,7 @@ class ClusterTests(unittest.TestCase):
                 self.assertLessEqual(after[pid]['rssKiB'],before[pid]['rssKiB']+32768)
             latencies=sorted(t for _,t in sustained)
             report['sustained']={'seconds':round(elapsed,2),'operations':len(sustained),'concurrency':8,
-                'targetOperationsPerSecond':8,'operationsPerSecond':round(len(sustained)/elapsed,2),'errors':0,
+                'targetOperationsPerSecond':target_rate,'operationsPerSecond':round(len(sustained)/elapsed,2),'errors':0,
                 'p95Seconds':round(latencies[int(.95*(len(latencies)-1))],3),
                 'p99Seconds':round(latencies[int(.99*(len(latencies)-1))],3),
                 'maxWorkerRSSMiB':round(max(value['rssKiB'] for sample in samples for value in sample.values())/1024,2),
