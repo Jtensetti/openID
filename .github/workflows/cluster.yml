@@ -1,0 +1,44 @@
+name: Shared registry and key service
+on:
+  push:
+    branches: [main, 'feat/**']
+    paths: ['verification/**', 'deployment/cluster/**', '.github/workflows/cluster.yml']
+  pull_request:
+    paths: ['verification/**', 'deployment/cluster/**', '.github/workflows/cluster.yml']
+permissions:
+  contents: read
+jobs:
+  integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18.6-bookworm@sha256:afc7e2d441324c0388fa80c3d24f733b4194a4eb7f47dd8ee2b08eb1a24a647c
+        env:
+          POSTGRES_PASSWORD: disposable-ci-password
+          POSTGRES_DB: openid_test
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 3s --health-retries 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24.19.0'
+      - name: Install locked dependencies and key service
+        run: |
+          python3.12 -m venv verification/.venv
+          verification/.venv/bin/pip install --require-hashes --only-binary=:all: -r verification/cluster-requirements.lock -r verification/runtime-requirements.lock
+          sed -n '/^numpy==/p; /^opencv-python-headless==/p' verification/requirements.lock > "$RUNNER_TEMP/image-requirements.lock"
+          verification/.venv/bin/pip install --require-hashes --only-binary=:all: -r "$RUNNER_TEMP/image-requirements.lock"
+          curl --fail --location --retry 3 'https://github.com/openbao/openbao/releases/download/v2.7.1/openbao_2.7.1_linux_amd64.tar.gz' --output "$RUNNER_TEMP/bao.tar.gz"
+          printf '%s  %s\n' '0e2f1ce10d124e03112b50dd2fbec6b78003783253bc3a91587938f39d1e2243' "$RUNNER_TEMP/bao.tar.gz" | sha256sum --check --strict
+          mkdir "$RUNNER_TEMP/bao"
+          tar -xzf "$RUNNER_TEMP/bao.tar.gz" -C "$RUNNER_TEMP/bao"
+      - name: Test database roles, concurrent operations and real Transit cryptography
+        working-directory: verification
+        env:
+          OPENID_TEST_POSTGRES: 'host=127.0.0.1 port=5432 dbname=openid_test user=postgres password=disposable-ci-password'
+          OPENID_TEST_BAO: '${{ runner.temp }}/bao/bao'
+        run: .venv/bin/python test_cluster.py -v

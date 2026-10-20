@@ -133,9 +133,9 @@ class Wallet:
                 if expiry <= self.clock(): raise ValueError('expired document')
                 self.vault.key(create=not db.execute('SELECT 1 FROM profiles LIMIT 1').fetchone())
                 tag = self.vault.document_tag(document)
-                person = db.execute('SELECT id FROM persons WHERE document_tag=?', (tag,)).fetchone()
-                person_id = person['id'] if person else secrets.token_hex(32)
-                if person is None: db.execute('INSERT INTO persons VALUES(?,?)', (person_id, tag))
+                db.execute('INSERT INTO persons VALUES(?,?) ON CONFLICT(document_tag) DO NOTHING',
+                    (secrets.token_hex(32), tag))
+                person_id = db.execute('SELECT id FROM persons WHERE document_tag=?', (tag,)).fetchone()['id']
                 sealed = self.vault.crypt('seal', ident, person_id, document.profile())
                 db.execute('INSERT INTO profiles VALUES(?,?,?,?,?,?)',
                     (ident, person_id, secrets.token_hex(32), json.dumps(sealed), int(self.clock()), expiry))
@@ -200,7 +200,8 @@ class Wallet:
             if row['expires'] <= self.clock(): raise ValueError('expired request')
             if row['state'] == 'PENDING': return {'state': 'PENDING'}
             if row['state'] != 'APPROVED': raise ValueError('no unconsumed approval')
-            db.execute("UPDATE requests SET state='CONSUMED' WHERE id=?", (request,))
+            if db.execute("UPDATE requests SET state='CONSUMED' WHERE id=? AND state='APPROVED'", (request,)).rowcount != 1:
+                raise ValueError('no unconsumed approval')
             self.event(db, row['credential'], 'AUTHENTICATED', request)
             return {'state': 'AUTHENTICATED', 'subject': credential['subject'],
                 'audience': 'openid-local-demo', 'assurance': 'PRIVATE_PILOT', 'requestId': request}
@@ -241,8 +242,6 @@ class Wallet:
                         (req, self.clock())).fetchone()
                     federation = True
                 if target is None: raise ValueError('request unavailable')
-            self.challenges = {k:v for k,v in self.challenges.items() if v['expires'] > self.clock()}
-            if len(self.challenges) >= 128: raise ValueError('too many challenges')
             challenge = secrets.token_hex(32)
             expires = int(self.clock())+60
             payload = {'version': 1, 'origin': self.origin, 'credentialId': ident, 'action': action,
@@ -251,15 +250,24 @@ class Wallet:
                 'purpose': (FEDERATION_PURPOSE if federation else PURPOSE) if target is not None and action != 'inspect' else None,
                 'code': target['code'] if target is not None and action != 'inspect' else None}
             raw = json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()
-            self.challenges[challenge] = {'payload': raw, 'data': payload, 'expires': expires, 'federation': federation}
+            self.store_challenge(db, challenge, raw, payload, expires, federation)
             return {'id': challenge, 'signingInput': base64.b64encode(raw).decode()}
+
+    def store_challenge(self, db, challenge, raw, payload, expires, federation):
+        self.challenges = {k:v for k,v in self.challenges.items() if v['expires'] > self.clock()}
+        if len(self.challenges) >= 128: raise ValueError('too many challenges')
+        self.challenges[challenge] = {'payload': raw, 'data': payload, 'expires': expires, 'federation': federation}
+
+    def take_challenge(self, challenge):
+        return self.challenges.pop(challenge, None)
 
     def execute(self, request):
         if not isinstance(request, dict) or set(request) != {'challengeId', 'signature'}: raise ValueError('fields')
         challenge = identifier(request['challengeId'])
         with self.lock:
-            pending = self.challenges.pop(challenge, None) # Consume before every failure.
+            pending = self.take_challenge(challenge) # Consume before every failure.
             if pending is None or pending['expires'] <= self.clock(): raise ValueError('challenge unavailable')
+            if pending['data']['origin'] != self.origin: raise ValueError('origin binding')
             signature = request['signature']
             if not isinstance(signature, str) or len(signature) > 160: raise ValueError('signature size')
             base64.b64decode(signature, validate=True)
@@ -347,15 +355,19 @@ class Wallet:
             if operation != 'consume' or row['state'] != 'APPROVED': raise ValueError('no unconsumed approval')
             profile = self.verified_profile(db, row['credential'])
             identity = self.vault.crypt('open', row['credential'], profile['person'], json.loads(profile['sealed']))
-            db.execute("UPDATE federation_requests SET state='CONSUMED' WHERE id=?", (request,))
+            if db.execute("UPDATE federation_requests SET state='CONSUMED' WHERE id=? AND state='APPROVED'", (request,)).rowcount != 1:
+                raise ValueError('no unconsumed approval')
             self.event(db, row['credential'], 'AUTHENTICATED', request)
             return {'state': 'AUTHENTICATED', 'credentialId': row['credential'], 'version': profile['version'],
-                'subject': self.vault.reference('subject-v1:'+audience, profile['person']), 'identity': identity}
+                'subject': self.federation_subject(db, audience, profile['person']), 'identity': identity}
+
+    def federation_subject(self, db, audience, person):
+        return self.vault.reference('subject-v1:'+audience, person)
 
     def federation_check(self, ident, subject, version, audience):
         with self.transaction() as db:
             profile = self.verified_profile(db, ident)
-            expected = self.vault.reference('subject-v1:'+audience, profile['person'])
+            expected = self.federation_subject(db, audience, profile['person'])
             if not isinstance(subject, str) or not secrets.compare_digest(subject, expected) or version != profile['version']:
                 raise ValueError('identity binding')
             return {'state': 'ACTIVE', 'expiresAt': self.active(db, ident)['expires']}
