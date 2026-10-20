@@ -19,15 +19,15 @@ class TransitVault:
                 or (url.scheme != 'https' and not (local_test and url.scheme == 'http' and url.hostname in ('127.0.0.1', 'localhost')))):
             raise ValueError('OpenBao requires an HTTPS origin')
         self.url, self.token_file = url, token_file
-        self.context = ssl.create_default_context(cafile=ca_file) if url.scheme == 'https' else None
+        self.tls_context = ssl.create_default_context(cafile=ca_file) if url.scheme == 'https' else None
 
     def request(self, path, value=None):
         connection = None
         try:
             token = private_file(self.token_file).decode('ascii').strip()
             if not re.fullmatch('[A-Za-z0-9_.-]{16,2048}', token): raise ValueError('token')
-            connection = (http.client.HTTPSConnection(self.url.hostname, self.url.port, timeout=3, context=self.context)
-                if self.context else http.client.HTTPConnection(self.url.hostname, self.url.port, timeout=3))
+            connection = (http.client.HTTPSConnection(self.url.hostname, self.url.port, timeout=3, context=self.tls_context)
+                if self.tls_context else http.client.HTTPConnection(self.url.hostname, self.url.port, timeout=3))
             data = json.dumps(value, allow_nan=False, separators=(',', ':')).encode() if value is not None else None
             if data is not None and len(data) > 65536: raise ValueError('size')
             connection.request('POST' if data is not None else 'GET', '/v1/'+path, body=data,
