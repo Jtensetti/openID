@@ -139,6 +139,19 @@ class ClusterTests(unittest.TestCase):
                     self.assertEqual(role in users,self.sql(role,'SELECT has_function_privilege(current_user,%s,%s)',
                         ('openid.'+function,'EXECUTE'))[0][0])
 
+    def test_operator_temp_tables_cannot_shadow_privileged_registry_access(self):
+        with self.psycopg.connect(self.dsns['alice'],options='-c search_path=openid,pg_catalog') as db:
+            for name in ('credentials','profiles','activation_proposals','operator_events'):
+                db.execute('CREATE TEMP TABLE '+name+'(id text)')
+                db.execute('GRANT ALL ON pg_temp.'+name+' TO openid_owner')
+            proposal=db.execute('SELECT openid.request_activation(%s,%s,%s)',(self.ident,'REVIEW-temp-shadow',24)).fetchone()[0]
+        with self.psycopg.connect(self.dsns['bob'],options='-c search_path=openid,pg_catalog') as db:
+            for name in ('credentials','profiles','persons','activation_proposals','operator_events','events'):
+                db.execute('CREATE TEMP TABLE '+name+'(id text)')
+                db.execute('GRANT ALL ON pg_temp.'+name+' TO openid_owner')
+            db.execute('SELECT openid.approve_activation(%s)',(proposal,))
+        self.assertEqual('ACTIVE',self.b.execute(self.signed())['state'])
+
     def test_no_unverified_profile_or_expired_proposal(self):
         ident=self.enroller.enroll(self.keys[1]['publicKey'])['id']
         with self.assertRaises(self.psycopg.Error):self.sql('alice','SELECT request_activation(%s,%s,%s)',(ident,'REVIEW-no-pass',24))

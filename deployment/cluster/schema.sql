@@ -73,7 +73,7 @@ END $$;
 CREATE TRIGGER credential_guard BEFORE INSERT OR UPDATE ON credentials FOR EACH ROW EXECUTE FUNCTION guard_credential();
 
 CREATE FUNCTION request_activation(target text, reference text, validity integer) RETURNS text
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=openid,pg_catalog AS $$
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $$
 DECLARE c credentials; p profiles; proposal text; now_epoch bigint:=extract(epoch FROM clock_timestamp())::bigint;
 BEGIN
  IF reference !~ '^[A-Za-z0-9_-]{8,80}$' OR validity NOT BETWEEN 1 AND 72 OR validity IS NULL THEN
@@ -92,7 +92,7 @@ BEGIN
 END $$;
 
 CREATE FUNCTION revoke_credential(target text) RETURNS void
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=openid,pg_catalog AS $$
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $$
 BEGIN
  PERFORM 1 FROM credentials WHERE id=target FOR UPDATE;
  IF NOT FOUND THEN RAISE EXCEPTION 'credential unavailable'; END IF;
@@ -105,7 +105,7 @@ BEGIN
 END $$;
 
 CREATE FUNCTION approve_activation(proposal_id text) RETURNS void
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=openid,pg_catalog AS $$
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $$
 DECLARE proposal activation_proposals; c credentials; p profiles; old_id text;
  now_epoch bigint:=extract(epoch FROM clock_timestamp())::bigint;
 BEGIN
@@ -131,7 +131,7 @@ END $$;
 
 -- Deliberate fail-closed restore: run before any service receives access to a restored registry.
 CREATE FUNCTION revoke_all_after_restore() RETURNS void
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=openid,pg_catalog AS $$
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $$
 BEGIN
  LOCK TABLE credentials,requests,federation_requests,challenges IN ACCESS EXCLUSIVE MODE;
  UPDATE credentials SET state='REVOKED';
@@ -143,7 +143,7 @@ BEGIN
 END $$;
 
 CREATE FUNCTION purge_expired(profile_days integer,event_days integer,max_batch integer) RETURNS bigint
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=openid,pg_catalog AS $$
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $$
 DECLARE removed bigint:=0; n bigint; item record; now_epoch bigint:=extract(epoch FROM clock_timestamp())::bigint;
 BEGIN
  IF profile_days IS NULL OR event_days IS NULL OR max_batch IS NULL OR profile_days NOT BETWEEN 1 AND 3650

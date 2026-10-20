@@ -42,7 +42,7 @@ def connection_options(dsn, local_test=False):
         raise ValueError('Explicit database host, user and name required')
     # Caller-supplied options must not override the schema, deadlines or primary requirement.
     options.update(connect_timeout=3, target_session_attrs='read-write', application_name='openid',
-        options='-c search_path=openid,pg_catalog -c statement_timeout=5000 -c lock_timeout=2000 -c idle_in_transaction_session_timeout=10000')
+        options='-c search_path=pg_catalog,openid,pg_temp -c statement_timeout=5000 -c lock_timeout=2000 -c idle_in_transaction_session_timeout=10000')
     return options
 
 
