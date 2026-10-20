@@ -56,7 +56,7 @@ class IdentityTests(unittest.TestCase):
     def test_no_century_or_person_number_is_inferred(self):
         value = document(birthDateMrz='000229').profile()
         self.assertEqual('000229', value['birthDateMrz']); self.assertNotIn('birthDate', value); self.assertNotIn('personalIdentityNumber', value)
-        for dob in ('19000101', '001332', '000230', 'ABCDEF'):
+        for dob in ('19000101', '001332', '000230', '900229', 'ABCDEF'):
             with self.assertRaises(ValueError): document(birthDateMrz=dob)
     def test_key_only_credential_cannot_approve_federation(self):
         legacy = self.wallet.enroll(self.keys[1]['publicKey'])['id']; self.wallet.activate(legacy, 'REVIEW-legacy-001')

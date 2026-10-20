@@ -176,3 +176,22 @@ Testerna gäller endast våra egna isolerade miljöer eller uttryckligen godkän
 Endast syntetiska personer, dokument och nycklar. Endast isolerad testfederation. Inga riktiga utgivningsbeslut, offentliga produktionsanslutningar eller insända ersättningsunderlag. Ingen LLM i säkerhetsbesluten. Ett godkänt labbtest betyder enbart att det angivna labbtestet klarades.
 
 Produktionsöppning kräver de separata beslutspunkterna i [genomförandeplanen](05-genomforande.md).
+
+## 10. Appens privata pilot
+
+`verification/` kopplar verifierade DG1/DG2-uppgifter till en personpost och
+telefonens publika nyckel. Personprofilen krypteras med AES-GCM. Samma pass
+ger samma personpost, och ny aktivering spärrar äldre nycklar. Passförnyelse
+slås inte automatiskt ihop med en tidigare personpost.
+
+`phone-idp` läser ett engångsgodkännande över en privat Unix-socket. Det
+innehåller den aktiva nyckeln, personens tjänstespecifika subjekt och
+profilversion. Sweden Connect skapar det signerade och krypterade
+SAML-svaret. `phone-sp` kontrollerar bibliotekets protokollresultat och
+aktuellt register vid varje skyddad läsning. Den äldre simulerade providern
+är avstängd i detta läge. Trafiken går inte till ersättningsrapporteringen.
+
+Operatören och processerna delar OS-konto. Personregistret har inte
+HSM-skydd, automatisk gallring eller skydd mot återställd spärrstatus.
+Fysiskt chip-, kamera- och personprov återstår. Detaljer och startkommandon
+finns i [verifierarens README](../verification/README.md).

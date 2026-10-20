@@ -85,7 +85,7 @@ public final class PassportVerifier {
       String birth = mrz.getDateOfBirth();
       if (!birth.matches("[0-9]{6}")) throw new Rejected();
       // MRZ does not encode the century. Validate month/day without assigning one.
-      LocalDate.of(2000, Integer.parseInt(birth.substring(2, 4)), Integer.parseInt(birth.substring(4, 6)));
+      LocalDate.of(2000 + Integer.parseInt(birth.substring(0, 2)), Integer.parseInt(birth.substring(2, 4)), Integer.parseInt(birth.substring(4, 6)));
       var identity = new Identity(name(mrz.getSecondaryIdentifier()), name(mrz.getPrimaryIdentifier()), birth,
           mrz.getNationality(), mrz.getIssuingState(), mrz.getDocumentNumber(), expiry.toString());
       if (identity.familyName().isEmpty() && identity.givenNames().isEmpty()) throw new Rejected();

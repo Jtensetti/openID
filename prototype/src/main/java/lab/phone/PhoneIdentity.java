@@ -16,7 +16,7 @@ public record PhoneIdentity(String subject, String credential, String version, S
   public PhoneIdentity {
     for (String id : List.of(subject, credential, version)) if (!id.matches("[a-f0-9]{64}")) throw new IllegalArgumentException("Identity reference");
     if (!displayName.matches("[A-Z ]{1,89}") || !birthDateMrz.matches("[0-9]{6}")) throw new IllegalArgumentException("Identity fields");
-    try { java.time.LocalDate.of(2000, Integer.parseInt(birthDateMrz.substring(2, 4)), Integer.parseInt(birthDateMrz.substring(4, 6))); }
+    try { java.time.LocalDate.of(2000 + Integer.parseInt(birthDateMrz.substring(0, 2)), Integer.parseInt(birthDateMrz.substring(2, 4)), Integer.parseInt(birthDateMrz.substring(4, 6))); }
     catch (java.time.DateTimeException e) { throw new IllegalArgumentException("Birth date"); }
     if (portrait.length() > 32000) throw new IllegalArgumentException("Portrait size");
     byte[] bytes = Base64.getDecoder().decode(portrait);

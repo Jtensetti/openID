@@ -5,12 +5,13 @@
 Projektet saknar produktionsrelease, Digg-godkännande och oberoende
 säkerhetsgranskning.
 
-- `prototype/`: SAML/WebAuthn-labb med genererade identiteter och
+- `prototype/` med `start`/`start-web`: SAML/WebAuthn-labb med genererade identiteter och
   simulerad identitetskontroll. Normal omstart bevarar spärrar och publika
   nycklar. Krasch och återläsning spärrar alla credentials.
 - `verification/` och `ios/`: passverifiering, ansiktsjämförelse, RGB-PAD,
   NFC-fångst och enhetsautentisering för en privat pilot. Registrering
-  kräver separat operatörsaktivering.
+  kräver separat operatörsaktivering. `phone-idp` och `phone-sp` kopplar
+  detta register till en separat lokal SAML-tjänst.
 - `ops/`: driftcontainer i Render, utan e-id-funktioner.
 
 Fysisk NFC/App Attest, modellernas felgrader, bildinjektion och certifikatspärr
@@ -35,6 +36,13 @@ CI använder genererade testdata. Använd interna test-ID:n, inte slumpade
 personnummer som kan tillhöra någon. Verkliga pass får bara användas i
 användarens uttryckligen valda privata testmiljö. Externa testidentiteter
 hanteras enligt respektive miljös villkor.
+
+Pilotregistret sparar passets personprofil och förminskade foto krypterat.
+Databas och nyckelfil måste skyddas separat från repot. Samma serverkonto
+kan läsa nyckeln och aktivera credentials. Gamla kopior av pilotdatabasen
+får inte återläsas: skydd mot återställd spärrstatus saknas i detta register.
+SAML-tjänsten nekar åtkomst om spärrkontrollen inte kan nås. Se
+[lagring och nycklar](verification/README.md#spärr-och-lagring).
 
 En publicerad hemlighet ska betraktas som röjd: stoppa exponeringen,
 återkalla eller rotera den och utred användningen. Borttagning ur senaste

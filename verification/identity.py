@@ -28,7 +28,7 @@ class VerifiedDocument:
             if not re.fullmatch('[A-Z ]{0,44}', identity[field]): raise ValueError('name')
         if not (identity['givenNames'] or identity['familyName']): raise ValueError('name')
         if not re.fullmatch('[0-9]{6}', identity['birthDateMrz']): raise ValueError('birth date')
-        date(2000, int(identity['birthDateMrz'][2:4]), int(identity['birthDateMrz'][4:6]))
+        date(2000+int(identity['birthDateMrz'][:2]), int(identity['birthDateMrz'][2:4]), int(identity['birthDateMrz'][4:6]))
         for field in ('nationality', 'issuingState'):
             if not re.fullmatch('[A-Z<]{3}', identity[field]): raise ValueError('country')
         if not re.fullmatch('[A-Z0-9]{1,9}', identity['documentNumber']): raise ValueError('document number')
