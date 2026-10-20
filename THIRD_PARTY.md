@@ -14,6 +14,9 @@ sårbarhetskontrollen. npm-paketen låses med integritetshash i respektive
 `package-lock.json`. Python- och Swift-lås beskrivs i
 [verification/THIRD_PARTY.md](verification/THIRD_PARTY.md).
 
+AWS-testets SDK, CI-verktyg och licenser finns i
+[deployment/aws/THIRD_PARTY.md](deployment/aws/THIRD_PARTY.md).
+
 | Komponent | Låst version / full källrevision | Användning och licens |
 |---|---|---|
 | [Spring Authentication Server](https://github.com/swedenconnect/spring-authentication-server) | 1.0.3 / `dd49df31aa250eaacbd3a27466a05ec331b6dddc` | Parent-POM, SAML-starter och provider-API. Apache-2.0. |

@@ -152,6 +152,14 @@ class ClusterTests(unittest.TestCase):
             with self.assertRaises(RegistryUnavailable):
                 PostgresWallet(make_conninfo(**(configured|change)),self.a.origin,self.a.vault)
 
+    def test_service_and_operator_logins_cannot_assume_or_grant_owner(self):
+        for role in self.dsns:
+            with self.subTest(role=role):
+                for statement in ('SET ROLE openid_owner',
+                                  'GRANT openid_owner TO CURRENT_USER WITH INHERIT TRUE, SET TRUE'):
+                    with self.assertRaises(self.psycopg.errors.InsufficientPrivilege):
+                        self.sql(role,statement)
+
     def test_operator_temp_tables_cannot_shadow_privileged_registry_access(self):
         with self.psycopg.connect(self.dsns['alice'],options='-c search_path=openid,pg_catalog') as db:
             for name in ('credentials','profiles','activation_proposals','operator_events'):

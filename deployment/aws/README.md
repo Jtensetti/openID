@@ -8,7 +8,7 @@ e-id-tjänster och behandlar inga verkliga personuppgifter.
 
 PostgreSQL 18.6 körs på RDS `db.t4g.micro`, Single-AZ, med 20 GiB krypterad
 gp3-lagring. Testmaskinen är `t3.small`, med 12 GiB krypterad gp3-disk och
-standardiserade CPU-krediter. Databasen är privat. Testmaskinen har inga
+CPU-krediter i standardläge. Databasen är privat. Testmaskinen har inga
 inkommande nätregler; administration sker genom Systems Manager.
 Databaslösenordet skapas av RDS och läses från Secrets Manager i testprocessen.
 
