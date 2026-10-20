@@ -8,6 +8,7 @@ import statistics
 import tempfile
 import time
 from wallet import Wallet
+from crypto_runtime import CryptoRuntime
 from test_wallet import crypt
 from test_identity import document
 
@@ -19,8 +20,8 @@ def main():
     parser.add_argument('--output',type=Path)
     args=parser.parse_args()
     if not 1<=args.requests<=10000 or not 1<=args.concurrency<=32:parser.error('Bounded probe required')
-    with tempfile.TemporaryDirectory(prefix='openid-load-') as temp:
-        wallet=Wallet(Path(temp)/'wallet.sqlite','https://localhost:8765')
+    with tempfile.TemporaryDirectory(prefix='openid-load-') as temp, CryptoRuntime() as crypto:
+        wallet=Wallet(Path(temp)/'wallet.sqlite','https://localhost:8765',crypto=crypto.device,vault_runner=crypto.profile)
         key=json.loads(crypt(op='new'));ident=wallet.enroll(key['publicKey'], document())['id']
         wallet.activate(ident,'LOAD-GENERATED-KEY')
         def operation(_):
@@ -37,13 +38,17 @@ def main():
         challenge=wallet.challenge({'credentialId':ident,'action':'approve','requestId':request['id']})
         wallet.execute({'challengeId':challenge['id'],'signature':crypt(op='sign',key=key['privateKey'],payload=challenge['signingInput'])})
         def consume(_):
-            try:Wallet(wallet.path,wallet.origin).consume_result(request['id'],request['secret']);return 1
-            except ValueError:return 0
-        with ThreadPoolExecutor(32) as pool:winners=sum(pool.map(consume,range(32)))
+            try:return Wallet(wallet.path,wallet.origin).consume_result(request['id'],request['secret'])['subject']
+            except ValueError:return None
+        with ThreadPoolExecutor(32) as pool:results=list(pool.map(consume,range(32)))
+        subjects=[result for result in results if result is not None]
+        winners=len(subjects)
         if winners!=1:raise AssertionError('One-shot violated under contention')
+        subject=subjects[0]
+        wallet.check_session(ident,subject)
         wallet.revoke(ident)
         def check(_):
-            try:Wallet(wallet.path,wallet.origin).check_session(ident,'no-session');return 1
+            try:Wallet(wallet.path,wallet.origin).check_session(ident,subject);return 1
             except ValueError:return 0
         with ThreadPoolExecutor(32) as pool:accepted=sum(pool.map(check,range(32)))
         if accepted:raise AssertionError('Revoked key accepted')

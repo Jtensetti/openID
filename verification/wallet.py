@@ -33,7 +33,7 @@ def identifier(value):
     return value
 
 class Wallet:
-    def __init__(self, path, origin, clock=time.time, crypto=device_crypto):
+    def __init__(self, path, origin, clock=time.time, crypto=device_crypto, vault_runner=None):
         self.path, self.origin, self.clock, self.crypto = Path(path).absolute(), origin, clock, crypto
         if self.path.is_symlink() or self.path.parent.is_symlink(): raise ValueError('database symlink')
         self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -43,7 +43,7 @@ class Wallet:
         if self.path.stat().st_mode & 0o077: raise ValueError('database must be private (0600)')
         self.lock = threading.RLock()
         self.challenges = {}
-        self.vault = IdentityVault(self.path.with_suffix('.identity-key'))
+        self.vault = IdentityVault(self.path.with_suffix('.identity-key'), runner=vault_runner)
         with self.transaction() as db:
             db.executescript('''
                 CREATE TABLE IF NOT EXISTS credentials (

@@ -62,6 +62,12 @@ def main():
                 assert request('/metrics')[0]==403
                 assert request('/health/ready?enable=true')[0]==403
                 assert request('/health/ready',headers={'Host':'attacker.invalid'})[0]==403
+                for extra in ('Host: duplicate.invalid', 'Forwarded: host=attacker.invalid',
+                        'Transfer-Encoding: chunked', 'Expect: 100-continue'):
+                    with context.wrap_socket(socket.create_connection(('localhost',port)),server_hostname='localhost') as wire:
+                        wire.settimeout(5)
+                        wire.sendall((f'GET /health/live HTTP/1.1\r\nHost: localhost:{port}\r\n{extra}\r\n\r\n').encode())
+                        assert b' 400 ' in wire.recv(4096).split(b'\r\n')[0]
                 headers={'Origin':origin,'X-CSRF-Token':'x'*43,'Content-Type':'application/json'}
                 assert request('/native/start','POST','{}',headers)[0]==200
                 assert request('/native/start','POST','{"x":NaN}',headers)[0]==400
@@ -77,6 +83,12 @@ def main():
                     assert request('/wallet/execute','POST',message,headers)[0]==400
                     return json.loads(raw)
                 assert signed_operation('snapshot')['identity']['displayName']=='ALICE SYNTHETIC'
+                start=time.monotonic()
+                with concurrent.futures.ThreadPoolExecutor(8) as pool:
+                    snapshots=list(pool.map(lambda _: signed_operation('snapshot'),range(40)))
+                assert all(item['identity']['displayName']=='ALICE SYNTHETIC' for item in snapshots)
+                print(json.dumps({'probe':'tls-signed-profile','operations':40,'concurrency':8,
+                    'seconds':round(time.monotonic()-start,3),'errors':0}))
                 login=wallet.start_request(ident)
                 signed_operation('approve', login['id'])
                 assert wallet.consume_result(login['id'],login['secret'])['state']=='AUTHENTICATED'
@@ -89,7 +101,18 @@ def main():
                 time.sleep(0.2)
                 assert request()[0]==200
                 assert request('/native/finish','POST','{}',headers)[0]==503
-                slow.close()
+                # Both deadlines must close sockets without waiting for clients to finish.
+                stalled_header=context.wrap_socket(socket.create_connection(('localhost',port)),server_hostname='localhost')
+                stalled_header.sendall(b'GET /health/live HTTP/1.1\r\nHost:')
+                stalled_header.settimeout(13)
+                try:
+                    while stalled_header.recv(4096): pass
+                finally: stalled_header.close()
+                slow.settimeout(8)
+                try:
+                    while slow.recv(4096): pass
+                finally: slow.close()
+                assert request('/native/finish','POST','{}',headers)[0]==400
                 start=time.monotonic()
                 with concurrent.futures.ThreadPoolExecutor(16) as pool:
                     results=list(pool.map(lambda _: request('/health/live')[0],range(160)))
@@ -108,7 +131,7 @@ def main():
                 assert '"x":NaN' not in output
                 assert 'ALICE' not in output
                 assert ident not in output
-                print('PASS: TLS, boundary, bounded admission, health, database loss, private logs and graceful shutdown')
+                print('PASS: TLS, signed operations, replay, header/body deadlines, bounded admission, database loss, private logs and graceful shutdown')
             except BaseException:
                 log.seek(0)
                 # Only generated data is used in this test process.

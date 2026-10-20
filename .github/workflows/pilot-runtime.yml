@@ -35,16 +35,46 @@ jobs:
           docker exec openid-pilot java -version
           if docker exec openid-pilot touch /app/must-not-write; then exit 1; fi
           docker exec openid-pilot sh -c 'test ! -e /app/verification/test_runtime.py && test ! -e /app/verification/test_chip_fixture.py'
+      - name: Run packaged local test service
+        run: |
+          docker run --detach --name openid-rp --network container:openid-pilot --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 32 --memory 256m --cpus 1 --user "$(id -u):$(id -g)" --tmpfs /tmp:size=16m,mode=1777 -v "$OPENID_DIRECTORY/data:/srv/openid/data" --entrypoint python openid-pilot:ci relying_party.py --db /srv/openid/data/wallet.sqlite
+          docker exec -i openid-pilot python - <<'PY'
+          import http.client, json, time
+          for _ in range(30):
+              try:
+                  c=http.client.HTTPConnection('localhost',8766,timeout=2)
+                  c.request('GET','/session'); r=c.getresponse()
+                  assert r.status==200 and 'HttpOnly' in r.getheader('Set-Cookie')
+                  assert len(json.loads(r.read())['csrf'])==64
+                  c.close(); break
+              except OSError: time.sleep(1)
+          else: raise AssertionError('Local service did not start')
+          c=http.client.HTTPConnection('localhost',8766,timeout=2)
+          c.request('POST','/login','{}',{'Origin':'http://attacker.invalid','Content-Type':'application/json'})
+          assert c.getresponse().status==403
+          c.close()
+          print('PASS: packaged local service and origin rejection')
+          PY
       - name: Validate Compose configuration and collect package inventory
         run: |
           export OPENID_UID="$(id -u)" OPENID_GID="$(id -g)"
           docker compose -f deployment/compose.yaml config --quiet
           docker exec openid-pilot python -m pip inspect > "$RUNNER_TEMP/python-packages.json"
-          docker image inspect openid-pilot:ci --format '{{.Id}}'
+          docker image inspect openid-pilot:ci --format '{{.Id}}' > "$RUNNER_TEMP/image-id.txt"
+          docker stop --time 10 openid-rp
           docker stop --time 70 openid-pilot
           test "$(docker inspect openid-pilot --format '{{.State.ExitCode}}')" = 0
+      - name: Save image package inventory
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pilot-image-inventory
+          path: |
+            ${{ runner.temp }}/python-packages.json
+            ${{ runner.temp }}/image-id.txt
+          retention-days: 14
       - name: Logs and cleanup
         if: always()
         run: |
           docker logs openid-pilot || true
-          docker rm --force openid-pilot || true
+          docker logs openid-rp || true
+          docker rm --force openid-pilot openid-rp || true

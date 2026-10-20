@@ -84,7 +84,8 @@ Primärkällor kontrollerade 2026-10-19:
 CI använder GitHubs `actions/upload-artifact` **v4.6.2**, full commit
 `ea165f8d65b6e75b540449e92b4886f43607fa02`, MIT. Taggreferens och LICENSE
 kontrollerade i `actions/upload-artifact` samma datum. Den används endast
-för simulatorbild och XCTest-resultat utan persondata, med 14 dagars
+för simulatorbild, XCTest-resultat, kapacitetsmätning och paketinventering
+utan persondata, med 14 dagars
 retention. Workflowbehörigheter är fortsatt `contents: read`; inga Apple-
 eller produktionsnycklar läggs i CI. Projektgeneratorn är egen Pythonkod
 utan externa beroenden.
@@ -145,3 +146,29 @@ Profilkryptering använder Node **24.19.0** `node:crypto` AES-256-GCM.
 Dokumentreferenser och tjänstesubjekt använder Python 3.12 `hmac`/SHA-256
 med separat nyckel. De befintliga OpenCV- och qrcode-versionerna används
 för passfotots storlek respektive QR.
+
+
+## Pilotens HTTP-server och container
+
+Gunicorn **26.2.0** låses med hjulhash i `runtime-requirements.lock`.
+Basinstallationen har inga transitiva paketberoenden. MIT-licens och NOTICE
+finns i `licenses/gunicorn-*`; paket-SBOM i `runtime-sbom.cdx.json`.
+[Upstream](https://github.com/benoitc/gunicorn) var inte arkiverat vid kontrollen
+2026-10-20; senaste push 2026-09-06. Den daterade OSV-kontrollen i
+`runtime-audit.json` gav inga fynd för den valda versionen. Det är ingen
+säkerhetsbedömning av den egna integrationen.
+
+[Gunicorns inställningar](https://gunicorn.org/reference/settings/) och
+[ändringslogg](https://gunicorn.org/news/) ligger till grund för körmiljön.
+HTTP/2, proxyprotokoll, kontrollsocket och automatiska omstarter efter ett
+visst antal anrop används inte. NFC-sessionerna tillhör en enda worker.
+
+`deployment/Dockerfile` låser officiella Python **3.12.15 slim-bookworm**,
+Node **24.19.0 bookworm-slim** och befintliga Temurin **21.0.12.1+1** med
+image-digests, avlästa från Docker Registry 2026-10-20. Python har PSF-licens,
+Node MIT med tredjepartslicenser och Temurin GPL-2.0 med Classpath Exception.
+Basimagens Debian-licenser, JRE:s `legal/` och Nodes LICENSE bevaras.
+Maven 3.9.11 hämtas som samma SHA-256-låsta ZIP som wrappern; hela grafens
+180 beroendehashar kontrolleras även i containerbygget. Bildvikter och
+Python-/npm-paket hämtas enbart vid bygge med befintliga lås. CI inventerar
+installerade Python-paket. OS-paket täcks av imagen, inte paket-SBOM:erna.

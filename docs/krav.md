@@ -37,10 +37,10 @@ Aktuell originaltext behöver kontrolleras inför en formell bedömning.
 
 | ID | Implementation | Återstående arbete |
 |---|---|---|
-| OPS-01/02 | Lokal processhälsa och registerkontroll; separat stängd driftcontainer. | Tillgänglighets-/svarstidsmål enligt D03 §8.5.1 är inte verifierade. Belastning, redundans och produktionsmätning saknas. |
+| OPS-01/02 | Gunicorn/TLS med hälsokontroller, kapacitetsgränser, isolerad bildanalys, resursbegränsad container och lokala belastningsprov. Separat stängd Render-container. | Tillgänglighets-/svarstidsmål enligt D03 §8.5.1 är inte verifierade. Redundans och mätning på avsedd produktionsmiljö saknas. |
 | OPS-03/04/05 | Ingen operativ support-, incident- eller ändringsprocess. | Kontaktvägar, bemanning, incidentövning och kompatibel uppgradering enligt D03 §§8.7, 8.12–8.14. |
 | OPS-06 | Begränsade sessioner, meddelandestorlekar och engångsvärden. | Driftanpassad missbruksdetektion och granskad utredningsprocess. |
-| OPS-07 | Java-labben har testad backup/restore med spärr av alla nycklar. | Appregistrets återställning, nyckelförlust, kontinuitet och gamla spärrar. |
+| OPS-07 | Java-labben och pilotregistrets `recovery.py` har testad återläsning med spärr av alla nycklar. | Övad operativ återställning, separat nyckelbackup och återupptagen tillgänglighet efter nyregistrering. |
 | FIN-01/02/03/04 | `OfflineReportTest` provar klassificering och deduplicering i Java-labben. Ersättningsgrundande antal är alltid noll och ingen rapport skickas. | Produktionsrapportering är inte implementerad; format, avtal, kvittenser och rättelser behöver verifieras mot D03–D05. |
 
 ## Projektregler

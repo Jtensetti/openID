@@ -1,6 +1,8 @@
 **
+!THIRD_PARTY.md
 !prototype/
 !prototype/dependencies.lock.json
+!prototype/licenses/**
 !prototype/scripts/
 !prototype/scripts/dependencies.py
 !prototype/pom.xml
@@ -16,6 +18,7 @@
 !verification/package-lock.json
 !verification/vendor/**
 !verification/licenses/**
+!verification/THIRD_PARTY.md
 !verification/rp_web/**
 !deployment/
 !deployment/probe.py

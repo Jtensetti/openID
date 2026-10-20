@@ -31,7 +31,9 @@ final class WalletAPI {
         guard request.httpBody!.count <= 14_000_000 else { throw WalletError.rejected }
         // Check size while streaming; data(for:) would buffer the entire response.
         let (stream, response) = try await session.bytes(for: request)
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw WalletError.rejected }
+        guard let status = (response as? HTTPURLResponse)?.statusCode else { throw WalletError.unavailable }
+        if status == 429 || status == 503 { throw WalletError.overloaded }
+        guard status == 200 else { throw WalletError.rejected }
         var data = Data()
         for try await byte in stream {
             guard data.count < 262144 else { throw WalletError.rejected }

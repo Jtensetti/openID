@@ -32,6 +32,10 @@ Detta analysgränssnitt registrerar ingen nyckel.
 
 ## Appens privata pilotregister
 
+För telefonprov med paketerad server används [pilotmiljön](../deployment/README.md).
+Den kör Gunicorn med separata kapacitetsgränser och processisolering för
+bildanalys. Kommandot nedan startar den äldre seriella testservern.
+
 [iPhone-appen](../ios/README.md) läser passet, tar tre kamerabilder och binder
 underlaget till telefonens publika nyckel med App Attest. Starta servern med
 HTTPS och en privat databas utanför repot:

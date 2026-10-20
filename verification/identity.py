@@ -53,8 +53,9 @@ class VerifiedDocument:
             'portraitJpeg': base64.b64encode(encoded).decode()}
 
 class IdentityVault:
-    def __init__(self, path):
+    def __init__(self, path, runner=None):
         self.path = Path(path)
+        self.runner = runner
 
     def key(self, create=False):
         if create:
@@ -81,9 +82,11 @@ class IdentityVault:
             ('issuingState', 'documentNumber', 'birthDateMrz')], separators=(',', ':')))
 
     def crypt(self, operation, credential, person, value):
+        request = {'operation': operation, 'key': base64.b64encode(self.key()[:32]).decode(),
+            'aad': f'openid-profile-v1:{credential}:{person}', 'value': value}
+        if self.runner is not None: return self.runner(request)['value']
         result = subprocess.run(['node', str(Path(__file__).parent/'profile-crypto.mjs')],
-            input=json.dumps({'operation': operation, 'key': base64.b64encode(self.key()[:32]).decode(),
-                'aad': f'openid-profile-v1:{credential}:{person}', 'value': value}).encode(),
+            input=json.dumps(request).encode(),
             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=10, check=False)
         if result.returncode: raise ValueError('identity profile unavailable')
         return json.loads(result.stdout)['value']

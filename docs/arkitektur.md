@@ -18,6 +18,15 @@ och två lokala Java-processer för SAML. Det finns också två äldre testläge
 Java-sökvägarna är relativa till `prototype/src/main/java/`.
 Versioner och licenser finns i [komponentregistret](../THIRD_PARTY.md).
 
+## Körmiljö
+
+`verification/serve.py` kör pilotens native-/wallet-API över TLS med Gunicorn.
+En worker äger NFC-sessionerna. Kapacitetsgränser skiljer native-anrop från
+inloggning och spärr; bildanalysen körs i en separat process med tidsgräns.
+Databasens transaktioner avgör samtidiga godkännanden och spärrar. Ett fillås
+hindrar flera runtime-processer på samma databas. Detta är en ensam nod,
+inte en distribuerad tjänst. [Start och drift](../deployment/README.md).
+
 ## Registrering
 
 1. Appen skapar en P-256-nyckel i Secure Enclave. Keychain lagrar den omslutna
@@ -88,8 +97,9 @@ sparas inte. Publika nycklar, status och händelser är okrypterade.
 
 SQLite-databasen och `wallet.identity-key` ligger i en privat katalog.
 Saknad eller fel nyckel stoppar profilåtkomst. Automatisk gallring och
-nyckelrotation saknas. Återläsning av äldre register kan återuppliva spärrade
-nycklar och stöds därför inte.
+nyckelrotation saknas. `recovery.py restore` återläser till en ny katalog och
+spärrar alla återställda nycklar. Manuell återläsning som bevarar aktiva nycklar
+stöds inte, eftersom en äldre kopia kan sakna senare spärrar.
 
 ## Förtroendegränser
 

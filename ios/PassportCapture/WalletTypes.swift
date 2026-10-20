@@ -1,12 +1,13 @@
 import Foundation
 
 enum WalletError: LocalizedError {
-    case configuration, rejected, unavailable, cancelled, keyUnavailable
+    case configuration, rejected, unavailable, overloaded, cancelled, keyUnavailable
     var errorDescription: String? {
         switch self {
         case .configuration: return "Ange en HTTPS-adress och en giltig kopplingskod från din server."
         case .rejected: return "Begäran kunde inte godkännas. Uppdatera status och försök igen."
         case .unavailable: return "Servern svarar inte. Kontrollera anslutningen och serverns certifikat."
+        case .overloaded: return "Servern är tillfälligt upptagen. Vänta en stund och uppdatera ditt ID innan du försöker igen."
         case .cancelled: return "Åtgärden avbröts."
         case .keyUnavailable: return "Telefonens skyddade nyckel kunde inte öppnas. Enhetskod och Secure Enclave krävs."
         }

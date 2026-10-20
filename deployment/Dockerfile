@@ -33,15 +33,19 @@ COPY --from=node-build /usr/local/bin/node /usr/local/bin/node
 COPY --from=node-build /usr/local/LICENSE /usr/share/doc/nodejs/LICENSE
 WORKDIR /app/verification
 COPY verification/requirements.lock verification/rp-requirements.lock verification/runtime-requirements.lock ./
-RUN pip install --no-cache-dir --require-hashes --only-binary=:all: -r requirements.lock -r rp-requirements.lock -r runtime-requirements.lock
+RUN pip install --no-cache-dir --require-hashes --only-binary=:all: -r requirements.lock
+RUN pip install --no-cache-dir --require-hashes --only-binary=:all: -r rp-requirements.lock -r runtime-requirements.lock
 COPY --from=node-build /app/verification/node_modules ./node_modules
 COPY --from=java-verified /check/target/isolated-eid-lab.jar /app/prototype/target/isolated-eid-lab.jar
 COPY verification/face.py verification/pad.py verification/download_models.py ./
 COPY verification/vendor ./vendor
 COPY verification/licenses ./licenses
+COPY prototype/licenses /app/licenses/java
+COPY verification/THIRD_PARTY.md /app/licenses/verification.md
+COPY THIRD_PARTY.md /app/licenses/components.md
 RUN python download_models.py
-COPY verification/serve.py verification/runtime.py verification/biometric_worker.py verification/native.py verification/chip.py verification/server.py verification/wallet.py verification/wallet_cli.py verification/identity.py verification/recovery.py verification/relying_party.py ./
-COPY verification/attest.mjs verification/device-signature.mjs verification/profile-crypto.mjs ./
+COPY verification/crypto_runtime.py verification/serve.py verification/runtime.py verification/biometric_worker.py verification/native.py verification/chip.py verification/server.py verification/wallet.py verification/wallet_cli.py verification/identity.py verification/recovery.py verification/relying_party.py ./
+COPY verification/crypto-worker.mjs verification/attest.mjs verification/device-signature.mjs verification/profile-crypto.mjs ./
 COPY verification/rp_web ./rp_web
 COPY deployment/probe.py ./probe.py
 USER 10001:10001

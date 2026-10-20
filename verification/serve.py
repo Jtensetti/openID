@@ -140,10 +140,14 @@ def main():
                 'control_socket_disable': True, 'accesslog': None, 'errorlog': '-',
                 'umask': 0o077, 'preload_app': False}
             for key, value in settings.items(): self.cfg.set(key, value)
-            self.cfg.set('worker_exit', lambda server, worker: getattr(worker, 'wsgi', None) and worker.wsgi.native.close())
+            self.cfg.set('worker_exit', close_worker)
             self.cfg.set('pre_request', reject_duplicate_headers)
 
         def load(self):
+            from crypto_runtime import CryptoRuntime
+            crypto = CryptoRuntime()
+            wallet.crypto = crypto.device
+            wallet.vault.runner = crypto.profile
             from native import NativeSessions, AppAttest
             from chip import ChipProcess
             from server import verify_document
@@ -152,10 +156,19 @@ def main():
                 lambda data: verify_document(command, data), None, None, wallet=wallet,
                 chip_factory=lambda data: ChipProcess([*command[:-2], 'authenticate-chip', command[-1]], data),
                 biometrics=score_frames)
-            return Runtime(native, wallet, config['origin'], config['pairing'])
+            app = Runtime(native, wallet, config['origin'], config['pairing'])
+            app.crypto = crypto
+            return app
 
     try: Application().run()
     finally: lease.close()
+
+
+def close_worker(server, worker):
+    app = getattr(worker, 'wsgi', None)
+    if app is not None:
+        app.native.close()
+        if hasattr(app, 'crypto'): app.crypto.close()
 
 
 def reject_duplicate_headers(worker, req):

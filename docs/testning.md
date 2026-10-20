@@ -25,6 +25,7 @@ Tabellen är ett daterat resultat för revisionen ovan.
 | SAML/webbläsare | Separata verifierar-, IdP- och SP-processer, signerade/krypterade meddelanden och Chromium. | Chiptransport, kamera, App Attest och biometriska poäng är testdubblar i helkedjefixturen. |
 | WebAuthn | Webbläsarens WebAuthn-API och Yubico-validering med virtuella USB-/plattformsautentiserare. | Inga fysiska nycklar eller OS-installationsprov. |
 | iOS | Bygge, signerade bytes, tillstånd och SwiftUI i simulator. | NFC, Secure Enclave, Face ID och App Attest måste provas på telefon. |
+| Pilotdrift | Riktig Gunicorn/TLS, signerade wallet-anrop, kapacitetsgräns, saknad databas, privat loggning och SIGTERM. SQLite-backup och återläsning spärrar alla nycklar; fel nyckel och skadad backup avvisas. | En nod. Ingen fysisk iPhone, publik ingress eller HA. Belastningsmått omfattar angivet delsystem. |
 | Drift | Hälsoroutes och stängda e-id-routes över HTTP samt containerisolering i CI. | Containern innehåller ingen e-id-tjänst. |
 
 ## Negativa säkerhetsfall
@@ -42,6 +43,7 @@ Tabellen är ett daterat resultat för revisionen ovan.
 - [Pass, modeller, register och federation](../verification/README.md#tester).
 - [SAML, WebAuthn, lagring och återläsning](../prototype/README.md#tester-och-beroenden).
 - [iOS-bygge och simulator](../ios/README.md#bygg-och-testa).
+- [Pilotens drift- och belastningsprov](../deployment/README.md#drift-och-kapacitet).
 - [Driftcontainerns HTTP-prov](../ops/README.md#kör-lokalt).
 
 Linux med Unix-sockets krävs för federationsproven. Xcode kräver macOS;
