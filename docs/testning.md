@@ -26,7 +26,7 @@ Tabellen är ett daterat resultat för revisionen ovan.
 | WebAuthn | Webbläsarens WebAuthn-API och Yubico-validering med virtuella USB-/plattformsautentiserare. | Inga fysiska nycklar eller OS-installationsprov. |
 | iOS | Bygge, signerade bytes, tillstånd och SwiftUI i simulator. | NFC, Secure Enclave, Face ID och App Attest måste provas på telefon. |
 | Pilotdrift | Riktig Gunicorn/TLS, signerade wallet-anrop, kapacitetsgräns, saknad databas, privat loggning och SIGTERM. SQLite-backup och återläsning spärrar alla nycklar; fel nyckel och skadad backup avvisas. | En nod. Ingen fysisk iPhone, publik ingress eller HA. Belastningsmått omfattar angivet delsystem. |
-| Delat register | PostgreSQL 18.6, riktiga operatörsroller, OpenBao Transit, parallella TLS-workers, instansbortfall, rotation och gallring. | Temporär CI-infrastruktur; inga fysiska enheter, ingen lastbalanserare eller databas-/Raft-failover. |
+| Delat register | PostgreSQL 18.6, riktiga operatörsroller, OpenBao Transit, parallella TLS-workers, instansbortfall, rotation, gallring och 120 sekunders begränsad last med resursmätning. Faktisk registeråterläsning spärrar gamla nycklar och provas med återställd nyckeltjänst. TLS/Raft-prov med tre noder, ledarbortfall och saknad nyckelversion. | Temporär CI-infrastruktur; inga fysiska enheter, ingen lastbalanserare, ingen PostgreSQL-failover eller återställning från extern lagring. |
 | Drift | Hälsoroutes och stängda e-id-routes över HTTP samt containerisolering i CI. | Containern innehåller ingen e-id-tjänst. |
 
 ## Negativa säkerhetsfall

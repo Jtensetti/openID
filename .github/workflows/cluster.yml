@@ -37,7 +37,9 @@ jobs:
           mkdir "$RUNNER_TEMP/bao"
           tar -xzf "$RUNNER_TEMP/bao.tar.gz" -C "$RUNNER_TEMP/bao"
       - name: Build authentication image without biometric models
-        run: docker build --tag openid-wallet:ci --file deployment/cluster/Dockerfile .
+        run: |
+          docker build --tag openid-wallet:ci --file deployment/cluster/Dockerfile .
+          docker run --rm --read-only --cap-drop ALL --entrypoint python openid-wallet:ci cluster_recovery.py --help
       - name: Test database roles, concurrent operations and real Transit cryptography
         working-directory: verification
         env:
@@ -45,9 +47,11 @@ jobs:
           OPENID_TEST_BAO: '${{ runner.temp }}/bao/bao'
           OPENID_TEST_CONTAINER: openid-wallet:ci
           OPENID_TEST_REPORT: '${{ runner.temp }}/cluster-capacity.json'
+          OPENID_TEST_SOAK_SECONDS: '120'
         run: |
           .venv/bin/python test_cluster.py -v
           .venv/bin/python -m unittest test_operations -v
+          .venv/bin/python -m unittest test_key_recovery -v
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: cluster-capacity

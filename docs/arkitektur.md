@@ -119,6 +119,12 @@ NFC-session har fortsatt en enda process. Klusterläget har separat register;
 SQLite-data flyttas inte automatiskt. `cluster_bridge.py` ansluter det
 befintliga lokala SAML-socketprotokollet till PostgreSQL-registret.
 
+`cluster_recovery.py` tar en konsekvent registerbackup via PostgreSQL COPY.
+Återställning skapar en ny databas med betrodd schemakod, spärrar gamla
+nycklar och kontrollerar profilernas dekryptering innan data får sparas.
+Databasen lämnas stängd utan anslutningsrätt för applikationen. Backupen
+omfattar inte OpenBao, databaslogins eller infrastrukturkonfiguration.
+
 ## Förtroendegränser
 
 | Gräns | Kontroll och begränsning |

@@ -40,7 +40,7 @@ Aktuell originaltext behöver kontrolleras inför en formell bedömning.
 | OPS-01/02 | Gunicorn/TLS med hälsokontroller, kapacitetsgränser, isolerad bildanalys, resursbegränsad container och lokala belastningsprov. PostgreSQL-läge med flera TLS-workers, instansbortfallsprov och separata mät-/larmfunktioner. Separat stängd Render-container. | Tillgänglighets-/svarstidsmål enligt D03 §8.5.1 är inte verifierade. Redundans och mätning på avsedd produktionsmiljö saknas. |
 | OPS-03/04/05 | Ingen operativ support-, incident- eller ändringsprocess. | Kontaktvägar, bemanning, incidentövning och kompatibel uppgradering enligt D03 §§8.7, 8.12–8.14. |
 | OPS-06 | Begränsade sessioner, meddelandestorlekar och engångsvärden. | Driftanpassad missbruksdetektion och granskad utredningsprocess. |
-| OPS-07 | Java-labben och pilotregistrets `recovery.py` har testad återläsning med spärr av alla nycklar. | Övad operativ återställning, separat nyckelbackup och återupptagen tillgänglighet efter nyregistrering. |
+| OPS-07 | Java-/SQLite-återläsning samt PostgreSQL-registerbackup, sluten återställning och spärr av alla gamla nycklar. CI provar återläst OpenBao-snapshot, gamla/saknade profilnycklar, Raft-ledarbortfall och nyregistrering efter återläsning. | Övning på vald driftplattform, extern backupförvaring, återställningstider och operativ nyckelceremoni. |
 | FIN-01/02/03/04 | `OfflineReportTest` provar klassificering och deduplicering i Java-labben. Ersättningsgrundande antal är alltid noll och ingen rapport skickas. | Produktionsrapportering är inte implementerad; format, avtal, kvittenser och rättelser behöver verifieras mot D03–D05. |
 
 ## Projektregler

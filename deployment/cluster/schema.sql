@@ -1,13 +1,17 @@
 -- Run once as the database administrator in a new, dedicated database.
 BEGIN;
-CREATE ROLE openid_owner NOLOGIN;
-CREATE ROLE openid_enroller NOLOGIN;
-CREATE ROLE openid_wallet NOLOGIN;
-CREATE ROLE openid_requester NOLOGIN;
-CREATE ROLE openid_approver NOLOGIN;
-CREATE ROLE openid_revoker NOLOGIN;
-CREATE ROLE openid_maintenance NOLOGIN;
-CREATE ROLE openid_auditor NOLOGIN;
+DO $$
+DECLARE name text; existing record;
+BEGIN
+ FOREACH name IN ARRAY ARRAY['openid_owner','openid_enroller','openid_wallet','openid_requester',
+  'openid_approver','openid_revoker','openid_maintenance','openid_auditor','openid_backup'] LOOP
+  SELECT * INTO existing FROM pg_roles WHERE rolname=name;
+  IF NOT FOUND THEN EXECUTE format('CREATE ROLE %I NOLOGIN',name);
+  ELSIF existing.rolcanlogin OR existing.rolsuper OR existing.rolcreatedb OR existing.rolcreaterole
+    OR existing.rolreplication OR existing.rolbypassrls THEN RAISE EXCEPTION 'unsafe existing group role';
+  END IF;
+ END LOOP;
+END $$;
 CREATE SCHEMA openid AUTHORIZATION openid_owner;
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 SET ROLE openid_owner;
@@ -186,5 +190,7 @@ GRANT SELECT ON requests,federation_requests,challenges,events,activation_propos
 GRANT UPDATE(sealed) ON profiles TO openid_maintenance;
 GRANT EXECUTE ON FUNCTION purge_expired(integer,integer,integer) TO openid_maintenance;
 GRANT SELECT ON maintenance_runs TO openid_maintenance;
+GRANT USAGE ON SCHEMA openid TO openid_backup;
+GRANT SELECT ON ALL TABLES IN SCHEMA openid TO openid_backup;
 RESET ROLE;
 COMMIT;

@@ -12,6 +12,8 @@ COPY verification/crypto-worker.mjs verification/device-signature.mjs verificati
 COPY verification/licenses /app/licenses
 COPY verification/THIRD_PARTY.md /app/licenses/components.md
 COPY deployment/cluster/probe.py ./probe.py
+COPY verification/cluster_recovery.py ./
+COPY deployment/cluster/schema.sql /app/deployment/cluster/schema.sql
 USER 10001:10001
 HEALTHCHECK --interval=15s --timeout=6s --start-period=30s --retries=3 CMD ["python","probe.py","/srv/openid/runtime.json"]
 ENTRYPOINT ["python","cluster_serve.py"]

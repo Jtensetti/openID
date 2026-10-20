@@ -36,6 +36,7 @@ i ägarrollen. Skapa separata LOGIN-konton och tilldela dessa grupproller:
 | `openid_revoker` | Spärra en nyckel eller hela registret efter återläsning |
 | `openid_maintenance` | Omkryptera profiler och köra begränsad gallring |
 | `openid_auditor` | Läsa operatörshändelser och aktiveringsförslag |
+| `openid_backup` | Läsa registrets tabeller för backup; ingen skriv- eller dekrypteringsrätt |
 
 Ett förslag gäller en timme och binds till nyckeln och profilversionen.
 Aktivering kräver en registrering som är högst ett dygn gammal och en ännu
@@ -74,6 +75,8 @@ bao write transit/keys/openid-index type=hmac key_size=32 exportable=false
 bao policy write openid-enroller deployment/cluster/enroller.hcl
 bao policy write openid-wallet deployment/cluster/wallet.hcl
 bao policy write openid-maintenance deployment/cluster/maintenance.hcl
+bao policy write openid-backup deployment/cluster/backup.hcl
+bao policy write openid-recovery deployment/cluster/recovery.hcl
 ```
 
 Utfärda en separat kortlivad token för varje tjänst med dess policy och utan
@@ -193,21 +196,87 @@ automatiskt.
 
 ## Återställning
 
-Återläs PostgreSQL i ett avskilt nät med applikationernas inloggningar avstängda.
-Återställ också tillgången till rätt OpenBao-nyckelversioner från separat,
-skyddad backup. Kör sedan `cluster_operator.py ... revoke-after-restore` och
-verifiera att samtliga nycklar är spärrade innan trafik släpps på. Kommandot
-annullerar väntande förfrågningar, utmaningar och aktiveringsförslag atomiskt.
-Det skyddar inte mot att en administratör kopplar in en obehandlad gammal backup.
-Återläsning av PostgreSQL/Raft och automatisk failover behöver övas på den
-valda infrastrukturen; CI provar återställningens spärrfunktion.
+`cluster_recovery.py` exporterar registret genom PostgreSQL:s binära `COPY`
+i en gemensam skrivskyddad snapshot. Använd ett separat login med
+`openid_backup`. Föräldrakatalogen ska ägas av användaren och ha läge 0700:
+
+```sh
+python cluster_recovery.py backup --database-file /private/backup-db \
+  --destination /private/backups/register-20261020
+```
+
+Backupen innehåller krypterade profiler, publika nycklar och registerhändelser.
+Den innehåller inga OpenBao-nycklar, databaslösenord eller körbara SQL-skript.
+Filerna får läge 0600; storleken begränsas till 10 GiB och körningen till 30
+minuter. SHA-256 och radantal upptäcker skadade eller ofullständiga filer.
+Kontrollsummorna autentiserar inte avsändaren: backupkatalogen måste skyddas
+mot ändring och kopieras till separat krypterad lagring med fastställd retention.
+Detta är en logisk backup av registret, inte PostgreSQL-klustrets roller,
+konfiguration, repliker eller WAL. Spara den matchande kodrevisionen;
+återställning kräver PostgreSQL 18 och exakt samma `schema.sql`.
+
+Ta därefter en separat OpenBao-snapshot, så att den omfattar alla
+profilnyckelversioner som registerbackupen behöver:
+
+```sh
+bao operator raft snapshot save /private/key-backups/bao-20261020.snap
+```
+
+Kör med verifierad TLS och `openid-backup`, som bara får läsa snapshots.
+Skydda katalogen och
+behåll unseal-materialet separat. En snapshot är krypterad men innehåller
+även policyer och tokens; återkalla och ersätt återställda serviceuppgifter
+innan extern trafik tillåts. Radera inte äldre nyckelversioner under
+backupens livstid. Följ OpenBaos instruktioner för ett separat, isolerat
+återställningskluster. En nyinitierad tjänst har annan seal och kräver
+uttrycklig `snapshot restore -force` följt av ursprungligt unseal-material.
+Kör aldrig force restore mot en aktiv tjänst.
+
+Med tillgång till de återställda profilnycklarna:
+
+```sh
+python cluster_recovery.py restore --admin-file /private/restore-admin-db \
+  --backup /private/backups/register-20261020 \
+  --target openid_restore_20261020 --key-config /private/recovery-key.json
+```
+
+Nyckelkonfigurationen har fälten `baoAddress`, `baoTokenFile` och `baoCA`,
+med en tillfällig `openid-recovery`-token för dekryptering. Filen ska ha läge 0600. Administratörens
+anslutning ska gå till en kontrolldatabas på återställningsservern.
+Verktyget skapar en ny databas; befintliga databaser får aldrig skrivas över.
+Tabeller och privilegier skapas från repots schema, enbart data läses från
+backupen. Alla nycklar spärras och väntande beslut annulleras i samma
+transaktion. Varje profil måste kunna dekrypteras innan transaktionen får
+slutföras. En felaktig eller saknad nyckel avbryter återställningen.
+
+Resultatet `QUARANTINED` betyder att databasen fortfarande är stängd:
+`ALLOW_CONNECTIONS false` och ingen publik CONNECT-behörighet. Även ett
+avbrott lämnar applikationskontona utan anslutningsrätt. Administratören
+behöver därefter kontrollera spärrstatus, återställa separata operatörskonton,
+rotera serviceuppgifter och uttryckligen öppna anslutning samt ge CONNECT till
+avsedda logins. Ny registrering och tvåpersonersaktivering krävs för användarna.
+Administratörer kan kringgå dessa rutiner; deras åtkomst måste skyddas separat.
+
+CI återläser ett faktiskt register och OpenBao-snapshots samt stoppar ledaren
+i ett lokalt trenodskluster. Samma förlopp behöver övas på vald driftplattform,
+inklusive extern lagring, förlorad värd, återställningstid och larmmottagning.
+
+Format och kommandon följer [PostgreSQL COPY](https://www.postgresql.org/docs/18/sql-copy.html)
+och [OpenBao Raft](https://openbao.org/docs/commands/operator/raft/).
 
 ## Tester
 
 Workflow `cluster.yml` startar låsta PostgreSQL 18.6 och OpenBao 2.7.1,
 använder riktiga separata databas-/Transit-konton och kör `test_cluster.py`.
 Proven omfattar rollrättigheter, engångskonsumtion, parallella beslut,
-nyckelbyte, instansbortfall, databas-/nyckeltjänstfel, rotation och gallring.
+nyckelbyte, instansbortfall, databas-/nyckeltjänstfel, rotation, gallring och
+återläsning. `test_key_recovery.py` använder verklig TLS och Raft med separat
+initiering, unseal och ledarbyte. En del av CI använder en enda unseal-del;
+detta är en testfixtur, inte en operativ nyckelceremoni.
 Kapacitetsrapporten gäller signerad autentisering och profilhämtning över TLS,
-inte NFC eller biometrisk registrering. CI:s OpenBao dev-läge används endast
-i den tillfälliga testmiljön.
+inte NFC eller biometrisk registrering. Efter instansbortfall körs även 120
+sekunder med åtta samtidiga klienter, avsiktligt begränsat till åtta operationer/s
+under klientadressens hastighetsgräns. Svartider, worker-minne och öppna
+filbeskrivare mäts; omstart, kvarlämnade challenges och växande resursåtgång
+kan få provet att misslyckas. Detta är inte ett mått på maximal kapacitet.
+CI:s OpenBao dev-läge används endast i övriga tillfälliga integrationstester.

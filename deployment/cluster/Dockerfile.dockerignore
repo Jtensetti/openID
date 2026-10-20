@@ -8,4 +8,5 @@
 !deployment/
 !deployment/cluster/
 !deployment/cluster/probe.py
+!deployment/cluster/schema.sql
 !deployment/cluster/Dockerfile

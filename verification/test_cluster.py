@@ -55,7 +55,7 @@ class ClusterTests(unittest.TestCase):
             db.execute((Path(__file__).parents[1]/'deployment/cluster/schema.sql').read_text(), prepare=False)
             for user, roles in {'enroller':['enroller'], 'wallet':['wallet'], 'alice':['requester'],
                 'bob':['approver'], 'carol':['requester','approver'], 'revoker':['revoker'],
-                'maintenance':['maintenance'], 'auditor':['auditor']}.items():
+                'maintenance':['maintenance'], 'auditor':['auditor'], 'backup':['backup']}.items():
                 password=secrets.token_urlsafe(32)
                 from psycopg import sql
                 db.execute(sql.SQL('CREATE ROLE {} LOGIN PASSWORD {}').format(sql.Identifier('test_'+user),sql.Literal(password)))
@@ -267,6 +267,136 @@ class ClusterTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.b.execute(signed)
         self.assertEqual('REVOKED',self.b.execute(self.signed())['state'])
 
+    def restored_database(self, name, *, grant=False):
+        from psycopg import sql
+        from psycopg.conninfo import conninfo_to_dict, make_conninfo
+        with self.psycopg.connect(DSN,autocommit=True) as admin:
+            admin.execute(sql.SQL('ALTER DATABASE {} ALLOW_CONNECTIONS true').format(sql.Identifier(name)))
+            if grant:
+                admin.execute(sql.SQL('GRANT CONNECT ON DATABASE {} TO test_wallet,test_enroller,test_alice,test_bob').format(sql.Identifier(name)))
+        return make_conninfo(**(conninfo_to_dict(DSN)|{'dbname':name}))
+
+    def restore_target(self):
+        from psycopg import sql
+        name='openid_restore_'+secrets.token_hex(8)
+        def cleanup():
+            with self.psycopg.connect(DSN,autocommit=True) as admin:
+                admin.execute(sql.SQL('DROP DATABASE IF EXISTS {} WITH (FORCE)').format(sql.Identifier(name)))
+        self.addCleanup(cleanup)
+        return name
+
+    def test_actual_backup_restore_revokes_old_state_and_allows_new_enrollment(self):
+        from cluster_recovery import backup,restore
+        from psycopg.conninfo import conninfo_to_dict,make_conninfo
+        from postgres import PostgresWallet
+        self.activate()
+        request=self.a.start_request(self.ident)
+        self.a.execute(self.signed('approve',request['id']))
+        signed=self.signed()
+        other=self.enroller.enroll(self.keys[1]['publicKey'],document())['id']
+        proposal=self.sql('alice','SELECT request_activation(%s,%s,%s)',(other,'REVIEW-before-backup',24))[0][0]
+        destination=self.root/('backup-'+secrets.token_hex(8))
+        saved=backup(self.dsns['backup'],destination,local_test=True)
+        self.assertGreater(saved['bytes'],0)
+        self.sql('revoker','SELECT revoke_credential(%s)',(self.ident,))
+        target=self.restore_target()
+        result=restore(DSN,destination,target,self.a.vault,local_test=True)
+        self.assertEqual({'state':'QUARANTINED','profilesChecked':2},result)
+        with self.psycopg.connect(DSN) as admin:
+            self.assertFalse(admin.execute('SELECT datallowconn FROM pg_database WHERE datname=%s',(target,)).fetchone()[0])
+        admin_dsn=self.restored_database(target)
+        def dsn(role):return make_conninfo(**(conninfo_to_dict(self.dsns[role])|{'dbname':target}))
+        # Even reopening the listener does not grant application access.
+        with self.assertRaises(self.psycopg.Error):self.psycopg.connect(dsn('wallet'))
+        self.restored_database(target,grant=True)
+        restored=PostgresWallet(dsn('wallet'),self.a.origin,self.a.vault,local_test=True)
+        self.addCleanup(restored.close)
+        with self.assertRaises(ValueError):restored.execute(signed)
+        with self.assertRaises(ValueError):restored.consume_result(request['id'],request['secret'])
+        with self.psycopg.connect(dsn('bob')) as operator:
+            with self.assertRaises(self.psycopg.Error):operator.execute('SELECT openid.approve_activation(%s)',(proposal,))
+        self.assertEqual('REVOKED',restored.execute(self.signed(store=restored))['state'])
+        enroller=PostgresWallet(dsn('enroller'),self.a.origin,self.enroller.vault,local_test=True)
+        self.addCleanup(enroller.close)
+        with self.assertRaises(ValueError):enroller.enroll(self.keys[0]['publicKey'],document())
+        ident=enroller.enroll(self.keys[2]['publicKey'],document())['id']
+        with self.psycopg.connect(dsn('alice')) as operator:
+            fresh=operator.execute('SELECT openid.request_activation(%s,%s,%s)',(ident,'REVIEW-after-restore',24)).fetchone()[0]
+        with self.psycopg.connect(dsn('bob')) as operator:operator.execute('SELECT openid.approve_activation(%s)',(fresh,))
+        self.assertEqual('ACTIVE',restored.execute(self.signed(key=2,store=restored))['state'])
+        with self.psycopg.connect(admin_dsn) as admin:
+            self.assertEqual(1,admin.execute("SELECT count(*) FROM openid.operator_events WHERE kind='RESTORE_REVOKED_ALL'").fetchone()[0])
+        with self.assertRaises(self.psycopg.Error):restore(DSN,destination,target,self.a.vault,local_test=True)
+        self.assertEqual('ACTIVE',restored.execute(self.signed(key=2,store=restored))['state'])
+
+    def test_corrupt_unbounded_or_foreign_backup_is_rejected_before_creation(self):
+        from cluster_recovery import backup,restore
+        destination=self.root/('corrupt-'+secrets.token_hex(8))
+        backup(self.dsns['backup'],destination,local_test=True)
+        manifest=destination/'manifest.json';original=manifest.read_bytes()
+        metadata=json.loads(original)
+        for change in ({'schema':'0'*64},{'format':True},{'tables':{'../../outside':{}}}):
+            manifest.write_text(json.dumps(metadata|change))
+            with self.assertRaises(ValueError):restore(DSN,destination,self.restore_target(),self.a.vault,local_test=True)
+        manifest.write_bytes(original)
+        with self.assertRaises(ValueError):restore(DSN,destination,self.restore_target(),self.a.vault,local_test=True,max_bytes=1)
+        part=destination/'profiles.copy';saved=part.read_bytes()
+        part.write_bytes(saved[:-1])
+        with self.assertRaises(ValueError):restore(DSN,destination,self.restore_target(),self.a.vault,local_test=True)
+        part.write_bytes(saved);part.chmod(0o644)
+        with self.assertRaises(ValueError):restore(DSN,destination,self.restore_target(),self.a.vault,local_test=True)
+        part.unlink();part.symlink_to(destination/'persons.copy')
+        with self.assertRaises(OSError):restore(DSN,destination,self.restore_target(),self.a.vault,local_test=True)
+        with self.assertRaises(FileExistsError):backup(self.dsns['backup'],destination,local_test=True)
+
+    def test_wrong_key_or_key_outage_keeps_restore_empty_and_closed(self):
+        from cluster_recovery import backup,restore
+        from transit import TransitVault,VaultUnavailable
+        destination=self.root/('key-failure-'+secrets.token_hex(8))
+        backup(self.dsns['backup'],destination,local_test=True)
+        vault=TransitVault('http://127.0.0.1:18201',self.token_files['wallet'],local_test=True)
+        target=self.restore_target()
+        with self.assertRaises(VaultUnavailable):restore(DSN,destination,target,vault,local_test=True)
+        with self.psycopg.connect(DSN) as admin:
+            self.assertFalse(admin.execute('SELECT datallowconn FROM pg_database WHERE datname=%s',(target,)).fetchone()[0])
+        with self.psycopg.connect(self.restored_database(target)) as admin:
+            self.assertEqual(0,admin.execute('SELECT count(*) FROM openid.credentials').fetchone()[0])
+        # Backup login has read access only, including no activation or destructive operations.
+        with self.assertRaises(self.psycopg.Error):self.sql('backup','DELETE FROM credentials')
+
+    def test_database_restore_with_recovered_raft_keys_and_stale_key_snapshot(self):
+        from cluster_recovery import backup,restore
+        from raft_test_support import RaftCluster
+        from transit import TransitVault,VaultUnavailable
+        cluster=RaftCluster(self.root/('raft-'+secrets.token_hex(8)))
+        self.addCleanup(cluster.close)
+        source=cluster.start();token,seal=cluster.initialize(source)
+        tokens=cluster.provision(source,token)
+        obsolete_snapshot=cluster.call(source,'sys/storage/raft/snapshot',token=token,raw=True)
+        cluster.call(source,'transit/keys/openid-profile/rotate',{},token)
+        with self.psycopg.connect(DSN,autocommit=True) as admin:
+            admin.execute('TRUNCATE openid.credentials,openid.persons,openid.operator_events,openid.maintenance_runs RESTART IDENTITY CASCADE')
+        self.enroller.vault=TransitVault(source['address'],tokens['enroller'],str(cluster.cert))
+        self.ident=self.enroller.enroll(self.keys[0]['publicKey'],document())['id'];self.activate()
+        destination=self.root/('paired-'+secrets.token_hex(8))
+        backup(self.dsns['backup'],destination,local_test=True)
+        snapshot=cluster.call(source,'sys/storage/raft/snapshot',token=token,raw=True)
+        cluster.stop(source)
+        recovered=cluster.restore_snapshot(snapshot,seal)
+        vault=TransitVault(recovered['address'],tokens['recovery'],str(cluster.cert))
+        target=self.restore_target()
+        self.assertEqual({'state':'QUARANTINED','profilesChecked':1},restore(DSN,destination,target,vault,local_test=True))
+        with self.psycopg.connect(self.restored_database(target)) as admin:
+            self.assertEqual([('REVOKED',)],admin.execute('SELECT state FROM openid.credentials').fetchall())
+        obsolete=cluster.restore_snapshot(obsolete_snapshot,seal)
+        old_vault=TransitVault(obsolete['address'],tokens['recovery'],str(cluster.cert))
+        rejected=self.restore_target()
+        with self.assertRaises(VaultUnavailable):restore(DSN,destination,rejected,old_vault,local_test=True)
+        with self.psycopg.connect(DSN) as admin:
+            self.assertFalse(admin.execute('SELECT datallowconn FROM pg_database WHERE datname=%s',(rejected,)).fetchone()[0])
+        with self.psycopg.connect(self.restored_database(rejected)) as admin:
+            self.assertEqual(0,admin.execute('SELECT count(*) FROM openid.credentials').fetchone()[0])
+
     def test_retention_and_rotation_maintenance_is_bounded_and_repeatable(self):
         from maintenance import maintain
         maintenance=self.store('maintenance')
@@ -369,6 +499,47 @@ class ClusterTests(unittest.TestCase):
         duration=time.monotonic()-started
         report={'operations':80,'concurrency':8,'workers':2,'instancesRemaining':1,'errors':0,
             'operationsPerSecond':round(80/duration,2),'p95Seconds':round(sorted(t for _,t in results)[75],3)}
+        soak_seconds=int(os.environ.get('OPENID_TEST_SOAK_SECONDS','0'))
+        if soak_seconds:
+            self.assertTrue(30<=soak_seconds<=600)
+            # A single client address has a deliberate request limit. Pace below it;
+            # this measures sustained resource use, not a maximum-throughput claim.
+            master=processes[1].pid
+            def resources():
+                children=Path(f'/proc/{master}/task/{master}/children').read_text().split()
+                result={}
+                for pid in children:
+                    values=dict(line.split(':',1) for line in Path(f'/proc/{pid}/status').read_text().splitlines() if ':' in line)
+                    result[pid]={'rssKiB':int(values['VmRSS'].split()[0]),'fds':len(list(Path(f'/proc/{pid}/fd').iterdir()))}
+                self.assertEqual(2,len(result))
+                return result
+            before=resources();samples=[];begin=time.monotonic();end=begin+soak_seconds
+            def paced(client):
+                values=[];scheduled=begin+client/8
+                while scheduled<end:
+                    time.sleep(max(0,scheduled-time.monotonic()))
+                    values.append(operation(client))
+                    scheduled+=1
+                return values
+            with ThreadPoolExecutor(max_workers=8) as pool:
+                futures=[pool.submit(paced,client) for client in range(8)]
+                while not all(future.done() for future in futures):
+                    samples.append(resources());time.sleep(1)
+                sustained=[item for future in futures for item in future.result()]
+            elapsed=time.monotonic()-begin;after=resources()
+            self.assertEqual({200},{code for code,_ in sustained})
+            self.assertEqual(set(before),set(after))
+            for pid in before:
+                self.assertLessEqual(after[pid]['fds'],before[pid]['fds']+8)
+                self.assertLessEqual(after[pid]['rssKiB'],before[pid]['rssKiB']+32768)
+            latencies=sorted(t for _,t in sustained)
+            report['sustained']={'seconds':round(elapsed,2),'operations':len(sustained),'concurrency':8,
+                'targetOperationsPerSecond':8,'operationsPerSecond':round(len(sustained)/elapsed,2),'errors':0,
+                'p95Seconds':round(latencies[int(.95*(len(latencies)-1))],3),
+                'p99Seconds':round(latencies[int(.99*(len(latencies)-1))],3),
+                'maxWorkerRSSMiB':round(max(value['rssKiB'] for sample in samples for value in sample.values())/1024,2),
+                'maxWorkerFileDescriptors':max(value['fds'] for sample in samples for value in sample.values())}
+            with self.a.transaction() as db:self.assertEqual(0,db.execute('SELECT count(*) FROM challenges').fetchone()[0])
         print(json.dumps(report))
         if os.environ.get('OPENID_TEST_REPORT'):Path(os.environ['OPENID_TEST_REPORT']).write_text(json.dumps(report,indent=2)+'\n')
         self.sql('revoker','SELECT revoke_credential(%s)',(self.ident,))
