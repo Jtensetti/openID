@@ -18,18 +18,16 @@ Projektet är under utveckling och har inget Digg-godkännande. Tillitsnivå 3
 | [Driftpaket](ops/README.md) | Render-container med hälsokontroller. E-id-funktioner är avstängda. |
 
 Tester använder genererade identiteter och nycklar. Verkliga pass används
-endast i den överenskomna privata testmiljön; personuppgifter och hemligheter
+endast i en uttryckligen vald privat testmiljö; personuppgifter och hemligheter
 får inte läggas i repot. Läs [säkerhetsinformationen](SECURITY.md) och
 [komponentregistret](THIRD_PARTY.md).
 
-## Underlag
+## Dokumentation
 
-- [Avtal och affärsmodell](docs/01-avtal-och-affarsmodell.md)
-- [Kravmatris](docs/02-kravmatris.md)
-- [Återanvändning](docs/03-ateranvandning.md)
-- [Arkitektur och hotmodell](docs/04-arkitektur.md)
-- [Genomförandeplan](docs/05-genomforande.md)
-- [Frågor till Digg](docs/06-fragor-till-digg.md)
+- [Arkitektur](docs/arkitektur.md)
+- [Tekniska krav och verifieringsluckor](docs/krav.md)
+- [Utveckling](docs/utveckling.md)
+- [Testning](docs/testning.md)
 - [Källregister](docs/SOURCES.md)
 
 Kodagenter börjar i [AGENTS.md](AGENTS.md), som hänvisar till projektets

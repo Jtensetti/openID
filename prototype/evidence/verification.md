@@ -1,16 +1,9 @@
-# G1 – verifierad lokal prototyp
+# Historisk verifiering: SAML
 
-Kontrolldatum: **2026-10-19**. Detta är utvecklarens testredovisning för ändringen, inte en oberoende säkerhetsrevision eller acceptans av G1/Digg-krav.
-
-## Uppgift, revision och avgränsning
-
-Utgångspunkt: `main` på `7eb2d300a040f7e88a5b7d176d47cae6916392ca`, som innehöll dokumentation men ingen körbar prototyp. Arbetsbranch: `feat/g1-isolated-saml-prototype`. Den granskade leveransen identifieras av PR:ns commit-SHA; inga produktionsreleaser eller miljöer skapas.
-
-Implementation, tester och körinstruktioner ligger i `prototype/`; `.github/workflows/prototype.yml` kör samma bygge, beroendekontroll, JAR-smoke och webbläsarprov. Root-README, AGENTS:s gamla uppgift om avsaknad av byggkommandon, SECURITY, THIRD_PARTY och docs/02–05 har uppdaterats till detta faktiska läge. Övriga grindar/krav har inte accepterats.
-
-Lästa projektskills: `digg-compliance`, `sweden-connect-integration`, `eid-lifecycle-security`, `supply-chain-and-release`. AGENTS.md, dokumentationen i docs/, SECURITY.md, THIRD_PARTY.md och PR-mallen lästes före implementation.
-
-Berörda krav: **FED-01/02, SEC-01/03, ID-06/08/09/10, TEST-01 och INT-01–06**. P0-02–P0-05 täcks inom labbens avgränsning; inga kravstatusar höjs från OPEN. Källkopplingar: D03:s avtalsavsnitt och D08 K4–K6 enligt repositoryts källregister kontrollerat 2026-10-19. Inga nya juridiska tolkningar eller påståenden om uppfylld nivå har införts. Teknisk jämförelse: Sweden Connect SAML Deployment Profile **1.8, 2024-12-04**, <https://docs.swedenconnect.se/technical-framework/latest/02_-_Deployment_Profile_for_the_Swedish_eID_Framework.html>. Labben följer inte en komplett officiell profil; den använder en egen explicit simulerad AuthnContext och minimala lokala metadata.
+Rapport från [PR #1](https://github.com/Jtensetti/openID/pull/1), 2026-10-19.
+Omfattning och antal nedan gäller den revisionen. Aktuella körningar finns i
+[testöversikten](../../docs/testning.md). Maskinrapporter och låsfiler kan ha
+uppdaterats efter denna körning; äldre versioner finns i Git-historiken.
 
 ## Faktiskt körd verifiering
 
@@ -24,8 +17,6 @@ Miljö: Linux, Temurin **21.0.12.1+1**, Maven **3.9.11**, Python **3.12**, Node 
 | `./mvnw org.cyclonedx:cyclonedx-maven-plugin:2.9.1:makeBom` | SBOM genererad för samma Maven-graf, inklusive testberoenden. Artefakten finns i `bom.json`. |
 | `npm audit --json` | 0 rapporterade sårbarheter i det låsta testverktygets npm-graf vid kontrolltillfället; `npm-audit.json`. Chromium/systembibliotek omfattas inte. |
 | OSV `POST /v1/querybatch` | **170** slutliga Maven-koordinater kontrollerade, **0 träffar vid kontrolltillfället**. Resultat i `osv.json`; inget intyg om sårbarhetsfrihet. |
-
-GitHub Actions konfigureras med `contents: read`, inga hemligheter eller produktionssteg, SHA-låsta checkout/setup-node samt exakt Temurin-arkiv med verifierad SHA-256. Första CI-körningen stoppade före testerna eftersom setup-java 4.7.1 inte accepterade JDK-versionens fyrdelade versionsnummer; installationen ändrades till det exakta officiella arkiv som användes lokalt. CI-resultat ska läsas för PR:ns aktuella commit; lokal verifiering är inte ett påstående om en avslutad Actions-körning. Ingen release, merge eller extern testanslutning har gjorts.
 
 ## Testkopplingar och negativa fall
 
@@ -53,12 +44,10 @@ Exakta testnamn finns i `src/test/java/lab/FlowTest.java` och `SyntheticRegistry
 
 ## Kända avvikelser och ej körda prov
 
-`opensaml-addons` **2.2.1**, `ResponseValidator.validateIssueInstant`, använder omvänd riktning i båda `Duration.between`-jämförelserna. Käll-JAR och senaste publicerade Maven-version kontrollerades. Labben ändrar ingen validator: `maxAgeResponse=0` och `allowedClockSkew=5s` ger ett symmetriskt ±5-sekundersfönster både med och utan den avvikelsen. Giltigt signerade svar tio sekunder bakåt/framåt nekas i regressionerna. Begränsningen måste omprövas med upstream och oberoende granskare innan annan användning eller tidskonfiguration. Ingen upstream-rapport har skickats i detta uppdrag.
+`opensaml-addons` **2.2.1**, `ResponseValidator.validateIssueInstant`, använder omvänd riktning i båda `Duration.between`-jämförelserna. Käll-JAR och senaste publicerade Maven-version kontrollerades. Labben ändrar ingen validator: `maxAgeResponse=0` och `allowedClockSkew=5s` ger ett symmetriskt ±5-sekundersfönster både med och utan den avvikelsen. Giltigt signerade svar tio sekunder bakåt/framåt nekas i regressionerna. Begränsningen måste omprövas med upstream och oberoende granskare innan annan användning eller tidskonfiguration.
 
 G01:s audit-beroende ger ett startvarningsmeddelande om den saknade äldre klassen `org.springframework.boot.actuate.autoconfigure.audit.AuditAutoConfiguration`. Flödet fungerar, men en fullständig, beständig revisionslogg har inte implementerats eller verifierats. Varningen har inte dolts med generellt avstängd loggning.
 
 Ej körda: hela Sweden Connects egen testsvit, extern federations-/profilcertifiering, Firefox/Safari, Windows/macOS, mobil/enhetsprov, HSM, verklig identitetskontroll, last/DoS-utvärdering, full fuzzning/XML Signature Wrapping-korpus, nyckelrotation under drift, beständig återläsning och oberoende penetrationstest. Dessa kräver annan scope/infrastruktur eller oberoende kompetens. De enskilda negativa fallen ovan är inte en fullständig SAML-säkerhetsrevision.
 
 Fortsatt simulerat: person/identitetskontroll, credential och innehavarautentisering, utgivning/ersättning, spärrkanal och gemensamt lokalt register. Ingen egen enhetsnyckel, PIN, biometrik eller autentiseringsfaktor har verifierats. Alla register/sessioner försvinner vid omstart. Två lyssnare i samma JVM utgör inte processisolering; loopback är inte ett nätverkssandboxbevis.
-
-Återstående beslut/hinder: egen projektlicens, bekräftad uppdateringsägare, namngiven oberoende granskare, verklig utgivnings-/återställningsmetod, autentiseringsbärare, HSM/nyckelförvaltning, distribuerad spärr, beständig evidens, driftansvar och samtliga formella Digg-/avtalssteg. Ingen produktionsöppning eller säkerhetskritisk release är självattesterad. Se G2–G4 i genomförandeplanen.

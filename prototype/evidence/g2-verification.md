@@ -1,8 +1,9 @@
-# Faktisk verifiering: beständig labbdrift och driftgrund
+# Historisk verifiering: lagring och driftcontainer
 
-Kontrollerat 2026-10-19. Uppföljning till G1-PR #1, på separat branch
-`feat/g2-durable-state-and-operations`. Detta dokument anger tekniskt provade
-funktioner; ingen gransknings- eller tillitsgrind är accepterad.
+Rapport från [PR #2](https://github.com/Jtensetti/openID/pull/2), 2026-10-19.
+Omfattning och antal nedan gäller den revisionen. Aktuella körningar finns i
+[testöversikten](../../docs/testning.md). Maskinrapporter och låsfiler kan ha
+uppdaterats efter denna körning; äldre versioner finns i Git-historiken.
 
 ## Implementation
 
@@ -55,25 +56,7 @@ utökar den tidigare G1-körningen; äldre [verification.md](verification.md)
 | SEC-03, INT-06 | Låst SQLite-version, licens/underhållskontroll, uppdaterad JAR-graf/SBOM; pinnade Temurin-image-digests. | Full OS/JRE/container-sårbarhetsskanning eller oberoende leveranskedjegranskning. |
 | INT-02/04, TEST-01 | Separat produktionsartefakt saknar IdP, testdata och aktiveringsflagga. Negativa HTTP-fall provas. | En öppnad produktions-e-id eller godkänd säkerhetskritisk release. |
 
-De fyra ursprungliga projektspecifika skillsen för compliance, Sweden Connect,
-livscykel och leveranskedja följdes; dessutom lästes rapporterings- och
-underskriftsskills. Inga underskrifter implementerades eller påstås fungera.
-D05 (beräkningsdata, gäller 2025-05-05) kontrollerades i original igen
-2026-10-19. Rapporten är avsiktligt en intern modell och använder inte ett
-gissat Digg-anrop eller riktiga organisations-/personnummer.
-
-Före verklig e-id-drift återstår teknisk implementation och oberoende
-verifiering av autentiseringsbärare, vald utgivningsmetod, HSM, underskrift,
-rollseparation, separat bevisarkiv, robust missbruksbegränsning, distribuerad
-spärr, full federationsprofil och uppmätt drift. Organisationsbehörighet,
-finansiering, försäkring, leverantörsavtal, ansvariga personer, juridisk
-prövning, projektlicens samt relevanta Digg-beslut kräver dessutom verkliga
-underlag och behöriga beslut. Ingen av dessa har fabricerats eller markerats
-ACCEPTED. Inga meddelanden till tredje part, ansökningar, betalningar eller
-fakturering har gjorts. En separat stängd tjänst har skapats i användarens
-Render-arbetsyta med gratis compute-plan; den innebär inget e-id-godkännande.
-
 Upstream-frågan om Response IssueInstant och audit-autokonfiguration kvarstår
-från G1. Vår nya livscykellogg är inte en ersättning för ett komplett,
+från G1. Livscykelloggen är inte en ersättning för ett komplett,
 oberoende skyddat säkerhetsloggningssystem. Oberoende granskare och
 produktionsförvaltare är ännu inte utsedda.

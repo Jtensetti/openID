@@ -1,4 +1,4 @@
-name: Sealed production infrastructure
+name: Deployment container
 on:
   push:
     branches: [main, 'feat/**']
@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-      - name: Build the digest-pinned production bootstrap image
+      - name: Build the digest-pinned image
         run: docker build --tag openid-sealed:ci ops
       - name: Run with no network, read-only filesystem and no Linux capabilities
         run: |
@@ -28,7 +28,7 @@ jobs:
           test "$(docker exec openid-sealed id -u)" = 10001
           if docker exec openid-sealed touch /app/must-not-be-writable; then exit 1; fi
           docker image inspect openid-sealed:ci --format '{{.Id}}'
-      - name: Verify there is no lab artifact in the production image
+      - name: Verify that the image contains no lab artifacts
         run: |
           docker exec openid-sealed sh -c 'test ! -e /app/isolated-eid-lab.jar && test ! -e /app/TestKeys.class && test ! -e /app/registry.sqlite'
       - name: Collect status and stop

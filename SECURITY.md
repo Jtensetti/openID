@@ -16,7 +16,7 @@ säkerhetsgranskning.
 
 Fysisk NFC/App Attest, modellernas felgrader, bildinjektion och certifikatspärr
 återstår att utvärdera. Se [verifierarens begränsningar](verification/README.md#begränsningar)
-och [labbens tester](prototype/evidence/web-verification.md).
+och [testöversikten](docs/testning.md).
 Labben och testtjänsten ska inte exponeras via tunnel eller proxy.
 
 WebAuthn kräver användarverifiering, engångschallenge, exakt ursprung och
@@ -61,7 +61,7 @@ Testa bara egna miljöer eller uttryckligen godkända mål. Utveckling, extern
 testanslutning och produktion ska ha separata nycklar, ankare, behörigheter
 och data. Testnycklar får inte användas som produktionsankare.
 
-Följ [genomförandeplanens beslutspunkter](docs/05-genomforande.md).
+Följ [releasekraven](docs/utveckling.md).
 Utgivning, rollseparation, nyckelhantering, spärr, återställning, dataskydd,
 incidenthantering, kontinuitet och avtal behöver ansvariga och granskningsunderlag.
 En kodagent får inte godkänna sin egen produktionsrelease.
@@ -70,5 +70,5 @@ Branch protection, CODEOWNERS, CI och privat rapportering måste verifieras
 i GitHubs inställningar. Ingen egen kryptografisk primitiv eller generativ
 modell får avgöra identitets- eller underskriftsbeslut.
 
-Se [AGENTS.md](AGENTS.md), [arkitekturen](docs/04-arkitektur.md) och
+Se [AGENTS.md](AGENTS.md), [arkitekturen](docs/arkitektur.md) och
 [komponentregistret](THIRD_PARTY.md).

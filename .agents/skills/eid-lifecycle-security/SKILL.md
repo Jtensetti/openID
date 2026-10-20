@@ -8,7 +8,7 @@ description: >-
 
 # Identitetens livscykel och nyckelsäkerhet
 
-Projektspecifik originalinstruktion. Läs `AGENTS.md`, arkitekturen, kravmatrisens ID-/SEC-/GOV-rader samt D08/D09 via källregistret. Använd även `digg-compliance` när ett normativt krav behöver tolkas.
+Projektspecifik originalinstruktion. Läs `AGENTS.md`, `docs/arkitektur.md`, ID-/SEC-/GOV-raderna i `docs/krav.md` samt D08/D09 via källregistret. Använd även `digg-compliance` när ett normativt krav behöver tolkas.
 
 ## Grundregel
 
@@ -16,7 +16,7 @@ En verifierad person, en nyckel, en enhet och en session är olika objekt. Arbet
 
 ## Arbetsgång
 
-1. Fastställ utgivningsmetod och mål för tillitsnivå. Markera det som ännu är en hypotes. Använd endast syntetiska personer i projektets prototyp.
+1. Fastställ utgivningsmetod och mål för tillitsnivå. Markera det som ännu är en hypotes. Följ datagränserna i `SECURITY.md` för publika tester och privat passverifiering.
 2. Beskriv tillgångar och aktörer: innehavare, registreringsfunktion, utfärdarfunktion, support, drift, nyckelförvaltning och granskare. Identifiera vem som kan missbruka en administrativ genväg.
 3. Rita tillståndsmodellen med övergångar, förvillkor, behörighet, bevisreferens och atomiska dataskrivningar. Håll isär spärr, tillfällig avstängning, utgång och ersättning.
 4. Följ varje nyckel: skapande, skydd, eventuell export/synkronisering, registrering, användning, rotation, återställning och förstöring. Skilj serverns HSM-nycklar från innehavarens autentiseringsnycklar.

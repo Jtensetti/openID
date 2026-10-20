@@ -1,4 +1,4 @@
-name: Isolated synthetic e-id lab
+name: Server and authentication tests
 on:
   push:
     branches: [main, 'feat/**']
@@ -34,7 +34,7 @@ jobs:
         run: python3 scripts/smoke.py
       - name: Restart, durable revocation, backup and restore drill
         run: python3 scripts/recovery-smoke.py
-      - name: Production bootstrap HTTP and negative route tests
+      - name: Deployment container HTTP and negative route tests
         run: python3 -m unittest discover -s ../ops/tests -v
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:

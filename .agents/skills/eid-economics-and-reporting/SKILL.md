@@ -8,7 +8,7 @@ description: >-
 
 # Ekonomi och korrekt beräkningsdata
 
-Projektspecifik originalinstruktion. Läs `AGENTS.md`, `docs/01-avtal-och-affarsmodell.md` och D02–D05/D12 i källregistret. Läs originalbilagorna på nytt när villkor eller format ska implementeras.
+Projektspecifik originalinstruktion. Läs `AGENTS.md`, `docs/krav.md` och D02–D05/D12 i `docs/SOURCES.md`. Läs originalbilagorna på nytt när villkor eller format ska implementeras.
 
 ## Två olika uppgifter
 
@@ -19,7 +19,7 @@ Projektspecifik originalinstruktion. Läs `AGENTS.md`, `docs/01-avtal-och-affars
 ## Arbetsgång för kalkyl
 
 1. Dokumentera ersättningsvillkorens version, aktuell period och vilka leveransvillkor som antas uppfyllda. Skilj grundersättning, Sweden Connect-tillägg och rörlig ersättning.
-2. Använd inte både full grundersättning och rörlig ersättning på samma volym på ett sätt som originalbilagan inte medger. Årsillustrationen i förstudien är inte en månadsalgoritm.
+2. Använd inte både full grundersättning och rörlig ersättning på samma volym på ett sätt som originalbilagan inte medger. En årsillustration får inte användas som månadsalgoritm.
 3. Pröva delår, fördröjd anslutning, uteblivet tillägg, ändrad tariff och kostnadsökning. Nollvolym och första ersättningsmånad ska behandlas enligt faktiskt besked, inte modellens önskade tolkning.
 4. Märk varje kostnad som offert, faktisk kostnad eller antagande. Räkna personal, säker drift, identitetskontroll, support, granskning, försäkring och avvecklingsberedskap.
 5. Redovisa omsättning, resultat och likviditet separat. Moms och faktureringstid får inte döljas i ett enda belopp.

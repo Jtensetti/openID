@@ -28,7 +28,7 @@ public class IdpApplication {
   AuthnServerConfigurerAdapter labProtocolSecurity(@Value("${lab.phone:false}") boolean phone) {
     return (http, configurer) -> {
       // Replace the upstream matcher that exempts ALL protocol/provider endpoints from CSRF.
-      // Only the signed SAML HTTP-POST binding is exempt; /lab approval remains protected.
+      // Only the signed SAML HTTP-POST binding is exempt; approval routes remain protected.
       http.csrf(AbstractHttpConfigurer::disable);
       http.csrf(csrf -> csrf.ignoringRequestMatchers("/saml2/post/authn"));
       configurer.authnFlowMaxAge(java.time.Duration.ofSeconds(phone ? 120 : 60));
@@ -38,7 +38,7 @@ public class IdpApplication {
   }
   @Bean @Order(2)
   SecurityFilterChain labPages(HttpSecurity http) throws Exception {
-    // CSRF stays enabled for the simulated approval and revocation forms.
+    // CSRF stays enabled for approval and revocation forms.
     return http.authorizeHttpRequests(a -> a.requestMatchers("/", "/phone/**", "/lab", "/lab/revoke", "/lab/webauthn/**", "/wallet/**", "/error").permitAll().anyRequest().denyAll())
         .headers(h -> h.contentSecurityPolicy(c -> c.policyDirectives(PAGE_CSP)))
         .build();
@@ -56,12 +56,12 @@ public class IdpApplication {
         // strict-origin sends only the origin (never SAML query parameters) between the two HTTPS ports.
         response.setHeader("Cache-Control", "no-store"); response.setHeader("Referrer-Policy", "strict-origin");
         response.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), publickey-credentials-create=(self), publickey-credentials-get=(self)");
-        // The provider's /lab endpoints use upstream's filter chain, not labPages.
-        // /lab/resume renders upstream's separately protected SAML auto-POST page.
+        // Provider endpoints use upstream's filter chain, not labPages.
+        // Resume routes render upstream's separately protected SAML auto-POST page.
         if ((request.getRequestURI().startsWith("/lab") && !request.getRequestURI().equals("/lab/resume")) ||
             (request.getRequestURI().startsWith("/phone") && !request.getRequestURI().equals("/phone/resume")))
           response.setHeader("Content-Security-Policy", PAGE_CSP);
-        // Linearization boundary: a revoke cannot interleave status verification and SAML response signing.
+        // In lab mode, revocation cannot interleave status verification and SAML response signing.
         try {
           if (request.getRequestURI().equals("/lab/resume")) {
             synchronized (registry) { chain.doFilter(request, response); }

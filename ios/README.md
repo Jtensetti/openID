@@ -79,7 +79,7 @@ beroendeupplösningen lämnar projekt och låsfil oförändrade.
 
 XCTest provar bindningen mellan visad begäran och signerade bytes, inklusive
 byte av motpart, syfte, kod, nyckel, session och ursprung. XCUITest provar
-SwiftUI-vyerna. Workflow `iPhone capture build` sparar testresultat och en
+SwiftUI-vyerna. Workflow `iPhone app` sparar testresultat och en
 simulatorskärmbild i artefakten `iphone-app-evidence`.
 
 Simulatorn kan inte testa pass-NFC, Secure Enclave eller Apple App Attest.

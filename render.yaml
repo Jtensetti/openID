@@ -9,7 +9,7 @@ projects:
             name: openid-production-sealed
             runtime: docker
             repo: https://github.com/Jtensetti/openID
-            branch: feat/g2-durable-state-and-operations
+            branch: main
             region: frankfurt
             plan: free
             dockerfilePath: ./ops/Dockerfile

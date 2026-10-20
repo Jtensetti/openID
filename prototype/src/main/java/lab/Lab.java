@@ -8,7 +8,7 @@ import org.springframework.core.env.*;
 import se.swedenconnect.opensaml.*;
 import se.swedenconnect.opensaml.sweid.xmlsec.config.SwedishEidSecurityConfiguration;
 
-/** IdP and SP loopback HTTPS listeners in one JVM. */
+/** Command-line entry point for local SAML and passport tools. */
 public final class Lab implements AutoCloseable {
   public final TestKeys keys;
   public final String idpBase, spBase;

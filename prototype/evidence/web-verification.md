@@ -1,8 +1,9 @@
-# Faktisk verifiering: WebAuthn och webbklient
+# Historisk verifiering: WebAuthn
 
-Kontrollerat 2026-10-19 på `feat/g2-open-web-authentication`, byggt vidare på
-G2-revision `a86c5937f1298dc716109a6a0edc71763908453a`. Detta är en isolerad
-teknisk etapp, inte en säkerhetsgodkänd release eller en accepterad grind.
+Rapport från [PR #3](https://github.com/Jtensetti/openID/pull/3), 2026-10-19.
+Omfattning och antal nedan gäller den revisionen. Aktuella körningar finns i
+[testöversikten](../../docs/testning.md). Maskinrapporter och låsfiler kan ha
+uppdaterats efter denna körning; äldre versioner finns i Git-historiken.
 
 ## Vad som fungerar
 
@@ -84,13 +85,6 @@ om med den stabila parsern och dess checksumma finns i låset.
 
 ## Scope, krav och kvarstående gränser
 
-Lästa projektskills: `eid-lifecycle-security`,
-`sweden-connect-integration`, `supply-chain-and-release` och
-`eid-economics-and-reporting`. AGENTS.md, README, SECURITY, THIRD_PARTY och
-berörd dokumentation i docs lästes före implementation. Källversioner:
-W01/WebAuthn, Yubico 2.10.1 vid full revision i THIRD_PARTY; tidigare låsta
-Sweden Connect-versioner behålls.
-
 | Krav | Visad del och återstående bevis |
 |---|---|
 | ID-06/07/09/10 | Nyckelbevis med användarverifiering, begäransbindning, beständig nyckel/spärr och spärrade sessioner. Verklig personbindning och granskad bärare saknas. |
@@ -111,9 +105,8 @@ säkerhetsgranskning. Den tillgängliga miljön gav Chromium och virtuella
 autentiserare; det räcker inte som fälttest eller certifiering.
 
 Fullständig oberoende beroendegranskning återstår; se THIRD_PARTY.
-Egen projektlicens är inte beslutad (förslag: Apache-2.0 för egen kod).
+Egen projektlicens är inte beslutad.
 Databas-/OS-ägaren är betrodd och kan ändra program eller register. Robust
 missbruksbegränsning, verifierad utgivning, HSM, full återställningskanal,
 distribuerad spärr, driftansvar och behöriga produktionsbeslut återstår.
-Ingen kravstatus har höjts till ACCEPTED. Inget autentiseringsflöde har
-driftsatts på Render och ingen PR har slagits ihop i denna etapp.
+Ingen kravstatus höjdes till ACCEPTED.

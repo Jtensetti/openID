@@ -104,7 +104,7 @@ Avbrott, nekande, utgång, spärr och upprepad konsumtion nekas.
 
 ## SAML-inloggning med passets identitet
 
-Starta verifieraren ovan med `--federation-socket`. Den nya inloggningen
+Starta verifieraren ovan med `--federation-socket`. SAML-inloggningen
 kräver en registrering som innehåller verifierade passuppgifter. Äldre
 registreringar utan personprofil kan inte användas.
 
@@ -131,8 +131,8 @@ appen och kontrollera tjänst, uppgifter och kod. Efter godkännandet visar
 kontotjänsten ditt namn, passfoto och födelsedatum från MRZ. Du behöver inte
 klistra in någon registreringsreferens.
 
-MRZ använder tvåsiffrigt årtal. Vi härleder varken sekel, ålder eller
-svenskt personnummer. Namnet följer passets MRZ-translitterering.
+MRZ använder tvåsiffrigt årtal. Sekel, ålder och svenskt personnummer
+härleds inte. Namnet följer passets MRZ-translitterering.
 
 IdP och SP körs i separata processer på loopback-HTTPS. Sweden Connect
 1.0.3 verifierar den signerade begäran och skapar ett signerat, krypterat

@@ -1,4 +1,4 @@
-name: iPhone capture build
+name: iPhone app
 on:
   push:
     branches: ['feat/**', main]

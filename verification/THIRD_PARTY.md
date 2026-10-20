@@ -1,8 +1,7 @@
 # Komponenter och verifieringsgränser
 
 Kontrollerat 2026-10-19. Befintliga Sweden Connect-, Yubico- och BC-beroenden
-redovisas i repots [THIRD_PARTY.md](../THIRD_PARTY.md). Inga egna
-kryptografiska primitiver eller generativa identitetsmodeller införs.
+redovisas i repots [THIRD_PARTY.md](../THIRD_PARTY.md).
 
 | Komponent | Låsning och faktisk användning | Licens/underhåll |
 |---|---|---|
@@ -28,14 +27,13 @@ MIT-licensierade `PassportUtils`; iPhone-katalogen innehåller licensen.
 Modellkatalogens licensdeklaration är inte en fullständig rättighetsutredning
 för träningsdata. OpenCV Zoo [issue #313](https://github.com/opencv/opencv_zoo/issues/313)
 har fortfarande öppna frågor om SFace-vikternas träningsdata och kommersiella
-användning. Ingen kommersiell rättighetsgaranti eller produktionsdistribution
-görs i denna PR. Projektets egen licens är fortsatt ett separat ägarbeslut;
-inga nya Apache-villkor läggs på projektets egen kod.
+användning. Kommersiella modellrättigheter behöver därför utredas före distribution.
+Projektets egen licens är inte beslutad.
 
 ## Granskade integrationsdetaljer
 
 - MiniFASNet-kommentaren beskriver 0–1 men den faktiska `to_tensor`-koden
-  använder 0–255. Vår inferens följer koden, BGR och beskärningsskalorna 2,7/4,0.
+  använder 0–255. Inferensen följer koden, BGR och beskärningsskalorna 2,7/4,0.
 - `node-app-attest` kontrollerar signaturkedja och protokollfält men inte
   certifikatdatum. Wrappern kräver aktuell giltighet, två certifikat med en
   CA samt exakt ett CBOR-objekt. Assertions kräver 37 bytes authData och
@@ -58,24 +56,22 @@ inga nya Apache-villkor läggs på projektets egen kod.
 - [NIST SP800-63A-4: proofing](https://pages.nist.gov/800-63-4/sp800-63a/ial-general/), tekniskt underlag, inte Digg-godkännande.
 
 Versions- och advisorykontroll finns i `dependency-audit.json` och
-`npm-audit.json`. Uppdateringsägare föreslås vara repoägaren Jtensetti,
-att bekräfta. Oberoende säkerhetsgranskning, biometrisk/PAD-kalibrering,
-dataskyddsbedömning och beslut om verklig utgivning är inte utförda här.
+`npm-audit.json`. Förvaltningsansvar och releasekrav finns i
+[rotens komponentregister](../THIRD_PARTY.md#projektlicens-och-förvaltning)
+och [SECURITY.md](../SECURITY.md).
 
-## App-plånbok, 2026-10-19
+## App och enhetssignaturer
 
 Den sammanhållna SwiftUI-appen använder Apples systemramverk SwiftUI,
 Foundation, CryptoKit/Secure Enclave, Security/Keychain, LocalAuthentication,
-CoreNFC, DeviceCheck och AVFoundation via Xcode 16.4. Inga nya externa
-runtimepaket eller modellvikter införs i denna etapp. NFC-/OpenSSL-versioner
-är oförändrade och låsta i `ios/PassportCapture.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`.
+CoreNFC, DeviceCheck och AVFoundation via Xcode 16.4. NFC-/OpenSSL-versioner
+är låsta i `ios/PassportCapture.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`.
 
 Serverns enhetssignaturer verifieras med Node 24.19.0 `node:crypto`
 (createPublicKey/verify), SHA-256 och standard DER/SPKI för P-256.
 Python 3.12:s sqlite3, hashlib och secrets används för beständighet,
-standardhashar och slumputmaningar. Ingen egen kryptografisk primitiv.
-DB och application-protokollets konkreta användning är egen kod som kräver
-granskning; detta är inget nytt standardiserat SAML/OIDC-protokoll.
+standardhashar och slumputmaningar. Appens registrerings- och godkännande-API
+är projektspecifikt och beskrivs i [arkitekturen](../docs/arkitektur.md).
 
 Primärkällor kontrollerade 2026-10-19:
 - https://developer.apple.com/documentation/cryptokit/secureenclave/p256/signing/privatekey
@@ -91,17 +87,16 @@ kontrollerade i `actions/upload-artifact` samma datum. Den används endast
 för simulatorbild och XCTest-resultat utan persondata, med 14 dagars
 retention. Workflowbehörigheter är fortsatt `contents: read`; inga Apple-
 eller produktionsnycklar läggs i CI. Projektgeneratorn är egen Pythonkod
-utan externa beroenden. Projektlicensen är fortsatt obeslutad.
+utan externa beroenden.
 
-## QR för lokal testmotpart, 2026-10-19
+## QR
 
 `qrcode` **8.2** används endast för servergenererade SVG-koder. Officiellt
 repository: [lincolnloop/python-qrcode](https://github.com/lincolnloop/python-qrcode/tree/3704f57a1107dbf553a50f5b531da3859abe19cf).
 Tagg `v8.2` pekar via annoterad tagg på commit
 `3704f57a1107dbf553a50f5b531da3859abe19cf`. Repositoryt var inte arkiverat,
 senaste push 2026-03-25. [PyPI-versionen](https://pypi.org/project/qrcode/8.2/)
-publicerades 2025-05-01 och var inte återkallad vid kontrollen. Detta ger
-spårbarhet, inte ett löfte om säkerhet eller framtida underhåll.
+publicerades 2025-05-01 och var inte återkallad vid kontrollen.
 
 Det installerade rena Python-hjulets SHA-256 är
 `16e64e0716c14960108e85d853062c9e8bba5ca8252c0b4d0231b9df4060ff4f`,
@@ -120,14 +115,11 @@ OSV-frågan för exakt version gav inga publicerade fynd 2026-10-19, sparat i
 `rp-dependency-audit.json`; PyPI rapporterade också en tom sårbarhetslista.
 Det är ingen fullständig säkerhetsrevision. `rp-sbom.cdx.json` förtecknar
 detta enda tillkommande paket, inte hela verifierarens befintliga graf.
-Uppdateringsägare föreslås vara Jtensetti, att bekräfta vid granskning.
-CI-behörigheter och tidigare låst Playwright är oförändrade. Befintliga
-Sweden Connect-komponenter i SAML-labben påverkas inte; QR är en lokal
-valmekanism för appens signerade begäran och inget nytt federationsprotokoll.
+QR-koden identifierar den begäran som appen hämtar och godkänner.
 
 ## Personprofil och SAML, 2026-10-20
 
-Inga beroenden ändras. Sweden Connect `spring-authentication-server`
+Sweden Connect `spring-authentication-server`
 **1.0.3** återanvänds via `AbstractUserRedirectAuthenticationProvider`;
 [senaste upstreamrelease](https://github.com/swedenconnect/spring-authentication-server/releases/tag/v1.0.3)
 kontrollerades 2026-10-20 och var fortsatt 1.0.3 (publicerad 2026-10-13).
@@ -137,5 +129,4 @@ komponentregister och befintliga Maven-lås.
 Profilkryptering använder Node **24.19.0** `node:crypto` AES-256-GCM.
 Dokumentreferenser och tjänstesubjekt använder Python 3.12 `hmac`/SHA-256
 med separat nyckel. De befintliga OpenCV- och qrcode-versionerna används
-för passfotots storlek respektive QR. Inga nya SDK:er, modeller eller
-kryptografiska implementationer kopieras. CI-behörigheter är oförändrade.
+för passfotots storlek respektive QR.

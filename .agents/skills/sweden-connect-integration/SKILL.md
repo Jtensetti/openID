@@ -8,7 +8,7 @@ description: >-
 
 # Sweden Connect: integration utan egen protokollstack
 
-Projektspecifik originalinstruktion. Läs `AGENTS.md`, `docs/03-ateranvandning.md`, `docs/04-arkitektur.md` och T01–T03 i `docs/SOURCES.md`.
+Projektspecifik originalinstruktion. Läs `AGENTS.md`, `THIRD_PARTY.md`, `docs/arkitektur.md` och T01–T03 i `docs/SOURCES.md`.
 
 ## Inmatning som behövs
 
@@ -31,7 +31,7 @@ Fel issuer eller tillitsankare; fel audience/mottagare; otillåten ACS/redirect 
 
 Testa SAML-specifika respektive OIDC-specifika mekanismer enligt vald profil. `InResponseTo`, `nonce`, `state` och PKCE fyller inte automatiskt samma roll i alla flöden. Ett korrekt protokollnamn i dokumentationen är inte tillräckligt.
 
-G05 är kandidat för vår egen testmotpart och får avsiktligt producera felaktiga meddelanden. Använd den endast mot egna eller uttryckligen godkända testmål.
+G05 bidrar med adaptern `LabResponseProcessor`; se `prototype/licenses/ATTRIBUTION.md`. Negativa protokollprov får endast köras mot egna eller uttryckligen godkända testmål.
 
 ## Leverans
 

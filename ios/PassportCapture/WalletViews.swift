@@ -268,7 +268,7 @@ struct SettingsView: View {
             Section("Om") {
                 NavigationLink("Så fungerar det") { GuideView() }
                 NavigationLink("Personuppgifter och säkerhet") { PrivacyView() }
-                LabeledContent("Version", value: "0.2 · Privat pilot")
+                LabeledContent("Version", value: "0.2")
             }
         }.scrollContentBackground(.hidden).background(Palette.paper).navigationTitle("Inställningar")
             .confirmationDialog("Spärra detta ID permanent?", isPresented: $revoke, titleVisibility: .visible) {
@@ -358,7 +358,7 @@ struct GuideView: View {
             Section("Registrera") { Text("Läs passet och följ kamerans instruktioner. När kontrollen är klar behöver operatören aktivera ditt ID.") }
             Section("Legitimera") { Text("Starta inloggningen hos testtjänsten. Skanna QR-koden, kontrollera tjänst och kod och godkänn i appen.") }
             Section("Spärra") { Text("Du spärrar ditt ID under Inställningar. Spärren är permanent.") }
-            Section("Om piloten") { Text("Appen är under utveckling och är inte en godkänd e-legitimation. Ansiktsjämförelse och liveness behöver fortsatt utvärdering.") }
+            Section("Om openID") { Text("Appen är under utveckling och är inte en godkänd e-legitimation.") }
         }.navigationTitle("Så fungerar det").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Klart") { dismiss() } } }
     }
