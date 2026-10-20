@@ -97,9 +97,26 @@ sparas inte. Publika nycklar, status och händelser är okrypterade.
 
 SQLite-databasen och `wallet.identity-key` ligger i en privat katalog.
 Saknad eller fel nyckel stoppar profilåtkomst. Automatisk gallring och
-nyckelrotation saknas. `recovery.py restore` återläser till en ny katalog och
+nyckelrotation saknas i SQLite-läget. `recovery.py restore` återläser till en ny katalog och
 spärrar alla återställda nycklar. Manuell återläsning som bevarar aktiva nycklar
 stöds inte, eftersom en äldre kopia kan sakna senare spärrar.
+
+## PostgreSQL och OpenBao
+
+Det separata körläget `cluster_serve.py` delar register, spärrstatus och
+engångsutmaningar i PostgreSQL. Utmaningen konsumeras i en egen transaktion
+före signaturkontroll. Villkorade uppdateringar hindrar dubbel konsumtion;
+nyckelrader låses vid beslut. Giltighet använder databasens tid i transaktionen.
+
+OpenBao Transit krypterar profiler med person- och enhetsbunden kontext.
+Registreringskontot kan kryptera, autentiseringskontot dekryptera och
+underhållskontot omkryptera. Två olika databaslogins krävs för aktivering.
+Detta ändrar inte SQLite-lägets lokala administratörsrättigheter.
+
+[Driftinstruktionen](../deployment/cluster/README.md) beskriver roller,
+nyckelflöde, rotation, gallring och återställningsvillkor. Registreringens
+NFC-session har fortsatt en enda process. Klusterläget har separat register;
+SQLite-data och den lokala SAML-bryggan flyttas inte automatiskt.
 
 ## Förtroendegränser
 
@@ -127,6 +144,6 @@ De utgör därför inte separata administrativa säkerhetszoner.
 ## Återstående kontroller
 
 Fotografering på fysisk iPhone, biometrisk/PAD-kalibrering, injektion och relä,
-certifikatspärr, registerkontroll, HSM, rollseparation och återställning med
+certifikatspärr, registerkontroll, HSM, operativ befogenhetsseparation och återställning med
 beständig spärrstatus återstår. Dokumentunderskrift är inte implementerad.
 Se [krav](krav.md), [testning](testning.md) och [säkerhet](../SECURITY.md).

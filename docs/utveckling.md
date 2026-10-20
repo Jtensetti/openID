@@ -38,9 +38,9 @@ framgår av koden. Tillfälliga arbetsloggar hör hemma i PR:n.
 | Fysisk iPhone | Signerat bygge på enheten: NFC, App Attest, Secure Enclave, avbrott, ny registrering, inloggning och spärr. |
 | Biometri och fotografering | Kalibrerade trösklar samt mätning av felacceptans/felavvisning, presentationer, injektion och relä. |
 | Pass och personregister | Spärrinformation, länkcertifikat, registerkontroll och ersättning efter passförnyelse. |
-| Nycklar och återställning | Rotation, gallring och återläsning som inte återupplivar spärrade nycklar. |
+| Nycklar och återställning | Operativ rotation, gallring och PostgreSQL-/nyckelåterläsning på vald driftmiljö. |
 | Extern integration | Fastställd profil, metadata, attribut och kontrollerad motpart med negativa protokollprov. |
-| Drift | Rollseparation, servernyckelskydd, kapacitet, övervakning och övad återställning. |
+| Drift | Operativa roller, redundant databas/nyckeltjänst, ingress, kapacitet och larmmottagning på vald driftmiljö. |
 
 Produktionsöppning kräver oberoende säkerhetsgranskning och ett behörigt
 mänskligt beslut om utgivning, dataskydd, drift och nyckelhantering.

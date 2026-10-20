@@ -44,13 +44,8 @@ class ClusterTests(unittest.TestCase):
         cls.bao_request('transit/keys/openid-profile/config', {'auto_rotate_period':'720h'})
         cls.bao_request('transit/keys/openid-index', {'type':'hmac', 'key_size':32, 'exportable':False})
         cls.token_files = {}
-        for role, paths in {
-            'enroller':['encrypt/openid-profile','hmac/openid-index/sha2-256'],
-            'wallet':['decrypt/openid-profile','hmac/openid-index/sha2-256'],
-            'maintenance':['rewrap/openid-profile','hmac/openid-index/sha2-256'],
-        }.items():
-            policy='\n'.join('path "transit/'+p+'" { capabilities = ["update"] }' for p in paths)
-            if role=='maintenance':policy+='\npath "transit/keys/openid-profile" { capabilities = ["read"] }'
+        for role in ('enroller','wallet','maintenance'):
+            policy=(Path(__file__).parents[1]/'deployment/cluster'/(role+'.hcl')).read_text()
             cls.bao_request('sys/policies/acl/'+role, {'policy':policy})
             response=cls.bao_request('auth/token/create', {'policies':[role], 'no_default_policy':True, 'ttl':'1h'})
             path=cls.root/(role+'.token'); path.write_text(response['auth']['client_token']); path.chmod(0o600)
@@ -133,6 +128,16 @@ class ClusterTests(unittest.TestCase):
                 if role=='maintenance' and query.startswith('UPDATE profiles'):continue
                 with self.subTest(role=role,query=query),self.assertRaises(self.psycopg.Error):self.sql(role,query,args)
         with self.assertRaises(ValueError):self.a.activate(self.ident,'REVIEW-forged-02')
+
+    def test_function_privileges_match_actual_roles(self):
+        allowed={'request_activation(text,text,integer)':{'alice','carol'},'approve_activation(text)':{'bob','carol'},
+            'revoke_credential(text)':{'revoker'},'revoke_all_after_restore()':{'revoker'},
+            'purge_expired(integer,integer,integer)':{'maintenance'}}
+        for function,users in allowed.items():
+            for role in self.dsns:
+                with self.subTest(function=function,role=role):
+                    self.assertEqual(role in users,self.sql(role,'SELECT has_function_privilege(current_user,%s,%s)',
+                        ('openid.'+function,'EXECUTE'))[0][0])
 
     def test_no_unverified_profile_or_expired_proposal(self):
         ident=self.enroller.enroll(self.keys[1]['publicKey'])['id']

@@ -12,7 +12,7 @@ CREATE SCHEMA openid AUTHORIZATION openid_owner;
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 SET ROLE openid_owner;
 SET search_path=openid,pg_catalog;
-ALTER DEFAULT PRIVILEGES IN SCHEMA openid REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
 CREATE TABLE schema_version(version integer PRIMARY KEY CHECK(version=1));
 INSERT INTO schema_version VALUES(1);
 CREATE TABLE credentials (
@@ -142,6 +142,32 @@ BEGIN
  INSERT INTO operator_events(actor,kind) VALUES(session_user,'RESTORE_REVOKED_ALL');
 END $$;
 
+CREATE FUNCTION purge_expired(profile_days integer,event_days integer,max_batch integer) RETURNS bigint
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=openid,pg_catalog AS $$
+DECLARE removed bigint:=0; n bigint; item record; now_epoch bigint:=extract(epoch FROM clock_timestamp())::bigint;
+BEGIN
+ IF profile_days IS NULL OR event_days IS NULL OR max_batch IS NULL OR profile_days NOT BETWEEN 1 AND 3650
+  OR event_days NOT BETWEEN 1 AND 3650 OR max_batch NOT BETWEEN 1 AND 1000 THEN RAISE EXCEPTION 'retention policy required'; END IF;
+ DELETE FROM profiles WHERE credential IN (SELECT p.credential FROM profiles p JOIN credentials c ON c.id=p.credential
+  WHERE coalesce(c.expires,c.created+86400)<now_epoch-profile_days*86400
+  ORDER BY p.credential LIMIT max_batch FOR UPDATE OF p SKIP LOCKED);
+ GET DIAGNOSTICS n=ROW_COUNT; removed:=removed+n;
+ FOR item IN SELECT * FROM (VALUES
+  ('challenges','expires',now_epoch),('requests','expires',now_epoch-3600),
+  ('federation_requests','expires',now_epoch-3600),('events','time',now_epoch-event_days*86400),
+  ('activation_proposals','expires',now_epoch-event_days*86400)) AS t(table_name,column_name,cutoff)
+ LOOP
+  EXECUTE format('DELETE FROM %I WHERE id IN (SELECT id FROM %I WHERE %I<$1 ORDER BY id LIMIT $2 FOR UPDATE SKIP LOCKED)',
+   item.table_name,item.table_name,item.column_name) USING item.cutoff,max_batch;
+  GET DIAGNOSTICS n=ROW_COUNT; removed:=removed+n;
+ END LOOP;
+ INSERT INTO maintenance_runs VALUES(1,clock_timestamp(),removed)
+  ON CONFLICT(id) DO UPDATE SET completed_at=excluded.completed_at,removed=excluded.removed;
+ RETURN removed;
+END $$;
+
+REVOKE ALL ON ALL FUNCTIONS IN SCHEMA openid FROM PUBLIC;
+
 GRANT USAGE ON SCHEMA openid TO openid_enroller,openid_wallet,openid_requester,openid_approver,openid_revoker,openid_maintenance,openid_auditor;
 GRANT SELECT ON schema_version TO openid_enroller,openid_wallet,openid_maintenance;
 GRANT SELECT ON credentials,profiles,persons TO openid_enroller,openid_wallet,openid_maintenance;
@@ -156,9 +182,9 @@ GRANT SELECT ON activation_proposals TO openid_requester,openid_approver,openid_
 GRANT EXECUTE ON FUNCTION request_activation(text,text,integer) TO openid_requester;
 GRANT EXECUTE ON FUNCTION approve_activation(text) TO openid_approver;
 GRANT EXECUTE ON FUNCTION revoke_credential(text),revoke_all_after_restore() TO openid_revoker;
-GRANT SELECT,DELETE ON requests,federation_requests,challenges,events,activation_proposals TO openid_maintenance;
+GRANT SELECT ON requests,federation_requests,challenges,events,activation_proposals TO openid_maintenance;
 GRANT UPDATE(sealed) ON profiles TO openid_maintenance;
-GRANT DELETE ON profiles TO openid_maintenance;
-GRANT SELECT,INSERT,UPDATE ON maintenance_runs TO openid_maintenance;
+GRANT EXECUTE ON FUNCTION purge_expired(integer,integer,integer) TO openid_maintenance;
+GRANT SELECT ON maintenance_runs TO openid_maintenance;
 RESET ROLE;
 COMMIT;

@@ -1,0 +1,11 @@
+**
+!verification/
+!verification/*.py
+!verification/*.mjs
+!verification/*requirements.lock
+!verification/licenses/**
+!verification/THIRD_PARTY.md
+!deployment/
+!deployment/cluster/
+!deployment/cluster/probe.py
+!deployment/cluster/Dockerfile

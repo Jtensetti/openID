@@ -1,0 +1,6 @@
+{
+  "databaseFile": "/srv/openid/secrets/maintenance-database",
+  "baoAddress": "https://bao.internal:8200",
+  "baoTokenFile": "/srv/openid/secrets/maintenance-token",
+  "baoCA": "/srv/openid/secrets/bao-ca.pem"
+}

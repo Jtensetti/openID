@@ -274,6 +274,7 @@ class Wallet:
             payload = pending['data']; ident = payload['credentialId']; action = payload['action']
             with self.transaction() as db:
                 row = self.credential(db, ident)
+                if pending['expires'] <= self.clock(): raise ValueError('challenge unavailable')
                 self.crypto('verify', publicKey=row['public_key'], payload=base64.b64encode(pending['payload']).decode(), signature=signature)
                 if action in ('approve', 'reject'):
                     self.active(db, ident)
@@ -327,6 +328,7 @@ class Wallet:
     def federation_start(self, binding, audience):
         if not isinstance(binding, str) or not re.fullmatch('[A-Za-z0-9_-]{1,200}', binding): raise ValueError('binding')
         with self.transaction() as db:
+            self.lock_federation_quota(db)
             if db.execute("SELECT count(*) FROM federation_requests WHERE state='PENDING' AND expires>?", (self.clock(),)).fetchone()[0] >= 32:
                 raise ValueError('too many requests')
             ident, secret = secrets.token_hex(32), secrets.token_urlsafe(32)
@@ -336,6 +338,9 @@ class Wallet:
                  f'{secrets.randbelow(1000000):06d}', binding, audience))
             row = db.execute('SELECT * FROM federation_requests WHERE id=?', (ident,)).fetchone()
             return self.federation_description(row) | {'secret': secret}
+
+    def lock_federation_quota(self, db):
+        pass # SQLite's write transaction already serializes this quota.
 
     def federation_result(self, operation, request, secret, binding, audience):
         identifier(request)

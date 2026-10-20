@@ -36,6 +36,8 @@ jobs:
           printf '%s  %s\n' '0e2f1ce10d124e03112b50dd2fbec6b78003783253bc3a91587938f39d1e2243' "$RUNNER_TEMP/bao.tar.gz" | sha256sum --check --strict
           mkdir "$RUNNER_TEMP/bao"
           tar -xzf "$RUNNER_TEMP/bao.tar.gz" -C "$RUNNER_TEMP/bao"
+      - name: Build authentication image without biometric models
+        run: docker build --tag openid-wallet:ci --file deployment/cluster/Dockerfile .
       - name: Test database roles, concurrent operations and real Transit cryptography
         working-directory: verification
         env:

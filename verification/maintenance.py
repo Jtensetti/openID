@@ -23,18 +23,7 @@ def maintain(wallet, *, profile_days, event_days, batch=100):
             sealed=wallet.vault.rewrap(row['credential'],row['person'],json.loads(row['sealed']))
             db.execute('UPDATE profiles SET sealed=? WHERE credential=?',(json.dumps(sealed),row['credential']));changed+=1
     with wallet.transaction() as db:
-        # Retain tombstones and person links; deleting a profile never makes an old key enrollable again.
-        removed+=db.execute('''DELETE FROM profiles WHERE credential IN (
-            SELECT p.credential FROM profiles p JOIN credentials c ON c.id=p.credential
-            WHERE coalesce(c.expires,c.created+86400)<? ORDER BY p.credential LIMIT ? FOR UPDATE OF p SKIP LOCKED)''',
-            (now-profile_days*86400,batch)).rowcount
-        for table,field,cutoff in (('challenges','expires',now),('requests','expires',now-3600),
-            ('federation_requests','expires',now-3600),('events','time',now-event_days*86400),
-            ('activation_proposals','expires',now-event_days*86400)):
-            # Table/column names are fixed above, never taken from configuration or requests.
-            removed+=db.execute(f'DELETE FROM {table} WHERE id IN (SELECT id FROM {table} WHERE {field}<? ORDER BY id LIMIT ? FOR UPDATE SKIP LOCKED)',
-                (cutoff,batch)).rowcount
-        db.execute('INSERT INTO maintenance_runs VALUES(1,clock_timestamp(),?) ON CONFLICT(id) DO UPDATE SET completed_at=excluded.completed_at,removed=excluded.removed',(removed,))
+        removed=db.execute('SELECT purge_expired(?,?,?)',(profile_days,event_days,batch)).fetchone()[0]
     return {'rewrapped':changed,'removed':removed}
 
 

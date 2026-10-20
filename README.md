@@ -16,6 +16,7 @@ Projektet är under utveckling och har inget Digg-godkännande. Tillitsnivå 3
 | [Verifierare och testtjänst](verification/README.md) | Passkontroll, ansiktsjämförelse, liveness, krypterat personregister och QR-inloggning med SAML. |
 | [SAML/WebAuthn-labb](prototype/README.md) | Lokal IdP och SP, testnycklar och simulerad identitetskontroll. |
 | [Privat pilotmiljö](deployment/README.md) | Containerpaket för appens verifierare och lokala testtjänst, med TLS, kapacitetsgränser och säker återställning. |
+| [Delat register](deployment/cluster/README.md) | PostgreSQL, OpenBao, flera autentiseringsinstanser, operatörsroller och underhåll. |
 | [Driftpaket](ops/README.md) | Render-container med hälsokontroller. E-id-funktioner är avstängda. |
 
 Tester använder genererade identiteter och nycklar. Verkliga pass används

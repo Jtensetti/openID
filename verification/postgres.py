@@ -3,6 +3,7 @@ from contextlib import contextmanager, nullcontext
 import json
 import logging
 import secrets
+import threading
 import time
 import psycopg
 from psycopg.conninfo import conninfo_to_dict
@@ -49,7 +50,8 @@ class PostgresWallet(Wallet):
     def __init__(self, dsn, origin, vault, crypto=device_crypto, *, local_test=False, pool_size=8):
         if type(pool_size) is not int or not 1 <= pool_size <= 16: raise ValueError('pool size')
         self.origin, self.vault, self.crypto = origin, vault, crypto
-        self.clock = time.time
+        self.clock_context = threading.local()
+        self.clock = self.database_clock
         self.lock = nullcontext()
         # libpq failures can contain server/user addresses. Our boundary emits only fixed errors.
         logging.getLogger('psycopg.pool').setLevel(logging.CRITICAL)
@@ -66,12 +68,21 @@ class PostgresWallet(Wallet):
 
     @contextmanager
     def transaction(self):
+        previous = getattr(self.clock_context, 'anchor', None)
         try:
             with self.pool.connection() as connection, connection.transaction():
+                epoch = float(connection.execute('SELECT extract(epoch FROM clock_timestamp())').fetchone()[0])
+                self.clock_context.anchor = (epoch, time.monotonic())
                 yield Database(connection)
         except (psycopg.Error, PoolTimeout, TooManyRequests):
             # No automatic mutation retry: an interrupted commit has an uncertain outcome.
             raise RegistryUnavailable('registry unavailable') from None
+        finally:
+            self.clock_context.anchor = previous
+
+    def database_clock(self):
+        anchor = getattr(self.clock_context, 'anchor', None)
+        return anchor[0] + time.monotonic()-anchor[1] if anchor else time.time()
 
     def close(self):
         self.pool.close()
@@ -102,21 +113,13 @@ class PostgresWallet(Wallet):
         # Committed independently so wrong signatures, process death and rollback cannot restore it.
         with self.transaction() as db:
             row = db.execute('DELETE FROM challenges WHERE id=? RETURNING *', (challenge,)).fetchone()
+            if row is not None and row['expires'] <= self.clock(): row = None
         if row is None: return None
         return {'payload': row['payload'].encode(), 'data': json.loads(row['payload']),
             'expires': row['expires'], 'federation': row['federation']}
 
-    def federation_start(self, binding, audience):
-        # Serialize this small global quota transaction, not all authentication operations.
-        with self.pool.connection() as connection, connection.transaction():
-            connection.execute('SELECT pg_advisory_xact_lock(73621)')
-            # Reuse the same connection through a tiny scoped store; no process-global override.
-            proxy = object.__new__(PostgresWallet)
-            proxy.__dict__ = self.__dict__.copy()
-            @contextmanager
-            def current(): yield Database(connection)
-            proxy.transaction = current
-            return Wallet.federation_start(proxy, binding, audience)
+    def lock_federation_quota(self, db):
+        db.execute('SELECT pg_advisory_xact_lock(73621)')
 
     def federation_subject(self, db, audience, person):
         if not isinstance(audience, str) or not 1 <= len(audience) <= 512: raise ValueError('audience')

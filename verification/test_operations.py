@@ -33,3 +33,35 @@ class OperationsTests(unittest.TestCase):
         with self.assertRaises(ValueError):evaluate(self.rows(),math.nan,.5)
 
 if __name__=='__main__':unittest.main()
+
+class TransportTests(unittest.TestCase):
+    def test_tls_health_and_acknowledged_alert_without_identifiers(self):
+        from http.server import BaseHTTPRequestHandler,HTTPServer
+        from pathlib import Path
+        import tempfile,subprocess,ssl,threading,json
+        from monitor import notify,read_status
+        with tempfile.TemporaryDirectory() as directory:
+            cert,key=Path(directory)/'cert',Path(directory)/'key'
+            subprocess.run(['openssl','req','-x509','-newkey','rsa:2048','-nodes','-days','1','-subj','/CN=localhost',
+                '-addext','subjectAltName=DNS:localhost','-keyout',str(key),'-out',str(cert)],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+            seen=[]
+            class Handler(BaseHTTPRequestHandler):
+                def log_message(self,*args):pass
+                def do_GET(self):
+                    self.send_response(200);self.end_headers();self.wfile.write(b'{"status":"READY"}')
+                def do_POST(self):
+                    body=json.loads(self.rfile.read(int(self.headers['Content-Length'])))
+                    seen.append(body)
+                    self.send_response(204 if self.headers.get('Authorization')=='Bearer test-token' else 403);self.end_headers()
+            server=HTTPServer(('127.0.0.1',0),Handler)
+            context=ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER);context.load_cert_chain(cert,key)
+            server.socket=context.wrap_socket(server.socket,server_side=True)
+            thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+            try:
+                origin='https://localhost:'+str(server.server_port)
+                self.assertTrue(read_status(origin,cert))
+                notify(origin+'/alert',cert,'test-token','wallet','UNAVAILABLE')
+                self.assertEqual({'service':'wallet','state':'UNAVAILABLE'},seen[0])
+                with self.assertRaises(RuntimeError):notify(origin+'/alert',cert,'wrong','wallet','RECOVERED')
+                self.assertFalse(read_status(origin,None))
+            finally:server.shutdown();server.server_close();thread.join(timeout=2)

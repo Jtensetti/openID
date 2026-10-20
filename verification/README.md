@@ -335,3 +335,30 @@ CMS/PKIX/hashar, profilkryptering, ECDSA-godkännande och SAML-validering körs
 på riktigt. NFC, kamera, App Attest och biometriska poäng ersätts med
 explicita testdubblar i just denna fixtur. Testet bevisar integrationen,
 inte fysisk personkontroll. Linux med Unix-sockets krävs.
+
+## Flera autentiseringsinstanser
+
+[Driftinstruktionen](../deployment/cluster/README.md) beskriver PostgreSQL,
+OpenBao, separata operatörsroller, TLS-workers, rotation, gallring och larm.
+`cluster_serve.py` är ett separat körläge; SQLite-piloten ändrar inte lagringsformat.
+
+## Utvärdera biometriska trösklar
+
+`evaluate_biometrics.py` läser en privat CSV med kolumnerna
+`sample,subject,partition,kind,score`. Använd studiekoder, inte namn.
+`partition` är `calibration` eller `evaluation`; samma person får inte förekomma
+i båda. `kind` är `genuine`, `impostor`, `bona_fide` eller `attack`.
+Filen ska ha läge 0600. Välj trösklar från kalibreringsmaterialet och lås dem
+innan utvärderingsmaterialet används:
+
+```sh
+python evaluate_biometrics.py --scores /private/holdout.csv --face-threshold 0.5 --pad-threshold 0.9
+```
+
+Värdena ovan är kommandosexempel, inte kalibrerade produktionsgränser.
+Resultatet innehåller FMR, FNMR, APCER, BPCER, antal och Wilson-intervall på
+95 procent. Inga individuella koder eller poäng skrivs ut. Noll observerade
+fel innebär inte noll risk. Utvärdera varje relevant angreppstyp, enhetsgrupp
+och användargrupp separat med tillräckligt och lagligt insamlat material.
+Beroende observationer kan kräva en annan statistisk analys. Verktyget
+provar poängberäkningen; representativa data och oberoende prov återstår.
