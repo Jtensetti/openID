@@ -85,7 +85,7 @@ const https = require('node:https');
     await command('new');
     let id = await begin(), prelogin = await cookie();
     const qr = path.join(temporary,'qr.png'); await page.locator('.qr').screenshot({path:qr});
-    const decoded = spawnSync(python,['-c','import cv2,sys; print(cv2.QRCodeDetector().detectAndDecode(cv2.imread(sys.argv[1]))[0])',qr],{encoding:'utf8'});
+    const decoded = spawnSync(python,['-c','import cv2,sys; print(cv2.QRCodeDetectorAruco().detectAndDecode(cv2.imread(sys.argv[1]))[0])',qr],{encoding:'utf8'});
     assert.equal(decoded.status,0,decoded.stderr); assert.equal(decoded.stdout.trim(),'openid://request/'+id);
     const outsider = await browser.newContext({ignoreHTTPSErrors:true});
     assert.notEqual((await outsider.request.get('https://localhost:8443/phone/qr')).status(),200);
