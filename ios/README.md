@@ -26,7 +26,8 @@ open ios/PassportCapture.xcodeproj
 5. Välj **Registrera med ditt pass**. Ange passnummer, födelsedatum och
    utgångsdatum (ÅÅMMDD), godkänn överföringen och läs chipet. Håll sedan
    telefonen mot passet igen när säkerhetskontrollen startar. Därefter tas
-   tre kamerabilder. NFC-kontrollen kräver kontakt med servern hela tiden.
+   tre kamerabilder: framåt och åt båda sidor. Följ ovalen och håll kvar tills
+   respektive bild har tagits. NFC-kontrollen kräver kontakt med servern hela tiden.
 6. Uppdatera **Mitt ID**. Registreringen väntar på ett separat
    [aktiveringsbeslut](../verification/README.md#aktivera-och-prova-inloggning).
    Prova sedan [QR-inloggningen](../verification/README.md#saml-inloggning-med-passets-identitet).
@@ -49,6 +50,28 @@ ingår inte i byggkonfigurationen.
 
 Förlorad telefon spärras av operatören. Ny telefon kräver ny registrering
 och aktivering. Aktivering för samma pass spärrar den äldre nyckeln.
+
+## Kamerafångst
+
+Vision kontrollerar ett ansikte, placering, storlek, huvudvinkel och bildkvalitet
+på telefonen. Första bilden tas framifrån. Användaren väljer sedan sida; sista
+bilden kräver motsatt huvudvridning. Förhandsvisningen är speglad, skickade
+bilder är ospeglade och stående. Ovalen visar fångstförloppet.
+
+Varje position kräver minst 0,65 sekunders stabilitet och sex observationer.
+Avbrott över 0,3 sekunder nollställer pågående hålltid. Fångsten avslutas efter
+45 sekunder, vid avbrott eller kamerafel. Bilderna lämnar inte kameraflödet
+förrän alla tre har tagits; ingen partiell serie skickas.
+
+Rakt fram tillåter högst 8 graders vridning; sidobilder cirka 15–34 grader.
+Pitch/roll begränsas till cirka 13 grader. Visions kvalitetsvärde ska vara
+minst 0,25. Detta är startvärden för fångstguidning och behöver provas på
+fysiska enheter, inklusive sidobilder, glasögon och olika ljusförhållanden.
+
+Ringen visar bildfångst, inte verifierad identitet eller liveness. Servern
+kontrollerar fortfarande App Attest, bildunikhet, ansiktsjämförelse och PAD
+för alla tre bilderna. Den verifierar inte huvudrörelsernas förlopp. Skydd mot
+film, deepfake och kamerainjektion behöver separat utvärdering.
 
 ## Nycklar och avbrott
 
@@ -90,6 +113,11 @@ SwiftUI-vyerna. Workflow `iPhone app` sparar testresultat och en
 simulatorskärmbild i artefakten `iphone-app-evidence`.
 `ChipRelayTests` provar kommandogränser, ordningsnummer och avvisade
 skrivkommandon. NFC-sessionernas övergång och tidsgräns måste provas på telefon.
+`CaptureGuideTests` provar positioner, stabilitet, tidsluckor, flera ansikten,
+saknade mätvärden, låg kvalitet och upprepad sidovinkel. Kameravyn provas i
+XCUITest med en separat simulatorfixtur, endast kompilerad i Debug/simulator.
+CI sparar även `openID-capture-guide.png`. Fixturen öppnar ingen kamera och
+kan inte registrera en identitet.
 
 Simulatorn kan inte testa pass-NFC, Secure Enclave eller Apple App Attest.
 Den fysiska integrationen återstår att prova på en signerad iPhone-installation.

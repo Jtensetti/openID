@@ -319,7 +319,7 @@ struct EnrollmentView: View {
                     HStack(spacing: 6) {
                         ForEach(0..<4) { index in Capsule().fill(index <= flow.phase ? Palette.ink : Palette.ink.opacity(0.12)).frame(height: 4) }
                     }.accessibilityLabel("Steg \(flow.phase+1) av 4")
-                    Text(flow.completed ? "Kontrollen är klar" : flow.cameraVisible ? "Titta mot kameran" : flow.busy ? "Registrerar" : "Registrera med pass")
+                    Text(flow.completed ? "Kontrollen är klar" : flow.cameraVisible ? "Ansiktskontroll" : flow.busy ? "Registrerar" : "Registrera med pass")
                         .font(.largeTitle.bold())
                     if !flow.busy && !flow.completed {
                         Text("Ha ditt pass till hands och välj en plats med bra ljus.").foregroundStyle(Palette.muted)
@@ -334,7 +334,7 @@ struct EnrollmentView: View {
                         PrimaryButton(title: "Läs passet", symbol: "wave.3.right") { flow.start() }.disabled(!consent)
                     }
                     if flow.cameraVisible {
-                        CameraPreview(session: flow.camera.session).frame(height: 370).clipShape(RoundedRectangle(cornerRadius: 24))
+                        GuidedCaptureView(camera: flow.camera)
                     } else if flow.busy {
                         ProgressView().frame(maxWidth: .infinity)
                     }

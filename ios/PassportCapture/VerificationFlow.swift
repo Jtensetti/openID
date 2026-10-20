@@ -70,7 +70,7 @@ import NFCPassportReader
                 status = "Håll telefonen mot passet igen för säkerhetskontrollen."
                 let chipResult = try await chipRelay.authenticate(api: api, initial: chipStart)
                 guard let captureNonce = chipResult["nonce"] as? String else { throw FlowError.rejected }
-                status = "Håll telefonen stilla. Tre bilder tas automatiskt."
+                status = ""
                 phase = 2
                 cameraVisible = true
                 let frames = try await camera.capture()
@@ -92,6 +92,8 @@ import NFCPassportReader
                 phase = 3; completed = true
                 status = "Registreringen väntar på aktivering."
             } catch is CancellationError { status = "Avbrutet." }
+            catch CaptureCamera.CaptureError.denied { status = "Tillåt kameraåtkomst i Inställningar och försök igen." }
+            catch CaptureCamera.CaptureError.timeout { status = "Kamerakontrollen tog för lång tid. Välj en plats med bra ljus och försök igen." }
             catch { status = "Verifieringen kunde inte slutföras. Kontrollera anslutning, passuppgifter och kamerabehörighet och börja om." }
         }
     }

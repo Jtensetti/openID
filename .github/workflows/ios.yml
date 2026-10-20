@@ -46,6 +46,10 @@ jobs:
           xcrun simctl launch "$SIMULATOR_ID" se.openid.PassportCapture
           sleep 3
           xcrun simctl io "$SIMULATOR_ID" screenshot "$RUNNER_TEMP/ios-evidence/openID-iphone.png"
+          xcrun simctl terminate "$SIMULATOR_ID" se.openid.PassportCapture
+          xcrun simctl launch "$SIMULATOR_ID" se.openid.PassportCapture --capture-guide-preview
+          sleep 3
+          xcrun simctl io "$SIMULATOR_ID" screenshot "$RUNNER_TEMP/ios-evidence/openID-capture-guide.png"
       - name: Save simulator screenshot and test evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2, MIT

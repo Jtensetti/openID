@@ -19,6 +19,7 @@ Tabellen är ett daterat resultat för revisionen ovan.
 | Pass | Bouncy Castle/JMRTD/JCA mot genererad CSCA, DSC, SOD, MRZ och bild. Fel signatur, hash, ankare, datum och format nekas. | Ingen myndighetsutfärdad testhandling eller certifikatspärrtjänst. |
 | Chip | Serverstyrd PACE, CA och färsk skyddad läsning mot ett mjukvaruchip. Kopierad data utan chipnyckel, återspelning, fel MAC och fel dokument nekas. Även CLI-transport och processgränser provas. | Testpeer använder JMRTD/JCA; det ersätter inte fysisk NFC eller oberoende protokollprovning. |
 | Bildmodeller | Låsta OpenCV- och MiniFASNet-vikter, modellinferens och felhantering. | Ingen mätning av biometrisk träffsäkerhet eller attackmotstånd. |
+| Fångstguidning | XCTest för huvudpositioner, kvalitet, tidskontinuitet, stabilitet och negativa mätvärden. XCUITest för ringens status och instruktioner. | Testade observationer är fixturer. Vision-inferens, fysisk kamera och tillgänglighet behöver enhetsprov; detta är inget liveness-test. |
 | App Attest | Verifiering av signatur, appbindning, räknare och ändrade bytes. | Ingen fysisk Apple-attestering i CI. |
 | Register | Verklig SQLite, AES-GCM och ECDSA; samtidighet, spärr, ersättning och krypteringsfel. | Samma OS-konto; ingen HSM eller produktionsrestore. |
 | SAML/webbläsare | Separata verifierar-, IdP- och SP-processer, signerade/krypterade meddelanden och Chromium. | Chiptransport, kamera, App Attest och biometriska poäng är testdubblar i helkedjefixturen. |

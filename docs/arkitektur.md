@@ -30,9 +30,14 @@ Versioner och licenser finns i [komponentregistret](../THIRD_PARTY.md).
    andra CoreNFC-session i telefonen. Ny SELECT/READ av DG14 med verifierad
    MAC bekräftar chipnyckeln; sessionsnycklar lämnar inte serverprocessen.
 5. Efter chipkontrollen får appen ett nytt engångsvärde och tar tre
-   AVFoundation-bilder. En ny App Attest-assertion binder bilderna till
+   AVFoundation-bilder. Vision vägleder fångsten framifrån och från båda sidor
+   med position, kvalitet och stabil hålltid. En ny App Attest-assertion binder bilderna till
    sessionen. YuNet/SFace jämför dem med passfotot. MiniFASNet beräknar PAD-värden.
    Godkända kontroller skapar `PENDING_REVIEW`; operatören aktiverar separat.
+
+Kameraringen är lokal fångstguidning. Ingen klientrapporterad färg, vinkel
+eller liveness-flagga används i serverns beslut. Servern analyserar de tre
+bilderna men verifierar inte rörelseförloppet mellan dem.
 
 Face ID/Touch ID bekräftar senare nyckelanvändning på telefonen. Jämförelsen
 med passfotot sker på servern. App Attest styrker appinstans och signerade

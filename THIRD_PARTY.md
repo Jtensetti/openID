@@ -108,6 +108,16 @@ och separata licenser i `legal/`; Ubuntu-paketens licenser finns i
 Imagen bygger endast `ops/src/SealedEnvironment.java`. Verifierare,
 Sweden Connect, identitetsdatabas och testnycklar ingår inte.
 
+## Apples systemramverk
+
+iOS-kamerans fångstguide använder Apples systemramverk Vision: ansiktsrutor
+revision 3 och fångstkvalitet revision 2. Inget nytt paket eller modellvikter
+distribueras. Ramverket följer iOS och Apples SDK-villkor; Xcode är låst till
+16.4 i CI. API-underlaget kontrollerades 2026-10-20:
+[ansiktsrutor](https://developer.apple.com/documentation/vision/vndetectfacerectanglesrequest),
+[huvudvinkel](https://developer.apple.com/documentation/vision/vnfaceobservation/yaw) och
+[fångstkvalitet](https://developer.apple.com/documentation/vision/vndetectfacecapturequalityrequest).
+
 ## Projektlicens och förvaltning
 
 **Projektets egen licens är inte beslutad.** POM/SBOM använder `NOASSERTION`

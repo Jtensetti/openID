@@ -5,7 +5,17 @@ import SwiftUI
     @Environment(\.scenePhase) private var phase
     var body: some Scene {
         WindowGroup {
-            WalletRootView().environmentObject(model)
+            Group {
+                #if DEBUG && targetEnvironment(simulator)
+                if ProcessInfo.processInfo.arguments.contains("--capture-guide-preview") {
+                    CapturePreviewFixture()
+                } else {
+                    WalletRootView()
+                }
+                #else
+                WalletRootView()
+                #endif
+            }.environmentObject(model)
                 .onOpenURL { model.open($0) }
                 .onChange(of: phase) { value in
                     if value == .background { model.lock() }
