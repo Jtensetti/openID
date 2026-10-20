@@ -1,6 +1,6 @@
 package lab;
 
-/** Public authenticator material only. No private key, PIN or biometric data. */
+/** Stored public WebAuthn credential. */
 public record Passkey(String credentialId, String userHandle, String publicKeyCose,
     long signatureCount, boolean backupEligible, boolean backedUp) {
   public Passkey {

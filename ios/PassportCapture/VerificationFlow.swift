@@ -11,7 +11,7 @@ import NFCPassportReader
     @Published var documentNumber = ""
     @Published var birth = ""
     @Published var expiry = ""
-    @Published var status = "Ange serveradress och kopplingskod från verifieringsservern."
+    @Published var status = ""
     @Published var busy = false
     @Published var cameraVisible = false
     let camera = CaptureCamera()
@@ -20,7 +20,7 @@ import NFCPassportReader
 
     func prepare(configuration: ServerConfiguration, credential: LocalCredential) {
         self.configuration = configuration; self.credential = credential
-        phase = 0; completed = false; status = "Ha ditt pass till hands."
+        phase = 0; completed = false; status = ""
     }
 
     func start() {
@@ -35,7 +35,7 @@ import NFCPassportReader
                 let key = try PassportAccessKey.encode(documentNumber: documentNumber, birth: birth, expiry: expiry)
                 let service = DCAppAttestService.shared
                 guard service.isSupported else { throw FlowError.rejected }
-                status = "Binder appen till verifieringssessionen…"
+                status = "Ansluter…"
                 let start = try await api.postObject("/native/start", body: [:])
                 guard let id = start["id"] as? String, let challenge = start["challenge"] as? String else { throw FlowError.rejected }
                 let keyID = try await service.generateKey()
@@ -43,7 +43,7 @@ import NFCPassportReader
                 let registered = try await api.postObject("/native/attest", body: ["id": id, "keyId": keyID, "attestation": attestation.base64EncodedString()])
                 guard let nonce = registered["nonce"] as? String else { throw FlowError.rejected }
                 try Task.checkCancellation()
-                status = "Håll iPhone mot passet. Läser chipet och utför chipautentisering…"
+                status = "Håll telefonen mot passet tills läsningen är klar."
                 let passportReader = PassportReader(); reader = passportReader
                 let passport = try await passportReader.readPassport(mrzKey: key, tags: [.DG1, .DG2, .DG14, .SOD], skipCA: false, skipPACE: false)
                 clearDocument()
@@ -52,7 +52,7 @@ import NFCPassportReader
                       let sod = passport.dataGroupsRead[.SOD]?.data,
                       let dg1 = passport.dataGroupsRead[.DG1]?.data,
                       let dg2 = passport.dataGroupsRead[.DG2]?.data else { throw FlowError.rejected }
-                status = "Titta mot kameran. Tre bilder tas för ansiktsjämförelse och liveness."
+                status = "Håll telefonen stilla. Tre bilder tas automatiskt."
                 phase = 2
                 cameraVisible = true
                 let frames = try await camera.capture()
@@ -65,7 +65,7 @@ import NFCPassportReader
                 let bytes = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
                 let assertion = try await service.generateAssertion(keyID, clientDataHash: Data(SHA256.hash(data: bytes)))
                 try Task.checkCancellation()
-                status = "Verifierar passets signaturkedja, ansiktslikhet och liveness…"
+                status = "Kontrollerar pass och kamerabilder…"
                 let result = try await api.postObject("/native/finish", body: ["id": id,"payload":bytes.base64EncodedString(),"assertion":assertion.base64EncodedString()])
                 try Task.checkCancellation()
                 guard result["checksPassed"] as? Bool == true,
@@ -73,8 +73,8 @@ import NFCPassportReader
                       registeredCredential["id"] as? String == credential.id,
                       registeredCredential["state"] as? String == "PENDING_REVIEW" else { throw FlowError.rejected }
                 phase = 3; completed = true
-                status = "Pass- och personkontrollen är slutförd. Din registrering väntar nu på operatörens aktivering för den privata piloten."
-            } catch is CancellationError { status = "Avbrutet. Underlaget används inte vidare." }
+                status = "Registreringen väntar på aktivering."
+            } catch is CancellationError { status = "Avbrutet." }
             catch { status = "Verifieringen kunde inte slutföras. Kontrollera anslutning, passuppgifter och kamerabehörighet och börja om." }
         }
     }

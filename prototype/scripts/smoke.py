@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise the packaged CLI and complete one HTTPS flow. No browser engine; stdlib only."""
+"""Run the packaged CLI and an HTTPS login flow."""
 from html.parser import HTMLParser
 from http.cookiejar import CookieJar
 import os

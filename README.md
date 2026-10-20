@@ -1,44 +1,37 @@
-# openID – förstudie och isolerad e-id-prototyp
+# openID
 
-**Status: lokal SAML-/WebAuthn-prototyp, webbklient, beständig syntetisk labbdrift och stängt driftpaket. Inte en utfärdad eller godkänd e-legitimation.**
+Ett projekt för svensk e-legitimation. Repot innehåller en iPhone-app, en
+pass- och ansiktsverifierare och en lokal autentiseringstjänst. Separat finns
+en SAML/WebAuthn-labb som använder Sweden Connect.
 
-Körbar kod, automatiserade säkerhetstester och startinstruktioner finns i [prototype/](prototype/README.md). Labben använder Sweden Connect för ett signerat och krypterat SAML-flöde mellan två lokala HTTPS-adresser. Webbläget använder WebAuthn med passkey eller extern säkerhetsnyckel; webbklienten kräver ingen appbutik eller ett visst molnkonto. Identitetskontrollen är uttryckligen simulerad. Läs [faktiska verifieringsresultat och återstående hinder](prototype/evidence/web-verification.md).
+Projektet är under utveckling och har inget Digg-godkännande. Tillitsnivå 3
+är ett mål. Projektlicens, utgivningsvillkor och produktionsansvar återstår.
 
-Målet är att undersöka en självständig svensk e-legitimation med öppen källkod, med tillitsnivå 3 som föreslaget första produktionsmål och möjlighet till anslutning till Diggs auktorisationssystem. Namnet är ett arbetsnamn, inte ett påstående om koppling till OpenID Foundation, Digg eller någon offentlig arbetsgivare.
+## Kör och utveckla
 
-Underlaget kontrollerades **2026-10-19**. Det skiljer på publicerade krav, vår tolkning, föreslagna teknikval och frågor som behöver skriftliga svar. Det är ett beslutsunderlag, inte ett juridiskt utlåtande eller ett intyg om efterlevnad.
+| Del | Innehåll |
+|---|---|
+| [iPhone-app](ios/README.md) | Xcode-projekt med passläsning, kamerafångst, enhetsnyckel, legitimering och spärr. |
+| [Verifierare och testtjänst](verification/README.md) | Passkontroll, ansiktsjämförelse, liveness, pilotregister och QR-inloggning i webbläsaren. |
+| [SAML/WebAuthn-labb](prototype/README.md) | Lokal IdP och SP, testnycklar och simulerad identitetskontroll. |
+| [Driftpaket](ops/README.md) | Render-container med hälsokontroller. E-id-funktioner är avstängda. |
 
-## Läsordning
+Tester använder genererade identiteter och nycklar. Verkliga pass används
+endast i den överenskomna privata testmiljön; personuppgifter och hemligheter
+får inte läggas i repot. Läs [säkerhetsinformationen](SECURITY.md) och
+[komponentregistret](THIRD_PARTY.md).
 
-1. [Avtal, ersättning och affärshypotes](docs/01-avtal-och-affarsmodell.md).
-2. [Krav- och evidensmatris](docs/02-kravmatris.md).
-3. [Återanvändning från Sweden Connect, Digg och Ena](docs/03-ateranvandning.md).
-4. [Föreslagen arkitektur och hotmodell](docs/04-arkitektur.md).
-5. [Genomförande, tester och beslutspunkter](docs/05-genomforande.md).
-6. [Frågor till Digg – utkast, inte skickat](docs/06-fragor-till-digg.md).
-7. [Källregister](docs/SOURCES.md).
+## Underlag
 
-## För den som bygger med en kodagent
+- [Avtal och affärsmodell](docs/01-avtal-och-affarsmodell.md)
+- [Kravmatris](docs/02-kravmatris.md)
+- [Återanvändning](docs/03-ateranvandning.md)
+- [Arkitektur och hotmodell](docs/04-arkitektur.md)
+- [Genomförandeplan](docs/05-genomforande.md)
+- [Frågor till Digg](docs/06-fragor-till-digg.md)
+- [Källregister](docs/SOURCES.md)
 
-Läs [AGENTS.md](AGENTS.md). Projektets egna arbetsinstruktioner finns som `SKILL.md` i `.agents/skills/`:
+Kodagenter börjar i [AGENTS.md](AGENTS.md), som hänvisar till projektets
+arbetsinstruktioner i `.agents/skills/`.
 
-- `digg-compliance`: källkontroll och kravspårbarhet.
-- `sweden-connect-integration`: federationsprotokoll och återanvändning.
-- `eid-lifecycle-security`: utfärdning, nycklar, spärr och återställning.
-- `electronic-signatures`: skillnaden mellan identifiering och underskrift.
-- `supply-chain-and-release`: beroenden, licenser, tester och releasebevis.
-- `eid-economics-and-reporting`: ersättningsvillkor och rapporteringskontroller.
-
-Instruktionerna är projektspecifika originaltexter. De är inte officiella Digg-skills och ersätter inte sakkunnig granskning. Agentverktyg som inte automatiskt upptäcker denna katalog ska läsa filerna uttryckligen via AGENTS.md.
-
-## Nuvarande avgränsning
-
-Repot innehåller en lokal prototyp samt en [sammanhållen iPhone-app](ios/README.md) för passregistrering, enhetsautentisering och spärr i en privat pilot. Prototypens konkreta beroendeval, attribution och licensunderlag finns i `THIRD_PARTY.md`; övriga komponenter i förstudien är fortsatt kandidater. Ett separat [driftpaket](ops/README.md) är driftsatt i Render och verifierat över HTTPS som en stängd produktionsgrund. Det innehåller ingen e-id-funktion; autentiseringsprototypen körs fortsatt lokalt. [Aktuell teknisk evidens](prototype/evidence/g2-verification.md) skiljer körda tester från återstående kriterier.
-
-Automatiserade tester och CI använder genererade testidentiteter och isolerade testnycklar. Verkliga pass får endast användas i användarens uttryckligen valda privata testmiljö. Inga verkliga personuppgifter, ID-handlingar, produktionsnycklar eller ersättningsanspråk hör hemma i repot. Ingen AI-komponent ensam beslutar vem en person är eller aktiverar ett ID; ingen generativ modell ingår i säkerhetsbesluten.
-
-Se [SECURITY.md](SECURITY.md) och [THIRD_PARTY.md](THIRD_PARTY.md). Finansiering, organisation, driftansvar och projektlicens behöver beslutas innan ett produktionsspår öppnas.
-
-## Pass- och personverifiering
-
-Verklig passiv passverifiering, lokal ansiktsjämförelse/RGB-PAD och en iPhone-klient med NFC och App Attest finns i [verification/](verification/README.md) och [ios/](ios/README.md). Detta är ett separat verifieringsspår; det utfärdar ännu ingen e-legitimation och ändrar inte labbens simulerade identiteter.
+Namnet openID innebär ingen anknytning till OpenID Foundation eller Digg.

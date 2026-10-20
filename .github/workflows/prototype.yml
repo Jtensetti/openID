@@ -26,7 +26,7 @@ jobs:
           tar --extract --gzip --file "$RUNNER_TEMP/lab-jdk.tar.gz" --directory "$RUNNER_TEMP"
           printf 'JAVA_HOME=%s\n' "$RUNNER_TEMP/jdk-21.0.12.1+1" >> "$GITHUB_ENV"
           printf '%s\n' "$RUNNER_TEMP/jdk-21.0.12.1+1/bin" >> "$GITHUB_PATH"
-      - name: Compile, real HTTPS flows, adversarial SAML and lifecycle tests
+      - name: Compile and test HTTPS, SAML and lifecycle
         run: ./mvnw -B -ntp clean verify dependency:list -DoutputAbsoluteArtifactFilename=true -DoutputFile=target/dependencies.txt
       - name: Verify resolved versions and SHA-256 checksums
         run: python3 scripts/dependencies.py
@@ -56,7 +56,7 @@ jobs:
           .venv/bin/python download_models.py
       - name: Export generated passport fixtures and ensure executable packaging
         run: ./mvnw -B -ntp -Dtest=PassportVerifierTest -Dproofing.fixtureDirectory=/tmp/openid-proofing-fixtures test package spring-boot:repackage
-      - name: Actual verifier, PAD, native binding and negative tests
+      - name: Test verifier, PAD, native binding and rejection cases
         working-directory: verification
         run: |
           export PROOFING_FIXTURES=/tmp/openid-proofing-fixtures

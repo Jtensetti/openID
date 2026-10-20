@@ -8,7 +8,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.ModelAndView;
 
-/** Local synthetic enrollment, never an identity proofing service. */
+/** Registration endpoints for lab test keys. */
 @Controller
 public final class WalletController {
   private final WebAuthnService webAuthn;

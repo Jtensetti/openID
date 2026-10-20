@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate our small Xcode project deterministically, with no generator dependency."""
+"""Generate the Xcode project."""
 import hashlib
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]

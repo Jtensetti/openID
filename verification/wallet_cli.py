@@ -1,4 +1,4 @@
-"""Local operator and relying-party commands. Never expose this process as an HTTP admin API."""
+"""Operator and relying-party commands for the local wallet database."""
 import argparse
 import json
 import sys

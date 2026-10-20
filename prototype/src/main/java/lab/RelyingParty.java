@@ -20,7 +20,7 @@ import se.swedenconnect.opensaml.saml2.request.*;
 import se.swedenconnect.opensaml.saml2.response.*;
 import se.swedenconnect.security.credential.opensaml.OpenSamlCredential;
 
-/** Minimal local test service. Protocol parsing and validation are Sweden Connect/OpenSAML's responsibility. */
+/** Local SAML service provider. */
 public final class RelyingParty implements AutoCloseable {
   static final String COOKIE = "__Host-lab-sp";
   private record Session(AuthnRequest request, String relay, String identity, String csrf, Instant expires,
@@ -82,7 +82,7 @@ public final class RelyingParty implements AutoCloseable {
       if (path.equals("/health/ready") && method.equals("GET")) {
         boolean ready = registry.ready(); send(x, ready ? 200 : 503, ready ? "SYNTHETIC_ONLY: READY" : "SYNTHETIC_ONLY: STORAGE_UNAVAILABLE");
       } else if (path.equals("/") && method.equals("GET")) {
-        send(x, 200, "<h1>Lokal syntetisk testtjänst</h1><p>Ingen verklig identitetskontroll eller Digg-godkänd e-legitimation.</p><p><a href='/login'>Starta testinloggning</a></p><p><a href='/me'>Visa min testsession</a></p><p><a href='" + idpBase + "'>Labbens spärrfunktion</a></p>");
+        send(x, 200, "<h1>Lokal testtjänst</h1><p>Identitetskontrollen är simulerad.</p><p><a href='/login'>Starta testinloggning</a></p><p><a href='/me'>Visa min testsession</a></p><p><a href='" + idpBase + "'>Spärra testidentitet</a></p>");
       } else if (path.equals("/login") && method.equals("GET")) {
         String sid = UUID.randomUUID().toString(), relay = UUID.randomUUID().toString();
         var revocations = registry.revocationVersions();
@@ -119,9 +119,8 @@ public final class RelyingParty implements AutoCloseable {
       } else if (path.equals("/me") && method.equals("GET")) {
         Session session = current(x);
         if (session == null) { send(x, 401, "Ingen aktiv testsession"); return; }
-        send(x, 200, "<h1>Verifierat SAML-svar i labben</h1><p id='identity'>" + HtmlUtils.htmlEscape(session.identity()) +
-            "</p><p>Identitetskontroll: SIMULERAD. Tillitskontext: " + Metadata.LAB_CONTEXT +
-            ". Inget Digg-godkännande.</p><form action='/logout' method='post'><input type='hidden' name='csrf' value='" + session.csrf() + "'><button>Avsluta testsession</button></form>");
+        send(x, 200, "<h1>Inloggad</h1><p id='identity'>" + HtmlUtils.htmlEscape(session.identity()) +
+            "</p><p>Identitetskontrollen är simulerad.</p><form action='/logout' method='post'><input type='hidden' name='csrf' value='" + session.csrf() + "'><button>Avsluta testsession</button></form>");
       } else if (path.equals("/logout") && method.equals("POST")) {
         Session session = current(x);
         if (session == null || !base.equals(x.getRequestHeaders().getFirst("Origin")) || !session.csrf().equals(form(x).get("csrf"))) {
@@ -133,7 +132,7 @@ public final class RelyingParty implements AutoCloseable {
     } catch (Exception e) {
       if (consumedTransaction != null && !terminalRecorded) {
         try { registry.recordOutcome(consumedTransaction, OfflineReport.Outcome.FAILED); }
-        catch (IllegalStateException ignored) { /* Storage failure also denies the login. No success is reported. */ }
+        catch (IllegalStateException ignored) { /* Login is denied below even if audit storage fails. */ }
       }
       // Never log SAML payloads, cookies, identities, request parameters or exception text.
       send(x, 400, "Testinloggningen nekades. Starta ett nytt flöde.");

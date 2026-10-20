@@ -4,7 +4,7 @@ import java.nio.file.*;
 import java.time.*;
 import java.util.*;
 
-/** Deliberately simulated proofing. WebAuthn can bind a real test key, never a verified person. */
+/** Credential lifecycle for generated test identities. */
 public final class SyntheticRegistry implements AutoCloseable {
   public enum State { PENDING, PROOFED, ACTIVE, REVOKED, EXPIRED }
   public record Entry(String identity, String credential, State state, Instant expires, String replaces) {}

@@ -9,7 +9,6 @@ from unittest.mock import Mock
 from wallet import Wallet
 from native import NativeSessions
 
-# Generated disposable test keys; signatures use Node/OpenSSL, not test implementations.
 CRYPTO = '''const c=require('node:crypto');let s='';process.stdin.on('data',d=>s+=d);process.stdin.on('end',()=>{const r=JSON.parse(s);if(r.op==='new'){let p=c.generateKeyPairSync('ec',{namedCurve:'prime256v1'});process.stdout.write(JSON.stringify({publicKey:p.publicKey.export({format:'der',type:'spki'}).toString('base64'),privateKey:p.privateKey.export({format:'pem',type:'pkcs8'})}));}else{process.stdout.write(c.sign('sha256',Buffer.from(r.payload,'base64'),r.key).toString('base64'));}});'''
 def crypt(**data):
     return subprocess.run(['node','-e',CRYPTO],input=json.dumps(data).encode(),stdout=subprocess.PIPE,check=True).stdout.decode()

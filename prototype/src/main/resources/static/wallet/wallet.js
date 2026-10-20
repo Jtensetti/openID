@@ -1,6 +1,5 @@
 'use strict';
 
-// Encoding only. The browser/authenticator and Yubico server library implement WebAuthn.
 const statusLine = document.querySelector('#status');
 const tell = message => { statusLine.textContent = message; };
 const decode = value => Uint8Array.from(atob(value.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));

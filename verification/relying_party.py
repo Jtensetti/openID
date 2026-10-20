@@ -1,8 +1,4 @@
-"""Local browser test service. Uses the pilot wallet; no identity issuance or federation.
-
-Browser sessions and RP consumption secrets remain in this process. Only the
-opaque request ID crosses the QR boundary. Local HTTP is restricted to loopback.
-"""
+"""Browser sessions for the local wallet test service."""
 import argparse
 from dataclasses import dataclass, field
 from http.cookies import SimpleCookie, CookieError
@@ -121,7 +117,6 @@ class RelyingParty:
                         session.state, session.subject, session.request = 'AUTHENTICATED', result['subject'], None
                         self.sessions[sid] = session
                 if session.state == 'AUTHENTICATED':
-                    # Includes the first authenticated response and bounds the UI timer.
                     expiry = self.wallet.check_session(session.credential, session.subject)
                     session.expires = min(session.expires, expiry)
             except (ValueError, OSError, sqlite3.Error):

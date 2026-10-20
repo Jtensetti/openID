@@ -10,7 +10,7 @@ import java.util.stream.Collectors;
 import lab.Passkey;
 import lab.SyntheticRegistry;
 
-/** Ceremony orchestration only. Yubico validates WebAuthn; JCA supplies all cryptography. */
+/** WebAuthn registration and authentication ceremonies. */
 public final class WebAuthnService {
   private static final String PENDING = WebAuthnService.class.getName() + ".pending";
   private static final Duration TTL = Duration.ofSeconds(60);

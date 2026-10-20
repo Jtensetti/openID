@@ -5,7 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.concurrent.*;
 
-/** Production infrastructure landing state. Contains no identity system, credentials or activation switch. */
+/** Health endpoints for the sealed deployment. */
 public final class SealedEnvironment implements AutoCloseable {
   private final HttpServer server;
   private final ExecutorService executor = new ThreadPoolExecutor(2, 4, 30, TimeUnit.SECONDS,

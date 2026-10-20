@@ -3,7 +3,7 @@ package lab;
 import java.time.*;
 import java.util.*;
 
-/** Internal reconciliation ONLY. No Digg payload, endpoint, API key or compensation claim. */
+/** Monthly reconciliation of terminal lab outcomes. */
 public final class OfflineReport {
   public enum Outcome { SUCCESS, CANCELLED, FAILED }
   public record Event(String transaction, Instant at, Outcome outcome) {

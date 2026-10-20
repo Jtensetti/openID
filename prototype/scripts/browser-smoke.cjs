@@ -1,5 +1,3 @@
-// Browser regression for real Origin, CSP, cookies and the SAML auto-POST page.
-// Test TLS trust is scoped to the fresh certificate's public key; all page requests stay on loopback.
 const { chromium } = require('playwright');
 const { spawn, execFileSync } = require('node:child_process');
 const fs = require('node:fs');
@@ -66,7 +64,7 @@ const sp = 'https://127.0.0.1:8444';
     await login('TEST-CREDENTIAL-alice');
     await page.waitForURL(sp + '/me');
     await page.goto(idp);
-    await page.getByRole('button', {name: 'Spärra SYNTHETIC-alice i denna labbkörning'}).click();
+    await page.getByRole('button', {name: 'Spärra SYNTHETIC-alice'}).click();
     await page.waitForURL(idp + '/lab/revoke');
     assert.equal((await page.goto(sp + '/me')).status(), 401);
     console.log('PASS: Chromium login, real Origin headers, auto-POST, logout, rejected credential and active-session revocation');

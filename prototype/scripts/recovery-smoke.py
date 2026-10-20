@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Packaged process restart/kill and stale-backup drill, using only synthetic identities."""
+"""Test process restart, crash recovery and stale backups."""
 from contextlib import contextmanager
 from http.cookiejar import CookieJar
 import json
@@ -83,7 +83,7 @@ def main():
             assert not login(c), "A restart resurrected a revoked credential"
         audit = json.loads(cli("audit", keys))
         assert audit[-1]["action"] == "REVOKE"
-        # The timestamp is from the actual durable success event; month is Stockholm, not a hard-coded fixture date.
+        # Report the month containing the stored event, in Stockholm time.
         from datetime import datetime
         from zoneinfo import ZoneInfo
         report = json.loads(cli("report", keys, datetime.now(ZoneInfo("Europe/Stockholm")).strftime("%Y-%m")))
@@ -92,7 +92,6 @@ def main():
         cli("restore", backup, restored)
         with running(restored, root / "restore.log") as (_, c):
             assert not login(c), "An older backup resurrected a revoked credential"
-        # Exercise a real ungraceful process death, not only a simulated marker file.
         crash = root / "crash"
         cli("init", crash)
         with running(crash, root / "crash.log") as (app, c):

@@ -1,8 +1,4 @@
-"""Browser-test subprocess. Control channel is stdin, never an HTTP route.
-
-Creates a disposable private database and OpenSSL test key. It cannot open an
-operator database or approve a real enrollment. No passport or biometric input.
-"""
+"""Browser-test fixture with a temporary database and stdin control channel."""
 from http.server import HTTPServer
 import json
 from pathlib import Path

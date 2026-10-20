@@ -1,34 +1,29 @@
 # Föreslagen arkitektur och hotmodell
 
-**Designförslag, inte en implementerad eller godkänd lösning.** Datum: 2026-10-19. Krav hänvisar till [kravmatrisen](02-kravmatris.md); primärkällor till [SOURCES.md](SOURCES.md).
+Designförslag, 2026-10-19. Krav finns i [kravmatrisen](02-kravmatris.md), källor i [SOURCES.md](SOURCES.md).
 
-Den avgränsade labben i [prototype/](../prototype/README.md) implementerar lokalt SAML, WebAuthn-testnycklar och en webbklient samt simulerad identitetskontroll med beständig SQLite-lagring, revisionshändelser, fail-closed återläsning och offline-avstämning. Ett separat stängt driftpaket finns i `ops/`; det innehåller ingen IdP eller credential. Den större produktarkitekturen nedan är fortsatt ett förslag; särskilt gäller detta verifierad enhetssäkerhet, HSM, verklig utgivning, distribuerad spärr och drift.
+Implementerat hittills: [SAML/WebAuthn-labben](../prototype/README.md),
+[iPhone-appen](../ios/README.md), [verifieraren och pilotregistret](../verification/README.md)
+samt ett [stängt driftpaket](../ops/README.md). HSM, distribuerad spärr och
+produktionsdrift i förslaget nedan återstår.
 
-### Appbutiksoberoende som arkitekturkrav
+### Appbutiksoberoende
 
-Daglig autentisering ska kunna ske från webben med öppna standarder utan
-obligatorisk App Store/Google Play-installation eller ett visst molnkonto.
-Den nu implementerade labben använder WebAuthn och kan välja externa
-FIDO2-nycklar med användarverifiering eller plattformsnycklar. PWA-installation
-är valfri. Inga krav på Play Integrity, App Attest eller en fabrikatslista
-införs. Detta bevisar inte kompatibilitet med alla operativsystem eller en
-viss tillitsnivå; aktuella enhets- och webbläsartester redovisas separat.
+Målet är autentisering med öppna standarder utan obligatorisk appbutik eller
+molnkonto. WebAuthn-labben använder externa FIDO2-nycklar eller
+plattformsnycklar; PWA-installation är valfri. iPhone-spåret använder NFC,
+Secure Enclave och App Attest och installeras från Xcode.
 
-Utgivning behöver ett eget tillgänglighetskrav. Ett framtida NFC-spår får inte
-göra en butiksdistribuerad mobilapp till den enda vägen att få eller ersätta
-en e-legitimation. Fysisk registrering eller en granskad dator-/läsarlösning
-kan vara alternativ, men är inte implementerade. En passkey är ett nyckelbevis;
-pass-/dokumentkontroll och personbindning är separata funktioner. Projektet
-har ännu inte valt egen licens och ska inte beskrivas som färdiglicensierad
-öppen källkod före det beslutet.
+Alternativ utgivning via fysisk registrering eller dator med passläsare
+återstår att utveckla. Projektets egen licens är ännu inte vald.
 
-## 1. Avgränsning och beslut som återstår
+## 1. Beslut som återstår
 
-Första målet är att i en isolerad miljö visa en korrekt kedja från syntetisk identitet via autentisering till verifierbart federationssvar. Därefter prövas verklig utgivning, enheter, underskrift och drift var för sig. Tillitsnivå 3 är ett produktmål, inte ett attribut som vi får sätta på en demo.
+Tillitsnivå 3 är produktmålet. Produktionsprofil, utgivningsmetod,
+autentiseringsbärare och villkor för Sweden Connect-tillägg behöver fastställas.
 
-Föreslagen servergrund är Java och Sweden Connects aktuella bibliotek G01. Exakt release, JDK, ramverksversion, databas och driftsmiljö väljs först efter kompatibilitets- och säkerhetsgranskning. Mobilapp, säkerhetsnyckel eller annan autentiseringsbärare är ännu inte beslutade.
-
-SAML föreslås som första begränsade protokollspår. OIDC ska vara ett parallellt arkitekturmöjligt spår eftersom G01 stöder båda. Den accepterade produktionsprofilen och villkoren för Sweden Connect-tillägg behöver fastställas med Digg. Repots namn bestämmer inte protokollet.
+Labben använder Java, Sweden Connect och SAML. Versionsval finns i
+[THIRD_PARTY.md](../THIRD_PARTY.md). OIDC är ett möjligt senare spår.
 
 ## 2. Logiska komponenter
 
@@ -54,7 +49,7 @@ Separata stödytor:
   Kontrollerad administration Oberoende testmotpart, G05-kandidat
 ```
 
-Detta är logiska ansvarsgränser, inte ett krav på tio mikrotjänster. En liten modulär driftslösning kan vara enklare att granska. Administrativ åtkomst, nätverkszoner, nycklar och databehörigheter måste ändå skiljas åt. Ett gemensamt superadministratörskonto skulle motverka separationen.
+Komponenterna kan samlas i en modulär tjänst. Administrativ åtkomst, nätverkszoner, nycklar och databehörigheter behöver separeras.
 
 | Komponent | Föreslaget ansvar | Ska uttryckligen inte göra |
 |---|---|---|
@@ -70,7 +65,7 @@ Detta är logiska ansvarsgränser, inte ett krav på tio mikrotjänster. En lite
 
 ## 3. Utfärdning och återställning
 
-Välj EN huvudmetod för första verkliga utgivningsspåret. Källorna D08 K5.10–K5.13 och D09 beskriver olika förutsättningar; metoderna är inte utbytbara genvägar.
+Välj en huvudmetod för utgivning utifrån villkoren i D08 K5.10–K5.13 och D09.
 
 ### Utredningsalternativ
 

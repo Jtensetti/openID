@@ -105,7 +105,6 @@ setInterval(() => {
   if (!deadline || !['PENDING','AUTHENTICATED'].includes(current)) return;
   const seconds = Math.max(0, Math.ceil((deadline - Date.now())/1000));
   if (current === 'PENDING') byId('countdown').textContent = 'Begäran gäller i ' + seconds + ' sekunder';
-  // The browser never keeps a success screen after its displayed validity ends.
   if (seconds === 0) { stop(); generation++; show('UNAVAILABLE'); setBusy(false); }
 }, 500);
 connect();

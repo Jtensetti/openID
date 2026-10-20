@@ -39,7 +39,7 @@ struct SecureVault {
         let publicKey = key.publicKey.derRepresentation
         let id = SHA256.hash(data: publicKey).map { String(format: "%02x", $0) }.joined()
         let credential = LocalCredential(id: id, wrappedKey: key.dataRepresentation, publicKey: publicKey)
-        // This is a device-bound opaque key blob, not an exported raw private key.
+        // dataRepresentation is an opaque Secure Enclave key blob.
         try save(credential, account: "credential")
         return credential
     }

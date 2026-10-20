@@ -1,5 +1,4 @@
-// Disposable software test key: verifies CryptoKit DER/SPKI interoperability with the server.
-// Never used by the app or for identity proofing. Private material is never printed.
+// CryptoKit DER/SPKI interoperability test with a temporary software key.
 import Foundation
 import CryptoKit
 let key = P256.Signing.PrivateKey()

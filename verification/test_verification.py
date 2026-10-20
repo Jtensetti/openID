@@ -24,7 +24,6 @@ class FaceTests(unittest.TestCase):
             self.matcher.compare(image,image)
 
     def test_actual_recognizer_inference_is_finite(self):
-        # Exercises the real ONNX graph, NOT an identity-accuracy or face-detection test.
         rng = np.random.default_rng(2026)
         tensor = rng.integers(0,256,(112,112,3),dtype=np.uint8)
         a=self.matcher.recognizer.feature(tensor).copy()

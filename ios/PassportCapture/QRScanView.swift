@@ -18,7 +18,7 @@ struct QRScanView: View {
 }
 final class RequestQRReader: NSObject, ObservableObject, AVCaptureMetadataOutputObjectsDelegate {
     let session = AVCaptureSession()
-    @Published var message = "Rikta kameran mot QR-koden."
+    @Published var message = ""
     private let queue = DispatchQueue(label: "se.openid.qr")
     private let lock = NSLock()
     private var stopped = false

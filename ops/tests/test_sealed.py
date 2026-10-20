@@ -1,4 +1,4 @@
-"""Real HTTP tests of the independently compiled production landing state. Standard library only."""
+"""HTTP tests for the sealed deployment."""
 import http.client
 import json
 import os
@@ -95,7 +95,6 @@ class SealedEnvironmentTest(unittest.TestCase):
 
     def test_incomplete_request_is_closed_within_the_configured_deadline(self):
         # Temurin 21's ServerImpl converts maxReqTime from seconds to milliseconds.
-        # Verify the actual pinned runtime instead of assuming a documentation unit.
         with socket.create_connection(("127.0.0.1", self.port), timeout=15) as s:
             start = time.monotonic()
             s.sendall(b"GET /health/live HTTP/1.1\r\nHost: localhost\r\n")

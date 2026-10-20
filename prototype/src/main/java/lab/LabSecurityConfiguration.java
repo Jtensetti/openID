@@ -6,7 +6,7 @@ import org.opensaml.xmlsec.impl.BasicSignatureValidationConfiguration;
 import org.opensaml.xmlsec.signature.support.SignatureConstants;
 import se.swedenconnect.opensaml.sweid.xmlsec.config.SwedishEidSecurityConfiguration;
 
-/** Algorithm policy, enforced by OpenSAML's validators. No signature verification is implemented here. */
+/** Signature algorithm policy for OpenSAML validators. */
 public final class LabSecurityConfiguration extends SwedishEidSecurityConfiguration {
   @Override protected SignatureValidationConfiguration createDefaultSignatureValidationConfiguration() {
     var policy = new BasicSignatureValidationConfiguration();

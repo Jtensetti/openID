@@ -7,8 +7,8 @@
   <link rel="stylesheet" href="/wallet/wallet.css"><script src="/wallet/wallet.js" defer></script>
 </head>
 <body><main>
-  <p class="eyebrow">openID / öppen webblabb</p><h1>Ditt test-ID.<br>Direkt i webbläsaren.</h1>
-  <p class="notice"><strong>Endast test.</strong> Identitetskontrollen är simulerad. Ingen riktig person verifieras och ingen godkänd e-legitimation utfärdas.</p>
+  <p class="eyebrow">openID / WebAuthn-labb</p><h1>Testplånbok</h1>
+  <p class="notice">Identitetskontrollen är simulerad. Nyckeln används bara i labben.</p>
   <section aria-labelledby="identity-title"><h2 id="identity-title">SYNTHETIC-alice</h2>
     <p th:if="${available and registered}">En testnyckel är registrerad. Använd den för att logga in i den lokala testtjänsten.</p>
     <p th:unless="${available}" class="notice">Testidentiteten är spärrad eller utgången och kan inte användas för inloggning eller ny registrering.</p>
@@ -17,19 +17,17 @@
       <label><input type="checkbox" name="simulatedProofing" value="acknowledged" required> Jag förstår att identitetskontrollen är simulerad och att detta endast skapar en testnyckel.</label>
       <button type="submit">Registrera testnyckel</button>
     </form>
-    <p>Välj en passkey eller en extern FIDO2-säkerhetsnyckel med PIN eller lokal användarverifiering. Inget visst fabrikat eller molnkonto krävs av tjänsten.</p>
-    <p>En passkey kan synkroniseras av din nyckelleverantör. Labben intygar inte att nyckeln är bunden till en enda enhet.</p>
+    <p>Välj en passkey eller FIDO2-säkerhetsnyckel. En passkey kan synkroniseras av din nyckelleverantör.</p>
     <p><a class="action" th:href="${sp}">Öppna testtjänsten</a></p>
   </section>
   <section><h2>Installera från webben</h2>
     <button id="install" hidden>Installera testplånboken</button>
-    <p>Du kan också använda webbläsarens meny för att installera sidan eller lägga den på hemskärmen. Vanlig webbanvändning fungerar utan installation.</p>
-    <p>Anslutning krävs för registrering, spärr och inloggning. Identitetsuppgifter och autentiseringssvar sparas inte i webbappens offlinecache.</p>
+    <p>Lägg till sidan på hemskärmen via webbläsarens meny. Installation är valfri; anslutning till servern krävs.</p>
   </section>
   <section><h2>Spärra testidentiteten</h2>
-    <form method="post" th:action="@{/lab/revoke}"><button class="danger">Spärra SYNTHETIC-alice i denna labbkörning</button></form>
-    <p>Detta är en simulerad lokal spärrkanal. Spärren består efter omstart. En borttappad nyckel kan inte återställas via e-post eller genom att registrera över den gamla.</p>
+    <form method="post" th:action="@{/lab/revoke}"><button class="danger">Spärra SYNTHETIC-alice</button></form>
+    <p>Spärren består efter omstart. Nyckeln kan inte återaktiveras.</p>
   </section>
   <p id="status" role="status" aria-live="polite"></p>
-  <noscript>Aktivera JavaScript för WebAuthn. Identitetskontrollen är fortfarande simulerad.</noscript>
+  <noscript>Aktivera JavaScript för WebAuthn.</noscript>
 </main></body></html>

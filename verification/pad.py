@@ -1,4 +1,3 @@
-"""Real MiniFASNet ensemble inference; upstream RGB PAD, not certification or injection proof."""
 import hashlib
 from pathlib import Path
 import numpy as np
@@ -19,7 +18,6 @@ class PresentationAttackDetector:
             path=Path(directory)/name
             if hashlib.sha256(path.read_bytes()).hexdigest()!=checksum:
                 raise ValueError('PAD_MODEL_INTEGRITY_FAILED')
-            # Never deserialize arbitrary user pickle files. Fixed hash plus weights-only loader.
             weights=torch.load(path,map_location='cpu',weights_only=True)
             model=architecture(conv6_kernel=(5,5))
             model.load_state_dict({key.removeprefix('module.'):value for key,value in weights.items()})
@@ -33,7 +31,7 @@ class PresentationAttackDetector:
         with torch.inference_mode():
             for model,scale in self.models:
                 crop=CropImage().crop(image,bbox,scale,80,80)
-                # Match upstream BGR ToTensor preprocessing, float values 0..255 (upstream deliberately does NOT divide by 255).
+                # Upstream expects BGR floats in 0..255, without normalization.
                 tensor=torch.from_numpy(np.ascontiguousarray(crop.transpose(2,0,1))).float().unsqueeze(0)
                 probabilities=torch.softmax(model(tensor),dim=1).numpy()[0]
                 if not np.isfinite(probabilities).all():raise ValueError('INVALID_PAD_SCORE')

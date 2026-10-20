@@ -1,7 +1,6 @@
 import {verifyAttestation,verifyAssertion} from 'node-app-attest';
 import cbor from 'cbor';
 import {X509Certificate} from 'node:crypto';
-// A private subprocess interface. The caller supplies operator configuration, never HTTP fields.
 let input='';
 for await (const chunk of process.stdin) {
   input+=chunk;
@@ -15,7 +14,6 @@ try {
     const objects=cbor.decodeAllSync(Buffer.from(request.attestation,'base64'));
     if(objects.length!==1 || objects[0].attStmt?.x5c?.length!==2)throw Error('certificate count');
     // node-app-attest verifies signatures/root binding but omits certificate dates.
-    // Enforce current validity using Node's X.509 parser, without a trust/network override.
     const certificates=objects[0].attStmt.x5c.map(bytes=>new X509Certificate(bytes));
     if(certificates.filter(cert=>cert.ca).length!==1)throw Error('CA constraints');
     for(const cert of certificates) {
