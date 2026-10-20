@@ -24,9 +24,10 @@ class AppAttest:
         return json.loads(result.stdout)
 
 class NativeSessions:
-    def __init__(self,attest,passport,matcher,pad,clock=time.monotonic,wallet=None,chip_factory=None):
+    def __init__(self,attest,passport,matcher,pad,clock=time.monotonic,wallet=None,chip_factory=None,biometrics=None):
         self.attest,self.passport,self.matcher,self.pad,self.clock=attest,passport,matcher,pad,clock
         self.wallet=wallet
+        self.biometrics=biometrics
         self.chip_factory=chip_factory
         self.pending={}
     def start(self):
@@ -128,10 +129,14 @@ class NativeSessions:
         document=pending['document']
         portrait=document.portrait
         face_scores=[];pad_scores=[]
-        for frame in frames:
-            face_scores.append(self.matcher.compare(portrait,frame))
-            image,face=self.matcher.decode_face(frame)
-            pad_scores.append(self.pad.score(image,face))
+        if self.biometrics is not None:
+            face_scores,pad_scores=self.biometrics(portrait,frames)
+            if len(face_scores)!=3 or len(pad_scores)!=3:raise ValueError('model result count')
+        else:
+            for frame in frames:
+                face_scores.append(self.matcher.compare(portrait,frame))
+                image,face=self.matcher.decode_face(frame)
+                pad_scores.append(self.pad.score(image,face))
         if any(not math.isfinite(score) or not -1 <= score <= 1 for score in face_scores) or any(
             not math.isfinite(score) or not 0 <= score <= 1 for score in pad_scores): raise ValueError('invalid model score')
         # Experimental thresholds; calibration is pending.

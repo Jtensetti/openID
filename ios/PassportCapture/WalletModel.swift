@@ -116,7 +116,7 @@ import LocalAuthentication
                 if generation == epoch {
                     if pendingLink == inspectID { pendingLink = nil }
                     snapshot = nil; focusedRequest = nil
-                    self.error = "Åtgärden kunde inte slutföras. Kontrollera anslutningen och uppdatera ditt ID."
+                    self.error = (error as? WalletError)?.localizedDescription ?? "Anslutningen kunde inte bekräftas. Uppdatera ditt ID för att se om åtgärden hann genomföras."
                 }
             }
         }

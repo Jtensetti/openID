@@ -22,9 +22,11 @@ Tabellen är ett daterat resultat för revisionen ovan.
 | Kameraguide | XCTest för huvudpositioner, kvalitet, tidskontinuitet, stabilitet och negativa mätvärden. XCUITest för ringens status och instruktioner. | Testade observationer är fixturer. Vision-inferens, fysisk kamera och tillgänglighet behöver enhetsprov; detta är inget liveness-test. |
 | App Attest | Verifiering av signatur, appbindning, räknare och ändrade bytes. | Ingen fysisk Apple-attestering i CI. |
 | Register | Verklig SQLite, AES-GCM och ECDSA; samtidighet, spärr, ersättning och krypteringsfel. | Samma OS-konto; ingen HSM eller återställning i produktion. |
-| SAML/webbläsare | Separata verifierar-, IdP- och SP-processer, signerade/krypterade meddelanden och Chromium. | Chiptransport, kamera, App Attest och biometriska poäng är testdubblar i helkedjefixturen. |
+| SAML/webbläsare | Separata verifierar-, IdP- och SP-processer, signerade/krypterade meddelanden och Chromium. Samma flöde mot SQLite och mot PostgreSQL/OpenBao med verifierad TLS och separata konton. | Chiptransport, kamera, App Attest och biometriska poäng är testdubblar i helkedjefixturen. Ingen extern federation eller redundant IdP-/SP-sessionhantering. |
 | WebAuthn | Webbläsarens WebAuthn-API och Yubico-validering med virtuella USB-/plattformsautentiserare. | Inga fysiska nycklar eller OS-installationsprov. |
 | iOS | Bygge, signerade bytes, tillstånd och SwiftUI i simulator. | NFC, Secure Enclave, Face ID och App Attest måste provas på telefon. |
+| Pilotdrift | Riktig Gunicorn/TLS, signerade wallet-anrop, kapacitetsgräns, saknad databas, privat loggning och SIGTERM. SQLite-backup och återläsning spärrar alla nycklar; fel nyckel och skadad backup avvisas. | En nod. Ingen fysisk iPhone, publik ingress eller HA. Belastningsmått omfattar angivet delsystem. |
+| Delat register | PostgreSQL 18.6, riktiga operatörsroller, OpenBao Transit, parallella TLS-workers, instansbortfall, rotation, gallring och 120 sekunders begränsad last med resursmätning. Faktisk registeråterläsning spärrar gamla nycklar och provas med återställd nyckeltjänst. TLS/Raft-prov med tre noder, ledarbortfall och saknad nyckelversion. | Temporär CI-infrastruktur; inga fysiska enheter, ingen lastbalanserare, ingen PostgreSQL-failover eller återställning från extern lagring. |
 | Drift | Hälsoroutes och stängda e-id-routes över HTTP samt containerisolering i CI. | Containern innehåller ingen e-id-tjänst. |
 
 ## Negativa säkerhetsfall
@@ -42,6 +44,8 @@ Tabellen är ett daterat resultat för revisionen ovan.
 - [Pass, modeller, register och federation](../verification/README.md#tester).
 - [SAML, WebAuthn, lagring och återläsning](../prototype/README.md#tester-och-beroenden).
 - [iOS-bygge och simulator](../ios/README.md#bygg-och-testa).
+- [Pilotens drift- och belastningsprov](../deployment/README.md#drift-och-kapacitet).
+- [Delat register och nyckeltjänst](../deployment/cluster/README.md#tester).
 - [Driftcontainerns HTTP-prov](../ops/README.md#kör-lokalt).
 
 Linux med Unix-sockets krävs för federationsproven. Xcode kräver macOS;

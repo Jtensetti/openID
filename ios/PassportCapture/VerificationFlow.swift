@@ -92,6 +92,8 @@ import NFCPassportReader
                 phase = 3; completed = true
                 status = "Registreringen väntar på aktivering."
             } catch is CancellationError { status = "Registreringen avbröts." }
+            catch WalletError.overloaded { status = WalletError.overloaded.localizedDescription }
+            catch is URLError { status = "Anslutningen bröts. Gå till Mitt ID och uppdatera status innan du försöker igen." }
             catch CaptureCamera.CaptureError.denied { status = "Tillåt kameraåtkomst i Inställningar och försök igen." }
             catch CaptureCamera.CaptureError.timeout { status = "Kamerakontrollen tog för lång tid. Välj en väl upplyst plats och försök igen." }
             catch { status = "Verifieringen kunde inte slutföras. Kontrollera internetanslutningen, passuppgifterna och appens åtkomst till kameran. Försök sedan igen." }

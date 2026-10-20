@@ -1,0 +1,33 @@
+{
+  "checked": "2026-10-20",
+  "packages": [
+    {
+      "package": "psycopg",
+      "version": "3.3.6",
+      "pypiVulnerabilities": [],
+      "osv": {},
+      "license": "LGPL-3.0-only"
+    },
+    {
+      "package": "psycopg-binary",
+      "version": "3.3.6",
+      "pypiVulnerabilities": [],
+      "osv": {},
+      "license": "LGPL-3.0-only"
+    },
+    {
+      "package": "psycopg-pool",
+      "version": "3.3.3",
+      "pypiVulnerabilities": [],
+      "osv": {},
+      "license": "LGPL-3.0-only"
+    },
+    {
+      "package": "typing-extensions",
+      "version": "4.16.0",
+      "pypiVulnerabilities": [],
+      "osv": {},
+      "license": "PSF-2.0"
+    }
+  ]
+}

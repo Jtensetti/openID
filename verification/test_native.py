@@ -31,6 +31,20 @@ class NativeTests(unittest.TestCase):
         self.assertEqual('SERVER_VERIFIED_CA',result['chipAuthentication'])
         self.assertEqual(3,self.pad.score.call_count)
         with self.assertRaises(ValueError):self.sessions.finish(request)
+    def test_isolated_biometric_failure_consumes_session(self):
+        import subprocess
+        self.sessions.biometrics=Mock(side_effect=subprocess.TimeoutExpired('worker',45))
+        ident,payload=self.capture();request=self.request(ident,payload)
+        with self.assertRaises(subprocess.TimeoutExpired):self.sessions.finish(request)
+        with self.assertRaises(ValueError):self.sessions.finish(request)
+        self.matcher.compare.assert_not_called()
+
+    def test_isolated_biometric_result_requires_three_finite_scores(self):
+        for scores in [([.9], [.9]), ([.9,float('nan'),.9], [.9]*3), ([.9]*3, [float('inf')]*3)]:
+            self.sessions.biometrics=Mock(return_value=scores)
+            ident,payload=self.capture()
+            with self.assertRaises(ValueError):self.sessions.finish(self.request(ident,payload))
+
     def test_expired_capture(self):
         ident,payload=self.capture();self.time+=300
         with self.assertRaises(ValueError):self.sessions.finish(self.request(ident,payload))

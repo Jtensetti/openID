@@ -18,8 +18,7 @@ open ios/PassportCapture.xcodeproj
    Aktivera **NFC Tag Reading** och **App Attest** i App ID/provisioneringsprofilen.
    Standard-ID är `se.openid.PassportCapture`. Samma team och bundle-ID ska
    anges på servern.
-3. Starta servern enligt
-[instruktionerna](../verification/README.md#appens-privata-pilotregister).
+3. Starta [pilotmiljön](../deployment/README.md) på en Linux-dator.
    Telefonen måste nå HTTPS-adressen och lita på certifikatet. För en privat
    test-CA behöver dess rot installeras och betros på telefonen.
 4. Kör appen, välj **Öppna openID** och därefter **Anslut till servern**.
@@ -76,6 +75,10 @@ Ringen visar fotograferingens förlopp, inte verifierad identitet eller liveness
 kontrollerar fortfarande App Attest, bildunikhet, ansiktsjämförelse och PAD
 för alla tre bilderna. Den verifierar inte huvudrörelsernas förlopp. Skydd mot
 film, deepfake och kamerainjektion behöver separat utvärdering.
+
+Vid överbelastning ber appen dig vänta och uppdatera status. Den skickar
+inte automatiskt om godkännanden. Efter nätverksavbrott ska status hämtas
+innan registrering eller annan åtgärd försöks igen.
 
 ## Nycklar och avbrott
 

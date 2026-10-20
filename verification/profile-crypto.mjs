@@ -1,11 +1,8 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
-let input = '';
-try {
-  for await (const chunk of process.stdin) {
-    input += chunk;
-    if (input.length > 100000) throw Error();
-  }
-  const { operation, key: encodedKey, aad, value } = JSON.parse(input);
+import {pathToFileURL} from 'node:url';
+
+export function evaluate(request) {
+  const { operation, key: encodedKey, aad, value } = request;
   const key = Buffer.from(encodedKey, 'base64');
   if (key.length !== 32 || typeof aad !== 'string' || aad.length > 300) throw Error();
   let output;
@@ -23,7 +20,16 @@ try {
     cipher.setAAD(Buffer.from(aad)); cipher.setAuthTag(tag);
     output = JSON.parse(Buffer.concat([cipher.update(Buffer.from(value.data, 'base64')), cipher.final()]).toString('utf8'));
   } else throw Error();
-  process.stdout.write(JSON.stringify({ value: output }));
-} catch {
-  process.exitCode = 1;
+  return {value: output};
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  let input = '';
+  try {
+    for await (const chunk of process.stdin) {
+      input += chunk;
+      if (input.length > 100000) throw Error();
+    }
+    process.stdout.write(JSON.stringify(evaluate(JSON.parse(input))));
+  } catch { process.exitCode = 1; }
 }

@@ -33,8 +33,8 @@ def identifier(value):
     return value
 
 class Wallet:
-    def __init__(self, path, origin, clock=time.time, crypto=device_crypto):
-        self.path, self.origin, self.clock, self.crypto = Path(path), origin, clock, crypto
+    def __init__(self, path, origin, clock=time.time, crypto=device_crypto, vault_runner=None):
+        self.path, self.origin, self.clock, self.crypto = Path(path).absolute(), origin, clock, crypto
         if self.path.is_symlink() or self.path.parent.is_symlink(): raise ValueError('database symlink')
         self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         if self.path.parent.stat().st_mode & 0o077: raise ValueError('database directory must be private (0700)')
@@ -43,7 +43,7 @@ class Wallet:
         if self.path.stat().st_mode & 0o077: raise ValueError('database must be private (0600)')
         self.lock = threading.RLock()
         self.challenges = {}
-        self.vault = IdentityVault(self.path.with_suffix('.identity-key'))
+        self.vault = IdentityVault(self.path.with_suffix('.identity-key'), runner=vault_runner)
         with self.transaction() as db:
             db.executescript('''
                 CREATE TABLE IF NOT EXISTS credentials (
@@ -68,24 +68,35 @@ class Wallet:
                     secret_hash TEXT NOT NULL, state TEXT NOT NULL, created INTEGER NOT NULL,
                     expires INTEGER NOT NULL, code TEXT NOT NULL, binding TEXT NOT NULL,
                     audience TEXT NOT NULL);
+                CREATE INDEX IF NOT EXISTS request_pending ON requests(credential,state,expires);
+                CREATE INDEX IF NOT EXISTS event_recent ON events(credential,id DESC);
+                CREATE INDEX IF NOT EXISTS profile_person ON profiles(person);
+                CREATE INDEX IF NOT EXISTS federation_pending ON federation_requests(state,expires);
             ''')
 
     @contextmanager
     def transaction(self):
         with self.lock:
-            db = sqlite3.connect(self.path, timeout=10, isolation_level=None)
-            db.row_factory = sqlite3.Row
-            db.execute('PRAGMA foreign_keys=ON')
-            db.execute('PRAGMA synchronous=FULL')
-            db.execute('PRAGMA secure_delete=ON')
-            db.execute('BEGIN IMMEDIATE')
+            db = sqlite3.connect(self.path.as_uri()+'?mode=rw', uri=True, timeout=10, isolation_level=None)
             try:
+                db.row_factory = sqlite3.Row
+                db.execute('PRAGMA foreign_keys=ON')
+                db.execute('PRAGMA synchronous=FULL')
+                db.execute('PRAGMA secure_delete=ON')
+                db.execute('BEGIN IMMEDIATE')
                 yield db
                 if db.in_transaction: db.execute('COMMIT')
             except BaseException:
                 if db.in_transaction: db.execute('ROLLBACK')
                 raise
             finally: db.close()
+
+    def health(self):
+        # Readiness must not wait behind a writer or create a missing database.
+        if not self.path.is_file() or self.path.is_symlink(): raise ValueError('database unavailable')
+        with sqlite3.connect(self.path.as_uri()+'?mode=ro', uri=True, timeout=0.1) as db:
+            if db.execute('SELECT 1 FROM profiles LIMIT 1').fetchone(): self.vault.key()
+            db.execute('SELECT 1 FROM credentials LIMIT 1').fetchone()
 
     def event(self, db, credential, kind, request=None):
         db.execute('INSERT INTO events(credential,kind,time,request) VALUES(?,?,?,?)',
@@ -122,9 +133,9 @@ class Wallet:
                 if expiry <= self.clock(): raise ValueError('expired document')
                 self.vault.key(create=not db.execute('SELECT 1 FROM profiles LIMIT 1').fetchone())
                 tag = self.vault.document_tag(document)
-                person = db.execute('SELECT id FROM persons WHERE document_tag=?', (tag,)).fetchone()
-                person_id = person['id'] if person else secrets.token_hex(32)
-                if person is None: db.execute('INSERT INTO persons VALUES(?,?)', (person_id, tag))
+                db.execute('INSERT INTO persons VALUES(?,?) ON CONFLICT(document_tag) DO NOTHING',
+                    (secrets.token_hex(32), tag))
+                person_id = db.execute('SELECT id FROM persons WHERE document_tag=?', (tag,)).fetchone()['id']
                 sealed = self.vault.crypt('seal', ident, person_id, document.profile())
                 db.execute('INSERT INTO profiles VALUES(?,?,?,?,?,?)',
                     (ident, person_id, secrets.token_hex(32), json.dumps(sealed), int(self.clock()), expiry))
@@ -189,7 +200,8 @@ class Wallet:
             if row['expires'] <= self.clock(): raise ValueError('expired request')
             if row['state'] == 'PENDING': return {'state': 'PENDING'}
             if row['state'] != 'APPROVED': raise ValueError('no unconsumed approval')
-            db.execute("UPDATE requests SET state='CONSUMED' WHERE id=?", (request,))
+            if db.execute("UPDATE requests SET state='CONSUMED' WHERE id=? AND state='APPROVED'", (request,)).rowcount != 1:
+                raise ValueError('no unconsumed approval')
             self.event(db, row['credential'], 'AUTHENTICATED', request)
             return {'state': 'AUTHENTICATED', 'subject': credential['subject'],
                 'audience': 'openid-local-demo', 'assurance': 'PRIVATE_PILOT', 'requestId': request}
@@ -230,8 +242,6 @@ class Wallet:
                         (req, self.clock())).fetchone()
                     federation = True
                 if target is None: raise ValueError('request unavailable')
-            self.challenges = {k:v for k,v in self.challenges.items() if v['expires'] > self.clock()}
-            if len(self.challenges) >= 128: raise ValueError('too many challenges')
             challenge = secrets.token_hex(32)
             expires = int(self.clock())+60
             payload = {'version': 1, 'origin': self.origin, 'credentialId': ident, 'action': action,
@@ -240,21 +250,31 @@ class Wallet:
                 'purpose': (FEDERATION_PURPOSE if federation else PURPOSE) if target is not None and action != 'inspect' else None,
                 'code': target['code'] if target is not None and action != 'inspect' else None}
             raw = json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()
-            self.challenges[challenge] = {'payload': raw, 'data': payload, 'expires': expires, 'federation': federation}
+            self.store_challenge(db, challenge, raw, payload, expires, federation)
             return {'id': challenge, 'signingInput': base64.b64encode(raw).decode()}
+
+    def store_challenge(self, db, challenge, raw, payload, expires, federation):
+        self.challenges = {k:v for k,v in self.challenges.items() if v['expires'] > self.clock()}
+        if len(self.challenges) >= 128: raise ValueError('too many challenges')
+        self.challenges[challenge] = {'payload': raw, 'data': payload, 'expires': expires, 'federation': federation}
+
+    def take_challenge(self, challenge):
+        return self.challenges.pop(challenge, None)
 
     def execute(self, request):
         if not isinstance(request, dict) or set(request) != {'challengeId', 'signature'}: raise ValueError('fields')
         challenge = identifier(request['challengeId'])
         with self.lock:
-            pending = self.challenges.pop(challenge, None) # Consume before every failure.
+            pending = self.take_challenge(challenge) # Consume before every failure.
             if pending is None or pending['expires'] <= self.clock(): raise ValueError('challenge unavailable')
+            if pending['data']['origin'] != self.origin: raise ValueError('origin binding')
             signature = request['signature']
             if not isinstance(signature, str) or len(signature) > 160: raise ValueError('signature size')
             base64.b64decode(signature, validate=True)
             payload = pending['data']; ident = payload['credentialId']; action = payload['action']
             with self.transaction() as db:
                 row = self.credential(db, ident)
+                if pending['expires'] <= self.clock(): raise ValueError('challenge unavailable')
                 self.crypto('verify', publicKey=row['public_key'], payload=base64.b64encode(pending['payload']).decode(), signature=signature)
                 if action in ('approve', 'reject'):
                     self.active(db, ident)
@@ -308,6 +328,7 @@ class Wallet:
     def federation_start(self, binding, audience):
         if not isinstance(binding, str) or not re.fullmatch('[A-Za-z0-9_-]{1,200}', binding): raise ValueError('binding')
         with self.transaction() as db:
+            self.lock_federation_quota(db)
             if db.execute("SELECT count(*) FROM federation_requests WHERE state='PENDING' AND expires>?", (self.clock(),)).fetchone()[0] >= 32:
                 raise ValueError('too many requests')
             ident, secret = secrets.token_hex(32), secrets.token_urlsafe(32)
@@ -317,6 +338,9 @@ class Wallet:
                  f'{secrets.randbelow(1000000):06d}', binding, audience))
             row = db.execute('SELECT * FROM federation_requests WHERE id=?', (ident,)).fetchone()
             return self.federation_description(row) | {'secret': secret}
+
+    def lock_federation_quota(self, db):
+        pass # SQLite's write transaction already serializes this quota.
 
     def federation_result(self, operation, request, secret, binding, audience):
         identifier(request)
@@ -336,15 +360,19 @@ class Wallet:
             if operation != 'consume' or row['state'] != 'APPROVED': raise ValueError('no unconsumed approval')
             profile = self.verified_profile(db, row['credential'])
             identity = self.vault.crypt('open', row['credential'], profile['person'], json.loads(profile['sealed']))
-            db.execute("UPDATE federation_requests SET state='CONSUMED' WHERE id=?", (request,))
+            if db.execute("UPDATE federation_requests SET state='CONSUMED' WHERE id=? AND state='APPROVED'", (request,)).rowcount != 1:
+                raise ValueError('no unconsumed approval')
             self.event(db, row['credential'], 'AUTHENTICATED', request)
             return {'state': 'AUTHENTICATED', 'credentialId': row['credential'], 'version': profile['version'],
-                'subject': self.vault.reference('subject-v1:'+audience, profile['person']), 'identity': identity}
+                'subject': self.federation_subject(db, audience, profile['person']), 'identity': identity}
+
+    def federation_subject(self, db, audience, person):
+        return self.vault.reference('subject-v1:'+audience, person)
 
     def federation_check(self, ident, subject, version, audience):
         with self.transaction() as db:
             profile = self.verified_profile(db, ident)
-            expected = self.vault.reference('subject-v1:'+audience, profile['person'])
+            expected = self.federation_subject(db, audience, profile['person'])
             if not isinstance(subject, str) or not secrets.compare_digest(subject, expected) or version != profile['version']:
                 raise ValueError('identity binding')
             return {'state': 'ACTIVE', 'expiresAt': self.active(db, ident)['expires']}

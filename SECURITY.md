@@ -39,8 +39,10 @@ hanteras enligt respektive miljös villkor.
 
 Pilotregistret sparar passets personprofil och förminskade foto krypterat.
 Databas och nyckelfil måste skyddas separat från repot. Samma serverkonto
-kan läsa nyckeln och aktivera credentials. Gamla kopior av pilotdatabasen
-får inte återläsas: skydd mot återställd spärrstatus saknas i detta register.
+kan läsa nyckeln och aktivera credentials. Använd endast
+`recovery.py restore` för återläsning av pilotdatabasen: den spärrar alla
+återställda nycklar och kräver ny registrering. Manuell återläsning som
+bevarar aktiva nycklar kan förlora senare spärrar och stöds inte.
 SAML-tjänsten nekar åtkomst om spärrkontrollen inte kan nås. Se
 [lagring och nycklar](verification/README.md#spärr-och-lagring).
 

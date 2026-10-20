@@ -84,7 +84,8 @@ Primärkällor kontrollerade 2026-10-19:
 CI använder GitHubs `actions/upload-artifact` **v4.6.2**, full commit
 `ea165f8d65b6e75b540449e92b4886f43607fa02`, MIT. Taggreferens och LICENSE
 kontrollerade i `actions/upload-artifact` samma datum. Den används endast
-för simulatorbild och XCTest-resultat utan persondata, med 14 dagars
+för simulatorbild, XCTest-resultat, kapacitetsmätning och paketinventering
+utan persondata, med 14 dagars
 retention. Workflowbehörigheter är fortsatt `contents: read`; inga Apple-
 eller produktionsnycklar läggs i CI. Projektgeneratorn är egen Pythonkod
 utan externa beroenden.
@@ -145,3 +146,74 @@ Profilkryptering använder Node **24.19.0** `node:crypto` AES-256-GCM.
 Dokumentreferenser och tjänstesubjekt använder Python 3.12 `hmac`/SHA-256
 med separat nyckel. De befintliga OpenCV- och qrcode-versionerna används
 för passfotots storlek respektive QR.
+
+
+## Pilotens HTTP-server och container
+
+Gunicorn **26.2.0** låses med hjulhash i `runtime-requirements.lock`.
+Upstreamtaggen pekar på commit `36f2a3c1b80dfa41d70859d12c5bfbbdc23a3c38`.
+Basinstallationen har inga transitiva paketberoenden. MIT-licens och NOTICE
+finns i `licenses/gunicorn-*`; paket-SBOM i `runtime-sbom.cdx.json`.
+[Upstream](https://github.com/benoitc/gunicorn) var inte arkiverat vid kontrollen
+2026-10-20; senaste push 2026-09-06. Den daterade OSV-kontrollen i
+`runtime-audit.json` gav inga fynd för den valda versionen. Det är ingen
+säkerhetsbedömning av den egna integrationen.
+
+[Gunicorns inställningar](https://gunicorn.org/reference/settings/) och
+[ändringslogg](https://gunicorn.org/news/) ligger till grund för körmiljön.
+HTTP/2, proxyprotokoll, kontrollsocket och automatiska omstarter efter ett
+visst antal anrop används inte. NFC-sessionerna tillhör en enda worker.
+
+`deployment/Dockerfile` låser officiella Python **3.12.15 slim-bookworm**,
+Node **24.19.0 bookworm-slim** och befintliga Temurin **21.0.12.1+1** med
+image-digests, avlästa från Docker Registry 2026-10-20. Python har PSF-licens,
+Node MIT med tredjepartslicenser och Temurin GPL-2.0 med Classpath Exception.
+Basimagens Debian-licenser, JRE:s `legal/` och Nodes LICENSE bevaras.
+Maven 3.9.11 hämtas som samma SHA-256-låsta ZIP som wrappern; hela grafens
+180 beroendehashar kontrolleras även i containerbygget. Bildvikter och
+Python-/npm-paket hämtas enbart vid bygge med befintliga lås. CI inventerar
+installerade Python-paket. OS-paket täcks av imagen, inte paket-SBOM:erna.
+
+## Delat register, kontrollerat 2026-10-20
+
+| Komponent | Ursprung och låsning | Licens och kontroll |
+|---|---|---|
+| Psycopg / binary 3.3.6 | `psycopg/psycopg`, commit `a67654d1e7afbf9b3a619557838f62de1c790e7c`; hjulhashar i `cluster-requirements.lock` | LGPL-3.0-only, bevarad i paket och `licenses/psycopg-LGPL-3.0.txt`. Ej arkiverat, senaste push 2026-10-12. |
+| psycopg-pool 3.3.3 | Samma upstream, commit `ab5646af17be1e90fb9b8a6a86ae17cfd2d10a22` | LGPL-3.0-only. Begränsad pool och explicit transaktionshantering. |
+| PostgreSQL 18.6 | Officiell `postgres:18.6-bookworm`, manifest `sha256:afc7e2d441324c0388fa80c3d24f733b4194a4eb7f47dd8ee2b08eb1a24a647c` | PostgreSQL License. Stabil säkerhetsrelease 2026-08-13; 19 är ännu RC. |
+| OpenBao 2.7.1 | `openbao/openbao`, commit `a5db72cef75c24b920ade02065b18dd8eb666bac` | MPL-2.0 med upstreamattribution i `licenses/OpenBao-MPL-2.0.txt`. Säkerhetsrelease 2026-10-01. |
+
+OpenBao Linux amd64-arkivets SHA-256 är
+`0e2f1ce10d124e03112b50dd2fbec6b78003783253bc3a91587938f39d1e2243`.
+Release-SBOM `openbao_2.7.1_linux_amd64.tar.gz.sbom.json` har SHA-256
+`96e64e2d8d81158c7e385fbb2d52cc31c5736b3782c2a583027e0804ed977c31`.
+Båda verifierades mot nedladdade bytes. Ingen upstreamkod modifieras.
+
+`cluster-audit.json` redovisar exakta PyPI-/OSV-frågor utan publicerade fynd
+för de fyra Pythonpaketen vid kontrollen. `cluster-sbom.cdx.json` beskriver
+dessa tillägg, inte hela applikationen. `psycopg-binary-sbom.cdx.json` är
+hjulbyggarens inventering av inbäddade systembibliotek. Hjulet använder libpq
+18.6 men innehåller också äldre kompatibilitetsbibliotek; PyPI-kontrollen är
+inte en fullständig CVE-/OS-granskning av dessa eller containerlagren.
+
+OpenBaos publicerade advisories GHSA-gf3j-hm38-jhh5, GHSA-5v22-543h-wg96,
+GHSA-hr5j-3j78-4vh2 och GHSA-7m59-mp95-w6ph kontrollerades mot version 2.7.1.
+Använd endast de angivna Transit-rättigheterna; Kubernetes-auth, AppRole,
+PKI, ACME, OIDC och externa plugins aktiveras inte av vår konfiguration.
+Versionslås behöver uppdateras och provas när nya säkerhetsfixar publiceras.
+Repoförvaltaren ansvarar för paketuppdateringar; driftägaren ansvarar för
+PostgreSQL-/OpenBao-uppgraderingar och operativ säkerhetsbevakning.
+
+Primärkällor:
+- https://www.psycopg.org/psycopg3/docs/advanced/pool.html
+- https://github.com/psycopg/psycopg/tree/a67654d1e7afbf9b3a619557838f62de1c790e7c
+- https://www.postgresql.org/docs/18/release-18-6.html
+- https://github.com/openbao/openbao/releases/tag/v2.7.1
+- https://github.com/openbao/openbao/security/advisories
+- https://openbao.org/docs/internals/security/
+
+SFace-frågan om de exakta vikternas träningsdata och kommersiella rättigheter
+kontrollerades igen 2026-10-20. Issue #313 är fortfarande öppen utan ett
+klargörande från ansvarig rättighetshavare. Verktyget `evaluate_biometrics.py`
+beräknar felandelar för fasta trösklar på separata utvärderingsdata; det ger
+varken modellrättigheter eller oberoende PAD-certifiering.

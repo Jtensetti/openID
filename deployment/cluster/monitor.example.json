@@ -1,0 +1,7 @@
+{
+  "services": [{"label": "wallet", "origin": "https://openid.example:8765", "ca": "/srv/openid/secrets/api-ca.pem"}],
+  "webhook": "https://alerts.example/openid",
+  "webhookCA": "/srv/openid/secrets/alerts-ca.pem",
+  "webhookTokenFile": "/srv/openid/secrets/alerts-token",
+  "stateFile": "/srv/openid/monitor/state.json"
+}

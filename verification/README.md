@@ -19,6 +19,7 @@ cd ../verification
 python3.12 -m venv .venv
 .venv/bin/pip install --require-hashes --only-binary=:all: -r requirements.lock
 .venv/bin/pip install --require-hashes --only-binary=:all: -r rp-requirements.lock
+.venv/bin/pip install --require-hashes --only-binary=:all: -r runtime-requirements.lock
 npm ci --ignore-scripts
 .venv/bin/python download_models.py
 .venv/bin/python server.py --csca /privat/sokvag/trusted-csca.pem
@@ -31,6 +32,10 @@ Kameran stängs när bilden har tagits, när sidan döljs eller när den stängs
 Detta analysgränssnitt registrerar ingen nyckel.
 
 ## Appens privata pilotregister
+
+För telefonprov med paketerad server används [pilotmiljön](../deployment/README.md).
+Den kör Gunicorn med separata kapacitetsgränser och processisolering för
+bildanalys. Kommandot nedan startar den äldre seriella testservern.
 
 [iPhone-appen](../ios/README.md) läser passet, tar tre kamerabilder och binder
 underlaget till telefonens publika nyckel med App Attest. Starta servern med
@@ -303,7 +308,7 @@ cd ../verification
 export PROOFING_FIXTURES=/tmp/openid-proofing-fixtures
 export PROOFING_JAVA="$JAVA_HOME/bin/java"
 export PROOFING_PYTHON="$PWD/.venv/bin/python"
-.venv/bin/python -m unittest -v test_verification test_native test_chip test_wallet test_relying_party test_identity
+.venv/bin/python -m unittest -v test_verification test_native test_chip test_wallet test_relying_party test_identity test_runtime test_crypto_runtime
 node --test test-attest.mjs
 node browser-test.cjs
 node rp-browser-test.cjs
@@ -330,3 +335,39 @@ CMS/PKIX/hashar, profilkryptering, ECDSA-godkännande och SAML-validering körs
 på riktigt. NFC, kamera, App Attest och biometriska poäng ersätts med
 explicita testdubblar i just denna fixtur. Testet bevisar integrationen,
 inte fysisk personkontroll. Linux med Unix-sockets krävs.
+
+CI kör samma SAML-webbtest även mot PostgreSQL och OpenBao över verifierad
+TLS. `OPENID_TEST_POSTGRES` väljer denna variant och måste peka på en tom,
+temporär testdatabas med administratörsbehörighet. `OPENID_TEST_BAO` anger
+den låsta OpenBao-binären. Fixturen skapar schema, tjänstekonton, två separata
+operatörskonton och en tillfällig nyckeltjänst. Använd aldrig en befintlig
+driftdatabas. Körningen finns i `.github/workflows/prototype.yml`.
+
+## Flera autentiseringsinstanser
+
+[Driftinstruktionen](../deployment/cluster/README.md) beskriver PostgreSQL,
+OpenBao, separata operatörsroller, TLS-workers, rotation, gallring och larm.
+`cluster_serve.py` är ett separat körläge; SQLite-piloten ändrar inte lagringsformat.
+
+## Utvärdera biometriska trösklar
+
+`evaluate_biometrics.py` läser en privat CSV med kolumnerna
+`sample,subject,partition,kind,score`. Använd studiekoder, inte namn.
+`partition` är `calibration` eller `evaluation`; samma person får inte förekomma
+i båda. `kind` är `genuine`, `impostor`, `bona_fide` eller `attack`. En
+`impostor`-jämförelse anger båda personkoderna i `subject`, separerade med
+semikolon. Övriga typer anger en personkod.
+Filen ska ha läge 0600. Välj trösklar från kalibreringsmaterialet och lås dem
+innan utvärderingsmaterialet används:
+
+```sh
+python evaluate_biometrics.py --scores /private/holdout.csv --face-threshold 0.5 --pad-threshold 0.9
+```
+
+Värdena ovan är kommandosexempel, inte kalibrerade produktionsgränser.
+Resultatet innehåller FMR, FNMR, APCER, BPCER, antal och Wilson-intervall på
+95 procent. Inga individuella koder eller poäng skrivs ut. Noll observerade
+fel innebär inte noll risk. Utvärdera varje relevant angreppstyp, enhetsgrupp
+och användargrupp separat med tillräckligt och lagligt insamlat material.
+Beroende observationer kan kräva en annan statistisk analys. Verktyget
+provar poängberäkningen; representativa data och oberoende prov återstår.

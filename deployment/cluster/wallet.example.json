@@ -1,0 +1,15 @@
+{
+  "role": "wallet",
+  "bind": "127.0.0.1",
+  "port": 8765,
+  "origin": "https://openid.example:8765",
+  "workers": 2,
+  "databaseFile": "/srv/openid/secrets/wallet-database",
+  "baoAddress": "https://bao.internal:8200",
+  "baoTokenFile": "/srv/openid/secrets/wallet-token",
+  "baoCA": "/srv/openid/secrets/bao-ca.pem",
+  "tlsCert": "/srv/openid/secrets/api.pem",
+  "tlsKey": "/srv/openid/secrets/api.key",
+  "pairingFile": "/srv/openid/secrets/pairing",
+  "metricsFile": "/srv/openid/secrets/metrics"
+}
