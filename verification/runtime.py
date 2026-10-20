@@ -37,7 +37,7 @@ def validate_origin(value):
 
 class RateLimit:
     """Bounded token buckets. Unknown clients cannot evict an existing bucket."""
-    def __init__(self, rate=2, burst=30, capacity=1024, clock=time.monotonic):
+    def __init__(self, rate=10, burst=160, capacity=1024, clock=time.monotonic):
         self.rate, self.burst, self.capacity, self.clock = rate, burst, capacity, clock
         self.entries = OrderedDict()
         self.lock = threading.Lock()

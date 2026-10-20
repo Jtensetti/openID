@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import shutil
 import sqlite3
+import time
 
 
 def private_directory(path):
@@ -45,6 +46,7 @@ def restore(source, destination, identity_key=None):
             if db.execute('PRAGMA integrity_check').fetchone()[0] != 'ok': raise ValueError('Integrity check')
             db.execute('PRAGMA synchronous=FULL')
             db.execute('BEGIN IMMEDIATE')
+            db.execute("INSERT INTO events(credential,kind,time,request) SELECT id,'REVOKED',?,NULL FROM credentials WHERE state!='REVOKED'", (int(time.time()),))
             db.execute("UPDATE credentials SET state='REVOKED'")
             db.execute("UPDATE requests SET state='CANCELLED' WHERE state IN ('PENDING','APPROVED')")
             db.execute("UPDATE federation_requests SET state='CANCELLED' WHERE state IN ('PENDING','APPROVED')")

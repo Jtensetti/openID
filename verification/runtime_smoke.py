@@ -31,6 +31,13 @@ def main():
             'developmentAttestation':True,'tlsCert':str(cert),'tlsKey':str(key),'csca':str(cert),
             'database':str(root/'data'/'wallet.sqlite'),'pairingFile':str(pairing)}
         path = root/'config.json'; path.write_text(json.dumps(config))
+        from wallet import Wallet
+        from test_wallet import crypt
+        from test_identity import document
+        wallet = Wallet(Path(config['database']), origin)
+        device = json.loads(crypt(op='new'))
+        ident = wallet.enroll(device['publicKey'], document())['id']
+        wallet.activate(ident, 'TEST-PRIVATE-REVIEW')
         context = ssl.create_default_context(cafile=str(cert))
         def request(route='/health/ready',method='GET',body=None,headers=None):
             connection = http.client.HTTPSConnection('localhost',port,timeout=5,context=context)
@@ -59,6 +66,22 @@ def main():
                 assert request('/native/start','POST','{}',headers)[0]==200
                 assert request('/native/start','POST','{"x":NaN}',headers)[0]==400
                 assert request('/wallet/challenge','POST','{}',headers)[0]==400
+                def signed_operation(action, request_id=None):
+                    code, raw = request('/wallet/challenge','POST',json.dumps({'credentialId':ident,'action':action,'requestId':request_id}),headers)
+                    assert code==200
+                    challenge=json.loads(raw)
+                    signature=crypt(op='sign',key=device['privateKey'],payload=challenge['signingInput'])
+                    message=json.dumps({'challengeId':challenge['id'],'signature':signature})
+                    code, raw=request('/wallet/execute','POST',message,headers)
+                    assert code==200
+                    assert request('/wallet/execute','POST',message,headers)[0]==400
+                    return json.loads(raw)
+                assert signed_operation('snapshot')['identity']['displayName']=='ALICE SYNTHETIC'
+                login=wallet.start_request(ident)
+                signed_operation('approve', login['id'])
+                assert wallet.consume_result(login['id'],login['secret'])['state']=='AUTHENTICATED'
+                assert signed_operation('revoke')['state']=='REVOKED'
+                assert signed_operation('snapshot')['identity'] is None
                 # A client which stops sending a request body must not monopolize health checks.
                 slow=context.wrap_socket(socket.create_connection(('localhost',port)),server_hostname='localhost')
                 slow.sendall((f'POST /native/finish HTTP/1.1\r\nHost: localhost:{port}\r\nOrigin: {origin}\r\n'
@@ -83,6 +106,8 @@ def main():
                 log.seek(0); output=log.read()
                 assert 'x'*43 not in output
                 assert '"x":NaN' not in output
+                assert 'ALICE' not in output
+                assert ident not in output
                 print('PASS: TLS, boundary, bounded admission, health, database loss, private logs and graceful shutdown')
             except BaseException:
                 log.seek(0)

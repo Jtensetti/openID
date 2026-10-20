@@ -147,3 +147,28 @@ class RecoveryTests(unittest.TestCase):
         self.wallet.path.unlink()
         with self.assertRaises(ValueError): self.wallet.health()
         self.assertFalse(self.wallet.path.exists())
+
+
+class EncryptedRecoveryTests(unittest.TestCase):
+    def test_restore_requires_correct_separate_key_and_revokes_profile(self):
+        from test_identity import document
+        from test_wallet import crypt
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            wallet = Wallet(root/'live'/'wallet.sqlite', 'https://localhost:8765')
+            key = json.loads(crypt(op='new'))
+            ident = wallet.enroll(key['publicKey'], document())['id']
+            wallet.activate(ident, 'TEST-PRIVATE-REVIEW')
+            saved = backup(wallet, root/'backup')
+            with self.assertRaises(ValueError): restore(saved, root/'missing-key')
+            wrong = root/'wrong-key'; wrong.write_bytes(b'x'*64); wrong.chmod(0o600)
+            with self.assertRaises(ValueError): restore(saved, root/'wrong', wrong)
+            self.assertFalse((root/'wrong').exists())
+            target = restore(saved, root/'restored', wallet.vault.path)
+            recovered = Wallet(target, wallet.origin)
+            with recovered.transaction() as db:
+                snapshot = recovered.snapshot(db, ident)
+                self.assertEqual('REVOKED', snapshot['state'])
+                self.assertIsNone(snapshot['identity'])
+                self.assertEqual('REVOKED', snapshot['events'][0]['kind'])
+            with self.assertRaises(ValueError): recovered.activate(ident, 'TEST-REACTIVATE')
