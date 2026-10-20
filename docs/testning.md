@@ -17,10 +17,11 @@ Tabellen är ett daterat resultat för revisionen ovan.
 | Testlager | Vad som körs | Begränsning |
 |---|---|---|
 | Pass | Bouncy Castle/JMRTD/JCA mot genererad CSCA, DSC, SOD, MRZ och bild. Fel signatur, hash, ankare, datum och format nekas. | Ingen myndighetsutfärdad testhandling eller certifikatspärrtjänst. |
+| Chip | Serverstyrd PACE, CA och färsk skyddad läsning mot ett mjukvaruchip. Kopierad data utan chipnyckel, återspelning, fel MAC och fel dokument nekas. Även CLI-transport och processgränser provas. | Testpeer använder JMRTD/JCA; det ersätter inte fysisk NFC eller oberoende protokollprovning. |
 | Bildmodeller | Låsta OpenCV- och MiniFASNet-vikter, modellinferens och felhantering. | Ingen mätning av biometrisk träffsäkerhet eller attackmotstånd. |
 | App Attest | Verifiering av signatur, appbindning, räknare och ändrade bytes. | Ingen fysisk Apple-attestering i CI. |
 | Register | Verklig SQLite, AES-GCM och ECDSA; samtidighet, spärr, ersättning och krypteringsfel. | Samma OS-konto; ingen HSM eller produktionsrestore. |
-| SAML/webbläsare | Separata verifierar-, IdP- och SP-processer, signerade/krypterade meddelanden och Chromium. | NFC, kamera, App Attest och biometriska poäng är testdubblar i helkedjefixturen. |
+| SAML/webbläsare | Separata verifierar-, IdP- och SP-processer, signerade/krypterade meddelanden och Chromium. | Chiptransport, kamera, App Attest och biometriska poäng är testdubblar i helkedjefixturen. |
 | WebAuthn | Riktig browser-API och Yubico-validering med virtuella USB-/plattformsautentiserare. | Inga fysiska nycklar eller OS-installationsprov. |
 | iOS | Bygge, signerade bytes, tillstånd och SwiftUI i simulator. | NFC, Secure Enclave, Face ID och App Attest måste provas på telefon. |
 | Drift | Hälsoroutes och stängda e-id-routes över HTTP samt containerisolering i CI. | Containern innehåller ingen e-id-tjänst. |

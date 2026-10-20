@@ -78,7 +78,7 @@ def handler(matcher, command, port, native=None, origin=None, token=None, browse
             if (not self.boundary() or self.headers.get('Origin') != origin or
                     not secrets.compare_digest(self.headers.get('X-CSRF-Token', ''), token)):
                 return self.respond(403, {'error': 'DENIED'})
-            native_route = self.path in {'/native/start', '/native/attest', '/native/finish'}
+            native_route = self.path in {'/native/start', '/native/attest', '/native/chip/start', '/native/chip/step', '/native/cancel', '/native/finish'}
             wallet_route = self.path in {'/wallet/challenge', '/wallet/execute'}
             if self.path != '/verify' and not (native_route and native is not None) and not (wallet_route and wallet is not None):
                 return self.respond(404, {'error': 'NOT_FOUND'})
@@ -86,7 +86,8 @@ def handler(matcher, command, port, native=None, origin=None, token=None, browse
                 return self.respond(415, {'error': 'CONTENT_TYPE'})
             try:
                 length = int(self.headers.get('Content-Length', '0'))
-                if not 0 < length <= (16384 if wallet_route else 14_000_000 if native_route else MAX_BODY):
+                small_route = wallet_route or self.path in {'/native/chip/step', '/native/cancel'}
+                if not 0 < length <= (16384 if small_route else 14_000_000 if native_route else MAX_BODY):
                     return self.respond(413, {'error': 'SIZE_LIMIT'})
                 self.connection.settimeout(15)
                 data = self.rfile.read(length)
@@ -100,6 +101,9 @@ def handler(matcher, command, port, native=None, origin=None, token=None, browse
                         if request:raise ValueError('fields')
                         result = native.start()
                     elif self.path == '/native/attest': result = native.register(request)
+                    elif self.path == '/native/chip/start': result = native.begin_chip(request)
+                    elif self.path == '/native/chip/step': result = native.chip_step(request)
+                    elif self.path == '/native/cancel': result = native.cancel(request)
                     else: result = native.finish(request)
                     return self.respond(200, result)
                 if not browser_enabled: return self.respond(404, {'error':'NOT_FOUND'})
@@ -157,9 +161,11 @@ def main():
     if args.native:
         if not args.team or len(args.team)!=10:parser.error('--team requires an Apple Team ID')
         from native import AppAttest, NativeSessions
+        from chip import ChipProcess
         from pad import PresentationAttackDetector
         native=NativeSessions(AppAttest(args.team,args.bundle,args.development_attestation),
-            lambda data: verify_document(command,data),matcher,pad,wallet=wallet)
+            lambda data: verify_document(command,data),matcher,pad,wallet=wallet,
+            chip_factory=lambda data:ChipProcess([*command[:-2],'authenticate-chip',command[-1]],data))
     address=ipaddress.ip_address(args.bind)
     remote=not address.is_loopback
     if address.is_unspecified or not address.is_private:parser.error('Only explicit private-network or loopback addresses are allowed')
@@ -184,6 +190,7 @@ def main():
             server.serve_forever()
         finally:
             if bridge: bridge.close()
+            if native: native.close()
 
 if __name__ == '__main__':
     main()

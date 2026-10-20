@@ -63,6 +63,35 @@ och signerade bytes före pass- och bildanalys. Fångstsessioner gäller i fem
 minuter, förbrukas även vid fel och försvinner vid omstart. Högst 16 får
 vänta samtidigt. App Attest registreras på nytt för varje försök.
 
+### Serverstyrd chipkontroll
+
+Appen skickar signerad SOD, DG1, DG2 och DG14 till `/native/chip/start`.
+Servern verifierar dokumentkedjan och datagruppshasharna innan DG14:s
+publika chipnyckel används. En separat JMRTD-process genomför PACE och CA;
+iPhone vidarebefordrar kommandon och svar via `/native/chip/step`.
+Sessionsnycklarna stannar i serverprocessen.
+
+CA version 1 bekräftas genom en ny SELECT/READ BINARY av DG14 med MAC-kontroll
+under de nya sessionsnycklarna. Ingen cachad fil eller klientrapporterad
+status godtas som chipbevis. Först därefter skapas kamerastegets engångsvärde.
+App Attest binder dokument, enhetsnyckel och kamerabilder till samma session,
+med strikt ökande räknare mellan de signerade anropen.
+
+Stödda profiler är PACE version 2 ECDH-GM/AES med standardkurvor 12–18 och
+CA version 1 ECDH/AES med minst 256-bitars kurva. BAC, CA version 2, DH,
+3DES och okända profiler avvisas i serverkontrollen. Fel i PACE orsakar
+ingen nedgradering. SOD måste innehålla DG14:s hash.
+
+Högst fyra chipprocesser kan vara aktiva. Varje process har 75 sekunders
+livslängd, högst 128 kommandon och begränsade meddelanden. Fel ordningsnummer,
+token, MAC, avbrott eller timeout avslutar försöket. `/native/cancel` stänger
+en pågående session. Äldre klienter som skickar `chipAuthentication: true`
+till `/native/finish` måste uppdateras.
+
+Detta bevisar kontroll över chipets privata nyckel i sessionen. Det bevisar
+inte geografisk närhet till telefonen, passets spärrstatus eller kamerans
+ursprung. Fysisk iPhone/NFC och nätverkets tidsmarginal återstår att verifiera.
+
 Registret sparar publik nyckel, status och händelser. Namn, födelsedatum i
 MRZ-format, nationalitet, utfärdarland, passets giltighet och en förminskad
 version av det signerade passfotot sparas krypterat. Rå chipdata,
@@ -234,12 +263,12 @@ nyckel. Ett externt spärrankare saknas. Inga adminfunktioner exponeras via HTTP
 
 | Del | Kontroll |
 |---|---|
-| Pass | Bouncy Castle CMS, JCA PKIX direkt DSC→CSCA, aktuella certifikatdatum, SHA-256/384/512 och DG1/DG2-hashar. JMRTD läser MRZ och porträtt. |
+| Pass | Bouncy Castle CMS, JCA PKIX direkt DSC→CSCA, aktuella certifikatdatum, SHA-256/384/512 och DG1/DG2-hashar. Appflödet kräver även signerad DG14. |
 | Dokumentprofil | TD3, ett porträtt, giltighetsdatum från idag till högst 20 år framåt. |
 | Ansikte | YuNet-detektion och SFace 1:1-jämförelse. Exakt ett tillräckligt stort ansikte krävs. |
 | Liveness | MiniFASNet V2 och V1SE på CPU, BGR och upstreams beskärningsskalor 2,7/4,0. |
 | Fångst | App Attest binder session, bytes och publik nyckel. Appen har ingen bildimport. |
-| Chip | iPhone kör PACE/BAC och chipautentisering via NFCPassportReader. |
+| Chip | Servern kör JMRTD PACE/CA och kontrollerar en färsk MAC-skyddad DG14-läsning genom CoreNFC. |
 
 Native-flödet kräver ansiktslikhet ≥0,5 och PAD ≥0,8 för alla tre bilder.
 Passiva passkontroller, ansiktsjämförelse och liveness avgör inte utgivning;
@@ -250,8 +279,7 @@ Passiva passkontroller, ansiktsjämförelse och liveness avgör inte utgivning;
 - Gränsvärden för ansiktslikhet och PAD är inte kalibrerade för e-id-utgivning.
   Motståndskraft mot masker, injektion och relä behöver utvärderas.
 - App Attest styrker appinstans och signerade data, inte kamerans fysiska
-  ursprung. Servern tar emot chipautentiseringens resultat, inte ett
-  självständigt verifierbart CA-transkript.
+  ursprung. NFC-transporten förhindrar inte relä till ett annat fysiskt chip.
 - Certifikatspärr/CRL, länkcertifikat, äldre algoritmer och historiskt giltiga
   men nu utgångna DSC stöds inte.
 - Statisk QR ger inget närhetsbevis. Apple-kvoter och återanvändning av
@@ -275,7 +303,7 @@ cd ../verification
 export PROOFING_FIXTURES=/tmp/openid-proofing-fixtures
 export PROOFING_JAVA="$JAVA_HOME/bin/java"
 export PROOFING_PYTHON="$PWD/.venv/bin/python"
-.venv/bin/python -m unittest -v test_verification test_native test_wallet test_relying_party test_identity
+.venv/bin/python -m unittest -v test_verification test_native test_chip test_wallet test_relying_party test_identity
 node --test test-attest.mjs
 node browser-test.cjs
 node rp-browser-test.cjs

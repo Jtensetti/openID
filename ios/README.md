@@ -24,8 +24,9 @@ open ios/PassportCapture.xcodeproj
 4. Kör appen, välj **Öppna openID** och därefter **Anslut till servern**.
    Ange adress och kopplingskod från serverterminalen.
 5. Välj **Registrera med ditt pass**. Ange passnummer, födelsedatum och
-   utgångsdatum (ÅÅMMDD), godkänn överföringen och läs chipet. Därefter tas
-   tre kamerabilder.
+   utgångsdatum (ÅÅMMDD), godkänn överföringen och läs chipet. Håll sedan
+   telefonen mot passet igen när säkerhetskontrollen startar. Därefter tas
+   tre kamerabilder. NFC-kontrollen kräver kontakt med servern hela tiden.
 6. Uppdatera **Mitt ID**. Registreringen väntar på ett separat
    [aktiveringsbeslut](../verification/README.md#aktivera-och-prova-inloggning).
    Prova sedan [QR-inloggningen](../verification/README.md#saml-inloggning-med-passets-identitet).
@@ -40,7 +41,7 @@ ingår inte i byggkonfigurationen.
 | Vy | Funktion |
 |---|---|
 | Mitt ID | Namn, passfoto, MRZ-födelsedatum och aktuell serverstatus. Status rensas vid låsning och nätverksfel. |
-| Registrera | PACE/BAC, DG1/DG2/DG14/SOD, chipautentisering, tre AVFoundation-bilder och App Attest. Rådata sparas inte på telefonen; servern sparar en krypterad personprofil. |
+| Registrera | DG1/DG2/DG14/SOD, serverstyrd PACE och chipautentisering, tre AVFoundation-bilder och App Attest. Rådata sparas inte på telefonen; servern sparar en krypterad personprofil. |
 | Legitimera | Tjänst, syfte, kontrollkod och giltighet visas före godkännande eller nekande. Ny lokal användarverifiering krävs. |
 | QR och länkar | Endast `openid://request/<64 hextecken>`. Begäran hämtas från den konfigurerade servern. |
 | Aktivitet | De 50 senaste serverhändelserna. |
@@ -60,6 +61,12 @@ App Attest binder publik nyckel och registreringsunderlag till sessionen.
 Servern får ingen separat hårdvaruattestering av Secure Enclave-nyckeln.
 Face ID/Touch ID bekräftar nyckelanvändning; jämförelsen med passporträttet
 sker på servern.
+
+Första NFC-läsningen hämtar dokumentfiler med NFCPassportReader. Den andra
+vidarebefordrar serverns APDU-kommandon med CoreNFC. Servern behåller PACE-/CA-
+nycklarna och verifierar chipets svar. Klienten tillåter bara SELECT, READ
+BINARY, MSE, GENERAL AUTHENTICATE och GET RESPONSE, högst 128 kommandon.
+Stöd: PACE ECDH-GM/AES och CA version 1 ECDH/AES; andra profiler avvisas.
 
 Appen döljs när scenen är inaktiv och låses i bakgrunden. Pågående uppgifter
 och LAContext avbryts, och sena nätverkssvar ignoreras. En redan skickad
@@ -81,6 +88,8 @@ XCTest provar bindningen mellan visad begäran och signerade bytes, inklusive
 byte av motpart, syfte, kod, nyckel, session och ursprung. XCUITest provar
 SwiftUI-vyerna. Workflow `iPhone app` sparar testresultat och en
 simulatorskärmbild i artefakten `iphone-app-evidence`.
+`ChipRelayTests` provar kommandogränser, ordningsnummer och avvisade
+skrivkommandon. NFC-sessionernas övergång och tidsgräns måste provas på telefon.
 
 Simulatorn kan inte testa pass-NFC, Secure Enclave eller Apple App Attest.
 Den fysiska integrationen återstår att prova på en signerad iPhone-installation.

@@ -105,15 +105,15 @@ class WalletTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.challenge()
         self.time+=121;self.assertIn('id',self.challenge());self.wallet.start_request(self.id)
     def test_attested_device_key_enrolls_only_after_all_checks(self):
-        attest=Mock();attest.check.side_effect=lambda op,**kw: {'publicKey':'attested key'} if op=='attestation' else {'signCount':1}
+        from test_chip_fixture import ChipFixture, capture_ready
+        attest=Mock();attest.check.side_effect=lambda op,**kw: {'publicKey':'attested key'} if op=='attestation' else {'signCount':kw['signCount']+1}
         matcher=Mock();matcher.compare.return_value=0.95;matcher.decode_face.return_value=('image','face')
         pad=Mock();pad.score.return_value=0.95
         from test_identity import document
-        session=NativeSessions(attest,lambda _:document(),matcher,pad,wallet=self.wallet)
+        session=NativeSessions(attest,lambda _:document(),matcher,pad,wallet=self.wallet,chip_factory=ChipFixture)
         def finish():
             start=session.start();registered=session.register({'id':start['id'],'keyId':'key','attestation':'test'})
-            payload={k:v for k,v in registered.items() if k!='frameCount'}
-            payload.update(sod='YQ==',dg1='YQ==',dg2='YQ==',frames=['YQ==','Yg==','Yw=='],chipAuthentication=True,devicePublicKey=self.other['publicKey'])
+            payload=capture_ready(session,registered,dict(sod='YQ==',dg1='YQ==',dg2='YQ==',dg14='YQ==',devicePublicKey=self.other['publicKey']))
             return session.finish({'id':start['id'],'payload':base64.b64encode(json.dumps(payload).encode()).decode(),'assertion':'test'})
         pad.score.return_value=0.1;self.assertIsNone(finish()['credential'])
         pad.score.return_value=0.95;r=finish()
