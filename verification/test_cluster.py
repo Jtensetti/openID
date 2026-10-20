@@ -140,6 +140,7 @@ class ClusterTests(unittest.TestCase):
                         ('openid.'+function,'EXECUTE'))[0][0])
 
     def test_database_tls_rejects_wrong_ca_and_hostname(self):
+        import socket
         from psycopg.conninfo import conninfo_to_dict,make_conninfo
         from postgres import PostgresWallet,RegistryUnavailable
         configured=conninfo_to_dict(self.dsns['wallet'])
@@ -147,7 +148,7 @@ class ClusterTests(unittest.TestCase):
         with self.a.transaction() as db:
             self.assertTrue(db.execute('SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()').fetchone()[0])
         for change in ({'sslrootcert':str(self.root/'missing-ca')},
-                       {'host':'wrong-name.invalid','hostaddr':'127.0.0.1'}):
+                       {'host':'wrong-name.invalid','hostaddr':socket.gethostbyname(configured['host'])}):
             with self.assertRaises(RegistryUnavailable):
                 PostgresWallet(make_conninfo(**(configured|change)),self.a.origin,self.a.vault)
 

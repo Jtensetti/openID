@@ -1,0 +1,30 @@
+name: AWS test infrastructure
+on:
+  push:
+    branches: [main, 'feat/**']
+    paths: ['deployment/aws/**', '.github/workflows/aws-validation.yml']
+  pull_request:
+    paths: ['deployment/aws/**', '.github/workflows/aws-validation.yml']
+permissions:
+  contents: read
+jobs:
+  validation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Test resource expiry boundaries
+        run: |
+          python3.12 -m venv "$RUNNER_TEMP/aws-venv"
+          "$RUNNER_TEMP/aws-venv/bin/pip" install --require-hashes --only-binary=:all: -r deployment/aws/requirements.lock
+          "$RUNNER_TEMP/aws-venv/bin/python" -m unittest discover -s deployment/aws -v
+      - name: Check resource security rules
+        run: |
+          curl --fail --location --retry 3 https://github.com/aws-cloudformation/cloudformation-guard/releases/download/3.2.1/cfn-guard-v3-x86_64-ubuntu-latest.tar.gz --output "$RUNNER_TEMP/guard.tar.gz"
+          printf '%s  %s\n' 09c2b8cfd81d513374a8da89d4805dc55006a3da52bbf598e272022d4d198e94 "$RUNNER_TEMP/guard.tar.gz" | sha256sum --check --strict
+          mkdir "$RUNNER_TEMP/guard"
+          tar -xzf "$RUNNER_TEMP/guard.tar.gz" -C "$RUNNER_TEMP/guard"
+          python3 deployment/aws/template.py --ami ami-0123456789abcdef0 > "$RUNNER_TEMP/template.json"
+          "$RUNNER_TEMP/guard/cfn-guard-v3-x86_64-ubuntu-latest/cfn-guard" validate --rules deployment/aws/security.guard --data "$RUNNER_TEMP/template.json"
