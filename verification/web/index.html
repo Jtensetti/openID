@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>openID · pass och person</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
+<body><main>
+<nav><strong>openID<span> / verifiering</span></strong><span class="badge">LOKAL ARBETSYTA</span></nav>
+<header><p class="eyebrow">Passet. Personen. Bevisen.</p><h1>Kontrollera passdata.<br>Jämför med kamerabilden.</h1><p class="intro">Kryptografisk kontroll av chipdata och lokal biometrisk 1:1-jämförelse mot passets signerade porträtt.</p></header>
+<p class="notice"><strong>Registrering är ännu inte tillgänglig.</strong> Den här arbetsytan kör verklig signatur- och ansiktsanalys. RGB-baserad liveness-analys är inkopplad. Webbläsarbildens ursprung kan däremot inte styrkas; det signerade fångstflödet finns i iPhone-klienten. Resultatet utfärdar därför inget e-ID.</p>
+<form id="verification">
+<div class="grid"><section><p class="eyebrow">01 / Signerade chipdata</p><h2>Underlaget från passet</h2><p>Välj de ursprungliga binära filerna från en NFC-läsare. En skärmbild, ett foto av passet eller en exporterad PDF räcker inte.</p>
+<label>EF.SOD · signerad säkerhetsinformation<input type="file" id="sod" required></label>
+<label>DG1 · maskinläsbara passuppgifter<input type="file" id="dg1" required></label>
+<label>DG2 · signerat ansiktsporträtt<input type="file" id="dg2" required></label>
+<p class="muted">Betrodda landsutfärdarcertifikat konfigureras av operatören. Certifikat som följer med en uppladdning blir aldrig automatiskt betrodda.</p>
+</section>
+<section><p class="eyebrow">02 / Din kamerabild</p><h2>Ett tydligt ansikte</h2><p>Titta rakt mot kameran i jämnt ljus. Kameran öppnas först när du väljer det.</p>
+<div class="camera"><video id="camera" autoplay playsinline muted hidden></video><p id="placeholder">Kameran är avstängd</p></div>
+<button type="button" id="open-camera" class="secondary">Öppna kameran</button><button type="button" id="close-camera" class="secondary" hidden>Stäng kameran</button>
+<p id="camera-status" role="status">Ingen bild har tagits.</p></section></div>
+<section><p class="eyebrow">03 / Verifiering på den här datorn</p><h2>Kontrollera och jämför</h2><p>När du fortsätter tas en kamerabild. Chipfilerna och bilden bearbetas i minnet av den lokala servern. De sparas inte som filer och skickas inte till någon extern verifieringstjänst.</p>
+<label class="consent"><input type="checkbox" id="consent" required> Jag vill bearbeta mitt pass och min kamerabild för denna lokala jämförelse.</label>
+<button id="verify" type="submit" disabled>Ta bild och verifiera underlaget</button><p id="status" role="status" aria-live="polite">Ansluter till den lokala verifieraren…</p>
+<div id="result" hidden><h3>Kontrollresultat</h3><dl><dt>Signaturkedja och DG1/DG2</dt><dd id="passport-result"></dd><dt>Ansiktslikhet</dt><dd id="face-result"></dd><dt>Liveness · RGB-analys</dt><dd id="pad-result"></dd><dt>Personkontroll</dt><dd>Ingen utgivningsbedömning: modellernas gränsvärden behöver utvärderas och en webbläsarbild ger inget verifierat kameraursprung.</dd><dt>e-ID</dt><dd>Inget utfärdat.</dd></dl></div>
+</section></form><footer>iPhone-klienten läser NFC direkt, tar tre kamerabilder och binder underlaget med App Attest. Den installeras som en signerad utvecklingsapp från Xcode. ReadID Me används inte i det flödet. Använd inte arbetsytan som en färdig registrerings- eller produktionslösning.</footer>
+</main></body></html>

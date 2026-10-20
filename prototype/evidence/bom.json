@@ -4,7 +4,7 @@
   "serialNumber" : "urn:uuid:733ed4f9-707f-3210-82c5-2e7f5a79e12b",
   "version" : 1,
   "metadata" : {
-    "timestamp" : "2026-10-19T12:59:11Z",
+    "timestamp" : "2026-10-19T13:54:43Z",
     "lifecycles" : [
       {
         "phase" : "build"
@@ -95,6 +95,324 @@
     ]
   },
   "components" : [
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/org.jmrtd/jmrtd@0.8.9?type=jar",
+      "group" : "org.jmrtd",
+      "name" : "jmrtd",
+      "version" : "0.8.9",
+      "description" : "Java Machine Readable Travel Documents API.",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "6b76fd6e8c75408bb803065af7a8bdbf"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "a9613fac63c44f4012c249dcd237154b433ba921"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "89959d0c8cb8cf7b93699b18d135675a7b8760489bddd924ee3174c447fa5409"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "8a71f42c3b409fccf771229435928749fd2a66816c1dc0a04850ab1fd9e907802b730fb0994d13561b1940854fa7b47bf2aa011fafc5e39f8bd9fb39ae826850"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "09172f8fd2cba2bdebe6db899b34eb1214fa0489148d3e8fe9d6abe388eacf7ced858ff88f3ebb2d63c324b438a98dfa"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "5928276fb9dbaa62e30644065f81d74caba3614af0d763114f104f57c9d86fa9750a53c4e22ac3c0db0b789d0f9b18c6"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "e84e03c4a91d0fb3daeafcc1bbea649997785e1d057b27e1de798ffbcf2a4936"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "362f8d48daadb8d7345e2cccdc9e067a4ef31208776991e0b07662bb3f7affaa3c4d7346d0fbc8ea05008d2d11a16c848c2bf8a630900e38fa9be1022904ca19"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "name" : "GNU Library or Lesser General Public License (LGPL)",
+            "url" : "http://www.gnu.org/licenses/lgpl.html"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/org.jmrtd/jmrtd@0.8.9?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "http://jmrtd.org"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://sourceforge.net/projects/jmrtd/"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/net.sf.scuba/scuba-smartcards@0.0.21?type=jar",
+      "group" : "net.sf.scuba",
+      "name" : "scuba-smartcards",
+      "version" : "0.0.21",
+      "description" : "Smart Card Utils for Better Access.",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "9cf00cbcddd87fc41cd2a327a16a8624"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "904449da8b29debd46c121daa2061777e49b4440"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "747f3207e92ad890c55598a40c3c695c3865e7a512b5cb40c2d1f961ec1cf245"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "c0b3f398ce55cdfe9c2124b155cf8159de6e211f4c11f4be7b229cf143e2fc203bd7cbec6030491ca9b213598a53ebeb4d54b314614627f1fcc7baba423af2be"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "8506848b665b991d899669a6fd4e1042ef4b81fecdebb9ae5a51bcbd3e3cb4ecdba5ec4ec0b33f7a3b35e70df642075b"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "c4889daec95da52f8238dd7ca2d88f863d2e315d7e0c0ba15a37b7c77df36b11cbc575876fa8049b8ddd91ab5592a9a9"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "33f901d4a73f3acf9f7fb72ab1adc9254b3f36ac02911b8eecbf49157910c704"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "c6e19a66e5b86399313b5d0dfdb268b2d4563ce9d92efa1059577e2bf439879bb29c2074e3d15ae4f24ac8d753c42fd1e8a60f4a6839e3abd7bcb99cabf5a37f"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "name" : "GNU Library or Lesser General Public License (LGPL)",
+            "url" : "http://www.gnu.org/licenses/lgpl.html"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/net.sf.scuba/scuba-smartcards@0.0.21?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "http://scuba.sourceforge.net"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://sourceforge.net/projects/scuba/"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/org.bouncycastle/bcprov-jdk18on@1.86?type=jar",
+      "group" : "org.bouncycastle",
+      "name" : "bcprov-jdk18on",
+      "version" : "1.86",
+      "description" : "The Bouncy Castle Crypto package is a Java implementation of cryptographic algorithms. This jar contains the JCA/JCE provider and low-level API for the BC Java version 1.86 for Java 1.8 and later.",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "be1401108af4f440b82b47194c72506b"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "830c8467bed8e4c1148262386b09fc42aedcf262"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "2af190b300cbb0b35e248ccf5f4a06b6072030aeb3da7a98ec73abe5b4cb371f"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "4502851281929ef645316ae96ad7d6db6a54d11ce024a66bec654c2eef62b80f174b67a2a15de86b2698f33b696459e21ecfec4a846350f4297394e9a331c43b"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "57247c80abb35a29f4f4e0b6d21fd842635a37be2275bb2759e5a10095a9864ee30310fe4b630e22ff786f325fb9d8d6"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "202f0933e870819363c1f189f5afe122ea5308994d2b8b5ce737fd5fd80880339eec4bb99579145b505728fda75a353e"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "0719f22928c6193425cb53e335dae9bf103c49425276aad6833f8e7131b615e1"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "a77e4e6333032744f390c63a0a48c366bc1e0bcd4b5755f4ba18549be761af8ebe37e6fd2c7bec0f0c85fd235150fb7d4c57f3518b500dbd079749646ed3654f"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "name" : "Bouncy Castle Licence",
+            "url" : "https://www.bouncycastle.org/licence.html"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/org.bouncycastle/bcprov-jdk18on@1.86?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://www.bouncycastle.org/download/bouncy-castle-java/"
+        },
+        {
+          "type" : "issue-tracker",
+          "url" : "https://github.com/bcgit/bc-java/issues"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://github.com/bcgit/bc-java"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/org.bouncycastle/bcutil-jdk18on@1.86?type=jar",
+      "group" : "org.bouncycastle",
+      "name" : "bcutil-jdk18on",
+      "version" : "1.86",
+      "description" : "The Bouncy Castle Java APIs for ASN.1 extension and utility APIs used to support bcpkix and bctls. This jar contains APIs for Java 1.8 and later.",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "c409099f16278109e7545aad128cc029"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "2c8e77f5601c2b84c8773af4caf403a34daca357"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "1c268e15f785aafb1e4670d8d6e5f856f69475e96c162dadcd1ff9b350e9139f"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "aeb9138f96d5c48491974974534bb3b07931a18d36ccbed828940ae0361f5ef8f5b0ad6c776a1aebb4d2c0416edf8b7d143d821bfe7136d7948c4e5807b1c426"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "2f4ceb52be9fd05b578257258042aa6ba00e61f4e1e665e1823db85b19adb34d7e20fbee9941aec7ab861cb512c8295b"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "8feb7bc4f93aa8c2f1f4fd0c869720c97f146d272830cbe20472ca4f6daaccc03b5ae5ab20ee7ee24b8a0dfa8e48bb4c"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "5409b4b49308f8cc6b45e368d2dde5486c92d76706a0428d2987e30e7e86e20e"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "d4443dba282b4d01c04e10df23c9d7be8b896d20cf70adbbffdf065307b40a30ab4e21617f890f7d4a64e261617fa0a2091fa3a1461e73921411c42133df6134"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "name" : "Bouncy Castle Licence",
+            "url" : "https://www.bouncycastle.org/licence.html"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/org.bouncycastle/bcutil-jdk18on@1.86?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://www.bouncycastle.org/download/bouncy-castle-java/"
+        },
+        {
+          "type" : "issue-tracker",
+          "url" : "https://github.com/bcgit/bc-java/issues"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://github.com/bcgit/bc-java"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/org.ejbca.cvc/cert-cvc@1.4.13?type=jar",
+      "group" : "org.ejbca.cvc",
+      "name" : "cert-cvc",
+      "version" : "1.4.13",
+      "description" : "Library supporting the creation and parsing of CVC certificates.",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "e7a960c297e2a7e63a7471fa872ae21b"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "01885b6e9123193e1b11c6c47a53ba27415bac9c"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "3e4467de94a36dd3c93eddb816e91abc7035f7e05d4123b1bbfb9dde9df9ab97"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "b6f2cce1ab43237cb1a522356d9260a652ccb18a6833e8de26e0f48a16ddeb01a3933b5e729a9bbd20536717af8b23b092756b75218b66b0e26253102f6e8702"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "4d00e45bf9e751c52e4b9c1856f05063ec5b60bdb6a5e76add4d35210f05414fbeb4a6f824852c8811afa39773bee550"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "f8251b2df3344da4722f88d231ceeeb3bcbe8a14f1b5d012da782a06a907f669fc0ac427a231c54db8aff564f01ed1a2"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "bc57774dd75de1697c4216dd7556c846f99d71e0ff673c081a50d7348dc1f3fc"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "e11341f61a7be5b8cd22e2fdb7130337af45051558433044244baab61a15e85548a2fb4fbe17d8ffcf55013d015df08991e57bbfab587bbc08658f6abf14ad89"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "name" : "LGPL license, Version 2.1",
+            "url" : "https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/org.ejbca.cvc/cert-cvc@1.4.13?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://www.ejbca.org"
+        },
+        {
+          "type" : "vcs",
+          "url" : "http://fisheye.primekey.se/browse/EJBCA/trunk/cert-cvc"
+        }
+      ]
+    },
     {
       "type" : "library",
       "bom-ref" : "pkg:maven/com.yubico/webauthn-server-core@2.10.1?type=jar",
@@ -3760,138 +4078,6 @@
         {
           "type" : "vcs",
           "url" : "https://github.com/spring-projects/spring-boot"
-        }
-      ]
-    },
-    {
-      "type" : "library",
-      "bom-ref" : "pkg:maven/org.bouncycastle/bcprov-jdk18on@1.86?type=jar",
-      "group" : "org.bouncycastle",
-      "name" : "bcprov-jdk18on",
-      "version" : "1.86",
-      "description" : "The Bouncy Castle Crypto package is a Java implementation of cryptographic algorithms. This jar contains the JCA/JCE provider and low-level API for the BC Java version 1.86 for Java 1.8 and later.",
-      "scope" : "required",
-      "hashes" : [
-        {
-          "alg" : "MD5",
-          "content" : "be1401108af4f440b82b47194c72506b"
-        },
-        {
-          "alg" : "SHA-1",
-          "content" : "830c8467bed8e4c1148262386b09fc42aedcf262"
-        },
-        {
-          "alg" : "SHA-256",
-          "content" : "2af190b300cbb0b35e248ccf5f4a06b6072030aeb3da7a98ec73abe5b4cb371f"
-        },
-        {
-          "alg" : "SHA-512",
-          "content" : "4502851281929ef645316ae96ad7d6db6a54d11ce024a66bec654c2eef62b80f174b67a2a15de86b2698f33b696459e21ecfec4a846350f4297394e9a331c43b"
-        },
-        {
-          "alg" : "SHA-384",
-          "content" : "57247c80abb35a29f4f4e0b6d21fd842635a37be2275bb2759e5a10095a9864ee30310fe4b630e22ff786f325fb9d8d6"
-        },
-        {
-          "alg" : "SHA3-384",
-          "content" : "202f0933e870819363c1f189f5afe122ea5308994d2b8b5ce737fd5fd80880339eec4bb99579145b505728fda75a353e"
-        },
-        {
-          "alg" : "SHA3-256",
-          "content" : "0719f22928c6193425cb53e335dae9bf103c49425276aad6833f8e7131b615e1"
-        },
-        {
-          "alg" : "SHA3-512",
-          "content" : "a77e4e6333032744f390c63a0a48c366bc1e0bcd4b5755f4ba18549be761af8ebe37e6fd2c7bec0f0c85fd235150fb7d4c57f3518b500dbd079749646ed3654f"
-        }
-      ],
-      "licenses" : [
-        {
-          "license" : {
-            "name" : "Bouncy Castle Licence",
-            "url" : "https://www.bouncycastle.org/licence.html"
-          }
-        }
-      ],
-      "purl" : "pkg:maven/org.bouncycastle/bcprov-jdk18on@1.86?type=jar",
-      "externalReferences" : [
-        {
-          "type" : "website",
-          "url" : "https://www.bouncycastle.org/download/bouncy-castle-java/"
-        },
-        {
-          "type" : "issue-tracker",
-          "url" : "https://github.com/bcgit/bc-java/issues"
-        },
-        {
-          "type" : "vcs",
-          "url" : "https://github.com/bcgit/bc-java"
-        }
-      ]
-    },
-    {
-      "type" : "library",
-      "bom-ref" : "pkg:maven/org.bouncycastle/bcutil-jdk18on@1.86?type=jar",
-      "group" : "org.bouncycastle",
-      "name" : "bcutil-jdk18on",
-      "version" : "1.86",
-      "description" : "The Bouncy Castle Java APIs for ASN.1 extension and utility APIs used to support bcpkix and bctls. This jar contains APIs for Java 1.8 and later.",
-      "scope" : "required",
-      "hashes" : [
-        {
-          "alg" : "MD5",
-          "content" : "c409099f16278109e7545aad128cc029"
-        },
-        {
-          "alg" : "SHA-1",
-          "content" : "2c8e77f5601c2b84c8773af4caf403a34daca357"
-        },
-        {
-          "alg" : "SHA-256",
-          "content" : "1c268e15f785aafb1e4670d8d6e5f856f69475e96c162dadcd1ff9b350e9139f"
-        },
-        {
-          "alg" : "SHA-512",
-          "content" : "aeb9138f96d5c48491974974534bb3b07931a18d36ccbed828940ae0361f5ef8f5b0ad6c776a1aebb4d2c0416edf8b7d143d821bfe7136d7948c4e5807b1c426"
-        },
-        {
-          "alg" : "SHA-384",
-          "content" : "2f4ceb52be9fd05b578257258042aa6ba00e61f4e1e665e1823db85b19adb34d7e20fbee9941aec7ab861cb512c8295b"
-        },
-        {
-          "alg" : "SHA3-384",
-          "content" : "8feb7bc4f93aa8c2f1f4fd0c869720c97f146d272830cbe20472ca4f6daaccc03b5ae5ab20ee7ee24b8a0dfa8e48bb4c"
-        },
-        {
-          "alg" : "SHA3-256",
-          "content" : "5409b4b49308f8cc6b45e368d2dde5486c92d76706a0428d2987e30e7e86e20e"
-        },
-        {
-          "alg" : "SHA3-512",
-          "content" : "d4443dba282b4d01c04e10df23c9d7be8b896d20cf70adbbffdf065307b40a30ab4e21617f890f7d4a64e261617fa0a2091fa3a1461e73921411c42133df6134"
-        }
-      ],
-      "licenses" : [
-        {
-          "license" : {
-            "name" : "Bouncy Castle Licence",
-            "url" : "https://www.bouncycastle.org/licence.html"
-          }
-        }
-      ],
-      "purl" : "pkg:maven/org.bouncycastle/bcutil-jdk18on@1.86?type=jar",
-      "externalReferences" : [
-        {
-          "type" : "website",
-          "url" : "https://www.bouncycastle.org/download/bouncy-castle-java/"
-        },
-        {
-          "type" : "issue-tracker",
-          "url" : "https://github.com/bcgit/bc-java/issues"
-        },
-        {
-          "type" : "vcs",
-          "url" : "https://github.com/bcgit/bc-java"
         }
       ]
     },
@@ -11961,6 +12147,7 @@
     {
       "ref" : "pkg:maven/io.github.jtensetti.openid/isolated-eid-lab@0.1.0-SNAPSHOT?type=jar",
       "dependsOn" : [
+        "pkg:maven/org.jmrtd/jmrtd@0.8.9?type=jar",
         "pkg:maven/com.yubico/webauthn-server-core@2.10.1?type=jar",
         "pkg:maven/org.xerial/sqlite-jdbc@3.53.4.0?type=jar",
         "pkg:maven/se.swedenconnect.spring.authnserver/authn-server-saml-spring-boot-starter@1.0.3?type=jar",
@@ -11974,6 +12161,33 @@
         "pkg:maven/org.mockito/mockito-junit-jupiter@5.23.0?type=jar",
         "pkg:maven/org.assertj/assertj-core@3.27.7?type=jar"
       ]
+    },
+    {
+      "ref" : "pkg:maven/org.jmrtd/jmrtd@0.8.9?type=jar",
+      "dependsOn" : [
+        "pkg:maven/net.sf.scuba/scuba-smartcards@0.0.21?type=jar",
+        "pkg:maven/org.bouncycastle/bcprov-jdk18on@1.86?type=jar",
+        "pkg:maven/org.bouncycastle/bcutil-jdk18on@1.86?type=jar",
+        "pkg:maven/org.ejbca.cvc/cert-cvc@1.4.13?type=jar"
+      ]
+    },
+    {
+      "ref" : "pkg:maven/net.sf.scuba/scuba-smartcards@0.0.21?type=jar",
+      "dependsOn" : [ ]
+    },
+    {
+      "ref" : "pkg:maven/org.bouncycastle/bcprov-jdk18on@1.86?type=jar",
+      "dependsOn" : [ ]
+    },
+    {
+      "ref" : "pkg:maven/org.bouncycastle/bcutil-jdk18on@1.86?type=jar",
+      "dependsOn" : [
+        "pkg:maven/org.bouncycastle/bcprov-jdk18on@1.86?type=jar"
+      ]
+    },
+    {
+      "ref" : "pkg:maven/org.ejbca.cvc/cert-cvc@1.4.13?type=jar",
+      "dependsOn" : [ ]
     },
     {
       "ref" : "pkg:maven/com.yubico/webauthn-server-core@2.10.1?type=jar",
@@ -12426,16 +12640,6 @@
       "ref" : "pkg:maven/org.springframework.boot/spring-boot-actuator@4.1.1?type=jar",
       "dependsOn" : [
         "pkg:maven/org.springframework.boot/spring-boot@4.1.1?type=jar"
-      ]
-    },
-    {
-      "ref" : "pkg:maven/org.bouncycastle/bcprov-jdk18on@1.86?type=jar",
-      "dependsOn" : [ ]
-    },
-    {
-      "ref" : "pkg:maven/org.bouncycastle/bcutil-jdk18on@1.86?type=jar",
-      "dependsOn" : [
-        "pkg:maven/org.bouncycastle/bcprov-jdk18on@1.86?type=jar"
       ]
     },
     {

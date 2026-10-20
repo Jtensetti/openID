@@ -38,3 +38,7 @@ Repot innehåller nu en avgränsad lokal prototyp, dokumentation och arbetsmetod
 All prototyputveckling ska använda syntetiska identiteter och isolerade testnycklar. Inga verkliga personuppgifter, ID-handlingar, produktionsnycklar eller ersättningsanspråk hör hemma här. Ingen AI-komponent ska besluta vem en person är eller om en inloggning/underskrift ska godkännas.
 
 Se [SECURITY.md](SECURITY.md) och [THIRD_PARTY.md](THIRD_PARTY.md). Finansiering, organisation, driftansvar och projektlicens behöver beslutas innan ett produktionsspår öppnas.
+
+## Pass- och personverifiering
+
+Verklig passiv passverifiering, lokal ansiktsjämförelse/RGB-PAD och en iPhone-klient med NFC och App Attest finns i [verification/](verification/README.md) och [ios/](ios/README.md). Detta är ett separat verifieringsspår; det utfärdar ännu ingen e-legitimation och ändrar inte labbens simulerade identiteter.

@@ -49,3 +49,7 @@ Skydd av grenar (branch protection), CODEOWNERS, CI-kontroller och privat rappor
 ## Arkitektur och beroenden
 
 Se `AGENTS.md`, `docs/04-arkitektur.md` och `THIRD_PARTY.md`. Ingen egen kryptografisk primitiv och ingen generativ AI som identitets- eller underskriftsdomare. Ett bibliotek kan vara en bra byggsten men ersätter inte granskning av den konkreta tjänsten.
+
+## Separat verifieringsspår
+
+`verification/` och `ios/` innehåller nu faktisk passiv passverifiering, biometrisk inferens, RGB-PAD och attesterad native-fångst. De är åtskilda från den syntetiska federationslabben och utfärdar inga identiteter. Fysisk NFC/App Attest, modellernas felgrader, bildinjektion på komprometterade enheter och certifikatspärr behöver utvärderas enligt [verifieringsinstruktionerna](verification/README.md). Riktiga pass och bilder får endast användas i användarens uttryckligen valda privata testmiljö, aldrig i repository eller CI.

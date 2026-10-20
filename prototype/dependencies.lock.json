@@ -192,6 +192,11 @@
       "sha256": "1ae4b561458afb540be8ec5c6dbb4f2e715a319a7ae64854998aaf924770d61b"
     },
     {
+      "coordinate": "net.sf.scuba:scuba-smartcards:jar:0.0.21",
+      "scope": "compile",
+      "sha256": "747f3207e92ad890c55598a40c3c695c3865e7a512b5cb40c2d1f961ec1cf245"
+    },
+    {
       "coordinate": "net.shibboleth:shib-networking:jar:9.2.1",
       "scope": "compile",
       "sha256": "fb61da02ce2e3069b33b865a4483ed7fe17dda5f51e397818e7539babfc5073d"
@@ -307,9 +312,19 @@
       "sha256": "5bef5b396aba0607bd972365991f833f7d8f16af506f2ade1f589fe344105123"
     },
     {
+      "coordinate": "org.ejbca.cvc:cert-cvc:jar:1.4.13",
+      "scope": "compile",
+      "sha256": "3e4467de94a36dd3c93eddb816e91abc7035f7e05d4123b1bbfb9dde9df9ab97"
+    },
+    {
       "coordinate": "org.hamcrest:hamcrest:jar:3.0",
       "scope": "test",
       "sha256": "5d66b6a4a680755cb6ed7cb104fa7835ef644667586ff0737adeb977c39ecdbc"
+    },
+    {
+      "coordinate": "org.jmrtd:jmrtd:jar:0.8.9",
+      "scope": "compile",
+      "sha256": "89959d0c8cb8cf7b93699b18d135675a7b8760489bddd924ee3174c447fa5409"
     },
     {
       "coordinate": "org.jsoup:jsoup:jar:1.23.2",

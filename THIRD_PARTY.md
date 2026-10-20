@@ -173,3 +173,7 @@ Behåll ursprunglig attribution där licensen kräver det. Skriv inte om copyrig
 Apache-2.0 kan utredas för egen kod med hänsyn till de primära kandidaterna; dokumentationens licens och hantering av eventuella EUPL-komponenter behöver bedömas separat. Detta är ett förslag, inte en juridisk kompatibilitetsgaranti eller en redan utfärdad licens.
 
 Före externa kodbidrag eller första distribution ska ägaren besluta licens, lägga till rätt LICENSE-/NOTICE-filer och dokumentera bidragsvillkor. Skapa inga licens-/REUSE-badges som antyder att detta redan är klart.
+
+## Tillägg: faktisk pass- och biometriverifiering
+
+JMRTD 0.8.9 och dess transitiva komponenter utökar Maven-grafen till 180 låsta artefakter. Native NFC, ansiktsmodeller, RGB-PAD, App Attest, licenser, underhåll och återstående kommersiella modellfrågor redovisas i [verification/THIRD_PARTY.md](verification/THIRD_PARTY.md). Projektets egen licens är fortsatt obeslutad.
