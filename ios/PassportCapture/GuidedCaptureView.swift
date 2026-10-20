@@ -21,10 +21,12 @@ struct CaptureGuideView<Preview: View>: View {
                     let height = geometry.size.height * 0.66
                     ZStack {
                         CaptureMask().fill(.black.opacity(0.38), style: FillStyle(eoFill: true))
+                            .frame(width: geometry.size.width, height: geometry.size.height)
                         Ellipse().stroke(.white.opacity(0.35), lineWidth: 3).frame(width: width, height: height)
                         Ellipse().trim(from: 0, to: guidance.progress)
                             .stroke(Palette.mint, style: StrokeStyle(lineWidth: 6, lineCap: .round))
-                            .rotationEffect(.degrees(-90)).frame(width: height, height: width)
+                            .frame(width: height, height: width).rotationEffect(.degrees(-90))
+                            .frame(width: width, height: height)
                             .animation(reduceMotion ? nil : .linear(duration: 0.12), value: guidance.progress)
                         if guidance.acceptable {
                             Ellipse().stroke(Palette.mint.opacity(0.45), lineWidth: 2)
