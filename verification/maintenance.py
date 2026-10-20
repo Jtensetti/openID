@@ -3,7 +3,6 @@ import argparse
 import json
 from pathlib import Path
 import sys
-import time
 from postgres import PostgresWallet
 from serve import private_file
 from transit import TransitVault
@@ -13,7 +12,7 @@ def maintain(wallet, *, profile_days, event_days, batch=100):
     if any(type(v) is not int or not 1<=v<=3650 for v in (profile_days,event_days)):
         raise ValueError('explicit retention periods required')
     if type(batch) is not int or not 1<=batch<=1000:raise ValueError('batch')
-    now=int(time.time()); changed=removed=0
+    changed=removed=0
     latest=wallet.vault.request('transit/keys/openid-profile')['latest_version']
     with wallet.transaction() as db:
         # One short batch per job; an interrupted transaction is safely resumed by the next invocation.

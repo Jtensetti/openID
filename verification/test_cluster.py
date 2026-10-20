@@ -281,10 +281,22 @@ class ClusterTests(unittest.TestCase):
         context=ssl.create_default_context(cafile=str(cert));processes=[];ports=[];logs=[];container_names={}
         def stop(process):
             if process.pid in container_names:
-                subprocess.run(['docker','stop','--time','65',container_names[process.pid]],check=True,stdout=subprocess.DEVNULL)
-            else:process.terminate()
-            self.assertEqual(0,process.wait(timeout=70))
-        self.addCleanup(lambda:[p.kill() for p in processes if p.poll() is None])
+                name=container_names[process.pid]
+                subprocess.run(['docker','stop','--time','65',name],check=True,stdout=subprocess.DEVNULL)
+                code=subprocess.check_output(['docker','inspect','--format','{{.State.ExitCode}}',name],text=True).strip()
+                if code!='0':
+                    output=subprocess.check_output(['docker','logs',name],stderr=subprocess.STDOUT,text=True)
+                    self.fail('Container exit '+code+': '+output)
+                process.wait(timeout=70)
+            else:
+                process.terminate();self.assertEqual(0,process.wait(timeout=70))
+        def cleanup():
+            for process in processes:
+                if process.poll() is None:
+                    process.terminate()
+                    try:process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:process.kill();process.wait()
+        self.addCleanup(cleanup)
         for index in range(2):
             with socket.socket() as sock:sock.bind(('127.0.0.1',0));ports.append(sock.getsockname()[1])
             for name,value in [('dsn',self.dsns['wallet']),('pairing','x'*43),('metrics','y'*43),('wallet-token',self.token_files['wallet'].read_text())]:
@@ -298,7 +310,7 @@ class ClusterTests(unittest.TestCase):
             image=os.environ.get('OPENID_TEST_CONTAINER') if index==0 else None
             if image:
                 name='openid-cluster-'+secrets.token_hex(8)
-                command=['docker','run','--rm','--name',name,'--network','host','--read-only','--cap-drop','ALL',
+                command=['docker','run','--name',name,'--network','host','--read-only','--cap-drop','ALL',
                     '--security-opt','no-new-privileges','--pids-limit','128','--memory','512m','--cpus','2',
                     '--user',str(os.getuid())+':'+str(os.getgid()),'--tmpfs','/tmp:size=32m,mode=1777',
                     '-v',str(directory)+':'+str(directory)+':ro','--entrypoint','python',image,*command[1:]]
