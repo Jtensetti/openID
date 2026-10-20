@@ -577,14 +577,15 @@ class ClusterTests(unittest.TestCase):
 
     def test_disconnected_database_fails_closed_and_recovers(self):
         from postgres import RegistryUnavailable
-        # Kill live pool connections, then make the server reject this login entirely.
-        with self.psycopg.connect(DSN,autocommit=True) as db:
-            db.execute('ALTER ROLE test_wallet NOLOGIN')
-            db.execute("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE usename='test_wallet'")
-        try:
-            with self.assertRaises(RegistryUnavailable):self.a.health()
-        finally:
-            with self.psycopg.connect(DSN,autocommit=True) as db:db.execute('ALTER ROLE test_wallet LOGIN')
+        # A login may terminate its own sessions; no server-wide signalling privilege is needed.
+        with self.psycopg.connect(self.dsns['wallet'],autocommit=True) as client:
+            try:
+                with self.psycopg.connect(DSN,autocommit=True) as db:db.execute('ALTER ROLE test_wallet NOLOGIN')
+                client.execute('SELECT pg_terminate_backend(pid) FROM pg_stat_activity '
+                               'WHERE usename=current_user AND pid<>pg_backend_pid()')
+                with self.assertRaises(RegistryUnavailable):self.a.health()
+            finally:
+                with self.psycopg.connect(DSN,autocommit=True) as db:db.execute('ALTER ROLE test_wallet LOGIN')
         self.a=self.store('wallet'); self.a.health()
 
 
