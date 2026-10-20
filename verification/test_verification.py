@@ -12,6 +12,7 @@ import cv2
 import numpy as np
 from face import FaceMatcher, FaceRejected, MODELS
 from server import handler, unique_object, verify_document
+from identity import VerifiedDocument
 
 class FaceTests(unittest.TestCase):
     @classmethod
@@ -95,7 +96,7 @@ class BoundaryTests(unittest.TestCase):
 
     def test_even_high_similarity_cannot_issue_identity(self):
         data=json.dumps({key:'YQ==' for key in ['sod','dg1','dg2','camera']})
-        with patch('server.verify_document',return_value=b'signed portrait'):
+        with patch('server.verify_document',return_value=VerifiedDocument(b'signed portrait', {})):
             code,body=self.request('POST','/verify',data,self.headers)
         self.assertEqual(200,code);result=json.loads(body)
         self.assertFalse(result['identityVerified']);self.assertFalse(result['issuanceEnabled'])
@@ -107,7 +108,10 @@ class CliTests(unittest.TestCase):
         directory=Path(os.environ['PROOFING_FIXTURES'])
         request={key:base64.b64encode((directory/(key+'.bin')).read_bytes()).decode() for key in ['sod','dg1','dg2']}
         command=[os.environ['PROOFING_JAVA'],'-jar',str(Path(__file__).parent.parent/'prototype/target/isolated-eid-lab.jar'),'verify-passport',str(directory/'csca.der')]
-        self.assertEqual(bytes([255,216,1,2,3,255,217]),verify_document(command,request))
+        document=verify_document(command,request)
+        self.assertEqual((directory/'portrait.jpg').read_bytes(), document.portrait)
+        self.assertEqual('ALICE', document.identity['givenNames'])
+        self.assertEqual('900101', document.identity['birthDateMrz'])
         request['dg2']='YQ=='
         with self.assertRaises(ValueError):verify_document(command,request)
 

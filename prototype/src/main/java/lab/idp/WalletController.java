@@ -10,6 +10,7 @@ import org.springframework.web.servlet.ModelAndView;
 
 /** Registration endpoints for lab test keys. */
 @Controller
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name="lab.phone", havingValue="false", matchIfMissing=true)
 public final class WalletController {
   private final WebAuthnService webAuthn;
   private final SyntheticRegistry registry;

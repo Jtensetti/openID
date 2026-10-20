@@ -10,6 +10,7 @@ from urllib.parse import urlsplit
 import subprocess
 import sqlite3
 from face import FaceMatcher, FaceRejected
+from identity import VerifiedDocument
 
 ROOT = Path(__file__).parent
 MAX_BODY = 6_000_000
@@ -32,7 +33,7 @@ def verify_document(command, request):
     document = json.loads(result.stdout)
     if document.get('passiveAuthentication') is not True:
         raise ValueError('passport verification failed')
-    return base64.b64decode(document['portrait'], validate=True)
+    return VerifiedDocument.from_verifier(document)
 
 def handler(matcher, command, port, native=None, origin=None, token=None, browser_enabled=True, pad=None, wallet=None):
     origin = origin or f'http://localhost:{port}'
@@ -108,7 +109,7 @@ def handler(matcher, command, port, native=None, origin=None, token=None, browse
                     value = base64.b64decode(request[field], validate=True)
                     if not 0 < len(value) <= limit:
                         raise ValueError('invalid input')
-                portrait = verify_document(command, request)
+                portrait = verify_document(command, request).portrait
                 score = matcher.compare(portrait, base64.b64decode(request['camera'], validate=True))
                 pad_score = None
                 if pad is not None:
@@ -137,7 +138,9 @@ def main():
     parser.add_argument('--tls-cert', type=Path)
     parser.add_argument('--tls-key', type=Path)
     parser.add_argument('--wallet-db', type=Path, help='Enable private pilot credentials in a private 0700 directory')
+    parser.add_argument('--federation-socket', type=Path, help='Local SAML bridge socket in a private 0700 directory')
     args = parser.parse_args()
+    if args.federation_socket and not args.wallet_db: parser.error('--federation-socket requires --wallet-db')
     if not 1024 <= args.port <= 65535 or not args.csca.is_file() or not args.jar.is_file():
         parser.error('A valid trust bundle, built JAR and unprivileged port are required')
     matcher = FaceMatcher(ROOT / 'models')
@@ -173,7 +176,14 @@ def main():
             context.load_cert_chain(args.tls_cert,args.tls_key);server.socket=context.wrap_socket(server.socket,server_side=True)
         print(f'Verification workbench: {origin} — issuance disabled', flush=True)
         if args.native:print('One-process pairing code (keep private): '+pairing,flush=True)
-        server.serve_forever()
+        bridge = None
+        try:
+            if args.federation_socket:
+                from federation import FederationServer
+                bridge = FederationServer(args.federation_socket, wallet)
+            server.serve_forever()
+        finally:
+            if bridge: bridge.close()
 
 if __name__ == '__main__':
     main()

@@ -11,6 +11,7 @@ import se.swedenconnect.spring.authnserver.authentication.provider.redirect.Abst
 import se.swedenconnect.spring.authnserver.error.*;
 
 @Controller
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name="lab.phone", havingValue="false", matchIfMissing=true)
 public final class LabController extends AbstractAuthenticationController<LabProvider> {
   private final LabProvider provider;
   private final SyntheticRegistry registry;

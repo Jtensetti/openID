@@ -28,7 +28,7 @@ open ios/PassportCapture.xcodeproj
    tre kamerabilder.
 6. Uppdatera **Mitt ID**. Registreringen väntar på ett separat
    [aktiveringsbeslut](../verification/README.md#aktivera-och-prova-inloggning).
-   Prova sedan [QR-inloggningen](../verification/README.md#logga-in-i-testtjänsten-via-webbläsaren).
+   Prova sedan [QR-inloggningen](../verification/README.md#saml-inloggning-med-passets-identitet).
 
 App Attest-entitlement är `development`; använd serverflaggan
 `--development-attestation` för detta bygge. Installation från Xcode kräver
@@ -39,15 +39,15 @@ ingår inte i byggkonfigurationen.
 
 | Vy | Funktion |
 |---|---|
-| Mitt ID | Registrering och aktuell serverstatus. Status rensas vid låsning och nätverksfel. |
-| Registrera | PACE/BAC, DG1/DG2/DG14/SOD, chipautentisering, tre AVFoundation-bilder och App Attest. Passuppgifter och bilder sparas inte. |
+| Mitt ID | Namn, passfoto, MRZ-födelsedatum och aktuell serverstatus. Status rensas vid låsning och nätverksfel. |
+| Registrera | PACE/BAC, DG1/DG2/DG14/SOD, chipautentisering, tre AVFoundation-bilder och App Attest. Rådata sparas inte på telefonen; servern sparar en krypterad personprofil. |
 | Legitimera | Tjänst, syfte, kontrollkod och giltighet visas före godkännande eller nekande. Ny lokal användarverifiering krävs. |
 | QR och länkar | Endast `openid://request/<64 hextecken>`. Begäran hämtas från den konfigurerade servern. |
 | Aktivitet | De 50 senaste serverhändelserna. |
 | Inställningar | Anslutning, applås, permanent spärr och borttagning av spärrad/utgången nyckel. |
 
 Förlorad telefon spärras av operatören. Ny telefon kräver ny registrering
-och aktivering.
+och aktivering. Aktivering för samma pass spärrar den äldre nyckeln.
 
 ## Nycklar och avbrott
 

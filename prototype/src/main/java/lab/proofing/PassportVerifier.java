@@ -15,7 +15,9 @@ import org.jmrtd.lds.icao.DG2File;
 
 /** Passive authentication of SOD, DG1 and DG2 against an operator-provided CSCA. */
 public final class PassportVerifier {
-  public record Result(byte[] portrait, String mimeType, LocalDate expires) {
+  public record Identity(String givenNames, String familyName, String birthDateMrz, String nationality,
+      String issuingState, String documentNumber, String documentExpires) {}
+  public record Result(byte[] portrait, String mimeType, LocalDate expires, Identity identity) {
     public Result { portrait = portrait.clone(); }
     @Override public byte[] portrait() { return portrait.clone(); }
   }
@@ -80,8 +82,20 @@ public final class PassportVerifier {
       byte[] image = portrait.getImageInputStream().readNBytes(2_000_001);
       bounded(image, 2_000_000);
       if (!Set.of("image/jpeg", "image/jp2").contains(portrait.getMimeType())) throw new Rejected();
-      return new Result(image, portrait.getMimeType(), expiry);
+      String birth = mrz.getDateOfBirth();
+      if (!birth.matches("[0-9]{6}")) throw new Rejected();
+      // MRZ does not encode the century. Validate month/day without assigning one.
+      LocalDate.of(2000, Integer.parseInt(birth.substring(2, 4)), Integer.parseInt(birth.substring(4, 6)));
+      var identity = new Identity(name(mrz.getSecondaryIdentifier()), name(mrz.getPrimaryIdentifier()), birth,
+          mrz.getNationality(), mrz.getIssuingState(), mrz.getDocumentNumber(), expiry.toString());
+      if (identity.familyName().isEmpty() && identity.givenNames().isEmpty()) throw new Rejected();
+      return new Result(image, portrait.getMimeType(), expiry, identity);
     } catch (Exception e) { throw new Rejected(); } // No untrusted document contents in logs/errors.
+  }
+  private static String name(String value) throws Rejected {
+    String normalized = value.replace('<', ' ').strip().replaceAll(" +", " ");
+    if (!normalized.matches("[A-Z ]{0,44}")) throw new Rejected();
+    return normalized;
   }
   private static void bounded(byte[] bytes, int max) throws Rejected {
     if (bytes == null || bytes.length == 0 || bytes.length > max) throw new Rejected();

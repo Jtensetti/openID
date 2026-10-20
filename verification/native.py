@@ -1,5 +1,6 @@
 import base64
 import json
+import math
 from pathlib import Path
 import secrets
 import subprocess
@@ -69,17 +70,20 @@ class NativeSessions:
         frames=[base64.b64decode(frame,validate=True) for frame in data['frames']]
         if any(not 0<len(frame)<=2_000_000 for frame in frames):raise ValueError('frame size')
         if len(set(frames))!=3:raise ValueError('duplicate frames')
-        portrait=self.passport(data)
+        document=self.passport(data)
+        portrait=document.portrait
         face_scores=[];pad_scores=[]
         for frame in frames:
             face_scores.append(self.matcher.compare(portrait,frame))
             image,face=self.matcher.decode_face(frame)
             pad_scores.append(self.pad.score(image,face))
+        if any(not math.isfinite(score) or not -1 <= score <= 1 for score in face_scores) or any(
+            not math.isfinite(score) or not 0 <= score <= 1 for score in pad_scores): raise ValueError('invalid model score')
         # Experimental thresholds; calibration is pending.
         passed=min(face_scores)>=0.5 and min(pad_scores)>=0.8
         credential=None
         if passed and 'devicePublicKey' in data:
-            credential=self.wallet.enroll(data['devicePublicKey'])
+            credential=self.wallet.enroll(data['devicePublicKey'], document)
         return {'checksPassed':passed,'passiveAuthentication':True,'appAttest':True,
             'chipAuthentication':'ATTESTED_NATIVE_RESULT','faceScores':face_scores,'padLiveScores':pad_scores,
             'policy':'EXPERIMENTAL_0.5_FACE_0.8_PAD','issuanceEnabled':False,'credential':credential}

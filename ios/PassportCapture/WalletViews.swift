@@ -97,10 +97,19 @@ struct IdentityCard: View {
                 Image(systemName: "wave.3.right").font(.title2).rotationEffect(.degrees(90))
             }
             HStack(alignment: .center, spacing: 16) {
-                Image(systemName: "person.crop.rectangle").font(.system(size: 38, weight: .ultraLight))
-                    .frame(width: 68, height: 68).background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 18))
+                if let portrait = model.snapshot?.identity?.portraitJpeg,
+                   let data = Data(base64Encoded: portrait), let image = UIImage(data: data) {
+                    Image(uiImage: image).resizable().scaledToFill().frame(width: 76, height: 96)
+                        .clipShape(RoundedRectangle(cornerRadius: 12)).accessibilityLabel("Passfoto")
+                } else {
+                    Image(systemName: "person.crop.rectangle").font(.system(size: 38, weight: .ultraLight))
+                        .frame(width: 68, height: 68).background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 18))
+                }
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(model.unlocked ? (model.credential != nil ? "Mitt ID" : "Inget ID registrerat") : "Låst").font(.title2.weight(.medium))
+                    Text(model.snapshot?.identity?.displayName ?? (model.unlocked ? (model.credential != nil ? "Mitt ID" : "Inget ID registrerat") : "Låst")).font(.title2.weight(.medium))
+                    if let identity = model.snapshot?.identity {
+                        Text("Född (MRZ) · \(identity.birthDateMrz)").font(.caption)
+                    }
                     HStack(spacing: 6) {
                         Circle().fill(Palette.mint).frame(width: 6, height: 6)
                         Text(model.snapshot?.state.title ?? (model.unlocked ? (model.credential != nil ? "Uppdatera status" : "Registrera med ditt pass") : "Lås upp för att se status"))
@@ -148,7 +157,7 @@ struct RequestsView: View {
                 } else {
                     let requests = model.snapshot?.requests ?? []
                     if requests.isEmpty {
-                        EmptyPanel(symbol: "checkmark.shield", title: "Inga väntande begäranden", message: "Starta en inloggning hos testtjänsten.")
+                        EmptyPanel(symbol: "checkmark.shield", title: "Inga väntande begäranden", message: "Starta en inloggning hos tjänsten och skanna QR-koden.")
                     }
                     ForEach(requests) { request in
                         Button { model.focusedRequest = request } label: {
@@ -188,7 +197,7 @@ struct ApprovalView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Kontrollkod").font(.subheadline)
                     Text(request.code).font(.system(size: 40, weight: .medium, design: .monospaced)).tracking(7)
-                    Text("Kontrollera att koden stämmer med testtjänstens.").font(.footnote)
+                    Text("Kontrollera att koden stämmer med tjänstens.").font(.footnote)
                 }.padding(24).frame(maxWidth: .infinity, alignment: .leading).background(Palette.mint, in: RoundedRectangle(cornerRadius: 20))
                 Label("Godkänn bara en inloggning du själv startat.", systemImage: "hand.raised").font(.subheadline)
                 TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -320,7 +329,7 @@ struct EnrollmentView: View {
                             TextField("Giltigt till · ÅÅMMDD", text: $flow.expiry).keyboardType(.numberPad)
                         }.textFieldStyle(.roundedBorder)
                         Toggle(isOn: $consent) {
-                            Text("Jag godkänner att passets chipuppgifter och tre kamerabilder skickas till verifieringsservern.").font(.footnote)
+                            Text("Jag godkänner att passets chipuppgifter och tre kamerabilder skickas till servern. Namn, födelsedatum, nationalitet och passfoto sparas krypterat för mitt ID.").font(.footnote)
                         }.tint(Palette.ink)
                         PrimaryButton(title: "Läs passet", symbol: "wave.3.right") { flow.start() }.disabled(!consent)
                     }
@@ -366,7 +375,8 @@ struct PrivacyView: View {
     var body: some View {
         List {
             Section("På telefonen") { Text("Serveradress och kopplingskod lagras i nyckelringen. ID-nyckeln skyddas av telefonen. Appen sparar inte passuppgifter eller bilder.") }
-            Section("På servern") { Text("Passuppgifter och kamerabilder behandlas i minnet. Registret sparar publik nyckel, status och händelser. Operatören ansvarar för lagringstiderna och kan aktivera eller spärra ditt ID.") }
+            Section("På servern") { Text("Chipdata och kamerabilder behandlas i minnet. Registret sparar namn, födelsedatum, nationalitet, passets utfärdarland, giltighet och foto krypterat samt publik nyckel, status och händelser. Operatören ansvarar för lagringstiderna och kan aktivera eller spärra ditt ID.") }
+            Section("När du legitimerar dig") { Text("Appen visar vilken tjänst du loggar in hos och vilka uppgifter du delar. En spärrad nyckel kan inte användas igen.") }
             Section("Godkännande") { Text("Du bekräftar med Face ID, Touch ID eller enhetskod. Appen låses när du lämnar den.") }
         }.navigationTitle("Integritet").navigationBarTitleDisplayMode(.inline)
     }

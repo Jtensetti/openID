@@ -41,6 +41,27 @@ final class WalletSecurityTests: XCTestCase {
     func testSnapshotCannotSmuggleApproval() {
         XCTAssertThrowsError(try envelope().validatedBytes(configuration: config, credentialID: ident, action: "snapshot", request: nil, now: now))
     }
+    func testInspectCanReadRequestButCannotSignApproval() throws {
+        let challenge = envelope(["action":"inspect", "relyingParty":NSNull(), "purpose":NSNull(), "code":NSNull()])
+        XCTAssertNoThrow(try challenge.validatedBytes(configuration:config,credentialID:ident,action:"inspect",request:nil,inspectID:requestID,now:now))
+        XCTAssertThrowsError(try challenge.validatedBytes(configuration:config,credentialID:ident,action:"approve",request:request,now:now))
+        XCTAssertThrowsError(try challenge.validatedBytes(configuration:config,credentialID:ident,action:"inspect",request:nil,inspectID:String(repeating:"c",count:64),now:now))
+        XCTAssertThrowsError(try envelope().validatedBytes(configuration:config,credentialID:ident,action:"inspect",request:nil,inspectID:requestID,now:now))
+    }
+    func testIdentityProfilePreservesMrzAndRejectsOversizedOrMalformedPortrait() throws {
+        let image = Data([0xff,0xd8,0xff,0xd9]).base64EncodedString()
+        let identity = PassportIdentity(displayName:"ALICE SYNTHETIC",birthDateMrz:"900101",portraitJpeg:image)
+        XCTAssertNoThrow(try identity.validate())
+        XCTAssertEqual(identity.birthDateMrz,"900101")
+        for invalid in [PassportIdentity(displayName:"<script>",birthDateMrz:"900101",portraitJpeg:image),
+                        PassportIdentity(displayName:"ALICE",birthDateMrz:"19900101",portraitJpeg:image),
+                        PassportIdentity(displayName:"ALICE",birthDateMrz:"900101",portraitJpeg:Data(repeating:0,count:24001).base64EncodedString())] {
+            XCTAssertThrowsError(try invalid.validate())
+        }
+        var snapshot = WalletSnapshot(credentialId:ident,state:.revoked,createdAt:1,expiresAt:2000,requests:[],events:[],environment:"PRIVATE_PILOT",legalIdentityIssued:false)
+        snapshot.identity = identity
+        XCTAssertThrowsError(try snapshot.validate(for:ident))
+    }
     func testMalformedPayloadAndVersionCannotBeSigned() {
         for raw in ["!", Data("{}".utf8).base64EncodedString(), Data(repeating: 0, count: 5000).base64EncodedString()] {
             XCTAssertThrowsError(try DeviceChallenge(id:"challenge",signingInput:raw).validatedBytes(configuration:config,credentialID:ident,action:"approve",request:request,now:now))
