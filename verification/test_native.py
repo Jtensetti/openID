@@ -130,4 +130,55 @@ class NativeTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.sessions.chip_step(request)
         self.matcher.compare.assert_not_called()
 
+class NativeHTTPTests(unittest.TestCase):
+    def setUp(self):
+        import threading
+        from http.server import HTTPServer
+        from server import handler
+        self.attest=Mock();self.attest.check.side_effect=lambda op,**kw: {'publicKey':'key'} if op=='attestation' else {'signCount':kw['signCount']+1}
+        matcher=Mock();matcher.compare.return_value=0.95;matcher.decode_face.return_value=('image','face')
+        pad=Mock();pad.score.return_value=0.95
+        self.native=NativeSessions(self.attest,lambda _:VerifiedDocument(b'portrait',{}),matcher,pad,chip_factory=ChipFixture)
+        self.http=HTTPServer(('127.0.0.1',0),handler(matcher,[],0))
+        self.origin=f'http://localhost:{self.http.server_port}';self.token='x'*43
+        self.http.RequestHandlerClass=handler(matcher,[],self.http.server_port,native=self.native,origin=self.origin,token=self.token,browser_enabled=False)
+        self.thread=threading.Thread(target=self.http.serve_forever,daemon=True);self.thread.start()
+    def tearDown(self):
+        self.native.close();self.http.shutdown();self.http.server_close();self.thread.join()
+    def post(self,path,data,origin=None):
+        from urllib.request import Request,urlopen
+        from urllib.error import HTTPError
+        request=Request(self.origin+path,data=json.dumps(data).encode(),headers={'Content-Type':'application/json',
+            'Origin':origin or self.origin,'X-CSRF-Token':self.token})
+        try:
+            with urlopen(request) as response:return response.status,json.load(response)
+        except HTTPError as error:return error.code,json.load(error)
+    def begin(self):
+        from test_chip_fixture import signed
+        code,start=self.post('/native/start',{});self.assertEqual(200,code)
+        code,registered=self.post('/native/attest',{'id':start['id'],'keyId':'key','attestation':'test'});self.assertEqual(200,code)
+        code,chip=self.post('/native/chip/start',signed(start['id'],{**registered,'sod':'YQ==','dg1':'YQ==','dg2':'YQ==','dg14':'YQ=='}))
+        self.assertEqual(200,code)
+        return chip
+    def test_complete_http_sequence(self):
+        from test_chip_fixture import signed
+        chip=self.begin()
+        code,capture=self.post('/native/chip/step',{'id':chip['id'],'chipToken':chip['chipToken'],'sequence':0,'response':'kAA='})
+        self.assertEqual(200,code)
+        request=signed(chip['id'],{'id':chip['id'],'nonce':capture['nonce'],'frames':['YQ==','Yg==','Yw==']})
+        code,result=self.post('/native/finish',request)
+        self.assertEqual(200,code);self.assertEqual('SERVER_VERIFIED_CA',result['chipAuthentication'])
+        self.assertEqual(400,self.post('/native/finish',request)[0])
+    def test_origin_size_and_cancel_boundaries(self):
+        chip=self.begin();request={'id':chip['id'],'chipToken':chip['chipToken'],'sequence':0,'response':'kAA='}
+        self.assertEqual(403,self.post('/native/chip/step',request,origin='https://other.invalid')[0])
+        self.assertEqual(413,self.post('/native/chip/step',{**request,'response':'a'*17000})[0])
+        self.assertEqual(200,self.post('/native/cancel',{'id':chip['id'],'chipToken':chip['chipToken']})[0])
+        self.assertEqual(400,self.post('/native/chip/step',request)[0])
+    def test_http_finish_before_chip_confirmation_fails(self):
+        from test_chip_fixture import signed
+        chip=self.begin()
+        self.assertEqual(400,self.post('/native/finish',signed(chip['id'],{'id':chip['id'],'nonce':'wrong','frames':['YQ==','Yg==','Yw=='],'chipAuthentication':True}))[0])
+        self.assertNotIn(chip['id'],self.native.pending)
+
 if __name__=='__main__':unittest.main()

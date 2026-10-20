@@ -1,7 +1,16 @@
 import Foundation
 
-struct WalletAPI {
+final class WalletAPI {
     let configuration: ServerConfiguration
+    private let session: URLSession
+
+    init(configuration: ServerConfiguration) {
+        self.configuration = configuration
+        let options = URLSessionConfiguration.ephemeral
+        options.urlCache = nil; options.httpCookieStorage = nil
+        session = URLSession(configuration: options, delegate: NoRedirect(), delegateQueue: nil)
+    }
+    deinit { session.invalidateAndCancel() }
     func post<T: Decodable>(_ path: String, body: [String: Any], as type: T.Type) async throws -> T {
         let data = try await postData(path, body: body)
         return try JSONDecoder().decode(type, from: data)
@@ -20,10 +29,6 @@ struct WalletAPI {
         request.setValue(configuration.pairing, forHTTPHeaderField: "X-CSRF-Token")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         guard request.httpBody!.count <= 14_000_000 else { throw WalletError.rejected }
-        let options = URLSessionConfiguration.ephemeral
-        options.urlCache = nil; options.httpCookieStorage = nil
-        let session = URLSession(configuration: options, delegate: NoRedirect(), delegateQueue: nil)
-        defer { session.invalidateAndCancel() }
         // Check size while streaming; data(for:) would buffer the entire response.
         let (stream, response) = try await session.bytes(for: request)
         guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw WalletError.rejected }

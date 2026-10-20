@@ -75,10 +75,14 @@ struct ChipRelayCommand {
                         let command = try ChipRelayCommand(message, expectedSequence: sequence)
                         guard let apdu = NFCISO7816APDU(data: command.bytes) else { throw WalletError.rejected }
                         let (data, sw1, sw2) = try await chip.sendCommand(apdu: apdu)
+                        try Task.checkCancellation()
+                        guard self.session === session else { throw CancellationError() }
                         guard data.count <= 4094 else { throw WalletError.rejected }
                         var response = data; response.append(sw1); response.append(sw2)
                         message = try await api.postObject("/native/chip/step", body: ["id": self.id,
                             "chipToken": self.token, "sequence": sequence, "response": response.base64EncodedString()])
+                        try Task.checkCancellation()
+                        guard self.session === session else { throw CancellationError() }
                         if message["type"] as? String == "verified" {
                             guard message["id"] as? String == self.id, let nonce = message["nonce"] as? String,
                                   nonce.count == 43, message["frameCount"] as? Int == 3 else { throw WalletError.rejected }
@@ -86,7 +90,10 @@ struct ChipRelayCommand {
                         }
                         sequence += 1
                     }
-                } catch { self.finish(.failure(error)) }
+                } catch {
+                    guard self.session === session else { return }
+                    self.finish(.failure(error))
+                }
             }
         }
     }
