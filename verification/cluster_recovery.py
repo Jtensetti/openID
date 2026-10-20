@@ -189,6 +189,7 @@ def restore(admin_dsn, source, target, vault, *, local_test=False, max_bytes=MAX
                 db.execute('ALTER TABLE openid.credentials ENABLE TRIGGER credential_guard')
                 checked = 0
                 with db.cursor(name='recovery_profiles') as cursor:
+                    cursor.itersize = 100
                     cursor.execute('SELECT credential,person,sealed FROM openid.profiles')
                     for credential, person, sealed in cursor:
                         check_deadline(deadline)

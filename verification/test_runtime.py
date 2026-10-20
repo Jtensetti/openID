@@ -70,6 +70,20 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(200, self.request('/health/live', 'GET')[0])
         self.native.start.assert_not_called()
 
+    def test_stop_during_worker_boot_does_not_require_a_loaded_app(self):
+        import signal
+        from serve import bounded_worker
+        Worker = bounded_worker()
+        worker = Worker.__new__(Worker)
+        worker.alive = True
+        worker.method_queue = Mock()
+        worker.handle_exit(signal.SIGTERM, None)
+        self.assertFalse(worker.alive)
+        worker.method_queue.defer.assert_called_once()
+        worker.wsgi = self.app
+        worker.handle_exit(signal.SIGTERM, None)
+        self.assertEqual(503, self.request('/health/ready', 'GET')[0])
+
     def test_database_failure_readiness_and_errors_do_not_leak(self):
         self.wallet.health.side_effect = OSError('SECRET-PATH')
         self.assertEqual(503, self.request('/health/ready', 'GET')[0])

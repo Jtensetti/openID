@@ -268,6 +268,7 @@ och [OpenBao Raft](https://openbao.org/docs/commands/operator/raft/).
 
 Workflow `cluster.yml` startar låsta PostgreSQL 18.6 och OpenBao 2.7.1,
 använder riktiga separata databas-/Transit-konton och kör `test_cluster.py`.
+Databasanslutningarna använder verifierad TLS; fel CA och fel värdnamn nekas.
 Proven omfattar rollrättigheter, engångskonsumtion, parallella beslut,
 nyckelbyte, instansbortfall, databas-/nyckeltjänstfel, rotation, gallring och
 återläsning. `test_key_recovery.py` använder verklig TLS och Raft med separat

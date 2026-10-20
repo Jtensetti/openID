@@ -139,6 +139,18 @@ class ClusterTests(unittest.TestCase):
                     self.assertEqual(role in users,self.sql(role,'SELECT has_function_privilege(current_user,%s,%s)',
                         ('openid.'+function,'EXECUTE'))[0][0])
 
+    def test_database_tls_rejects_wrong_ca_and_hostname(self):
+        from psycopg.conninfo import conninfo_to_dict,make_conninfo
+        from postgres import PostgresWallet,RegistryUnavailable
+        configured=conninfo_to_dict(self.dsns['wallet'])
+        if configured.get('sslmode')!='verify-full':self.skipTest('requires TLS-enabled database')
+        with self.a.transaction() as db:
+            self.assertTrue(db.execute('SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()').fetchone()[0])
+        for change in ({'sslrootcert':str(self.root/'missing-ca')},
+                       {'host':'wrong-name.invalid','hostaddr':'127.0.0.1'}):
+            with self.assertRaises(RegistryUnavailable):
+                PostgresWallet(make_conninfo(**(configured|change)),self.a.origin,self.a.vault)
+
     def test_operator_temp_tables_cannot_shadow_privileged_registry_access(self):
         with self.psycopg.connect(self.dsns['alice'],options='-c search_path=openid,pg_catalog') as db:
             for name in ('credentials','profiles','activation_proposals','operator_events'):
@@ -442,7 +454,12 @@ class ClusterTests(unittest.TestCase):
         self.addCleanup(cleanup)
         for index in range(2):
             with socket.socket() as sock:sock.bind(('127.0.0.1',0));ports.append(sock.getsockname()[1])
-            for name,value in [('dsn',self.dsns['wallet']),('pairing','x'*43),('metrics','y'*43),('wallet-token',self.token_files['wallet'].read_text())]:
+            from psycopg.conninfo import conninfo_to_dict,make_conninfo
+            database_options=conninfo_to_dict(self.dsns['wallet'])
+            if database_options.get('sslrootcert'):
+                ca=directory/'postgres.crt';ca.write_bytes(Path(database_options['sslrootcert']).read_bytes())
+                database_options['sslrootcert']=str(ca)
+            for name,value in [('dsn',make_conninfo(**database_options)),('pairing','x'*43),('metrics','y'*43),('wallet-token',self.token_files['wallet'].read_text())]:
                 path=directory/name;path.write_text(value);path.chmod(0o600)
             config={'bind':'127.0.0.1','port':ports[-1],'origin':self.a.origin,'workers':2,'role':'wallet',
                 'databaseFile':str(directory/'dsn'),'baoAddress':self.address,'baoTokenFile':str(directory/'wallet-token'),

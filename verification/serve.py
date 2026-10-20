@@ -126,7 +126,8 @@ def bounded_worker():
             except OSError: pass
 
         def handle_exit(self, sig, frame):
-            if hasattr(self.wsgi, 'drain'): self.wsgi.drain()
+            app = getattr(self, 'wsgi', None)
+            if hasattr(app, 'drain'): app.drain()
             super().handle_exit(sig, frame)
 
     return Worker
