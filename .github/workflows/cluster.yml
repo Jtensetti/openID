@@ -43,6 +43,7 @@ jobs:
         env:
           OPENID_TEST_POSTGRES: 'host=127.0.0.1 port=5432 dbname=openid_test user=postgres password=disposable-ci-password'
           OPENID_TEST_BAO: '${{ runner.temp }}/bao/bao'
+          OPENID_TEST_CONTAINER: openid-wallet:ci
           OPENID_TEST_REPORT: '${{ runner.temp }}/cluster-capacity.json'
         run: |
           .venv/bin/python test_cluster.py -v

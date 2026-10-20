@@ -12,7 +12,7 @@ class OperationsTests(unittest.TestCase):
         self.assertFalse(update(state,True)[1])
 
     def rows(self):
-        return [{'sample':str(i),'subject':str(i),'partition':'evaluation','kind':kind,'score':str(score)} for i,(kind,score) in enumerate(
+        return [{'sample':str(i),'subject':str(i)+(';other' if kind=='impostor' else ''),'partition':'evaluation','kind':kind,'score':str(score)} for i,(kind,score) in enumerate(
             [('genuine',.8),('impostor',.7),('bona_fide',.6),('attack',.2)])]
 
     def test_fixed_holdout_metrics_and_nonzero_uncertainty(self):
@@ -31,6 +31,8 @@ class OperationsTests(unittest.TestCase):
         with self.assertRaises(ValueError):evaluate(rows,.5,.5)
         with self.assertRaises(ValueError):evaluate(self.rows()[:-1],.5,.5)
         with self.assertRaises(ValueError):evaluate(self.rows(),math.nan,.5)
+        rows=self.rows();rows.append(dict(rows[0],sample='other',subject='other',partition='calibration'))
+        with self.assertRaises(ValueError):evaluate(rows,.5,.5)
 
 if __name__=='__main__':unittest.main()
 

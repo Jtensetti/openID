@@ -23,9 +23,13 @@ def evaluate(records,face_threshold,pad_threshold):
         seen.add(row['sample'])
         if len(seen)>1_000_000:raise ValueError('evaluation size')
         if not row['subject'] or row['partition'] not in ('calibration','evaluation'):raise ValueError('partition')
-        if row['subject'] in people and people[row['subject']]!=row['partition']:raise ValueError('subject leakage between partitions')
-        people[row['subject']]=row['partition']
         kind=row['kind'];score=float(row['score'])
+        subjects=row['subject'].split(';')
+        if (any(not s or len(s)>80 for s in subjects) or len(set(subjects))!=len(subjects)
+                or len(subjects)!=(2 if kind=='impostor' else 1)):raise ValueError('all comparison participants required')
+        for subject in subjects:
+            if subject in people and people[subject]!=row['partition']:raise ValueError('subject leakage between partitions')
+            people[subject]=row['partition']
         if not math.isfinite(score):raise ValueError('non-finite score')
         if kind in ('genuine','impostor'):
             if not -1<=score<=1:raise ValueError('face score')

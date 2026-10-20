@@ -347,7 +347,9 @@ OpenBao, separata operatörsroller, TLS-workers, rotation, gallring och larm.
 `evaluate_biometrics.py` läser en privat CSV med kolumnerna
 `sample,subject,partition,kind,score`. Använd studiekoder, inte namn.
 `partition` är `calibration` eller `evaluation`; samma person får inte förekomma
-i båda. `kind` är `genuine`, `impostor`, `bona_fide` eller `attack`.
+i båda. `kind` är `genuine`, `impostor`, `bona_fide` eller `attack`. En
+`impostor`-jämförelse anger båda personkoderna i `subject`, separerade med
+semikolon. Övriga typer anger en personkod.
 Filen ska ha läge 0600. Välj trösklar från kalibreringsmaterialet och lås dem
 innan utvärderingsmaterialet används:
 
