@@ -34,7 +34,7 @@ def identifier(value):
 
 class Wallet:
     def __init__(self, path, origin, clock=time.time, crypto=device_crypto):
-        self.path, self.origin, self.clock, self.crypto = Path(path), origin, clock, crypto
+        self.path, self.origin, self.clock, self.crypto = Path(path).absolute(), origin, clock, crypto
         if self.path.is_symlink() or self.path.parent.is_symlink(): raise ValueError('database symlink')
         self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         if self.path.parent.stat().st_mode & 0o077: raise ValueError('database directory must be private (0700)')
@@ -68,6 +68,10 @@ class Wallet:
                     secret_hash TEXT NOT NULL, state TEXT NOT NULL, created INTEGER NOT NULL,
                     expires INTEGER NOT NULL, code TEXT NOT NULL, binding TEXT NOT NULL,
                     audience TEXT NOT NULL);
+                CREATE INDEX IF NOT EXISTS request_pending ON requests(credential,state,expires);
+                CREATE INDEX IF NOT EXISTS event_recent ON events(credential,id DESC);
+                CREATE INDEX IF NOT EXISTS profile_person ON profiles(person);
+                CREATE INDEX IF NOT EXISTS federation_pending ON federation_requests(state,expires);
             ''')
 
     @contextmanager
@@ -86,6 +90,13 @@ class Wallet:
                 if db.in_transaction: db.execute('ROLLBACK')
                 raise
             finally: db.close()
+
+    def health(self):
+        # Readiness must not wait behind a writer or create a missing database.
+        if not self.path.is_file() or self.path.is_symlink(): raise ValueError('database unavailable')
+        with sqlite3.connect(self.path.as_uri()+'?mode=ro', uri=True, timeout=0.1) as db:
+            if db.execute('SELECT 1 FROM profiles LIMIT 1').fetchone(): self.vault.key()
+            db.execute('SELECT 1 FROM credentials LIMIT 1').fetchone()
 
     def event(self, db, credential, kind, request=None):
         db.execute('INSERT INTO events(credential,kind,time,request) VALUES(?,?,?,?)',

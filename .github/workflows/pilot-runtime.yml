@@ -1,0 +1,50 @@
+name: Private pilot runtime
+on:
+  push:
+    branches: [main, 'feat/**']
+    paths: ['deployment/**', 'verification/**', 'prototype/**', '.github/workflows/pilot-runtime.yml']
+  pull_request:
+    paths: ['deployment/**', 'verification/**', 'prototype/**', '.github/workflows/pilot-runtime.yml']
+permissions:
+  contents: read
+jobs:
+  container:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Build pinned private pilot image
+        run: docker build --tag openid-pilot:ci --file deployment/Dockerfile .
+      - name: Prepare generated certificates and private volumes
+        run: |
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=Generated-test-CSCA -keyout "$RUNNER_TEMP/test-csca.key" -out "$RUNNER_TEMP/test-csca.pem"
+          python3 deployment/setup.py --directory "$RUNNER_TEMP/openid-pilot" --address 127.0.0.1 --team ABCDEFGHIJ --csca "$RUNNER_TEMP/test-csca.pem"
+          chmod 700 "$RUNNER_TEMP/openid-pilot"
+          echo "OPENID_DIRECTORY=$RUNNER_TEMP/openid-pilot" >> "$GITHUB_ENV"
+      - name: Run verifier with read-only filesystem and no network
+        run: |
+          docker run --detach --name openid-pilot --network none --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 128 --memory 2g --cpus 2 --user "$(id -u):$(id -g)" --tmpfs /tmp:size=128m,mode=1777 -v "$OPENID_DIRECTORY/runtime.json:/srv/openid/runtime.json:ro" -v "$OPENID_DIRECTORY/secrets:/srv/openid/secrets:ro" -v "$OPENID_DIRECTORY/data:/srv/openid/data" openid-pilot:ci
+          for attempt in $(seq 1 90); do
+            if docker exec openid-pilot python probe.py /srv/openid/runtime.json; then break; fi
+            sleep 1
+          done
+          docker exec openid-pilot python probe.py /srv/openid/runtime.json
+          docker exec openid-pilot node --version
+          docker exec openid-pilot java -version
+          if docker exec openid-pilot touch /app/must-not-write; then exit 1; fi
+          docker exec openid-pilot sh -c 'test ! -e /app/verification/test_runtime.py && test ! -e /app/verification/test_chip_fixture.py'
+      - name: Validate Compose configuration and collect package inventory
+        run: |
+          export OPENID_UID="$(id -u)" OPENID_GID="$(id -g)"
+          docker compose -f deployment/compose.yaml config --quiet
+          docker exec openid-pilot python -m pip inspect > "$RUNNER_TEMP/python-packages.json"
+          docker image inspect openid-pilot:ci --format '{{.Id}}'
+          docker stop --time 70 openid-pilot
+          test "$(docker inspect openid-pilot --format '{{.State.ExitCode}}')" = 0
+      - name: Logs and cleanup
+        if: always()
+        run: |
+          docker logs openid-pilot || true
+          docker rm --force openid-pilot || true

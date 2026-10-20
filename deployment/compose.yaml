@@ -1,0 +1,54 @@
+name: openid-pilot
+services:
+  verifier:
+    image: openid-pilot:local
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile
+    platform: linux/amd64
+    network_mode: host
+    user: "${OPENID_UID:-10001}:${OPENID_GID:-10001}"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 70s
+    cpus: 2
+    mem_limit: 2g
+    pids_limit: 128
+    ulimits:
+      nofile: {soft: 1024, hard: 1024}
+    tmpfs: [/tmp:size=128m,mode=1777]
+    volumes:
+      - ${OPENID_DIRECTORY:?Set OPENID_DIRECTORY}/runtime.json:/srv/openid/runtime.json:ro
+      - ${OPENID_DIRECTORY}/secrets:/srv/openid/secrets:ro
+      - ${OPENID_DIRECTORY}/data:/srv/openid/data
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+  test-service:
+    image: openid-pilot:local
+    platform: linux/amd64
+    network_mode: host
+    user: "${OPENID_UID:-10001}:${OPENID_GID:-10001}"
+    entrypoint: [python, relying_party.py]
+    command: [--db, /srv/openid/data/wallet.sqlite]
+    depends_on:
+      verifier: {condition: service_healthy}
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    init: true
+    restart: unless-stopped
+    cpus: 1
+    mem_limit: 256m
+    pids_limit: 32
+    tmpfs: [/tmp:size=16m,mode=1777]
+    volumes:
+      - ${OPENID_DIRECTORY}/data:/srv/openid/data
+    healthcheck:
+      disable: true
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}

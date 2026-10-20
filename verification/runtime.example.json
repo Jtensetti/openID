@@ -1,0 +1,12 @@
+{
+  "bind": "192.168.1.20",
+  "origin": "https://192.168.1.20:8765",
+  "team": "ABCDEFGHIJ",
+  "bundle": "se.openid.PassportCapture",
+  "developmentAttestation": true,
+  "tlsCert": "/srv/openid/secrets/server.pem",
+  "tlsKey": "/srv/openid/secrets/server-key.pem",
+  "csca": "/srv/openid/secrets/trusted-csca.pem",
+  "database": "/srv/openid/data/wallet.sqlite",
+  "pairingFile": "/srv/openid/secrets/pairing"
+}
