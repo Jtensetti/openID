@@ -1,0 +1,5 @@
+prototype/mvnw text eol=lf
+prototype/mvnw.cmd text eol=crlf
+prototype/scripts/*.sh text eol=lf
+prototype/evidence/bom.json linguist-generated=true
+prototype/dependencies.lock.json linguist-generated=true

@@ -2,6 +2,8 @@
 
 **Designförslag, inte en implementerad eller godkänd lösning.** Datum: 2026-10-19. Krav hänvisar till [kravmatrisen](02-kravmatris.md); primärkällor till [SOURCES.md](SOURCES.md).
 
+Den avgränsade G1-labben i [prototype/](../prototype/README.md) implementerar endast ett lokalt SAML-flöde och en simulerad livscykelmodell. Den större produktarkitekturen nedan är fortsatt ett förslag; särskilt gäller detta enheter, HSM, verklig utgivning, distribuerad spärr och drift.
+
 ## 1. Avgränsning och beslut som återstår
 
 Första målet är att i en isolerad miljö visa en korrekt kedja från syntetisk identitet via autentisering till verifierbart federationssvar. Därefter prövas verklig utgivning, enheter, underskrift och drift var för sig. Tillitsnivå 3 är ett produktmål, inte ett attribut som vi får sätta på en demo.

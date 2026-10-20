@@ -1,0 +1,9 @@
+<!doctype html><html lang="sv" xmlns:th="http://www.thymeleaf.org"><head><meta charset="utf-8"><title>Simulerad e-id-labb</title></head><body>
+<h1>Simulerad e-id — endast test</h1><p>Identitetskontrollen är simulerad. Inga riktiga identiteter verifieras. Ingen Digg-godkänd tillitsnivå.</p>
+<p>Åtgärd: logga in hos <strong>Lokal syntetisk testtjänst</strong>.</p><p>Verifierad motpart: <code th:text="${requester}"></code></p>
+<form method="post" th:action="@{/lab}">
+<input type="hidden" name="authnId" th:value="${authnId}">
+<label>Testidentitet <select name="credential"><option value="TEST-CREDENTIAL-alice">SYNTHETIC-alice (aktiv)</option><option value="TEST-CREDENTIAL-revoked">SYNTHETIC-revoked (spärrad)</option><option value="TEST-CREDENTIAL-expired">SYNTHETIC-expired (utgången)</option></select></label>
+<p><label><input type="checkbox" name="simulatedProofing" value="acknowledged">Jag förstår att identitetskontroll och innehavarautentisering är simulerade.</label></p>
+<button name="action" value="approve">Godkänn testinloggning</button> <button name="action" value="cancel">Avbryt</button>
+</form><p>Flödet löper ut efter 60 sekunder.</p></body></html>

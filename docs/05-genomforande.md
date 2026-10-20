@@ -1,6 +1,6 @@
 # Genomförandeplan och teststrategi
 
-Datum: 2026-10-19. **Alla nedanstående aktiviteter är planerade, inte genomförda**, om inte ett framtida separat resultat uttryckligen visar något annat. Dokumentation och agent-skills finns i repot; en e-id-produkt gör det inte.
+Datum: 2026-10-19. Planen nedan behåller sina beslutspunkter. **G1 har nu en körbar lokal implementation** för P0-02–P0-05 i [prototype/](../prototype/README.md), med exakt scope, tester och avvikelser i [verifieringsrapporten](../prototype/evidence/verification.md). Övriga aktiviteter är planerade om inget separat resultat anges. En komplett e-id-produkt eller oberoende accepterad grind finns inte.
 
 ## 1. Två parallella spår
 

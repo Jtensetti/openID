@@ -1,6 +1,6 @@
 # Återanvändning: Sweden Connect, Digg och Ena
 
-Kontrollerat 2026-10-19. Käll-ID och lästa README-versioner finns i [SOURCES.md](SOURCES.md). **Detta är en dokumentationsinventering, inte en revision av koden. Inga komponenter har ännu importerats, kompilerats eller godkänts för produktion.**
+Kontrollerat 2026-10-19. Käll-ID och lästa README-versioner finns i [SOURCES.md](SOURCES.md). **Tabellen nedan är den ursprungliga dokumentationsinventeringen.** Den efterföljande G1-implementationens faktiska val, kompilerade versioner och lästa licenser finns i [THIRD_PARTY.md](../THIRD_PARTY.md) och [verifieringsrapporten](../prototype/evidence/verification.md). Ingen komponent är godkänd för produktion genom denna labb.
 
 ## 1. Rekommenderad riktning
 

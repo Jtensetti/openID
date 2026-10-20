@@ -49,7 +49,7 @@ Flera skills kan behövas samtidigt. En ändring i autentiseringsflödet som äv
 
 `swedenconnect/saml-identity-provider` är i den kontrollerade README-versionen ersatt av `swedenconnect/spring-authentication-server`. Bekräfta upstream-status igen före versionsval. Referensautentisering och testklienter är inte verklig utgivning.
 
-Tredjepartskod kräver dokumenterad revision, licens, attribution, beroenden och uppdateringsägare. Importera inte ett helt mallrepos CI-konfiguration utan granskning. Dokumenterade testkommandon ska vara kommandon som faktiskt finns i den aktuella implementationen; just nu finns inga implementations- eller produktionsbyggkommandon.
+Tredjepartskod kräver dokumenterad revision, licens, attribution, beroenden och uppdateringsägare. Importera inte ett helt mallrepos CI-konfiguration utan granskning. Dokumenterade testkommandon ska vara kommandon som faktiskt finns i den aktuella implementationen. Lokala bygg-/testkommandon finns nu i `prototype/README.md`; inga produktionsbygg- eller driftskommandon finns.
 
 Kör relevanta tester när verktygen medger det. Redovisa exakt vad som kördes och vad som inte kunde köras. Öka inte status i kravmatrisen utan motsvarande bevis och korrekt beslutsfattare.
 
