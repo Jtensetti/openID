@@ -131,8 +131,24 @@ containern ovan innehåller endast autentisering och driftverktyg.
 
 SQLite-registret migreras inte automatiskt. Börja med ett separat register
 och nyregistrering; kopiera inte SQLite-rader med lokala profilnycklar in i
-PostgreSQL. Den lokala testtjänsten och den befintliga SAML-socketbryggan
-startas fortfarande med SQLite; deras klusterdriftsättning ingår inte här.
+PostgreSQL. Den enklare HTTP-testtjänsten använder fortfarande SQLite.
+SAML-bryggan kan däremot anslutas till det delade registret enligt nedan.
+
+## SAML-brygga
+
+Kör `cluster_bridge.py --config /srv/openid/federation.json` bredvid den
+befintliga Java-IdP:n/SP:n. Konfigurationen innehåller samma fyra anslutningsfält
+som `maintenance.example.json`, men med ett separat wallet-konto och dess
+Transit-policy, samt `origin`, `socket` och exakt `audience`. Socketen ska
+ligga i en privat katalog med läge 0700. Ange dess absoluta sökväg i den
+befintliga SAML-startkonfigurationen enligt verifierarens README.
+
+Bryggan återanvänder `FederationServer` och Sweden Connect-flödet. Flera
+IdP-instanser kan ha var sin lokal brygga mot samma register. CI provar
+socketprotokollet med PostgreSQL, QR, godkännande i en annan instans,
+mottagar-/sessionsbindning, engångskonsumtion och spärr. Hela Java-/browserkedjan
+körs fortsatt mot SQLite i den separata federationssviten; extern federation
+eller redundant IdP-/SP-sessionhantering är inte verifierad.
 
 ## Operatörer
 

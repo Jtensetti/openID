@@ -116,7 +116,8 @@ Detta ändrar inte SQLite-lägets lokala administratörsrättigheter.
 [Driftinstruktionen](../deployment/cluster/README.md) beskriver roller,
 nyckelflöde, rotation, gallring och återställningsvillkor. Registreringens
 NFC-session har fortsatt en enda process. Klusterläget har separat register;
-SQLite-data och den lokala SAML-bryggan flyttas inte automatiskt.
+SQLite-data flyttas inte automatiskt. `cluster_bridge.py` ansluter det
+befintliga lokala SAML-socketprotokollet till PostgreSQL-registret.
 
 ## Förtroendegränser
 

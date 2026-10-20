@@ -185,6 +185,30 @@ class ClusterTests(unittest.TestCase):
         self.assertEqual('REVOKED',self.b.execute(self.signed())['state'])
         with self.b.transaction() as db:self.assertEqual(subject,self.b.federation_subject(db,'https://sp.invalid',person))
 
+    def test_federation_ipc_shared_registry_binding_replay_and_revocation(self):
+        from federation import FederationServer
+        import socket
+        self.activate();audience='https://localhost:8444/sp'
+        path=Path(tempfile.mkdtemp(dir=self.root))/'federation.sock'
+        bridge=FederationServer(path,self.a,audience);self.addCleanup(bridge.close)
+        def call(operation,**data):
+            with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as client:
+                client.settimeout(5);client.connect(str(path));client.sendall(json.dumps({'operation':operation,'audience':audience,**data}).encode()+b'\n')
+                with client.makefile('rb') as stream:return json.loads(stream.readline(100000))
+        self.assertTrue(call('health')['ok'])
+        request=call('start',binding='_signed_flow')['result']
+        args={'id':request['id'],'secret':request['secret'],'binding':'_signed_flow'}
+        self.assertIn('<svg',call('qr',**args)['result']['svg'])
+        self.b.execute(self.signed('approve',request['id']))
+        for change in ({'audience':'https://wrong.invalid'},{'binding':'wrong'},{'secret':'x'*43}):
+            self.assertFalse(call('consume',**(args|change))['ok'])
+        result=call('consume',**args)['result'];self.assertEqual('ALICE SYNTHETIC',result['identity']['displayName'])
+        self.assertFalse(call('consume',**args)['ok'])
+        check={'credentialId':self.ident,'subject':result['subject'],'version':result['version']}
+        self.assertTrue(call('check',**check)['ok'])
+        self.sql('revoker','SELECT revoke_credential(%s)',(self.ident,))
+        self.assertFalse(call('check',**check)['ok'])
+
     def test_parallel_proposals_have_single_winner(self):
         def attempt(_):
             try:self.sql('alice','SELECT request_activation(%s,%s,%s)',(self.ident,'REVIEW-concurrent',24));return True

@@ -5,9 +5,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=node /usr/local/LICENSE /usr/share/doc/nodejs/LICENSE
 WORKDIR /app/verification
-COPY verification/cluster-requirements.lock verification/runtime-requirements.lock ./
-RUN pip install --no-cache-dir --require-hashes --only-binary=:all: -r cluster-requirements.lock -r runtime-requirements.lock
-COPY verification/cluster_serve.py verification/cluster_operator.py verification/postgres.py verification/transit.py verification/maintenance.py verification/monitor.py verification/runtime.py verification/serve.py verification/native.py verification/wallet.py verification/identity.py verification/crypto_runtime.py ./
+COPY verification/cluster-requirements.lock verification/runtime-requirements.lock verification/rp-requirements.lock ./
+RUN pip install --no-cache-dir --require-hashes --only-binary=:all: -r cluster-requirements.lock -r runtime-requirements.lock -r rp-requirements.lock
+COPY verification/cluster_bridge.py verification/federation.py verification/cluster_serve.py verification/cluster_operator.py verification/postgres.py verification/transit.py verification/maintenance.py verification/monitor.py verification/runtime.py verification/serve.py verification/native.py verification/wallet.py verification/identity.py verification/crypto_runtime.py ./
 COPY verification/crypto-worker.mjs verification/device-signature.mjs verification/profile-crypto.mjs ./
 COPY verification/licenses /app/licenses
 COPY verification/THIRD_PARTY.md /app/licenses/components.md
