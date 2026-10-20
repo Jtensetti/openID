@@ -151,6 +151,7 @@ för passfotots storlek respektive QR.
 ## Pilotens HTTP-server och container
 
 Gunicorn **26.2.0** låses med hjulhash i `runtime-requirements.lock`.
+Upstreamtaggen pekar på commit `36f2a3c1b80dfa41d70859d12c5bfbbdc23a3c38`.
 Basinstallationen har inga transitiva paketberoenden. MIT-licens och NOTICE
 finns i `licenses/gunicorn-*`; paket-SBOM i `runtime-sbom.cdx.json`.
 [Upstream](https://github.com/benoitc/gunicorn) var inte arkiverat vid kontrollen

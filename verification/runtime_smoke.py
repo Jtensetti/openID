@@ -126,6 +126,9 @@ def main():
                 assert request()[0]==503
                 process.send_signal(signal.SIGTERM)
                 assert process.wait(timeout=65)==0
+                restarted=subprocess.run([sys.executable,str(ROOT/'serve.py'),'--config',str(path),'--check'],
+                    stdout=log,stderr=log,timeout=65,check=False)
+                assert restarted.returncode==2 and not Path(config['database']).exists()
                 log.seek(0); output=log.read()
                 assert 'x'*43 not in output
                 assert '"x":NaN' not in output

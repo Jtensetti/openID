@@ -19,6 +19,7 @@ cd ../verification
 python3.12 -m venv .venv
 .venv/bin/pip install --require-hashes --only-binary=:all: -r requirements.lock
 .venv/bin/pip install --require-hashes --only-binary=:all: -r rp-requirements.lock
+.venv/bin/pip install --require-hashes --only-binary=:all: -r runtime-requirements.lock
 npm ci --ignore-scripts
 .venv/bin/python download_models.py
 .venv/bin/python server.py --csca /privat/sokvag/trusted-csca.pem
@@ -307,7 +308,7 @@ cd ../verification
 export PROOFING_FIXTURES=/tmp/openid-proofing-fixtures
 export PROOFING_JAVA="$JAVA_HOME/bin/java"
 export PROOFING_PYTHON="$PWD/.venv/bin/python"
-.venv/bin/python -m unittest -v test_verification test_native test_chip test_wallet test_relying_party test_identity
+.venv/bin/python -m unittest -v test_verification test_native test_chip test_wallet test_relying_party test_identity test_runtime test_crypto_runtime
 node --test test-attest.mjs
 node browser-test.cjs
 node rp-browser-test.cjs

@@ -88,7 +88,9 @@ signeringsutmaningar finns i processminnet.
 att databasen och eventuell profilnyckel är åtkomliga och att avstängning inte
 pågår. Readiness är ingen end-to-end-verifiering av identitetskontrollen.
 `GET /metrics` kräver kopplingskoden i `X-CSRF-Token` och ger räknare per
-känd route/status. Hälsokontroller kräver korrekt HTTPS och Host.
+känd route/status. Hälsokontroller kräver korrekt HTTPS och Host. Om databasen
+försvinner avvisas anrop och omstart; markören `wallet.initialized` förhindrar
+att tjänsten då skapar ett tomt register. Behåll markören i datavolymen.
 
 ```sh
 docker compose -f deployment/compose.yaml ps

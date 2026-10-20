@@ -83,6 +83,26 @@ class Lease:
         os.close(self.fd)
 
 
+def open_wallet(database, origin):
+    from wallet import Wallet
+    path = Path(database)
+    marker = path.with_suffix('.initialized')
+    if marker.exists() or marker.is_symlink():
+        if private_file(marker) != b'1\n' or not path.is_file():
+            raise ValueError('Previously initialized database is missing')
+    wallet = Wallet(path, origin)
+    wallet.health()
+    try: fd = os.open(marker, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    except FileExistsError: pass
+    else:
+        with os.fdopen(fd, 'wb') as stream:
+            stream.write(b'1\n'); stream.flush(); os.fsync(stream.fileno())
+        directory_fd = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try: os.fsync(directory_fd)
+        finally: os.close(directory_fd)
+    return wallet
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=Path, required=True)
@@ -94,9 +114,7 @@ def main():
     subprocess.run([sys.executable, str(ROOT/'biometric_worker.py'), '--check'],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=60)
     lease = Lease(config['database'])
-    from wallet import Wallet
-    wallet = Wallet(config['database'], config['origin'])
-    wallet.health()
+    wallet = open_wallet(config['database'], config['origin'])
     if args.check:
         lease.close()
         print('Configuration, models and database checked. Physical iPhone verification is separate.')

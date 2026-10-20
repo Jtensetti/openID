@@ -9,7 +9,7 @@ from unittest.mock import Mock
 from runtime import Runtime, RateLimit, validate_origin
 from wallet import Wallet
 from recovery import backup, restore
-from serve import Lease, reject_duplicate_headers
+from serve import Lease, reject_duplicate_headers, open_wallet
 
 
 class RuntimeTests(unittest.TestCase):
@@ -144,9 +144,19 @@ class RecoveryTests(unittest.TestCase):
         Lease(self.wallet.path).close()
 
     def test_health_does_not_recreate_deleted_database(self):
+        import sqlite3
         self.wallet.path.unlink()
         with self.assertRaises(ValueError): self.wallet.health()
+        with self.assertRaises(sqlite3.OperationalError):
+            with self.wallet.transaction(): pass
         self.assertFalse(self.wallet.path.exists())
+
+    def test_restart_does_not_reinitialize_a_lost_database(self):
+        wallet = open_wallet(self.wallet.path, self.wallet.origin)
+        open_wallet(wallet.path, wallet.origin).health()
+        wallet.path.unlink()
+        with self.assertRaises(ValueError): open_wallet(wallet.path, wallet.origin)
+        self.assertFalse(wallet.path.exists())
 
 
 class EncryptedRecoveryTests(unittest.TestCase):

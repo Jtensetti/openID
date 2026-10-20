@@ -77,13 +77,13 @@ class Wallet:
     @contextmanager
     def transaction(self):
         with self.lock:
-            db = sqlite3.connect(self.path, timeout=10, isolation_level=None)
-            db.row_factory = sqlite3.Row
-            db.execute('PRAGMA foreign_keys=ON')
-            db.execute('PRAGMA synchronous=FULL')
-            db.execute('PRAGMA secure_delete=ON')
-            db.execute('BEGIN IMMEDIATE')
+            db = sqlite3.connect(self.path.as_uri()+'?mode=rw', uri=True, timeout=10, isolation_level=None)
             try:
+                db.row_factory = sqlite3.Row
+                db.execute('PRAGMA foreign_keys=ON')
+                db.execute('PRAGMA synchronous=FULL')
+                db.execute('PRAGMA secure_delete=ON')
+                db.execute('BEGIN IMMEDIATE')
                 yield db
                 if db.in_transaction: db.execute('COMMIT')
             except BaseException:
