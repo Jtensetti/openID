@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>openID · pass och person</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
+<body><main>
+<nav><strong>openID<span> / verifiering</span></strong><span class="badge">LOKAL ARBETSYTA</span></nav>
+<header><h1>Pass- och ansiktskontroll</h1></header>
+<p class="notice">Analysverktyg för chipdata och kamerabilder. Använd iPhone-appen för registrering.</p>
+<form id="verification">
+<div class="grid"><section><h2>Chipfiler</h2><p>Välj binärfilerna från NFC-läsningen.</p>
+<label>EF.SOD · signerad säkerhetsinformation<input type="file" id="sod" required></label>
+<label>DG1 · maskinläsbara passuppgifter<input type="file" id="dg1" required></label>
+<label>DG2 · signerat ansiktsporträtt<input type="file" id="dg2" required></label>
+</section>
+<section><h2>Kamerabild</h2><p>Titta rakt mot kameran i jämnt ljus.</p>
+<div class="camera"><video id="camera" autoplay playsinline muted hidden></video><p id="placeholder">Kameran är avstängd</p></div>
+<button type="button" id="open-camera" class="secondary">Öppna kameran</button><button type="button" id="close-camera" class="secondary" hidden>Stäng kameran</button>
+<p id="camera-status" role="status"></p></section></div>
+<section><h2>Starta kontrollen</h2><p>En bild tas när du startar. Chipfiler och bild behandlas på den här datorn utan att sparas.</p>
+<label class="consent"><input type="checkbox" id="consent" required> Jag vill bearbeta mitt pass och min kamerabild för denna lokala jämförelse.</label>
+<button id="verify" type="submit" disabled>Ta bild och verifiera underlaget</button><p id="status" role="status" aria-live="polite">Ansluter till den lokala verifieraren…</p>
+<div id="result" hidden><h3>Resultat</h3><dl><dt>Signaturkedja och DG1/DG2</dt><dd id="passport-result"></dd><dt>Ansiktslikhet · −1 till 1</dt><dd id="face-result"></dd><dt>Liveness · 0 till 1</dt><dd id="pad-result"></dd></dl><p class="muted">Modellvärdena är inte kalibrerade för identitetsbeslut. Webbläsaren styrker inte bildens ursprung.</p></div>
+</section></form><footer>Verktyget utfärdar ingen e-legitimation.</footer>
+</main></body></html>

@@ -12,7 +12,7 @@ Projektspecifik originalinstruktion. Inte officiell vägledning eller en ersätt
 
 ## Börja här
 
-Läs `AGENTS.md`, `docs/SOURCES.md`, `docs/01-avtal-och-affarsmodell.md` och berörda rader i `docs/02-kravmatris.md`. Fastställ vilken utfärdare, produkt, tillitsnivå, utgivningsmetod och tidpunkt uppgiften gäller. Saknas dessa uppgifter, markera antaganden och avgränsa arbetet utan att konstruera ett godkännande.
+Läs `AGENTS.md`, `docs/SOURCES.md` och berörda rader i `docs/krav.md`. Fastställ vilken utfärdare, produkt, tillitsnivå, utgivningsmetod och tidpunkt uppgiften gäller. Saknas dessa uppgifter, markera antaganden och avgränsa arbetet utan att konstruera ett godkännande.
 
 ## Arbetsgång
 
@@ -21,7 +21,7 @@ Läs `AGENTS.md`, `docs/SOURCES.md`, `docs/01-avtal-och-affarsmodell.md` och ber
 3. Extrahera det minsta relevanta kravet med exakt avsnitt. Skilj på kravtext, vår tolkning och ett eget designförslag. Återge inte hela externa dokument när en hänvisning och kort sammanfattning räcker.
 4. Knyt påståendet till stabilt krav-ID. Lägg till bevis som behövs, ansvarig funktion, kontrollmetod och kvarvarande osäkerhet.
 5. Kontrollera beroenden: andra tillitsnivåer, alternativa utgivningsmetoder, avtalsbilagor, underleverantörer och undantag. Ett villkor som gäller statlig utgivning får inte automatiskt användas som stöd för privat utgivning.
-6. Vid motstridiga eller oklara källor: dokumentera konflikten och formulera en konkret fråga i `docs/06-fragor-till-digg.md`. Skriv inte en bekväm tolkning som ett fastställt faktum.
+6. Vid motstridiga eller oklara källor: dokumentera konflikten vid berört krav i `docs/krav.md`. Hantera kontaktutkast separat från den publika dokumentationen. Skriv inte en bekväm tolkning som ett fastställt faktum.
 7. Uppdatera analysen och kravmatrisen. Status får bara höjas när motsvarande bevis faktiskt finns.
 
 ## Granskningsfrågor

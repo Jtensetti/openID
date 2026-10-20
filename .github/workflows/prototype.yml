@@ -1,10 +1,10 @@
-name: Isolated synthetic e-id lab
+name: Server and authentication tests
 on:
   push:
     branches: [main, 'feat/**']
-    paths: ['prototype/**', '.github/workflows/prototype.yml']
+    paths: ['prototype/**', 'ops/**', 'verification/**', '.github/workflows/prototype.yml']
   pull_request:
-    paths: ['prototype/**', '.github/workflows/prototype.yml']
+    paths: ['prototype/**', 'ops/**', 'verification/**', '.github/workflows/prototype.yml']
 permissions:
   contents: read
 jobs:
@@ -26,12 +26,16 @@ jobs:
           tar --extract --gzip --file "$RUNNER_TEMP/lab-jdk.tar.gz" --directory "$RUNNER_TEMP"
           printf 'JAVA_HOME=%s\n' "$RUNNER_TEMP/jdk-21.0.12.1+1" >> "$GITHUB_ENV"
           printf '%s\n' "$RUNNER_TEMP/jdk-21.0.12.1+1/bin" >> "$GITHUB_PATH"
-      - name: Compile, real HTTPS flows, adversarial SAML and lifecycle tests
+      - name: Compile and test HTTPS, SAML and lifecycle
         run: ./mvnw -B -ntp clean verify dependency:list -DoutputAbsoluteArtifactFilename=true -DoutputFile=target/dependencies.txt
       - name: Verify resolved versions and SHA-256 checksums
         run: python3 scripts/dependencies.py
       - name: Packaged CLI smoke test with certificate verification
         run: python3 scripts/smoke.py
+      - name: Restart, durable revocation, backup and restore drill
+        run: python3 scripts/recovery-smoke.py
+      - name: Deployment container HTTP and negative route tests
+        run: python3 -m unittest discover -s ../ops/tests -v
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '24.19.0'
@@ -39,5 +43,27 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Install Chromium for the pinned Playwright version
         run: npx --no-install playwright install --with-deps chromium --only-shell
-      - name: Real browser login, logout and revocation
+      - name: Browser SAML, WebAuthn USB/platform, PWA and revocation
         run: npm run test:browser
+
+      - name: Install locked local verification dependencies and models
+        working-directory: verification
+        run: |
+          python3.12 -m venv .venv
+          .venv/bin/pip install --require-hashes --only-binary=:all: -r requirements.lock
+          .venv/bin/pip install --require-hashes --only-binary=:all: -r rp-requirements.lock
+          npm ci --ignore-scripts
+          .venv/bin/python download_models.py
+      - name: Export generated passport fixtures and ensure executable packaging
+        run: ./mvnw -B -ntp -Dtest=PassportVerifierTest -Dproofing.fixtureDirectory=/tmp/openid-proofing-fixtures test package spring-boot:repackage
+      - name: Test verifier, PAD, native binding and rejection cases
+        working-directory: verification
+        run: |
+          export PROOFING_FIXTURES=/tmp/openid-proofing-fixtures
+          export PROOFING_JAVA="$JAVA_HOME/bin/java"
+          export PROOFING_PYTHON="$PWD/.venv/bin/python"
+          .venv/bin/python -m unittest -v test_verification test_native test_wallet test_relying_party test_identity
+          node --test test-attest.mjs
+          node browser-test.cjs
+          node rp-browser-test.cjs
+          node federation-browser-test.cjs

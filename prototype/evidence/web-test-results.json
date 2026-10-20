@@ -1,0 +1,598 @@
+{
+  "checkedAt": "2026-10-19T12:59:22.655844+00:00",
+  "command": "./mvnw -B -ntp verify dependency:list -DoutputAbsoluteArtifactFilename=true -DoutputFile=target/dependencies.txt",
+  "java": "Temurin 21.0.12.1+1",
+  "maven": "3.9.11",
+  "suites": [
+    {
+      "suite": "lab.FlowTest",
+      "tests": 45,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "name": "signedEncryptedLoginWorks",
+          "passed": true
+        },
+        {
+          "name": "readinessUsesThePersistentRegistry",
+          "passed": true
+        },
+        {
+          "name": "wrongDestinationWithValidSignatureIsDenied",
+          "passed": true
+        },
+        {
+          "name": "untrustedInputDoesNotLeakIntoLogs",
+          "passed": true
+        },
+        {
+          "name": "relayStateCannotBeReplaced",
+          "passed": true
+        },
+        {
+          "name": "revokeBetweenApprovalAndResumeIsEnforced",
+          "passed": true
+        },
+        {
+          "name": "assertionIsBoundToBrowserSession",
+          "passed": true
+        },
+        {
+          "name": "approvalRequiresSameOrigin",
+          "passed": true
+        },
+        {
+          "name": "invalidCredentialsCannotLogin(String)[1]",
+          "passed": true
+        },
+        {
+          "name": "invalidCredentialsCannotLogin(String)[2]",
+          "passed": true
+        },
+        {
+          "name": "invalidCredentialsCannotLogin(String)[3]",
+          "passed": true
+        },
+        {
+          "name": "invalidCredentialsCannotLogin(String)[4]",
+          "passed": true
+        },
+        {
+          "name": "unsignedRequestIsDenied",
+          "passed": true
+        },
+        {
+          "name": "approvalRequiresCsrf",
+          "passed": true
+        },
+        {
+          "name": "parallelResponseConsumptionSucceedsOnce",
+          "passed": true
+        },
+        {
+          "name": "corruptRequestSignatureIsDenied",
+          "passed": true
+        },
+        {
+          "name": "cancellationCannotLogin",
+          "passed": true
+        },
+        {
+          "name": "futureSignedAssertionIsDenied",
+          "passed": true
+        },
+        {
+          "name": "oldSignedResponseIsDenied",
+          "passed": true
+        },
+        {
+          "name": "staleRequestIsDenied",
+          "passed": true
+        },
+        {
+          "name": "approvalCannotBeReplayed",
+          "passed": true
+        },
+        {
+          "name": "authnIdIsBoundToBrowserSession",
+          "passed": true
+        },
+        {
+          "name": "signedUnrequestedAttributesAreDenied",
+          "passed": true
+        },
+        {
+          "name": "futureRequestIsDenied",
+          "passed": true
+        },
+        {
+          "name": "unsignedAssertionInsideSignedResponseIsDenied",
+          "passed": true
+        },
+        {
+          "name": "wrongInResponseToWithValidSignatureIsDenied",
+          "passed": true
+        },
+        {
+          "name": "wrongRecipientWithValidSignatureIsDenied",
+          "passed": true
+        },
+        {
+          "name": "wrongAudienceWithValidSignatureIsDenied",
+          "passed": true
+        },
+        {
+          "name": "validlyResignedControlStillWorks",
+          "passed": true
+        },
+        {
+          "name": "wrongTrustAnchorIsDenied",
+          "passed": true
+        },
+        {
+          "name": "wrongIssuerIsDeniedEvenWhenRequestIsSigned",
+          "passed": true
+        },
+        {
+          "name": "responseCannotBeReplayed",
+          "passed": true
+        },
+        {
+          "name": "corruptResponseSignatureIsDenied",
+          "passed": true
+        },
+        {
+          "name": "expiredSignedAssertionIsDenied",
+          "passed": true
+        },
+        {
+          "name": "sha1IsDeniedEvenWhenSignatureIsMathematicallyCorrect",
+          "passed": true
+        },
+        {
+          "name": "futureSignedResponseIsDenied",
+          "passed": true
+        },
+        {
+          "name": "elevatedContextInSignedResponseIsDenied",
+          "passed": true
+        },
+        {
+          "name": "replacementCannotResurrectOldSessionOrPendingResponse",
+          "passed": true
+        },
+        {
+          "name": "realAssuranceLevelCannotBeRequested",
+          "passed": true
+        },
+        {
+          "name": "xxeDoesNotMakeANetworkRequest",
+          "passed": true
+        },
+        {
+          "name": "simulationMustBeAcknowledged",
+          "passed": true
+        },
+        {
+          "name": "requestCannotBeReplayed",
+          "passed": true
+        },
+        {
+          "name": "unregisteredAcsIsDeniedEvenWhenRequestIsSigned",
+          "passed": true
+        },
+        {
+          "name": "logoutRequiresCsrfAndEndsSession",
+          "passed": true
+        },
+        {
+          "name": "revokeInvalidatesActiveSessionAndPendingLogin",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "suite": "lab.OfflineReportTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "name": "stockholmMonthBoundaryAndYearChangeAreExplicit",
+          "passed": true
+        },
+        {
+          "name": "conflictingDuplicateBlocksReconciliation",
+          "passed": true
+        },
+        {
+          "name": "testTrafficCannotBecomeAClaim",
+          "passed": true
+        },
+        {
+          "name": "emptyMonthIsOnlyAnInternalReconciliation",
+          "passed": true
+        },
+        {
+          "name": "cancellationFailureAndDuplicatesAreNotCompletedLogins",
+          "passed": true
+        },
+        {
+          "name": "personalIdentifiersAndUnknownTransactionsAreRejected",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "suite": "lab.PersistentRegistryTest",
+      "tests": 20,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "name": "oldBackupCannotResurrectARevokedCredential",
+          "passed": true
+        },
+        {
+          "name": "terminalEventsAreDurableDeduplicatedAndConflictsAreRejected",
+          "passed": true
+        },
+        {
+          "name": "revocationSurvivesRestartWithoutReseeding",
+          "passed": true
+        },
+        {
+          "name": "worldReadableStateAndSymlinkDirectoriesAreRejected",
+          "passed": true
+        },
+        {
+          "name": "replacementAndRevocationCommitTogether",
+          "passed": true
+        },
+        {
+          "name": "publicKeyAndSignatureCounterSurviveOrderlyRestart",
+          "passed": true
+        },
+        {
+          "name": "restoringAnOldPublicKeyBackupNeverRestoresItsUsability",
+          "passed": true
+        },
+        {
+          "name": "initNeverOverwritesExistingRevocations",
+          "passed": true
+        },
+        {
+          "name": "missingDatabaseIsNeverRecreatedAtStartup",
+          "passed": true
+        },
+        {
+          "name": "schemaOneMigratesWithoutLosingRevocations",
+          "passed": true
+        },
+        {
+          "name": "orderlyRestartKeepsExistingValidityAndDoesNotExtendLifetime",
+          "passed": true
+        },
+        {
+          "name": "uncleanShutdownRevokesBeforeAnyAuthentication",
+          "passed": true
+        },
+        {
+          "name": "productionMarkerIsRejected",
+          "passed": true
+        },
+        {
+          "name": "incompatibleSchemaAndCorruptionFailClosed",
+          "passed": true
+        },
+        {
+          "name": "auditAndOutcomesCannotBeEditedThroughOrdinarySql",
+          "passed": true
+        },
+        {
+          "name": "backupDoesNotOverwriteAndContainsOnlyRegistryAndPublicKeys",
+          "passed": true
+        },
+        {
+          "name": "enrollmentAndAuditCommitAtomically",
+          "passed": true
+        },
+        {
+          "name": "concurrentRevocationIsIdempotentAndDurable",
+          "passed": true
+        },
+        {
+          "name": "auditFailureRollsBackStateAndDisablesAllAuthentication",
+          "passed": true
+        },
+        {
+          "name": "aSecondProcessCannotUseStaleInMemoryState",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "suite": "lab.SyntheticRegistryTest",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "name": "unknownCredentialIsDenied",
+          "passed": true
+        },
+        {
+          "name": "revokeAndAuthenticationHaveOneOrdering",
+          "passed": true
+        },
+        {
+          "name": "noReplayOfProofingDecision",
+          "passed": true
+        },
+        {
+          "name": "noDuplicateCredential",
+          "passed": true
+        },
+        {
+          "name": "cancelledIssuanceLeavesNoUsableCredential",
+          "passed": true
+        },
+        {
+          "name": "wrongPersonCannotReplaceCredential",
+          "passed": true
+        },
+        {
+          "name": "noRealIdentityInput",
+          "passed": true
+        },
+        {
+          "name": "noActivationWithoutSimulatedProofing",
+          "passed": true
+        },
+        {
+          "name": "revokedCredentialCannotReactivate",
+          "passed": true
+        },
+        {
+          "name": "noProofingForDifferentPerson",
+          "passed": true
+        },
+        {
+          "name": "expirationIsEnforcedAtDecisionTime",
+          "passed": true
+        },
+        {
+          "name": "replacementNeedsNewProofingAndRevokesOld",
+          "passed": true
+        },
+        {
+          "name": "noExpiredActivation",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "suite": "lab.WebAuthnFlowTest",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "name": "registrationNeedsCsrfOriginAndExplicitAcknowledgement",
+          "passed": true
+        },
+        {
+          "name": "registrationUsesRealHttpsAndRotatesSession",
+          "passed": true
+        },
+        {
+          "name": "webAuthnLeadsToSignedEncryptedSamlAndCannotBeReplayed",
+          "passed": true
+        },
+        {
+          "name": "simulationButtonCannotBypassWebAuthn",
+          "passed": true
+        },
+        {
+          "name": "finishRequiresCsrfOriginAndSamlSessionBinding",
+          "passed": true
+        },
+        {
+          "name": "walletAndApprovalHaveRestrictiveBrowserHeaders",
+          "passed": true
+        },
+        {
+          "name": "storedWebAuthnKeyCannotBeUsedInLegacyApprovalMode",
+          "passed": true
+        },
+        {
+          "name": "revocationInvalidatesPendingChallengeAndExistingSpSession",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "suite": "lab.WebAuthnServiceTest",
+      "tests": 40,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "name": "wrongOriginsFailRegistrationAndAssertion(String)[1]",
+          "passed": true
+        },
+        {
+          "name": "wrongOriginsFailRegistrationAndAssertion(String)[2]",
+          "passed": true
+        },
+        {
+          "name": "wrongOriginsFailRegistrationAndAssertion(String)[3]",
+          "passed": true
+        },
+        {
+          "name": "wrongOriginsFailRegistrationAndAssertion(String)[4]",
+          "passed": true
+        },
+        {
+          "name": "revokeDuringAuthenticationPreventsAuthentication",
+          "passed": true
+        },
+        {
+          "name": "expiredCredentialPreventsAuthentication",
+          "passed": true
+        },
+        {
+          "name": "corruptedSignatureOrUnboundKeyFails(String)[1]",
+          "passed": true
+        },
+        {
+          "name": "corruptedSignatureOrUnboundKeyFails(String)[2]",
+          "passed": true
+        },
+        {
+          "name": "corruptedSignatureOrUnboundKeyFails(String)[3]",
+          "passed": true
+        },
+        {
+          "name": "sameKeyIdentifierCannotBeRegisteredForAnotherIdentity",
+          "passed": true
+        },
+        {
+          "name": "changedBackupEligibilityFails",
+          "passed": true
+        },
+        {
+          "name": "authenticationIsSessionBoundAndOneTime",
+          "passed": true
+        },
+        {
+          "name": "disabledWebAuthnCannotIssueOptions",
+          "passed": true
+        },
+        {
+          "name": "explicitSimulationAcknowledgementIsRequired",
+          "passed": true
+        },
+        {
+          "name": "registeredCredentialCannotBeOverwritten",
+          "passed": true
+        },
+        {
+          "name": "wrongRpIdHashFailsBothCeremonies",
+          "passed": true
+        },
+        {
+          "name": "assertionChallengeExpiresAtDeadline",
+          "passed": true
+        },
+        {
+          "name": "wellFormedSignatureFromAnotherPrivateKeyFails",
+          "passed": true
+        },
+        {
+          "name": "registrationChallengeExpiresAtDeadline",
+          "passed": true
+        },
+        {
+          "name": "keyRegistrationAndSignedAssertionWorkWithoutVendorAttestation",
+          "passed": true
+        },
+        {
+          "name": "syncedCounterlessKeysWorkButRegressedNonzeroCountersFail",
+          "passed": true
+        },
+        {
+          "name": "concurrentConsumptionSucceedsOnce",
+          "passed": true
+        },
+        {
+          "name": "malformedResponseIsRejectedAndConsumed(String)[1]",
+          "passed": true
+        },
+        {
+          "name": "malformedResponseIsRejectedAndConsumed(String)[2]",
+          "passed": true
+        },
+        {
+          "name": "malformedResponseIsRejectedAndConsumed(String)[3]",
+          "passed": true
+        },
+        {
+          "name": "malformedResponseIsRejectedAndConsumed(String)[4]",
+          "passed": true
+        },
+        {
+          "name": "unregisteredCredentialCannotAuthenticate",
+          "passed": true
+        },
+        {
+          "name": "registrationIsSessionBoundAndOneTime",
+          "passed": true
+        },
+        {
+          "name": "secondCeremonyInvalidatesFirstChallenge",
+          "passed": true
+        },
+        {
+          "name": "authenticationIsBoundToSamlFlowAndFailedAttemptConsumesChallenge",
+          "passed": true
+        },
+        {
+          "name": "invalidClientBindingsFailBothCeremonies(String)[1]",
+          "passed": true
+        },
+        {
+          "name": "invalidClientBindingsFailBothCeremonies(String)[2]",
+          "passed": true
+        },
+        {
+          "name": "invalidClientBindingsFailBothCeremonies(String)[3]",
+          "passed": true
+        },
+        {
+          "name": "invalidClientBindingsFailBothCeremonies(String)[4]",
+          "passed": true
+        },
+        {
+          "name": "revokeDuringRegistrationPreventsEnrollment",
+          "passed": true
+        },
+        {
+          "name": "missingPresenceVerificationOrInvalidBackupFlagsFailBothCeremonies(int)[1]",
+          "passed": true
+        },
+        {
+          "name": "missingPresenceVerificationOrInvalidBackupFlagsFailBothCeremonies(int)[2]",
+          "passed": true
+        },
+        {
+          "name": "missingPresenceVerificationOrInvalidBackupFlagsFailBothCeremonies(int)[3]",
+          "passed": true
+        },
+        {
+          "name": "missingPresenceVerificationOrInvalidBackupFlagsFailBothCeremonies(int)[4]",
+          "passed": true
+        },
+        {
+          "name": "oversizedResponseIsRejected",
+          "passed": true
+        }
+      ]
+    }
+  ],
+  "totals": {
+    "tests": 132,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "webauthnServer": "2.10.1",
+  "cbor": "4.5.6"
+}

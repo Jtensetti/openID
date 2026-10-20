@@ -1,30 +1,18 @@
-## Ändring och avgränsning
+## Ändring
 
-Beskriv vad som ändras, varför och vilken grind i genomförandeplanen arbetet tillhör. Ange uttryckligen vad som fortfarande är simulerat.
+Beskriv problemet, ändringen och det resulterande beteendet. Hänvisa till
+berörda krav-ID när funktion eller säkerhet ändras.
 
-## Krav och källor
+## Verifiering
 
-- Berörda krav-ID:
-- Lästa skills:
-- Primärkällor och kontrollerade versioner:
-- Nya antaganden eller öppna beslut:
+Ange körda kommandon och resultat, negativa testfall samt det som inte kunde
+provas. Skilj automatiserade testdubblar från fysisk integration.
 
-## Test och granskning
+## Risk och granskning
 
-- Faktiskt körda kommandon och resultat:
-- Negativa testfall:
-- Ej körda tester och skäl:
-- Oberoende granskning som behövs:
+Beskriv ändrade förtroendegränser, behörigheter, återställningsvägar eller
+beroenden om de berörs. Ange kvarstående granskning och beslut.
 
-## Säkerhet och leveranskedja
-
-- [ ] Inga verkliga identiteter, hemligheter eller produktionsnycklar publiceras.
-- [ ] Ändrade förtroendegränser, spärr-/återställningsvägar och behörigheter är redovisade, eller inte tillämpliga med skäl.
-- [ ] Nya beroenden har revision, licens, attribution och uppdateringsägare, eller inga beroenden ändras.
-- [ ] Ändrade CI-behörigheter eller externa anrop är redovisade, eller inte tillämpliga med skäl.
-- [ ] Testtrafik och dubbletter kan inte bli ersättningsanspråk genom denna ändring, eller rapportering berörs inte.
-- [ ] Dokumentationen beskriver faktiskt verifierad status och påstår inte ett obefintligt godkännande.
-
-## Risk och beslut
-
-Kvarvarande risker, rollback/återställning och mänskligt beslut som krävs. En dokumentations-PR behöver inte låtsas ha kört produkttester; skriv i stället vilka kontroller som faktiskt gjorts.
+- [ ] Inga personuppgifter, hemligheter eller privata nycklar publiceras.
+- [ ] Dokumentation och testresultat stämmer med ändringens omfattning.
+- [ ] Nya beroenden har låst version, licens, attribution och uppdateringsansvar.

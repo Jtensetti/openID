@@ -8,7 +8,7 @@ import org.springframework.core.env.*;
 import se.swedenconnect.opensaml.*;
 import se.swedenconnect.opensaml.sweid.xmlsec.config.SwedishEidSecurityConfiguration;
 
-/** Two loopback HTTPS listeners in one disposable JVM. No external federation or production configuration. */
+/** Command-line entry point for local SAML and passport tools. */
 public final class Lab implements AutoCloseable {
   public final TestKeys keys;
   public final String idpBase, spBase;
@@ -17,13 +17,22 @@ public final class Lab implements AutoCloseable {
   private final ConfigurableApplicationContext idp;
 
   public Lab(Path keyDirectory, int idpPort, int spPort, SyntheticRegistry registry) throws Exception {
+    this(keyDirectory, idpPort, spPort, registry, false);
+  }
+  public Lab(Path keyDirectory, int idpPort, int spPort, SyntheticRegistry registry, boolean webAuthn) throws Exception {
+    this(keyDirectory, idpPort, spPort, registry, webAuthn, null, true);
+  }
+  public Lab(Path keyDirectory, int idpPort, int spPort, SyntheticRegistry registry, boolean webAuthn,
+      lab.phone.PhoneBridge phone, boolean startSp) throws Exception {
     if (idpPort < 1024 || spPort < 1024 || idpPort > 65535 || spPort > 65535 || idpPort == spPort)
       throw new IllegalArgumentException("Two distinct unprivileged loopback ports are required");
     keys = new TestKeys(keyDirectory); this.registry = registry;
-    idpBase = "https://127.0.0.1:" + idpPort; spBase = "https://127.0.0.1:" + spPort;
+    String host = webAuthn || phone != null ? "localhost" : "127.0.0.1";
+    idpBase = "https://" + host + ":" + idpPort; spBase = "https://" + host + ":" + spPort;
+    if (!webAuthn && !registry.passkeys().isEmpty()) throw new IllegalStateException("Passkey state requires start-web; no downgrade to simulated approval");
     OpenSAMLInitializer.getInstance().initialize(new OpenSAMLSecurityDefaultsConfig(new LabSecurityConfiguration()), new OpenSAMLSecurityExtensionConfig());
     Path metadata = keys.directory().resolve("sp-metadata.xml");
-    Files.writeString(metadata, Metadata.sp(keys, spBase));
+    Files.writeString(metadata, Metadata.sp(keys, spBase, phone != null));
     Map<String, Object> p = new HashMap<>();
     p.put("spring.config.location", "classpath:/application.properties");
     p.put("spring.main.banner-mode", "off");
@@ -34,6 +43,7 @@ public final class Lab implements AutoCloseable {
     p.put("server.servlet.session.cookie.name", "__Host-lab-idp"); p.put("server.servlet.session.cookie.secure", true);
     p.put("server.servlet.session.cookie.http-only", true); p.put("server.servlet.session.cookie.same-site", "strict");
     p.put("server.servlet.session.timeout", "5m"); p.put("server.forward-headers-strategy", "none");
+    p.put("server.servlet.session.tracking-modes", "cookie");
     p.put("server.tomcat.max-http-form-post-size", "128KB"); p.put("server.error.include-message", "never");
     p.put("authn-server.base-url", idpBase); p.put("authn-server.sso.enabled", false);
     p.put("authn-server.saml.enabled", true); p.put("authn-server.oidc.enabled", false);
@@ -48,8 +58,10 @@ public final class Lab implements AutoCloseable {
     p.put("credential.bundles.jks.lab-idp.store.password", TestKeys.PASSWORD);
     p.put("credential.bundles.jks.lab-idp.store.type", "PKCS12");
     p.put("authn-server.subject-identifier.secret", UUID.randomUUID().toString());
-    p.put("authn-server.saml.metadata.ui-info.display-names.sv", "SIMULERAD e-id-labb");
+    p.put("authn-server.saml.metadata.ui-info.display-names.sv", phone == null ? "SIMULERAD e-id-labb" : "openID");
     p.put("lab.idp-base", idpBase); p.put("lab.sp-base", spBase);
+    p.put("lab.webauthn", webAuthn);
+    p.put("lab.phone", phone != null);
     StandardEnvironment env = new StandardEnvironment();
     // Security settings cannot be replaced with production metadata, keys or a public bind through environment/CLI.
     env.getPropertySources().remove(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME);
@@ -58,15 +70,53 @@ public final class Lab implements AutoCloseable {
     SpringApplication app = new SpringApplication(lab.idp.IdpApplication.class);
     app.setEnvironment(env); app.setAddCommandLineProperties(false);
     app.addInitializers(c -> c.getBeanFactory().registerSingleton("syntheticRegistry", registry));
+    if (phone != null) app.addInitializers(c -> c.getBeanFactory().registerSingleton("phoneBridge", phone));
     idp = app.run();
-    try { sp = new RelyingParty(keys, idpBase, spBase, registry); }
+    try { sp = startSp ? new RelyingParty(keys, idpBase, spBase, registry, phone) : null; }
     catch (Exception e) { idp.close(); throw e; }
   }
-  @Override public void close() { sp.close(); idp.close(); }
+  @Override public void close() {
+    try { if (sp != null) sp.close(); idp.close(); }
+    finally { try { registry.close(); } catch (Exception e) { throw new IllegalStateException("Could not close persistent registry"); } }
+  }
   public static void main(String[] args) throws Exception {
-    if (args.length == 2 && args[0].equals("init")) { TestKeys.initialize(Path.of(args[1])); return; }
-    if (args.length != 2 || !args[0].equals("start")) throw new IllegalArgumentException("Usage: init|start <disposable-key-directory>");
-    Lab lab = new Lab(Path.of(args[1]), 8443, 8444, SyntheticRegistry.fixtures());
+    if (args.length == 2 && args[0].equals("verify-passport")) { lab.proofing.PassportCommand.run(args[1]); return; }
+    if (args.length == 2 && args[0].equals("phone-init")) { TestKeys.initialize(Path.of(args[1])); return; }
+    if (args.length == 3 && Set.of("phone-idp", "phone-sp").contains(args[0])) {
+      var bridge = new lab.phone.PhoneBridge(Path.of(args[2]), "https://localhost:8444/sp");
+      AutoCloseable service;
+      if (args[0].equals("phone-idp")) service = new Lab(Path.of(args[1]), 8443, 8444,
+          new SyntheticRegistry(java.time.Clock.systemUTC()), false, bridge, false);
+      else {
+        OpenSAMLInitializer.getInstance().initialize(new OpenSAMLSecurityDefaultsConfig(new LabSecurityConfiguration()), new OpenSAMLSecurityExtensionConfig());
+        service = new RelyingParty(new TestKeys(Path.of(args[1])), "https://localhost:8443", "https://localhost:8444", null, bridge);
+      }
+      Runtime.getRuntime().addShutdownHook(new Thread(() -> { try { service.close(); } catch (Exception ignored) {} }));
+      System.out.println(args[0]+" ready; service: https://localhost:8444"); return;
+    }
+    if (args.length == 2 && args[0].equals("init")) {
+      TestKeys.initialize(Path.of(args[1])); SyntheticRegistry.initialize(Path.of(args[1])); return;
+    }
+    if (args.length == 3 && args[0].equals("restore")) { SyntheticRegistry.restore(Path.of(args[1]), Path.of(args[2])); return; }
+    if (args.length >= 2 && Set.of("audit", "report", "backup", "revoke").contains(args[0])) {
+      if ((args[0].equals("audit") && args.length != 2) || (!args[0].equals("audit") && args.length != 3)) throw new IllegalArgumentException("Invalid command arguments");
+      try (var registry = SyntheticRegistry.open(Path.of(args[1]), java.time.Clock.systemUTC())) {
+        switch (args[0]) {
+          case "backup" -> registry.backup(Path.of(args[2]));
+          case "revoke" -> registry.revoke(args[2]);
+          case "audit" -> System.out.println(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(registry.audit()));
+          case "report" -> System.out.println(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(
+              OfflineReport.reconcile(java.time.YearMonth.parse(args[2]), registry.outcomes())));
+          default -> throw new IllegalStateException();
+        }
+      }
+      return;
+    }
+    if (args.length != 2 || !Set.of("start", "start-web").contains(args[0])) throw new IllegalArgumentException("Usage: init|start|start-web|audit <directory>; report|backup|revoke <directory> <value>; restore <backup> <new-directory>");
+    var registry = SyntheticRegistry.open(Path.of(args[1]), java.time.Clock.systemUTC());
+    Lab lab;
+    try { lab = new Lab(Path.of(args[1]), 8443, 8444, registry, args[0].equals("start-web")); }
+    catch (Exception e) { registry.close(); throw e; }
     Runtime.getRuntime().addShutdownHook(new Thread(lab::close));
     System.out.println("SYNTHETIC LAB ONLY — start at " + lab.spBase + " — no Digg approval, no real proofing");
   }

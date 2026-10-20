@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Logga in med openID · Lokal testtjänst</title>
+  <link rel="stylesheet" href="/rp.css">
+  <script src="/rp.js" defer></script>
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="/" aria-label="openID startsida"><span class="brandmark" aria-hidden="true">◎</span>openID</a><span class="badge">LOKAL TESTTJÄNST</span></header>
+  <main>
+    <section class="intro" aria-labelledby="heading">
+      <h1 id="heading">Logga in med openID</h1>
+    </section>
+    <section class="panel" aria-label="Inloggning">
+      <div id="loading"><h2>Ansluter…</h2></div>
+      <div id="ready" hidden>
+        <h2>Ange din referens</h2>
+        <p>Kopiera registreringsreferensen från <strong>Inställningar</strong> i appen.</p>
+        <form id="login-form">
+          <label for="credential">Registreringsreferens</label>
+          <textarea id="credential" name="credential" rows="3" required minlength="64" maxlength="64" spellcheck="false" autocapitalize="none" autocomplete="off" aria-describedby="credential-help" placeholder="64 tecken från appen"></textarea>
+          <p id="credential-help" class="hint">Ditt ID behöver vara aktiverat.</p>
+          <button class="primary" type="submit">Logga in med openID <span aria-hidden="true">→</span></button>
+        </form>
+        <details><summary>Saknar du ett ID?</summary><p>Registrera dig med passet i appen och invänta aktivering.</p></details>
+      </div>
+      <div id="pending" hidden>
+        <h2>Skanna med appen</h2>
+        <p>Välj <strong>Legitimera → Skanna en QR-kod</strong>.</p>
+        <div class="qr-box"><img id="qr" width="234" height="234" alt="Skanna i openID-appen för att öppna din inloggningsbegäran"></div>
+        <div class="request-details"><span>Tjänst</span><strong id="rp-name"></strong><span>Kontrollkod</span><strong id="code" class="code"></strong></div>
+        <p class="hint">Kontrollera att tjänst och kod är samma i appen innan du godkänner.</p>
+        <p id="countdown" class="countdown" aria-live="off"></p>
+        <button id="cancel" class="secondary" type="button">Avbryt inloggningen</button>
+      </div>
+      <div id="authenticated" hidden>
+        <div class="success-mark" aria-hidden="true">✓</div><h2>Du är inloggad</h2>
+        <div class="receipt"><span>Användarreferens</span><code id="subject"></code><span>Inloggad till</span><strong id="session-until"></strong></div>
+        <button id="logout" class="primary" type="button">Logga ut <span aria-hidden="true">→</span></button>
+      </div>
+      <div id="unavailable" hidden>
+        <h2>Sessionen är avslutad</h2>
+        <p>Kontrollera ditt ID i appen och starta en ny inloggning.</p>
+        <button id="again" class="primary" type="button">Tillbaka till inloggningen <span aria-hidden="true">→</span></button>
+      </div>
+      <div id="offline" hidden>
+        <h2>Anslutningen bröts</h2>
+        <p>Kontrollera att testtjänsten körs och försök igen.</p>
+        <button id="reconnect" class="primary" type="button">Anslut igen <span aria-hidden="true">↻</span></button>
+      </div>
+      <p id="error" role="alert" hidden></p>
+      <p id="status" class="sr-only" role="status" aria-live="polite"></p>
+    </section>
+  </main>
+  <footer>Privat pilot. Inte en godkänd e-legitimation.</footer>
+</body>
+</html>

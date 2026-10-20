@@ -8,7 +8,7 @@ description: >-
 
 # Elektroniska underskrifter
 
-Projektspecifik originalinstruktion. Läs `AGENTS.md`, SIG-raderna i kravmatrisen och underskriftsdelen av arkitekturen. Följ T01 till den aktuella underskriftsspecifikationen och kontrollera dess version. G04 är en kandidat, inte ett godkänt utförande.
+Projektspecifik originalinstruktion. Läs `AGENTS.md`, SIG-raderna i `docs/krav.md` och avgränsningarna i `docs/arkitektur.md`. Följ T01 till den aktuella underskriftsspecifikationen och kontrollera dess version. G04 är en kandidat, inte ett godkänt utförande.
 
 ## Avgränsning
 

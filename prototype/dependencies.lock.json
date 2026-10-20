@@ -27,6 +27,16 @@
       "sha256": "1290c2795e93e8a6861a6c4d9ff0d844d32f5ea178362cb2721edf5561e828b1"
     },
     {
+      "coordinate": "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:jar:2.21.7",
+      "scope": "runtime",
+      "sha256": "8f223039151b495787e5c706ead12feeb9a5cdfe3b8df50464a4fb985047236c"
+    },
+    {
+      "coordinate": "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:jar:2.21.7",
+      "scope": "runtime",
+      "sha256": "b8f62f98363ed9aa259b3a479a64fcbe7e081158a8bec6733972e900d12f4e47"
+    },
+    {
       "coordinate": "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:jar:2.21.7",
       "scope": "compile",
       "sha256": "5989b937f0aa5b6407e7a061077c9bfcac0590dc0a32e54b2fac6a3e2d49e812"
@@ -35,6 +45,16 @@
       "coordinate": "com.fasterxml.woodstox:woodstox-core:jar:6.5.1",
       "scope": "runtime",
       "sha256": "c928d60665c6415fb1c39775cf95cfc44f7f4580cf5ab01b1c380ebffd76887f"
+    },
+    {
+      "coordinate": "com.github.peteroupc:datautilities:jar:1.1.0",
+      "scope": "runtime",
+      "sha256": "9afa371db3083782216e63e706d83a50d19c7e8db74af47e7339c419380f82bb"
+    },
+    {
+      "coordinate": "com.github.peteroupc:numbers:jar:1.8.2",
+      "scope": "runtime",
+      "sha256": "ed894dcb68b9aa22320d6813950d8321d4f82c2c78e68770a443df33e36bdd4e"
     },
     {
       "coordinate": "com.google.code.findbugs:jsr305:jar:3.0.2",
@@ -47,14 +67,14 @@
       "sha256": "4667724877f1d37a689202da191e23efa7657c62eef93ccdac406eccfe5cdd0a"
     },
     {
-      "coordinate": "com.google.guava:failureaccess:jar:1.0.2",
+      "coordinate": "com.google.guava:failureaccess:jar:1.0.3",
       "scope": "compile",
-      "sha256": "8a8f81cf9b359e3f6dfa691a1e776985c061ef2f223c9b2c80753e1b458e8064"
+      "sha256": "cbfc3906b19b8f55dd7cfd6dfe0aa4532e834250d7f080bd8d211a3e246b59cb"
     },
     {
-      "coordinate": "com.google.guava:guava:jar:33.0.0-jre",
+      "coordinate": "com.google.guava:guava:jar:33.7.2-jre",
       "scope": "compile",
-      "sha256": "f4d85c3e4d411694337cb873abea09b242b664bb013320be6105327c45991537"
+      "sha256": "b530942257fb935f8b2cfaa5f8eb5bd59c555fd8e8d01b8ce98912e077ea606c"
     },
     {
       "coordinate": "com.google.guava:listenablefuture:jar:9999.0-empty-to-avoid-conflict-with-guava",
@@ -62,9 +82,9 @@
       "sha256": "b372a037d4230aa57fbeffdef30fd6123f9c0c2db85d0aced00c91b974f33f99"
     },
     {
-      "coordinate": "com.google.j2objc:j2objc-annotations:jar:2.8",
+      "coordinate": "com.google.j2objc:j2objc-annotations:jar:3.1",
       "scope": "compile",
-      "sha256": "f02a95fa1a5e95edb3ed859fd0fb7df709d121a35290eff8b74dce2ab7f4d6ed"
+      "sha256": "84d3a150518485f8140ea99b8a985656749629f6433c92b80c75b36aba3b099b"
     },
     {
       "coordinate": "com.jayway.jsonpath:json-path:jar:2.10.0",
@@ -77,9 +97,24 @@
       "sha256": "0edd2fbaab79e13f87d145d021f85a5c59956b2b6b5e761c0d664c87f94cda15"
     },
     {
+      "coordinate": "com.upokecenter:cbor:jar:4.5.6",
+      "scope": "runtime",
+      "sha256": "415630df447588834ac747800a6b7fac67ff8b8092862f4e3f5283f568bfc2ec"
+    },
+    {
       "coordinate": "com.vaadin.external.google:android-json:jar:0.0.20131108.vaadin1",
       "scope": "test",
       "sha256": "dfb7bae2f404cfe0b72b4d23944698cb716b7665171812a0a4d0f5926c0fac79"
+    },
+    {
+      "coordinate": "com.yubico:webauthn-server-core:jar:2.10.1",
+      "scope": "compile",
+      "sha256": "80f5ee341633c8d7b435bc8d9a74266f0ca432a1c4b56518cd99f246c8542737"
+    },
+    {
+      "coordinate": "com.yubico:yubico-util:jar:2.10.1",
+      "scope": "runtime",
+      "sha256": "92ea58c62deee0ff486a8947cda124a99f01b81bd9af169fd1c492fc5a0200e3"
     },
     {
       "coordinate": "commons-codec:commons-codec:jar:1.21.0",
@@ -155,6 +190,11 @@
       "coordinate": "net.minidev:json-smart:jar:2.6.0",
       "scope": "test",
       "sha256": "1ae4b561458afb540be8ec5c6dbb4f2e715a319a7ae64854998aaf924770d61b"
+    },
+    {
+      "coordinate": "net.sf.scuba:scuba-smartcards:jar:0.0.21",
+      "scope": "compile",
+      "sha256": "747f3207e92ad890c55598a40c3c695c3865e7a512b5cb40c2d1f961ec1cf245"
     },
     {
       "coordinate": "net.shibboleth:shib-networking:jar:9.2.1",
@@ -262,11 +302,6 @@
       "sha256": "1c268e15f785aafb1e4670d8d6e5f856f69475e96c162dadcd1ff9b350e9139f"
     },
     {
-      "coordinate": "org.checkerframework:checker-qual:jar:3.41.0",
-      "scope": "compile",
-      "sha256": "2f9f245bf68e4259d610894f2406dc1f6363dc639302bd566e8272e4f4541172"
-    },
-    {
       "coordinate": "org.codehaus.woodstox:stax2-api:jar:4.2.1",
       "scope": "runtime",
       "sha256": "678567e48b51a42c65c699f266539ad3d676d4b1a5b0ad7d89ece8b9d5772579"
@@ -277,9 +312,19 @@
       "sha256": "5bef5b396aba0607bd972365991f833f7d8f16af506f2ade1f589fe344105123"
     },
     {
+      "coordinate": "org.ejbca.cvc:cert-cvc:jar:1.4.13",
+      "scope": "compile",
+      "sha256": "3e4467de94a36dd3c93eddb816e91abc7035f7e05d4123b1bbfb9dde9df9ab97"
+    },
+    {
       "coordinate": "org.hamcrest:hamcrest:jar:3.0",
       "scope": "test",
       "sha256": "5d66b6a4a680755cb6ed7cb104fa7835ef644667586ff0737adeb977c39ecdbc"
+    },
+    {
+      "coordinate": "org.jmrtd:jmrtd:jar:0.8.9",
+      "scope": "compile",
+      "sha256": "89959d0c8cb8cf7b93699b18d135675a7b8760489bddd924ee3174c447fa5409"
     },
     {
       "coordinate": "org.jsoup:jsoup:jar:1.23.2",
@@ -760,6 +805,11 @@
       "coordinate": "org.unbescape:unbescape:jar:1.1.6.RELEASE",
       "scope": "compile",
       "sha256": "597cf87d5b1a4f385b9d1cec974b7b483abb3ee85fc5b3f8b62af8e4bec95c2c"
+    },
+    {
+      "coordinate": "org.xerial:sqlite-jdbc:jar:3.53.4.0",
+      "scope": "compile",
+      "sha256": "bcb1f51e36f940867e83342f9efbf5968ac44a6bef4d397bb4af7b17b45cd2fb"
     },
     {
       "coordinate": "org.xmlunit:xmlunit-core:jar:2.11.0",

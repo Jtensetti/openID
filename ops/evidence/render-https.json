@@ -1,0 +1,204 @@
+{
+  "checked_at": "2026-10-19T11:37:55.870298+00:00",
+  "origin": "https://openid-production-sealed.onrender.com",
+  "certificate_verification": true,
+  "follow_redirects": false,
+  "checks": [
+    {
+      "method": "GET",
+      "path": "/health/live",
+      "expected_status": 200,
+      "status": 200,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "no-referrer"
+      },
+      "passed": true,
+      "duration_ms": 4672
+    },
+    {
+      "method": "GET",
+      "path": "/",
+      "expected_status": 503,
+      "status": 503,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "no-referrer"
+      },
+      "passed": true,
+      "duration_ms": 5154
+    },
+    {
+      "method": "GET",
+      "path": "/health/ready",
+      "expected_status": 503,
+      "status": 503,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "no-referrer"
+      },
+      "passed": true,
+      "duration_ms": 5177
+    },
+    {
+      "method": "GET",
+      "path": "/login",
+      "expected_status": 503,
+      "status": 503,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "no-referrer"
+      },
+      "passed": true,
+      "duration_ms": 5212
+    },
+    {
+      "method": "GET",
+      "path": "/lab",
+      "expected_status": 503,
+      "status": 503,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "no-referrer"
+      },
+      "passed": true,
+      "duration_ms": 5023
+    },
+    {
+      "method": "GET",
+      "path": "/saml2/post/authn",
+      "expected_status": 503,
+      "status": 503,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "no-referrer"
+      },
+      "passed": true,
+      "duration_ms": 5106
+    },
+    {
+      "method": "GET",
+      "path": "/acs",
+      "expected_status": 503,
+      "status": 503,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "no-referrer"
+      },
+      "passed": true,
+      "duration_ms": 4966
+    },
+    {
+      "method": "GET",
+      "path": "/.well-known/openid-configuration",
+      "expected_status": 503,
+      "status": 503,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "no-referrer"
+      },
+      "passed": true,
+      "duration_ms": 4713
+    },
+    {
+      "method": "GET",
+      "path": "/tls.p12",
+      "expected_status": 503,
+      "status": 503,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "no-referrer"
+      },
+      "passed": true,
+      "duration_ms": 5056
+    },
+    {
+      "method": "GET",
+      "path": "/registry.sqlite",
+      "expected_status": 503,
+      "status": 503,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "no-referrer"
+      },
+      "passed": true,
+      "duration_ms": 4854
+    },
+    {
+      "method": "GET",
+      "path": "/health/live?enable=true",
+      "expected_status": 503,
+      "status": 503,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "no-referrer"
+      },
+      "passed": true,
+      "duration_ms": 5093
+    },
+    {
+      "method": "POST",
+      "path": "/health/live",
+      "expected_status": 503,
+      "status": 503,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "no-referrer"
+      },
+      "passed": true,
+      "duration_ms": 4973
+    },
+    {
+      "method": "HEAD",
+      "path": "/login",
+      "expected_status": 503,
+      "status": 503,
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "no-referrer"
+      },
+      "passed": true,
+      "duration_ms": 4928
+    }
+  ],
+  "passed": true
+}

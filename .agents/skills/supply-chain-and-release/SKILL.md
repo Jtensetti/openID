@@ -8,7 +8,7 @@ description: >-
 
 # Leveranskedja och säker release
 
-Projektspecifik originalinstruktion. Läs `AGENTS.md`, `THIRD_PARTY.md`, `SECURITY.md` och återanvändningsinventeringen. En myndighetsavsändare eller öppen källkod innebär inte att vår användning automatiskt är säker eller licensmässigt färdigbedömd.
+Projektspecifik originalinstruktion. Läs `AGENTS.md`, `THIRD_PARTY.md`, `SECURITY.md` och den berörda komponentens licensregister. En myndighetsavsändare eller öppen källkod innebär inte att vår användning automatiskt är säker eller licensmässigt färdigbedömd.
 
 ## Arbetsgång för en kandidat
 

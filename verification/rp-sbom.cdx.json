@@ -1,0 +1,17 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "version": 1,
+  "metadata": {"component": {"type": "application", "name": "openID local RP dependency addition"}},
+  "components": [{
+    "type": "library",
+    "name": "qrcode",
+    "version": "8.2",
+    "purl": "pkg:pypi/qrcode@8.2",
+    "bom-ref": "pkg:pypi/qrcode@8.2",
+    "licenses": [{"expression": "BSD-3-Clause AND MIT"}],
+    "hashes": [{"alg": "SHA-256", "content": "16e64e0716c14960108e85d853062c9e8bba5ca8252c0b4d0231b9df4060ff4f"}],
+    "externalReferences": [{"type": "vcs", "url": "https://github.com/lincolnloop/python-qrcode/tree/3704f57a1107dbf553a50f5b531da3859abe19cf"}]
+  }],
+  "dependencies": [{"ref": "pkg:pypi/qrcode@8.2", "dependsOn": []}]
+}

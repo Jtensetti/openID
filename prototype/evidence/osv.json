@@ -1,8 +1,7 @@
 {
-  "checked": "2026-10-19",
+  "checkedAt": "2026-10-19T14:02:53.658778+00:00",
   "source": "https://api.osv.dev/v1/querybatch",
-  "scope": "Maven compile/runtime/test dependency coordinates; excludes JDK, build plugins, source and container",
-  "queries": 170,
-  "hits": [],
-  "dependency_lock_sha256": "b0a8e914c7bec90fb76ed6247015481f5f71471273b51d7b60928e543c1ffdb7"
+  "lockSha256": "1239521004ef5db61e62f869771fe1e6e9f65a14dd31f6c1869a0abe19dfc445",
+  "artifactCount": 180,
+  "findings": []
 }

@@ -1,0 +1,63 @@
+:root {
+  color-scheme: light;
+  --ink: #10292f;
+  --muted: #586c6e;
+  --mint: #baf0cc;
+  --paper: #f5f5ee;
+  --line: #dce3dc;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.55 var(--font); }
+[hidden] { display: none !important; }
+.topbar { max-width: 1120px; margin: auto; padding: 30px 28px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.brand { font-size: 29px; letter-spacing: -1.4px; font-weight: 750; color: var(--ink); text-decoration: none; display: flex; align-items: center; gap: 9px; }
+.brandmark { font-size: 35px; line-height: 1; }
+.badge { padding: 8px 14px; border-radius: 30px; background: #e6eae2; font: 600 11px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: 1.4px; }
+main { max-width: 570px; margin: 28px auto; padding: 0 24px; }
+.intro { margin-bottom: 24px; }
+h1 { font-size: 32px; line-height: 1.2; letter-spacing: -1px; margin: 0; font-weight: 650; }
+.panel { background: #fff; border: 1px solid var(--line); border-radius: 24px; padding: 36px; }
+h2 { font-size: 26px; line-height: 1.2; letter-spacing: -.7px; margin: 0 0 20px; font-weight: 650; }
+.panel p { color: var(--muted); font-size: 14px; }
+.panel strong { color: var(--ink); }
+form { margin: 28px 0 24px; }
+label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 8px; }
+textarea { display: block; width: 100%; resize: vertical; min-height: 96px; border: 1px solid #b9c8c0; border-radius: 12px; padding: 14px; color: var(--ink); background: #fafbf8; font: 14px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
+.hint { font-size: 12px !important; line-height: 1.6; margin: 10px 0 20px; }
+button { font: 600 14px var(--font); cursor: pointer; border: 0; border-radius: 13px; min-height: 50px; width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 16px 18px; gap: 12px; }
+.primary { color: var(--mint); background: var(--ink); }
+.primary:hover { background: #214a49; }
+.primary span { font-size: 21px; line-height: 1; }
+.secondary { background: #edf1eb; color: var(--ink); justify-content: center; }
+.secondary:hover { background: #e0e7df; }
+button:disabled { cursor: wait; opacity: .55; }
+:focus-visible { outline: 3px solid #4b8866; outline-offset: 4px; }
+details { border-top: 1px solid var(--line); padding-top: 19px; font-size: 13px; }
+summary { cursor: pointer; font-weight: 600; }
+details p { margin-bottom: 0; }
+.qr-box { display: flex; justify-content: center; align-items: center; margin: 20px auto; background: white; max-width: 260px; border: 1px solid var(--line); border-radius: 14px; padding: 8px; aspect-ratio: 1; }
+.qr-box img { max-width: 100%; height: auto; }
+.request-details { display: grid; grid-template-columns: 100px 1fr; gap: 8px 10px; align-items: center; }
+.request-details > span, .receipt > span { font-size: 11px; color: var(--muted); }
+.request-details strong { font-size: 12px; }
+.request-details .code { font: 500 27px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: 5px; }
+.countdown { font-size: 12px !important; margin: 12px 0; text-align: center; }
+.success-mark { display: grid; place-items: center; background: var(--mint); width: 64px; height: 64px; border-radius: 50%; font-size: 30px; margin: 0 0 26px; }
+.receipt { background: #f1f5ee; border-radius: 15px; padding: 20px; display: grid; gap: 8px; margin: 24px 0; }
+.receipt code { font-size: 12px; overflow-wrap: anywhere; line-height: 1.8; margin-bottom: 10px; }
+.receipt strong { font-size: 13px; }
+#error { border-left: 3px solid #9e431d; background: #fff4e9; padding: 12px 15px; color: #713b28; border-radius: 4px; }
+footer { padding: 0 24px 28px; color: var(--muted); font-size: 11px; text-align: center; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 600px) {
+  .topbar { padding: 20px; }
+  .brand { font-size: 25px; }
+  .badge { font-size: 9px; padding: 7px 10px; }
+  main { margin: 16px auto; padding: 0 20px; }
+  h1 { font-size: 28px; }
+  .panel { padding: 24px; }
+  h2 { font-size: 24px; }
+  .request-details { grid-template-columns: 85px 1fr; }
+  .request-details .code { letter-spacing: 3px; }
+}

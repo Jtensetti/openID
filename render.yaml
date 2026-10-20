@@ -1,0 +1,21 @@
+# Infrastructure bootstrap only. This artifact cannot perform e-id authentication.
+# Automatic deployment stays disabled; select a verified commit for every manual release.
+projects:
+  - name: openID
+    environments:
+      - name: production
+        services:
+          - type: web
+            name: openid-production-sealed
+            runtime: docker
+            repo: https://github.com/Jtensetti/openID
+            branch: main
+            region: frankfurt
+            plan: free
+            dockerfilePath: ./ops/Dockerfile
+            dockerContext: ./ops
+            healthCheckPath: /health/live
+            autoDeployTrigger: 'off'
+            envVars:
+              - key: PORT
+                value: "8080"
