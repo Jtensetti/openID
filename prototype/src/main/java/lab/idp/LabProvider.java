@@ -15,14 +15,17 @@ import se.swedenconnect.spring.authnserver.sso.SsoPolicy;
 @Component
 public final class LabProvider extends AbstractUserRedirectAuthenticationProvider {
   private final SyntheticRegistry registry;
-  public LabProvider(SyntheticRegistry registry) {
-    super("/lab", "/lab/resume"); this.registry = registry; setSsoPolicy(SsoPolicy.none());
+  private final WebAuthnService webAuthn;
+  public LabProvider(SyntheticRegistry registry, WebAuthnService webAuthn) {
+    super("/lab", "/lab/resume"); this.registry = registry; this.webAuthn = webAuthn; setSsoPolicy(SsoPolicy.none());
     var repository = new SessionBasedRedirectAuthenticationRepository(); repository.setMaxAge(Duration.ofSeconds(60)); setRepository(repository);
   }
-  @Override public String getName() { return "SIMULATED-ONLY"; }
+  @Override public String getName() { return webAuthn.enabled() ? "WEBAUTHN-SYNTHETIC-PROOFING" : "SIMULATED-ONLY"; }
   @Override public List<String> getSupportedAuthnContextUris() { return List.of(Metadata.LAB_CONTEXT); }
   @Override public List<String> getSupportedAttributes() { return List.of(AttributeIdentifiers.DISPLAY_NAME); }
-  @Override public boolean supportsUserAuthenticationToken(Authentication token) { return token instanceof UsernamePasswordAuthenticationToken; }
+  @Override public boolean supportsUserAuthenticationToken(Authentication token) {
+    return webAuthn.enabled() ? token instanceof PasskeyAuthenticationToken : token instanceof UsernamePasswordAuthenticationToken;
+  }
   @Override protected UserAuthentication createUserAuthentication(ResumedAuthenticationToken token) throws AuthenticationErrorException {
     try {
       String credential = token.getAuthnToken().getName();

@@ -1,8 +1,76 @@
-# Isolerad e-id-prototyp – G1 och beständig labbdrift
+# Isolerad e-id-prototyp – SAML, WebAuthn och beständig labbdrift
 
-En körbar lokal IdP och testtjänst med ett riktigt SAML-flöde. **Identitetskontroll och innehavarautentisering är uttryckligen simulerade. Ingen tillitsnivå, Digg-anslutning eller Digg-godkännande har uppnåtts.**
+En körbar lokal IdP och testtjänst med ett riktigt SAML-flöde. Webbläget använder WebAuthn för att bevisa kontroll över en testnyckel. **Identitetskontrollen är alltid simulerad. Ingen verklig person, tillitsnivå, Digg-anslutning eller Digg-godkännande har verifierats.** Det äldre `start`-läget simulerar även innehavarautentiseringen.
 
-## Starta
+## Webbklient utan obligatorisk appbutik
+
+Kräver JDK 21, Linux/POSIX, lediga portar 8443/8444 och en WebAuthn-webbläsare.
+Använd en separat testprofil och en passkey eller FIDO2-nyckel som stöder
+användarverifiering (PIN eller lokal biometrisk verifiering). Servern får ingen
+PIN eller biometrisk uppgift. Ingen Apple-/Google-inloggning eller
+leverantörsattestering krävs av labben. En vald passkey-leverantör kan däremot
+ha sådana krav och synkronisera nyckeln.
+
+Från `prototype/`, med `JAVA_HOME` satt till JDK 21:
+
+```sh
+./scripts/lab.sh build
+java -jar target/isolated-eid-lab.jar init .local/web-test
+java -jar target/isolated-eid-lab.jar start-web .local/web-test
+```
+
+1. Använd en **ny** katalog: tidigare TLS-certifikat kan sakna `localhost`.
+   Inspektera `keytool -printcert -file .local/web-test/tls.crt` och etablera
+   tillit till just detta certifikat i din disponibla testprofil. WebAuthn och
+   service workers kräver säker kontext; att klicka förbi en certifikatvarning
+   räcker inte i alla webbläsare. Installera inte ett allmänt systemankare.
+2. Öppna <https://localhost:8443/wallet/>. Bekräfta den simulerade kontrollen
+   och välj **Registrera testnyckel**. Följ webbläsarens val av passkey eller
+   extern nyckel. Använd **localhost**, eftersom WebAuthn RP-ID inte är en IP-adress.
+3. Öppna <https://localhost:8444/>, välj **Starta testinloggning**, kontrollera
+   motparten och välj **Godkänn med testnyckel**. Efter nyckelns användarverifiering
+   ska `/me` visa `SYNTHETIC-alice`.
+4. Prova utloggning och spärr från testplånboken. En spärr nekar nya flöden och
+   redan aktiva SP-sessioner. Alice gäller en timme från `init`. Omstart
+   förlänger inte giltigheten och tar inte bort spärren.
+5. Använd webbläsarens installationsmeny eller den installationsknapp som visas
+   när webbläsaren erbjuder den. Installation är valfri. Utan nätanslutning
+   till labben visas endast en 503-sida; ingen autentisering eller identitetscache
+   finns offline.
+
+Webbläget har **ingen simulerad godkännandegenväg**. En lagrad testnyckel kan
+inte skrivas över med en ny registrering. `start` vägrar använda ett register
+med WebAuthn-nycklar. Normal omstart med `start-web` behåller publika nycklar
+och signaturräknare; privata nycklar finns hos autentiseraren. Registerschema 1
+migreras atomiskt till 2 utan att spärrar tas bort. En återläst backup eller
+okontrollerad processavslutning spärrar samtliga credentials.
+
+TLS kan provas utan generellt certifikatundantag:
+
+```sh
+curl --cacert .local/web-test/tls.crt https://localhost:8444/
+```
+
+För Chromium på Linux kan en separat testprofil lita på **just labbens
+publika certifikatnyckel**, utan systemomfattande certifikatimport. Med
+OpenSSL installerat, kör i en andra terminal från `prototype/`:
+
+```sh
+LAB_SPKI=$(openssl x509 -in .local/web-test/tls.crt -pubkey -noout | openssl pkey -pubin -outform DER | openssl dgst -sha256 -binary | openssl base64 -A)
+chromium --user-data-dir="$PWD/.local/web-browser" --ignore-certificate-errors-spki-list="$LAB_SPKI" https://localhost:8443/wallet/
+```
+
+Anpassa endast namnet på Chromium-programmet till din installation. Använd
+profilen enbart för labben. Samma certifikatspecifika undantag används i de
+automatiserade browserproven; ett generellt `--ignore-certificate-errors`
+behövs inte.
+
+Automatiserade tester använder Chromium med virtuella USB- och
+plattformsautentiserare och certifikatspecifik testtillit; ingen manuell
+certifikatimport behövs för dem. Fysiska nycklar, telefoner och faktisk
+OS-installation är ännu inte provade. [Körda tester och gränser](evidence/web-verification.md).
+
+## Äldre protokolläge med simulerat godkännande
 
 Kräver JDK **21**, Python **3** för beroendekontroll och lediga portar **8443/8444**. Maven **3.9.11** hämtas av den medföljande wrappern och verifieras med SHA-256. Första bygget behöver internet för offentliga Maven-beroenden; den startade labben behöver ingen extern tjänst. Linux med POSIX-filrättigheter är verifierat. Det beständiga registret kräver en privat katalog med läge 0700; kör på Linux, även från Windows via WSL. En delad nätverksdisk stöds inte.
 
@@ -56,7 +124,7 @@ npx --no-install playwright install chromium --only-shell
 npm run test:browser
 ```
 
-På Linux kan Playwright behöva systembibliotek: använd vid behov dess `install --with-deps chromium --only-shell` i din disponibla testmiljö. Testet genererar egna nycklar, startar JAR-filen och provar inloggning, verkliga Origin-headers, automatisk POST, utloggning och spärr. TLS-undantaget är bundet till just det tillfälliga certifikatets publika nyckel och all sidtrafik begränsas till de två loopbackadresserna. `CHROMIUM_EXECUTABLE` kan ange samma Chromium-version från en separat installation. Stoppa den manuella labben först.
+På Linux kan Playwright behöva systembibliotek: använd vid behov dess `install --with-deps chromium --only-shell` i din disponibla testmiljö. Testerna genererar egna nycklar, startar JAR-filen och provar både det äldre protokolläget och WebAuthn: registrering, inloggning, verkliga Origin-headers, automatisk POST, utloggning, spärr, PWA-manifest och nekad offlineanvändning. `npm run test:web` kör endast WebAuthn-varianterna med virtuell USB- respektive plattformsnyckel. TLS-undantaget är bundet till just det tillfälliga certifikatets publika nyckel och all sidtrafik begränsas till loopbackadresserna. `CHROMIUM_EXECUTABLE` kan ange samma Chromium-version från en separat installation. Stoppa den manuella labben först.
 
 ## Vad som körs och vad som simuleras
 
@@ -68,7 +136,8 @@ På Linux kan Playwright behöva systembibliotek: använd vid behov dess `instal
 | Profil | Privat labbkontext `urn:openid:lab:simulated`, inte verklig LoA. Enbart attributet `displayName=SYNTHETIC-…` efterfrågas och accepteras. Ingen komplett Sweden Connect-profilcertifiering. |
 | Tillit | Lokalt genererade, fasta metadata för exakt en IdP och en SP; ingen metadatahämtning från internet. Separata lokala IdP-/SP-signaturnycklar. |
 | Flödesbindning | Bibliotekets kontroll av issuer, audience, destination, recipient, InResponseTo, RelayState, signatur, tid och replay; därutöver engångskonsumtion av webbläsarsession och rotation av sessionscookie. |
-| Identitet | Fördefinierade syntetiska poster. Val i en lista och uttryckligt labbgodkännande ersätter både identitetskontroll och innehavarautentisering. Det är inte MFA, BankID, passkey, ID-handlingskontroll eller enhetsbevis. |
+| Identitet | Fördefinierade syntetiska poster och uttryckligen simulerad identitetskontroll i båda lägena. Ingen ID-handling, bild eller personuppgift efterfrågas. |
+| Testnyckel | `start-web`: Yubico WebAuthn Server 2.10.1 validerar challenge, ursprung, RP-ID, signatur och användarverifiering. ES256/RS256, attestering `none`, inga fabrikatslistor eller externa metadataanrop. Ingen hårdvarubindning eller verklig identitet intygas. `start` har fortsatt enbart simulerat godkännande. |
 | Livscykel | SQLite-register för väntande, simulerat kontrollerad, aktiv, utgången och spärrad credential. Status, spärrversion och revisionshändelse skrivs i samma transaktion. Ersättning kräver ny simulerad kontroll av samma identitet och spärrar den gamla atomärt. Ersättning provas genom tester, inte via ett support-/återställningsgränssnitt. |
 | Spärr | Status kontrolleras också vid återupptagning före signering. SP använder samma lokala register och en spärrversion per identitet; ny credential återupplivar inte gamla sessioner eller pågående svar. Detta är en labbkoppling, ingen lösning för distribuerad federationsspärr. |
 | Tider | Begäran och godkännandeflöde: 60 s. Assertion: 30 s. Svar måste nå SP inom ±5 s från dess IssueInstant. SP-session: högst 5 min. SSO är avstängt. |
@@ -79,7 +148,7 @@ Tillståndsmodellen och negativa övergångar finns i `SyntheticRegistry.java` o
 
 Två HTTPS-adresser binds enbart till `127.0.0.1` i **en disponibel JVM**. De representerar separata protokollroller, men är inte säkerhetsisolerade processer. Datorn, operativsystemkontot och testprofilen måste vara betrodda. Vanliga Spring-miljövariabler/CLI kan inte byta till publik bindning, externa metadata eller produktionsnycklar. Det är inte en OS-sandbox eller ett skydd mot den som får ändra programmet/filerna. Kör helst i en disponibel utvecklingsmiljö, utan porttunnlar eller reverse proxy.
 
-Labben har inga produktionsanslutningar, betalningar, rapporteringsanrop, dokumentunderskrifter eller AI-baserade identitetsbeslut. Den utfärdar ingen riktig e-legitimation. Den saknar distribuerad beständig lagring, robust missbruksbegränsning, oberoende skyddad full revisionslogg, HSM, verkliga faktorer, registerkontroller, återställningskanal, driftberedskap och oberoende granskning. Inga krav i huvudmatrisen har därför stängts.
+Labben har inga produktionsanslutningar, betalningar, rapporteringsanrop, dokumentunderskrifter eller AI-baserade identitetsbeslut. Den utfärdar ingen riktig e-legitimation. Den saknar distribuerad beständig lagring, robust missbruksbegränsning, oberoende skyddad full revisionslogg, HSM, verifierad personbindning, registerkontroller, återställningskanal, driftberedskap och oberoende granskning. Inga krav i huvudmatrisen har därför stängts.
 
 OpenSAML-adapterns korta svarsfönster och ett upstream-varningsmeddelande om audit-autokonfiguration behandlas i [verifieringsrapporten](evidence/verification.md). Om ett flöde tar för lång tid: börja om; förläng inte säkerhetsfönstret för att få en demo att gå igenom.
 
@@ -87,7 +156,8 @@ Licenser, fullständiga upstream-revisioner, underhållsstatus och uppdateringsa
 
 ## Beständig drift, spärr och återläsning
 
-`registry.sqlite` innehåller endast syntetiska credentialposter, spärrversioner,
+`registry.sqlite` innehåller endast syntetiska credentialposter, publika
+WebAuthn-nycklar med opaka ID:n/räknare/backupflaggor, spärrversioner,
 append-only revisionshändelser och terminala SP-utfall. SQLite 3.53.4 använder
 WAL och `synchronous=FULL`. Ett exklusivt processlås nekar en andra JVM; detta är
 **enprocessdrift**, inte en HA- eller distribuerad databaslösning. SQL-triggers

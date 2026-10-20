@@ -1,0 +1,12 @@
+{
+  "id": "/wallet/",
+  "name": "openID — syntetisk testplånbok",
+  "short_name": "openID test",
+  "lang": "sv",
+  "start_url": "/wallet/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f4ec",
+  "theme_color": "#133c34",
+  "icons": [{"src": "/wallet/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}]
+}

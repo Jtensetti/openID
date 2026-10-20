@@ -38,7 +38,7 @@ public final class TestKeys {
           "-keyalg", "RSA", "-keysize", "3072", "-sigalg", "SHA256withRSA", "-validity", "30",
           "-dname", "CN=SYNTHETIC-LAB-" + alias, "-storetype", "PKCS12", "-keystore",
           directory.resolve(alias + ".p12").toString(), "-storepass", PASSWORD, "-keypass", PASSWORD));
-      if (alias.equals("tls")) args.addAll(java.util.List.of("-ext", "SAN=IP:127.0.0.1", "-ext", "EKU=serverAuth"));
+      if (alias.equals("tls")) args.addAll(java.util.List.of("-ext", "SAN=IP:127.0.0.1,DNS:localhost", "-ext", "EKU=serverAuth"));
       Process process = new ProcessBuilder(args).redirectErrorStream(true).start();
       process.getInputStream().transferTo(java.io.OutputStream.nullOutputStream());
       if (process.waitFor() != 0) throw new IllegalStateException("keytool failed: " + alias);

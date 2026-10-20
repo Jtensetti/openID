@@ -4,9 +4,17 @@
 
 Detta repository innehåller förstudie, arkitekturförslag, arbetsinstruktioner och en isolerad lokal prototyp i `prototype/`. Den använder enbart syntetiska identiteter, simulerad kontroll och lokalt genererade testnycklar. Det är inte en godkänd e-legitimation och har ingen deklarerad produktionsrelease eller garanterad drifts-/supportnivå.
 
-Labbens faktiska negativa tester och begränsningar finns i [verifieringsrapporten](prototype/evidence/verification.md). Spärrar och sessioner ligger i minnet och återställs vid omstart. Loopbackbindning är inte en OS-sandbox; exponera inte tjänsten via tunnel eller proxy. De genererade nycklarna under `prototype/.local/` och byggresultaten är Git-ignorerade.
+Labbens aktuella negativa tester och begränsningar finns i [verifieringsrapporten](prototype/evidence/web-verification.md). Spärrar, publika WebAuthn-nycklar, signaturräknare och revisionshändelser finns i SQLite och består efter normal omstart. Webbläsarsessioner försvinner. Krasch och återläsning spärrar alla credentials. Loopbackbindning är inte en OS-sandbox; exponera inte tjänsten via tunnel eller proxy. De genererade nycklarna under `prototype/.local/` och byggresultaten är Git-ignorerade.
 
-Det finns ännu ingen genomförd oberoende säkerhetsrevision, konfigurerad produktionsmiljö eller verifierad komplett testsvit för en produkt. Frånvaro av rapporterade sårbarheter ska inte tolkas som att en säkerhetsgranskning har utförts.
+Det finns en separat stängd driftgrund på Render som saknar e-id-funktioner. Det finns ännu ingen genomförd oberoende säkerhetsrevision eller verifierad komplett testsvit för en produkt. Frånvaro av rapporterade sårbarheter ska inte tolkas som att en säkerhetsgranskning har utförts.
+
+Webbläget kräver användarverifiering och giltigt WebAuthn-svar, engångschallenge,
+exakt ursprung samt bindning till session och SAML-begäran. Privat nyckel, PIN
+och biometriskt underlag skickas inte till labben. Attestering `none` gör ingen
+utfästelse om autentiserarens fabrikat, skyddsnivå eller att nyckeln inte kan
+synkroniseras. WebAuthn bevisar här kontroll över en testnyckel, inte personens
+identitet. Den lokala registrerings- och spärrkanalen är uttryckligen simulerad.
+Webbklienten sparar inga autentiseringssvar eller identiteter i offlinecache.
 
 ## Data och hemligheter
 

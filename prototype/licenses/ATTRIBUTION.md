@@ -16,3 +16,11 @@ Playwright 1.62.1 används enbart som installerat utvecklingsverktyg, inte kopie
 Övriga bibliotek hämtas som oförändrade Maven-artefakter. Se [THIRD_PARTY.md](../../THIRD_PARTY.md), beroendelåset och SBOM för omfattning, licensavvikelser och kvarstående distributionsbeslut. Denna attribution ger ingen ny licens till projektets egen kod och innebär inget stöd eller godkännande från Sweden Connect eller Apache.
 
 SQLite JDBC 3.53.4.0, Xerial (Apache-2.0), innehåller Zentus-kod av David Crawshaw (BSD-2-Clause). Se `sqlite-jdbc-LICENSE.zentus` och Apache-2.0-texten i denna katalog. Biblioteket är oförändrat; SQLite-motorn är public domain.
+
+Yubico Java WebAuthn Server 2.10.1 (`webauthn-server-core` och `yubico-util`)
+används som oförändrade Maven-bibliotek. Ursprung och releasecommit:
+<https://github.com/Yubico/java-webauthn-server/tree/6c1b6cc19beae08cd6a310a40db1acee3673b98d>.
+BSD-2-Clause och medföljande BSD-3-Clause-notis för Google-kod finns i
+[hela upstream COPYING](Yubico-COPYING.txt). Inga upstream-källfiler har
+kopierats till vår WebAuthn-integration. Användningen innebär inget stöd,
+produktcertifikat eller godkännande från Yubico.

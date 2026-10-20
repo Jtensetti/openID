@@ -17,10 +17,15 @@ public final class Lab implements AutoCloseable {
   private final ConfigurableApplicationContext idp;
 
   public Lab(Path keyDirectory, int idpPort, int spPort, SyntheticRegistry registry) throws Exception {
+    this(keyDirectory, idpPort, spPort, registry, false);
+  }
+  public Lab(Path keyDirectory, int idpPort, int spPort, SyntheticRegistry registry, boolean webAuthn) throws Exception {
     if (idpPort < 1024 || spPort < 1024 || idpPort > 65535 || spPort > 65535 || idpPort == spPort)
       throw new IllegalArgumentException("Two distinct unprivileged loopback ports are required");
     keys = new TestKeys(keyDirectory); this.registry = registry;
-    idpBase = "https://127.0.0.1:" + idpPort; spBase = "https://127.0.0.1:" + spPort;
+    String host = webAuthn ? "localhost" : "127.0.0.1";
+    idpBase = "https://" + host + ":" + idpPort; spBase = "https://" + host + ":" + spPort;
+    if (!webAuthn && !registry.passkeys().isEmpty()) throw new IllegalStateException("Passkey state requires start-web; no downgrade to simulated approval");
     OpenSAMLInitializer.getInstance().initialize(new OpenSAMLSecurityDefaultsConfig(new LabSecurityConfiguration()), new OpenSAMLSecurityExtensionConfig());
     Path metadata = keys.directory().resolve("sp-metadata.xml");
     Files.writeString(metadata, Metadata.sp(keys, spBase));
@@ -34,6 +39,7 @@ public final class Lab implements AutoCloseable {
     p.put("server.servlet.session.cookie.name", "__Host-lab-idp"); p.put("server.servlet.session.cookie.secure", true);
     p.put("server.servlet.session.cookie.http-only", true); p.put("server.servlet.session.cookie.same-site", "strict");
     p.put("server.servlet.session.timeout", "5m"); p.put("server.forward-headers-strategy", "none");
+    p.put("server.servlet.session.tracking-modes", "cookie");
     p.put("server.tomcat.max-http-form-post-size", "128KB"); p.put("server.error.include-message", "never");
     p.put("authn-server.base-url", idpBase); p.put("authn-server.sso.enabled", false);
     p.put("authn-server.saml.enabled", true); p.put("authn-server.oidc.enabled", false);
@@ -50,6 +56,7 @@ public final class Lab implements AutoCloseable {
     p.put("authn-server.subject-identifier.secret", UUID.randomUUID().toString());
     p.put("authn-server.saml.metadata.ui-info.display-names.sv", "SIMULERAD e-id-labb");
     p.put("lab.idp-base", idpBase); p.put("lab.sp-base", spBase);
+    p.put("lab.webauthn", webAuthn);
     StandardEnvironment env = new StandardEnvironment();
     // Security settings cannot be replaced with production metadata, keys or a public bind through environment/CLI.
     env.getPropertySources().remove(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME);
@@ -85,10 +92,10 @@ public final class Lab implements AutoCloseable {
       }
       return;
     }
-    if (args.length != 2 || !args[0].equals("start")) throw new IllegalArgumentException("Usage: init|start|audit <directory>; report|backup|revoke <directory> <value>; restore <backup> <new-directory>");
+    if (args.length != 2 || !Set.of("start", "start-web").contains(args[0])) throw new IllegalArgumentException("Usage: init|start|start-web|audit <directory>; report|backup|revoke <directory> <value>; restore <backup> <new-directory>");
     var registry = SyntheticRegistry.open(Path.of(args[1]), java.time.Clock.systemUTC());
     Lab lab;
-    try { lab = new Lab(Path.of(args[1]), 8443, 8444, registry); }
+    try { lab = new Lab(Path.of(args[1]), 8443, 8444, registry, args[0].equals("start-web")); }
     catch (Exception e) { registry.close(); throw e; }
     Runtime.getRuntime().addShutdownHook(new Thread(lab::close));
     System.out.println("SYNTHETIC LAB ONLY — start at " + lab.spBase + " — no Digg approval, no real proofing");

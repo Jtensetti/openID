@@ -43,5 +43,5 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Install Chromium for the pinned Playwright version
         run: npx --no-install playwright install --with-deps chromium --only-shell
-      - name: Real browser login, logout and revocation
+      - name: Browser SAML, WebAuthn USB/platform, PWA and revocation
         run: npm run test:browser

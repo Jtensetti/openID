@@ -2,7 +2,7 @@
   "name": "openid-isolated-lab-browser-tests",
   "private": true,
   "version": "0.1.0",
-  "scripts": {"test:browser": "node scripts/browser-smoke.cjs"},
+  "scripts": {"test:browser": "node scripts/browser-smoke.cjs && node scripts/web-browser-smoke.cjs", "test:web": "node scripts/web-browser-smoke.cjs"},
   "devDependencies": {"playwright": "1.62.1"},
   "engines": {"node": ">=22 <25"}
 }
