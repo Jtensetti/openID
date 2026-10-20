@@ -53,6 +53,11 @@ struct CaptureGuideView<Preview: View>: View {
                 }
             }.accessibilityElement(children: .combine)
         }.frame(maxWidth: .infinity)
+            .onChange(of: guidance.hint) { hint in
+                if UIAccessibility.isVoiceOverRunning {
+                    UIAccessibility.post(notification: .announcement, argument: hint)
+                }
+            }
     }
 }
 

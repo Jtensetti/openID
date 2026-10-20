@@ -90,7 +90,7 @@ final class CaptureCamera: NSObject, ObservableObject, AVCaptureVideoDataOutputS
                 request.revision = VNDetectFaceCaptureQualityRequestRevision2
                 request.inputFaceObservations = faces
                 try handler.perform([request])
-                if request.results?.count == 1 { quality = request.results?.first?.faceCaptureQuality?.doubleValue }
+                if request.results?.count == 1, let value = request.results?.first?.faceCaptureQuality { quality = Double(value) }
             }
             let observations = faces.map { face in
                 CaptureFace(bounds: face.boundingBox, yaw: face.yaw?.doubleValue, pitch: face.pitch?.doubleValue,
@@ -133,7 +133,7 @@ final class CaptureCamera: NSObject, ObservableObject, AVCaptureVideoDataOutputS
     enum CaptureError: Error { case denied, unavailable, timeout }
 }
 
-private final class CaptureRun {
+private final class CaptureRun: @unchecked Sendable {
     private let lock = NSLock()
     private var stopped = false
     var cancelled: Bool { lock.withLock { stopped } }
