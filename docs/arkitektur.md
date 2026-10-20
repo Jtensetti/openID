@@ -30,12 +30,13 @@ Versioner och licenser finns i [komponentregistret](../THIRD_PARTY.md).
    andra CoreNFC-session i telefonen. Ny SELECT/READ av DG14 med verifierad
    MAC bekräftar chipnyckeln; sessionsnycklar lämnar inte serverprocessen.
 5. Efter chipkontrollen får appen ett nytt engångsvärde och tar tre
-   AVFoundation-bilder. Vision vägleder fångsten framifrån och från båda sidor
-   med position, kvalitet och stabil hålltid. En ny App Attest-assertion binder bilderna till
+   AVFoundation-bilder. Vision vägleder fotograferingen framifrån och från båda sidor
+   utifrån huvudposition, bildkvalitet och hur länge användaren håller stilla. En ny App
+   Attest-assertion binder bilderna till
    sessionen. YuNet/SFace jämför dem med passfotot. MiniFASNet beräknar PAD-värden.
    Godkända kontroller skapar `PENDING_REVIEW`; operatören aktiverar separat.
 
-Kameraringen är lokal fångstguidning. Ingen klientrapporterad färg, vinkel
+Ringen vägleder fotograferingen lokalt på telefonen. Ingen klientrapporterad färg, vinkel
 eller liveness-flagga används i serverns beslut. Servern analyserar de tre
 bilderna men verifierar inte rörelseförloppet mellan dem.
 
@@ -52,7 +53,7 @@ inte närhet mellan pass och telefon; NFC-relä behöver prövas separat.
    hemlighet i IdP-sessionen. QR-koden innehåller endast begärans-ID.
 3. Appen hämtar tjänst, syfte och kontrollkod genom en signerad `inspect`.
    Godkännande kräver ny lokal användarverifiering och signerar samma uppgifter.
-4. Registret tillåter en nyckel och en konsumtion. Sweden Connect skapar
+4. Varje begäran kan godkännas av en enda nyckel och användas en gång. Sweden Connect skapar
    signerat och krypterat SAML-svar med kontexten
    `urn:openid:authn:passport-native:v1`.
 5. SP:n validerar signatur, issuer, audience, destination, InResponseTo,
@@ -107,7 +108,7 @@ De utgör därför inte separata administrativa säkerhetszoner.
 
 - `start` och `start-web` i `prototype/` kör IdP och SP i samma JVM med ett
   separat testregister. Identitetskontrollen är simulerad; `start-web` använder
-  riktiga WebAuthn-signaturer. Krasch och restore spärrar alla testnycklar.
+  riktiga WebAuthn-signaturer. Krasch och återläsning spärrar alla testnycklar.
 - `verification/relying_party.py` är en enklare lokal HTTP-testtjänst utan
   SAML. Den använder samma appregister men separata webbsessioner.
 - `ops/` bygger en fristående hälsokontrollcontainer. Den innehåller ingen
@@ -115,7 +116,7 @@ De utgör därför inte separata administrativa säkerhetszoner.
 
 ## Återstående kontroller
 
-Fysisk iPhone-fångst, biometrisk/PAD-kalibrering, injektion och relä,
+Fotografering på fysisk iPhone, biometrisk/PAD-kalibrering, injektion och relä,
 certifikatspärr, registerkontroll, HSM, rollseparation och återställning med
 beständig spärrstatus återstår. Dokumentunderskrift är inte implementerad.
 Se [krav](krav.md), [testning](testning.md) och [säkerhet](../SECURITY.md).

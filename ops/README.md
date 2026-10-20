@@ -43,7 +43,7 @@ Senast dokumenterade driftsättning, 2026-10-19:
 [render.yaml](../render.yaml) har inte synkats, så dess projekt- och
 miljögruppering är inte etablerad. Byggkontexten är `ops/`;
 `.dockerignore` släpper bara igenom Java-källfilen och Dockerfile.
-Deployer görs manuellt från en CI-verifierad commit. Inga hemligheter
+Driftsättning görs manuellt från en CI-verifierad commit. Inga hemligheter
 eller diskar behövs.
 
 Render terminerar TLS. Den dokumenterade tjänsten använder TCP-hälsokontroll.
@@ -74,7 +74,7 @@ fördröja första svaret.
 [Labb-CI](https://github.com/Jtensetti/openID/actions/runs/39244622805) och
 [container-CI](https://github.com/Jtensetti/openID/actions/runs/39244622896)
 passerade på den driftsatta revisionen. Render byggde från samma commit;
-dess image-digest har inte attesterats. Senare kodändringar deployas inte
+dess image-digest har inte attesterats. Senare kodändringar driftsätts inte
 automatiskt.
 
 ## Komponenter

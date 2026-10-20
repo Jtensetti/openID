@@ -42,7 +42,7 @@ struct CaptureGuideView<Preview: View>: View {
             }
             .aspectRatio(9.0 / 16, contentMode: .fit).frame(maxWidth: 260)
             .background(Palette.ink).clipShape(RoundedRectangle(cornerRadius: 28))
-            .accessibilityElement(children: .ignore).accessibilityLabel("Kamerafångst")
+            .accessibilityElement(children: .ignore).accessibilityLabel("Fotografering")
             .accessibilityValue("\(guidance.completed) av 3 bilder tagna").accessibilityIdentifier("capture.ring")
             VStack(spacing: 8) {
                 Text(guidance.pose.title).font(.title3.weight(.semibold)).accessibilityIdentifier("capture.instruction")

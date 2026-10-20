@@ -13,7 +13,7 @@ struct CapturePreviewFixture: View {
                             .frame(width: 180).offset(y: 36)
                     }
                 }.padding(24)
-            }.background(Palette.paper).navigationTitle("Kameravy · förhandsvisning").navigationBarTitleDisplayMode(.inline)
+            }.background(Palette.paper).navigationTitle("Förhandsvisa kameran").navigationBarTitleDisplayMode(.inline)
                 .safeAreaInset(edge: .bottom) {
                     HStack {
                         Button("Nästa position") {
@@ -22,7 +22,7 @@ struct CapturePreviewFixture: View {
                                 holdProgress: 0.55, acceptable: true, hint: "Håll kvar")
                         }.accessibilityIdentifier("capture.preview.next")
                         Spacer()
-                        Button("Förlorat ansikte") {
+                        Button("Simulera saknat ansikte") {
                             guidance.holdProgress = 0; guidance.acceptable = false; guidance.hint = "Placera ansiktet i ovalen"
                         }.accessibilityIdentifier("capture.preview.missing")
                     }.font(.caption).padding().background(Palette.paper)

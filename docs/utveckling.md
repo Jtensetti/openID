@@ -36,9 +36,9 @@ framgår av koden. Tillfälliga arbetsloggar hör hemma i PR:n.
 | Område | Acceptansprov |
 |---|---|
 | Fysisk iPhone | Signerat bygge på enheten: NFC, App Attest, Secure Enclave, avbrott, ny registrering, inloggning och spärr. |
-| Biometri och fångst | Kalibrerade trösklar samt mätning av felacceptans/felavvisning, presentationer, injektion och relä. |
+| Biometri och fotografering | Kalibrerade trösklar samt mätning av felacceptans/felavvisning, presentationer, injektion och relä. |
 | Pass och personregister | Spärrinformation, länkcertifikat, registerkontroll och ersättning efter passförnyelse. |
-| Nycklar och återställning | Rotation, gallring och restore som inte återupplivar spärrade nycklar. |
+| Nycklar och återställning | Rotation, gallring och återläsning som inte återupplivar spärrade nycklar. |
 | Extern integration | Fastställd profil, metadata, attribut och kontrollerad motpart med negativa protokollprov. |
 | Drift | Rollseparation, servernyckelskydd, kapacitet, övervakning och övad återställning. |
 

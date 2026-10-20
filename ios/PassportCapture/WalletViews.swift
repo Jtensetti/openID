@@ -73,7 +73,7 @@ struct HomeView: View {
                     } else {
                         PrimaryButton(title: "Uppdatera mitt ID", symbol: "arrow.clockwise") { model.refresh() }.disabled(model.busy)
                         if model.snapshot == nil {
-                            Button("Fortsätt passregistrering") { model.beginRegistration() }.font(.subheadline)
+                            Button("Fortsätt registreringen") { model.beginRegistration() }.font(.subheadline)
                         }
                     }
                     if model.busy { ProgressView("Kontrollerar…").accessibilityIdentifier("home.progress") }
@@ -172,7 +172,7 @@ struct RequestsView: View {
                     Button { scanner = true } label: { Label("Skanna en QR-kod", systemImage: "qrcode.viewfinder") }
                         .padding().accessibilityIdentifier("requests.scan")
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Begärandelänk").font(.footnote.bold())
+                        Text("Länk till begäran").font(.footnote.bold())
                         TextField("openid://request/…", text: $link).textInputAutocapitalization(.never).autocorrectionDisabled()
                             .textFieldStyle(.roundedBorder).accessibilityIdentifier("requests.link")
                         Button("Öppna begäran") { if let url = URL(string: link) { model.open(url) } else { model.error = "Ogiltig länk." } }
@@ -197,7 +197,7 @@ struct ApprovalView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Kontrollkod").font(.subheadline)
                     Text(request.code).font(.system(size: 40, weight: .medium, design: .monospaced)).tracking(7)
-                    Text("Kontrollera att koden stämmer med tjänstens.").font(.footnote)
+                    Text("Kontrollera att samma kod visas hos tjänsten.").font(.footnote)
                 }.padding(24).frame(maxWidth: .infinity, alignment: .leading).background(Palette.mint, in: RoundedRectangle(cornerRadius: 20))
                 Label("Godkänn bara en inloggning du själv startat.", systemImage: "hand.raised").font(.subheadline)
                 TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -249,7 +249,7 @@ struct SettingsView: View {
                     if let credential = model.credential {
                         LabeledContent("Enhet", value: "Den här telefonen")
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Registreringsreferens").font(.caption)
+                            Text("Registrerings-ID").font(.caption)
                             Text(credential.id).font(.caption2.monospaced()).textSelection(.enabled)
                         }
                     }
