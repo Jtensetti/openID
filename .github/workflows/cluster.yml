@@ -2,9 +2,9 @@ name: Shared registry and key service
 on:
   push:
     branches: [main, 'feat/**']
-    paths: ['verification/**', 'deployment/cluster/**', '.github/workflows/cluster.yml']
+    paths: ['verification/**', 'deployment/cluster/**', '.github/workflows/cluster.yml', '.github/scripts/postgres-tls.sh']
   pull_request:
-    paths: ['verification/**', 'deployment/cluster/**', '.github/workflows/cluster.yml']
+    paths: ['verification/**', 'deployment/cluster/**', '.github/workflows/cluster.yml', '.github/scripts/postgres-tls.sh']
 permissions:
   contents: read
 jobs:
@@ -43,13 +43,7 @@ jobs:
       - name: Enable and verify database TLS
         env:
           POSTGRES_CONTAINER: '${{ job.services.postgres.id }}'
-        run: |
-          openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj '/CN=localhost' -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1' -keyout "$RUNNER_TEMP/postgres.key" -out "$RUNNER_TEMP/postgres.crt" 2>/dev/null
-          docker cp "$RUNNER_TEMP/postgres.key" "$POSTGRES_CONTAINER:/tmp/postgres.key"
-          docker cp "$RUNNER_TEMP/postgres.crt" "$POSTGRES_CONTAINER:/tmp/postgres.crt"
-          docker exec --user root "$POSTGRES_CONTAINER" chown postgres:postgres /tmp/postgres.key /tmp/postgres.crt
-          docker exec --user root "$POSTGRES_CONTAINER" chmod 600 /tmp/postgres.key
-          docker exec "$POSTGRES_CONTAINER" psql -U postgres -d openid_test -v ON_ERROR_STOP=1 -c "ALTER SYSTEM SET ssl_cert_file='/tmp/postgres.crt'" -c "ALTER SYSTEM SET ssl_key_file='/tmp/postgres.key'" -c "ALTER SYSTEM SET ssl='on'" -c 'SELECT pg_reload_conf()'
+        run: bash .github/scripts/postgres-tls.sh
       - name: Test database roles, concurrent operations and real Transit cryptography
         working-directory: verification
         env:

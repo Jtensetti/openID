@@ -336,6 +336,13 @@ på riktigt. NFC, kamera, App Attest och biometriska poäng ersätts med
 explicita testdubblar i just denna fixtur. Testet bevisar integrationen,
 inte fysisk personkontroll. Linux med Unix-sockets krävs.
 
+CI kör samma SAML-webbtest även mot PostgreSQL och OpenBao över verifierad
+TLS. `OPENID_TEST_POSTGRES` väljer denna variant och måste peka på en tom,
+temporär testdatabas med administratörsbehörighet. `OPENID_TEST_BAO` anger
+den låsta OpenBao-binären. Fixturen skapar schema, tjänstekonton, två separata
+operatörskonton och en tillfällig nyckeltjänst. Använd aldrig en befintlig
+driftdatabas. Körningen finns i `.github/workflows/prototype.yml`.
+
 ## Flera autentiseringsinstanser
 
 [Driftinstruktionen](../deployment/cluster/README.md) beskriver PostgreSQL,

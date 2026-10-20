@@ -149,9 +149,11 @@ befintliga SAML-startkonfigurationen enligt verifierarens README.
 Bryggan återanvänder `FederationServer` och Sweden Connect-flödet. Flera
 IdP-instanser kan ha var sin lokal brygga mot samma register. CI provar
 socketprotokollet med PostgreSQL, QR, godkännande i en annan instans,
-mottagar-/sessionsbindning, engångskonsumtion och spärr. Hela Java-/browserkedjan
-körs fortsatt mot SQLite i den separata federationssviten; extern federation
-eller redundant IdP-/SP-sessionhantering är inte verifierad.
+mottagar-/sessionsbindning, engångskonsumtion och spärr. Samma helkedjeprov
+med Java-IdP, Java-SP och Chromium körs mot både SQLite och PostgreSQL.
+PostgreSQL-varianten använder verifierad TLS till databasen och OpenBao,
+separata tjänstekonton samt aktivering av två operatörskonton. Extern federation
+och redundant IdP-/SP-sessionhantering är inte verifierade.
 
 ## Operatörer
 
