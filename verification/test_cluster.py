@@ -42,7 +42,7 @@ class ClusterTests(unittest.TestCase):
         else: raise AssertionError('OpenBao did not start')
         cls.bao_request('transit/keys/openid-profile', {'type':'aes256-gcm96', 'derived':True, 'exportable':False})
         cls.bao_request('transit/keys/openid-profile/config', {'auto_rotate_period':'720h'})
-        cls.bao_request('transit/keys/openid-index', {'type':'hmac', 'exportable':False})
+        cls.bao_request('transit/keys/openid-index', {'type':'hmac', 'key_size':32, 'exportable':False})
         cls.token_files = {}
         for role, paths in {
             'enroller':['encrypt/openid-profile','hmac/openid-index/sha2-256'],
