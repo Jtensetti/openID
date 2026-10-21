@@ -53,6 +53,38 @@ class FaceTests(unittest.TestCase):
             matcher.feature(image)
         matcher.recognizer.feature.assert_not_called()
 
+    def test_large_face_detection_maps_box_and_landmarks_to_original(self):
+        matcher = FaceMatcher.__new__(FaceMatcher)
+        matcher.detector = Mock()
+        small = np.array([[50, 60, 100, 120, 70, 90, 120, 90, 95, 115, 75, 140, 115, 140, .95]], dtype=np.float32)
+        matcher.detector.detect.side_effect = [(0, None), (1, small)]
+        encoded = cv2.imencode('.jpg', np.zeros((1280, 720, 3), dtype=np.uint8))[1].tobytes()
+        image, face = matcher.decode_face(encoded)
+        self.assertEqual(image.shape[:2], (1280, 720))
+        np.testing.assert_allclose(face[:14], small[0, :14] / .375, atol=0.0001)
+        self.assertAlmostEqual(float(face[14]), .95, places=5)
+        self.assertEqual(matcher.detector.setInputSize.call_args.args[0], (270, 480))
+
+    def test_two_faces_at_either_scale_are_rejected(self):
+        one = np.array([[50, 50, 100, 100] + [60]*10 + [.95]], dtype=np.float32)
+        for results in [[(2, np.vstack([one, one]))], [(1, one), (2, np.vstack([one, one]))]]:
+            matcher = FaceMatcher.__new__(FaceMatcher); matcher.detector = Mock()
+            matcher.detector.detect.side_effect = results
+            encoded = cv2.imencode('.jpg', np.zeros((1280, 720, 3), dtype=np.uint8))[1].tobytes()
+            with self.assertRaisesRegex(FaceRejected, 'EXACTLY_ONE_FACE_REQUIRED'): matcher.decode_face(encoded)
+
+    def test_different_faces_across_scales_are_rejected(self):
+        one = np.array([[20, 20, 100, 100] + [60]*10 + [.95]], dtype=np.float32)
+        other = np.array([[150, 250, 100, 100] + [160]*10 + [.95]], dtype=np.float32)
+        matcher = FaceMatcher.__new__(FaceMatcher); matcher.detector = Mock()
+        matcher.detector.detect.side_effect = [(1, one), (1, other)]
+        encoded = cv2.imencode('.jpg', np.zeros((1280, 720, 3), dtype=np.uint8))[1].tobytes()
+        with self.assertRaisesRegex(FaceRejected, 'EXACTLY_ONE_FACE_REQUIRED'): matcher.decode_face(encoded)
+
+    def test_actual_detector_rejects_large_blank_image(self):
+        encoded = cv2.imencode('.jpg', np.zeros((1280, 720, 3), dtype=np.uint8))[1].tobytes()
+        with self.assertRaisesRegex(FaceRejected, 'EXACTLY_ONE_FACE_REQUIRED'): self.matcher.decode_face(encoded)
+
 class BoundaryTests(unittest.TestCase):
     def setUp(self):
         self.matcher=Mock();self.matcher.compare.return_value=0.99

@@ -1,7 +1,7 @@
 # openID
 
 Ett projekt för svensk e-legitimation. Repot innehåller en iPhone-app, en
-pass- och ansiktsverifierare och SAML-inloggning med Sweden Connect. Appens
+pass- och ansiktsverifierare samt SAML- och OIDC-inloggning med Sweden Connect. Appens
 nyckel knyts till personuppgifter från passet. En separat lokal tjänst
 tar emot de uppgifter användaren godkänner att dela.
 
@@ -28,6 +28,7 @@ får inte läggas i repot. Läs [säkerhetsinformationen](SECURITY.md) och
 ## Dokumentation
 
 - [Arkitektur](docs/arkitektur.md)
+- [OIDC i den privata piloten](docs/oidc-pilot.md)
 - [Tekniska krav och verifieringsluckor](docs/krav.md)
 - [Utveckling](docs/utveckling.md)
 - [Testning](docs/testning.md)

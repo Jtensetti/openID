@@ -353,7 +353,9 @@ class Wallet:
             if operation == 'cancel':
                 db.execute("UPDATE federation_requests SET state='CANCELLED' WHERE id=? AND state IN ('PENDING','APPROVED')", (request,))
                 return {'state': 'CANCELLED'}
-            if row['expires'] <= self.clock(): raise ValueError('expired request')
+            if row['expires'] <= self.clock():
+                if operation == 'poll': return {'state': 'EXPIRED'}
+                raise ValueError('expired request')
             if operation == 'poll':
                 if row['state'] == 'APPROVED': self.verified_profile(db, row['credential'])
                 return {'state': row['state']}

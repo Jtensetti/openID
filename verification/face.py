@@ -34,13 +34,38 @@ class FaceMatcher:
             image = cv2.imdecode(np.frombuffer(encoded, dtype=np.uint8), cv2.IMREAD_COLOR)
             if image is None or min(image.shape[:2]) < 80 or max(image.shape[:2]) > 4096:
                 raise FaceRejected('IMAGE_REJECTED')
-            self.detector.setInputSize((image.shape[1], image.shape[0]))
-            _, faces = self.detector.detect(image)
-            if faces is None or len(faces) != 1:
+            # YuNet's training covers faces around 10–300 pixels. Check both
+            # full frame scales; never crop away another face to obtain a match.
+            candidates = []
+            views = [image]
+            height, width = image.shape[:2]
+            if max(height, width) > 480:
+                scale = 480 / max(height, width)
+                views.append(cv2.resize(image, (max(1, round(width * scale)), max(1, round(height * scale))), interpolation=cv2.INTER_AREA))
+            for view in views:
+                self.detector.setInputSize((view.shape[1], view.shape[0]))
+                _, faces = self.detector.detect(view)
+                if faces is None or len(faces) == 0: continue
+                if len(faces) != 1:
+                    raise FaceRejected('EXACTLY_ONE_FACE_REQUIRED')
+                if faces.shape != (1, 15) or not np.isfinite(faces).all():
+                    raise FaceRejected('FACE_QUALITY_REJECTED')
+                face = faces[0].copy()
+                # Box and five landmark coordinates return to original pixels.
+                face[:14:2] *= width / view.shape[1]
+                face[1:14:2] *= height / view.shape[0]
+                if min(face[2:4]) < 60 or face[0] < 0 or face[1] < 0 or not 0.9 <= face[14] <= 1:
+                    raise FaceRejected('FACE_QUALITY_REJECTED')
+                candidates.append(face)
+            if not candidates:
                 raise FaceRejected('EXACTLY_ONE_FACE_REQUIRED')
-            if not np.isfinite(faces).all() or min(faces[0][2:4]) < 60:
-                raise FaceRejected('FACE_QUALITY_REJECTED')
-            return image, faces[0]
+            if len(candidates) == 2:
+                a, b = candidates
+                intersection = max(0, min(a[0]+a[2], b[0]+b[2])-max(a[0], b[0])) * max(0, min(a[1]+a[3], b[1]+b[3])-max(a[1], b[1]))
+                union = a[2]*a[3] + b[2]*b[3] - intersection
+                if union <= 0 or intersection / union < 0.5:
+                    raise FaceRejected('EXACTLY_ONE_FACE_REQUIRED')
+            return image, candidates[0]
         except cv2.error:
             raise FaceRejected('IMAGE_REJECTED') from None
 

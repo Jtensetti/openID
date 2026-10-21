@@ -29,6 +29,14 @@ class RuntimeTests(unittest.TestCase):
         result = b''.join(self.app(env, lambda status, headers: response.append((int(status[:3]), dict(headers)))))
         return response[0][0], json.loads(result), response[0][1]
 
+    def test_camera_rejection_returns_only_safe_frame_code(self):
+        from biometric_worker import CameraImageRejected
+        self.native.finish.side_effect = CameraImageRejected(2)
+        code, result, headers = self.request('/native/finish')
+        self.assertEqual(code, 422)
+        self.assertEqual(result, {'error': 'CAMERA_IMAGE_REJECTED', 'frame': 2})
+        self.assertEqual(headers['Cache-Control'], 'no-store')
+
     def test_complete_dispatch_and_security_headers(self):
         code, result, headers = self.request()
         self.assertEqual((200, {'id': 'session'}), (code, result))
@@ -110,7 +118,7 @@ class RuntimeTests(unittest.TestCase):
         self.assertTrue(limit.allow('first')); self.assertFalse(limit.allow('second')); self.assertFalse(limit.allow('first'))
 
     def test_bad_origin_configuration(self):
-        for value in ['http://localhost:8765', 'https://user@host:8765', 'https://host:8765/', 'https://host', 'https://host:443', 'https://host:8765?x=1']:
+        for value in ['http://localhost:8765', 'https://user@host:8765', 'https://host:8765/', 'https://host:80', 'https://host:8765?x=1']:
             with self.subTest(value=value), self.assertRaises(ValueError): validate_origin(value)
 
     def test_duplicate_and_forwarded_headers_rejected(self):
@@ -196,3 +204,10 @@ class EncryptedRecoveryTests(unittest.TestCase):
                 self.assertIsNone(snapshot['identity'])
                 self.assertEqual('REVOKED', snapshot['events'][0]['kind'])
             with self.assertRaises(ValueError): recovered.activate(ident, 'TEST-REACTIVATE')
+
+class PublicOriginTests(unittest.TestCase):
+    def test_default_https_origin_keeps_exact_boundary(self):
+        app = Runtime(Mock(), Mock(), 'https://api.example.org', 'a'*43)
+        self.assertEqual(app.authority, 'api.example.org')
+        self.assertEqual(app.origin, 'https://api.example.org')
+        self.assertEqual(validate_origin('https://api.example.org:443').port, 443)

@@ -29,4 +29,16 @@ public final class PhoneAttributes {
     }
     return mapping;
   }
+  public static se.swedenconnect.spring.authnserver.oidc.attributes.OidcAttributeMapping oidcMapping() {
+    var definitions = new DefaultAttributeDefinitionRegistry();
+    for (String name : PhoneIdentity.ATTRIBUTES) if (!Metadata.DISPLAY_NAME.equals(name)) definitions.register(AttributeDefinition.ofString(name, name));
+    var mapping = new se.swedenconnect.spring.authnserver.oidc.attributes.OidcAttributeMapping(definitions);
+    for (String name : PhoneIdentity.ATTRIBUTES) {
+      if (Metadata.DISPLAY_NAME.equals(name)) continue;
+      mapping.getFromProtocolMapping().register(new se.swedenconnect.spring.authnserver.oidc.attributes.mapping.ClaimFromProtocolMapper(name, name));
+      mapping.getToProtocolMapping().register(new se.swedenconnect.spring.authnserver.oidc.attributes.mapping.ClaimToProtocolMapper(name, name));
+    }
+    return mapping;
+  }
+
 }

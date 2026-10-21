@@ -8,6 +8,8 @@ import LocalAuthentication
     @Published private(set) var unlocked = false
     @Published private(set) var busy = false
     @Published var error: String?
+    @Published private(set) var statusMessage: String?
+    @Published private(set) var decisionMessage: String?
     @Published var selectedTab = 0
     @Published var focusedRequest: WalletRequest?
     @Published var registrationPresented = false
@@ -22,7 +24,7 @@ import LocalAuthentication
 
     func unlock() {
         guard !busy else { return }
-        busy = true; error = nil
+        busy = true; error = nil; statusMessage = nil; decisionMessage = nil
         let epoch = generation
         task = Task {
             defer {
@@ -40,7 +42,11 @@ import LocalAuthentication
                 }
                 credential = try vault.read("credential", as: LocalCredential.self)
                 unlocked = true
-            } catch { if generation == epoch { self.error = "Kunde inte låsa upp. Försök igen med Face ID, Touch ID eller din enhetskod." } }
+            } catch {
+                if generation == epoch, !Self.wasCancelled(error) {
+                    self.error = "Kunde inte låsa upp. Försök igen med Face ID, Touch ID eller din enhetskod."
+                }
+            }
         }
     }
     func lock() {
@@ -48,7 +54,7 @@ import LocalAuthentication
         operationContext?.invalidate(); operationContext = nil
         verification.cancel(); snapshot = nil; credential = nil; configuration = nil
         focusedRequest = nil; registrationPresented = false; settingsPresented = false
-        unlocked = false; busy = false; error = nil
+        unlocked = false; busy = false; error = nil; statusMessage = nil; decisionMessage = nil
     }
     func saveConfiguration(origin: String, pairing: String) throws {
         guard unlocked, !busy, !verification.busy else { throw WalletError.rejected }
@@ -76,7 +82,12 @@ import LocalAuthentication
     func revoke() { perform("revoke") }
     private func perform(_ action: String, request: WalletRequest? = nil, inspectID: String? = nil) {
         guard unlocked, !busy, let configuration, let credential else { return }
-        busy = true; error = nil
+        if let request, request.expired {
+            focusedRequest = nil
+            error = "QR-koden har gått ut. Starta en ny inloggning på testsidan och skanna den nya koden."
+            return
+        }
+        busy = true; error = nil; statusMessage = nil; decisionMessage = nil
         let epoch = generation
         task = Task {
             defer {
@@ -107,19 +118,42 @@ import LocalAuthentication
                 try result.validate(for: credential.id)
                 try Task.checkCancellation(); guard generation == epoch else { return }
                 snapshot = result; focusedRequest = nil
+                if action == "approve" { decisionMessage = "Ditt godkännande har skickats. Gå tillbaka till testsidan för att se om inloggningen är klar." }
+                if action == "reject" { decisionMessage = "Du nekade legitimeringen. Vill du försöka igen, starta en ny inloggning på testsidan." }
                 if let link = inspectID {
                     focusedRequest = result.requests.first { $0.id == link }
                     if pendingLink == link { pendingLink = nil }
-                    if focusedRequest == nil { self.error = "Begäran finns inte eller har gått ut." }
+                    if focusedRequest == nil { self.error = "Begäran är inte längre tillgänglig. Starta en ny inloggning på testsidan och skanna den nya QR-koden." }
                 }
             } catch {
                 if generation == epoch {
                     if pendingLink == inspectID { pendingLink = nil }
+                    if Self.wasCancelled(error) { return }
                     snapshot = nil; focusedRequest = nil
-                    self.error = (error as? WalletError)?.localizedDescription ?? "Anslutningen kunde inte bekräftas. Uppdatera ditt ID för att se om åtgärden hann genomföras."
+                    let message = Self.failureMessage(action: action, error: error)
+                    if action == "snapshot" { statusMessage = message }
+                    else { self.error = message }
                 }
             }
         }
+    }
+    static func wasCancelled(_ error: Error) -> Bool {
+        if error is CancellationError { return true }
+        if let value = error as? LAError { return [.userCancel, .systemCancel, .appCancel].contains(value.code) }
+        if let value = error as? WalletError, case .cancelled = value { return true }
+        return false
+    }
+    static func failureMessage(action: String, error: Error) -> String {
+        if action == "snapshot" {
+            return "Kunde inte hämta aktuell status. Kontrollera internet och att WireGuard är anslutet. Tryck sedan på Hämta status."
+        }
+        if action == "inspect", let value = error as? WalletError, case .rejected = value {
+            return "Begäran kunde inte öppnas. Den kan ha gått ut eller avslutats, eller ditt ID kan vara inaktivt. Hämta status under Mitt ID. Om ditt ID är aktivt, starta en ny inloggning på testsidan."
+        }
+        if ["approve", "reject", "revoke"].contains(action) {
+            return "Vi kunde inte bekräfta att ditt val registrerades. Hämta status under Mitt ID och kontrollera Aktivitet innan du försöker igen."
+        }
+        return "Kunde inte nå tjänsten. Kontrollera internet och WireGuard och försök sedan igen."
     }
     func open(_ url: URL) {
         guard let id = RequestLink.identifier(url) else { error = "Länken är inte en giltig openID-begäran."; return }

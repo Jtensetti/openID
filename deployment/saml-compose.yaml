@@ -1,0 +1,45 @@
+name: openid-saml
+x-common: &common
+  image: openid-pilot:local
+  network_mode: host
+  user: "10001:10001"
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  init: true
+  restart: unless-stopped
+  pids_limit: 128
+  tmpfs: ["/tmp:size=64m,mode=1777"]
+  healthcheck:
+    disable: true
+  logging:
+    driver: json-file
+    options: {max-size: 5m, max-file: "2"}
+services:
+  bridge:
+    <<: *common
+    mem_limit: 128m
+    cpus: 0.5
+    entrypoint: [python, /app/verification/saml_bridge.py]
+    volumes:
+      - ${OPENID_DIRECTORY:?Set OPENID_DIRECTORY}/data:/srv/openid/data
+      - ../verification/federation.py:/app/verification/federation.py:ro
+      - ./saml_bridge.py:/app/verification/saml_bridge.py:ro
+  idp:
+    <<: *common
+    mem_limit: 640m
+    cpus: 1
+    entrypoint: [java, -Xmx384m, -jar, /app/prototype/target/isolated-eid-lab.jar]
+    command: [phone-idp, /srv/openid/federation, /srv/openid/data/federation.sock]
+    volumes:
+      - ${OPENID_DIRECTORY}/data:/srv/openid/data
+      - ${OPENID_DIRECTORY}/saml/federation:/srv/openid/federation
+  sp:
+    <<: *common
+    mem_limit: 384m
+    cpus: 0.5
+    entrypoint: [java, -Xmx192m, -jar, /app/prototype/target/isolated-eid-lab.jar]
+    command: [phone-sp, /srv/openid/federation, /srv/openid/data/federation.sock]
+    volumes:
+      - ${OPENID_DIRECTORY}/data:/srv/openid/data
+      - ${OPENID_DIRECTORY}/saml/federation:/srv/openid/federation:ro

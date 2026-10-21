@@ -8,6 +8,7 @@ import ssl
 import ipaddress
 from urllib.parse import urlsplit
 import subprocess
+import sys
 import sqlite3
 from face import FaceMatcher, FaceRejected
 from identity import VerifiedDocument
@@ -29,6 +30,15 @@ def verify_document(command, request):
     result = subprocess.run(command, input=json.dumps(payload).encode(), stdout=subprocess.PIPE,
                             stderr=subprocess.DEVNULL, timeout=20, check=False)
     if result.returncode != 0:
+        # Only fixed stage codes may reach logs, never exception text or document fields.
+        try:
+            stage = json.loads(result.stdout).get('stage')
+        except (ValueError, AttributeError):
+            stage = None
+        allowed = {'FORMAT', 'SIGNER', 'TRUST_CHAIN', 'SIGNATURE', 'DATA_HASHES',
+                   'IDENTITY_FORMAT', 'DOCUMENT_DATE', 'PORTRAIT_FORMAT', 'CONFIGURATION'}
+        if isinstance(stage, str) and stage in allowed:
+            print(json.dumps({'event': 'passport_rejected', 'stage': stage}), file=sys.stderr, flush=True)
         raise ValueError('passport verification failed')
     document = json.loads(result.stdout)
     if document.get('passiveAuthentication') is not True:

@@ -81,7 +81,9 @@ signeringsutmaningar finns i processminnet.
 - SIGTERM stoppar nya arbetsanrop och låter pågående anrop avslutas inom
   60 sekunder. Compose väntar 70 sekunder. Nycklar och spärrar ligger kvar;
   pågående NFC-flöden och signeringsutmaningar måste startas om efter omstart.
-- Loggar innehåller route, HTTP-status och varaktighet, aldrig anropsdata,
+- Loggar innehåller route, HTTP-status och varaktighet. Avvisad passkontroll
+  kan dessutom ange en fast stegkod (exempelvis TRUST_CHAIN eller DATA_HASHES),
+  aldrig undantagstext, anropsdata,
   nycklar eller personreferenser. Docker roterar loggarna vid 3 × 10 MB.
 
 `GET /health/live` visar att processen svarar. `GET /health/ready` kontrollerar
@@ -142,3 +144,15 @@ nätverksdesign och granskning; denna konfiguration nekar proxyhuvuden.
 iPhone-signering, betrodda passankare, modellrättigheter och kalibrering,
 extern säkerhetsgranskning och utgivningsbeslut måste också vara ordnade.
 Teknisk driftberedskap innebär inget Digg-godkännande. Se [SECURITY.md](../SECURITY.md).
+
+### Svenska CSCA-certifikat och EC-parametrar
+
+Både passkontrollen och den andra chipkontrollen läser operatörens CSCA-paket
+med den redan versionslåsta Bouncy Castle-providern. Detsamma gäller
+PKIX-valideringen. Detta stöder certifikat med explicita EC-parametrar,
+som Javas standardparser kan avvisa redan när paketet laddas. Tillitsankare,
+signerad data, giltighetstider och direkt DSC–CSCA-kedja kontrolleras fortsatt.
+Ingen nätverkshämtad eller passlevererad rot läggs till som betrodd.
+
+Regressionsprovet genererar en Brainpool-rot med explicita parametrar,
+kontrollerar en giltig kedja och avvisar obetrodd kedja och ändrad datagrupp.

@@ -2,6 +2,17 @@ import XCTest
 @testable import PassportCapture
 
 final class WalletSecurityTests: XCTestCase {
+    @MainActor func testRefreshFailureDoesNotClaimAnActionWasSent() {
+        let message = WalletModel.failureMessage(action: "snapshot", error: URLError(.notConnectedToInternet))
+        XCTAssertTrue(message.contains("Hämta status"))
+        XCTAssertFalse(message.contains("ditt val"))
+        XCTAssertTrue(WalletModel.failureMessage(action: "approve", error: URLError(.timedOut)).contains("innan du försöker igen"))
+    }
+    @MainActor func testCancelledAuthenticationIsNotAnErrorAlert() {
+        XCTAssertTrue(WalletModel.wasCancelled(CancellationError()))
+        XCTAssertTrue(WalletModel.wasCancelled(WalletError.cancelled))
+        XCTAssertFalse(WalletModel.wasCancelled(URLError(.timedOut)))
+    }
     let ident = String(repeating: "a", count: 64)
     let requestID = String(repeating: "b", count: 64)
     let now: TimeInterval = 1000

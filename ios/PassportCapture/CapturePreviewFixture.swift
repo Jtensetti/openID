@@ -2,7 +2,7 @@
 import SwiftUI
 
 struct CapturePreviewFixture: View {
-    @State private var guidance = CaptureGuidance(holdProgress: 0.55, acceptable: true, hint: "Håll kvar")
+    @State private var guidance = CaptureGuidance(hint: CapturePose.front.title)
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -19,7 +19,7 @@ struct CapturePreviewFixture: View {
                         Button("Nästa position") {
                             let next = min(2, guidance.completed + 1)
                             guidance = CaptureGuidance(pose: CapturePose(rawValue: next)!, completed: next,
-                                holdProgress: 0.55, acceptable: true, hint: "Håll kvar")
+                                hint: CapturePose(rawValue: next)!.title)
                         }.accessibilityIdentifier("capture.preview.next")
                         Spacer()
                         Button("Simulera saknat ansikte") {
@@ -27,6 +27,29 @@ struct CapturePreviewFixture: View {
                         }.accessibilityIdentifier("capture.preview.missing")
                     }.font(.caption).padding().background(Palette.paper)
                 }
+        }
+    }
+}
+struct UsabilityPreviewFixture: View {
+    @EnvironmentObject var model: WalletModel
+    var body: some View {
+        NavigationStack {
+            List {
+                Text("TESTDATA – inga riktiga ID")
+                NavigationLink("Passformulär") { EnrollmentView(flow: model.verification) }
+                NavigationLink("Kontrollkod med stor text") {
+                    ScrollView {
+                        ControlCodeView(code: "012345").padding(24)
+                        Text("Kontrollera att samma sex siffror visas hos tjänsten.").padding()
+                    }.environment(\.dynamicTypeSize, .accessibility5)
+                }
+                NavigationLink("Kameraguide med stor text") {
+                    ScrollView {
+                        CaptureGuideView(guidance: CaptureGuidance(hint: "Vrid huvudet lite åt höger")) { Color.gray }
+                            .padding(24)
+                    }.environment(\.dynamicTypeSize, .accessibility5)
+                }
+            }.navigationTitle("Tillgänglighetsprov")
         }
     }
 }

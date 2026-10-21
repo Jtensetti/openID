@@ -22,9 +22,19 @@ public final class PassportVerifier {
     @Override public byte[] portrait() { return portrait.clone(); }
   }
   public static final class Rejected extends Exception {
-    Rejected() { super("Passport verification failed"); }
+    private final String stage;
+    Rejected() { this("DOCUMENT"); }
+    Rejected(String stage) { super("Passport verification failed"); this.stage = stage; }
+    public String stage() { return stage; }
   }
   private static final Provider BC = new BouncyCastleProvider();
+  /** Parse operator-provisioned anchors with explicit EC parameter support. */
+  public static Set<X509Certificate> loadTrust(InputStream stream) throws CertificateException {
+    var certificates = new HashSet<X509Certificate>();
+    for (var certificate : CertificateFactory.getInstance("X.509", BC).generateCertificates(stream))
+      certificates.add((X509Certificate)certificate);
+    return Set.copyOf(certificates);
+  }
   private final Set<TrustAnchor> anchors;
   private final Clock clock;
   public PassportVerifier(Set<X509Certificate> trustedCscas, Clock clock) {
@@ -38,6 +48,7 @@ public final class PassportVerifier {
     anchors = Set.copyOf(set); this.clock = clock;
   }
   public Result verify(byte[] sodBytes, byte[] dg1Bytes, byte[] dg2Bytes) throws Rejected {
+    String stage = "FORMAT";
     try {
       bounded(sodBytes, 65536); bounded(dg1Bytes, 4096); bounded(dg2Bytes, 2_000_000);
       // BC rejects trailing ASN.1 objects. SOD is the application-23 wrapper around CMS.
@@ -45,6 +56,7 @@ public final class PassportVerifier {
       if (!wrapper.hasTag(BERTags.APPLICATION, 23)) throw new Rejected();
       var cms = new CMSSignedData(wrapper.getExplicitBaseObject().getEncoded());
       if (!"2.23.136.1.1.1".equals(cms.getSignedContentTypeOID()) || cms.getSignerInfos().size() != 1) throw new Rejected();
+      stage = "SIGNER";
       var signer = cms.getSignerInfos().getSigners().iterator().next();
       if (!Set.of("2.16.840.1.101.3.4.2.1", "2.16.840.1.101.3.4.2.2", "2.16.840.1.101.3.4.2.3").contains(signer.getDigestAlgOID())) throw new Rejected();
       var candidates = cms.getCertificates().getMatches(signer.getSID());
@@ -53,12 +65,15 @@ public final class PassportVerifier {
           .getCertificate((org.bouncycastle.cert.X509CertificateHolder)candidates.iterator().next());
       if (certificate.getBasicConstraints() >= 0 || certificate.getKeyUsage() == null || !certificate.getKeyUsage()[0]) throw new Rejected();
       // Deliberately direct DSC -> provisioned CSCA only. No AIA, network fetch or embedded trust root.
+      stage = "TRUST_CHAIN";
       var parameters = new PKIXParameters(anchors);
       parameters.setDate(Date.from(clock.instant())); parameters.setRevocationEnabled(false);
-      var path = CertificateFactory.getInstance("X.509").generateCertPath(List.of(certificate));
-      var validation = (PKIXCertPathValidatorResult)CertPathValidator.getInstance("PKIX").validate(path, parameters);
+      var path = CertificateFactory.getInstance("X.509", BC).generateCertPath(List.of(certificate));
+      var validation = (PKIXCertPathValidatorResult)CertPathValidator.getInstance("PKIX", BC).validate(path, parameters);
       validation.getTrustAnchor().getTrustedCert().checkValidity(Date.from(clock.instant()));
+      stage = "SIGNATURE";
       if (!signer.verify(new JcaSimpleSignerInfoVerifierBuilder().setProvider(BC).build(certificate))) throw new Rejected();
+      stage = "DATA_HASHES";
       var sod = new SODFile(new ByteArrayInputStream(sodBytes));
       if (!Set.of("SHA-256", "SHA-384", "SHA-512", "SHA256", "SHA384", "SHA512").contains(sod.getDigestAlgorithm())) throw new Rejected();
       var digest = MessageDigest.getInstance(sod.getDigestAlgorithm());
@@ -67,14 +82,17 @@ public final class PassportVerifier {
           !MessageDigest.isEqual(hashes.get(1), digest.digest(dg1Bytes)) ||
           !MessageDigest.isEqual(hashes.get(2), digest.digest(dg2Bytes))) throw new Rejected();
       // Parse identity/portrait only after authenticating their exact encoded data groups.
+      stage = "IDENTITY_FORMAT";
       var dg1Input = new ByteArrayInputStream(dg1Bytes);
       var mrz = new DG1File(dg1Input).getMRZInfo();
       if (dg1Input.available() != 0 || mrz.getDocumentType() != 3 || !mrz.getDocumentCode().startsWith("P")) throw new Rejected();
+      stage = "DOCUMENT_DATE";
       var date = mrz.getDateOfExpiry();
       if (!date.matches("[0-9]{6}")) throw new Rejected();
       var expiry = LocalDate.of(2000 + Integer.parseInt(date.substring(0, 2)), Integer.parseInt(date.substring(2, 4)), Integer.parseInt(date.substring(4, 6)));
       var today = LocalDate.now(clock);
       if (expiry.isBefore(today) || expiry.isAfter(today.plusYears(20))) throw new Rejected();
+      stage = "PORTRAIT_FORMAT";
       var dg2Input = new ByteArrayInputStream(dg2Bytes);
       var faces = new DG2File(dg2Input).getFaceInfos();
       if (dg2Input.available() != 0 || faces.size() != 1 || faces.getFirst().getFaceImageInfos().size() != 1) throw new Rejected();
@@ -82,6 +100,7 @@ public final class PassportVerifier {
       byte[] image = portrait.getImageInputStream().readNBytes(2_000_001);
       bounded(image, 2_000_000);
       if (!Set.of("image/jpeg", "image/jp2").contains(portrait.getMimeType())) throw new Rejected();
+      stage = "IDENTITY_FORMAT";
       String birth = mrz.getDateOfBirth();
       if (!birth.matches("[0-9]{6}")) throw new Rejected();
       // MRZ does not encode the century. Validate month/day without assigning one.
@@ -90,7 +109,7 @@ public final class PassportVerifier {
           mrz.getNationality(), mrz.getIssuingState(), mrz.getDocumentNumber(), expiry.toString());
       if (identity.familyName().isEmpty() && identity.givenNames().isEmpty()) throw new Rejected();
       return new Result(image, portrait.getMimeType(), expiry, identity);
-    } catch (Exception e) { throw new Rejected(); } // No untrusted document contents in logs/errors.
+    } catch (Exception e) { throw new Rejected(stage); } // No untrusted document contents in logs/errors.
   }
   private static String name(String value) throws Rejected {
     String normalized = value.replace('<', ' ').strip().replaceAll(" +", " ");

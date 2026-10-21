@@ -33,9 +33,28 @@ def private_file(path):
 def score_frames(portrait, frames):
     payload = json.dumps({'portrait': base64.b64encode(portrait).decode(),
         'frames': [base64.b64encode(frame).decode() for frame in frames]}).encode()
-    result = subprocess.run([sys.executable, str(ROOT/'biometric_worker.py')], input=payload,
-        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=45, check=False)
-    if result.returncode or len(result.stdout) > 4096: raise ValueError('biometric analysis rejected')
+    try:
+        result = subprocess.run([sys.executable, str(ROOT/'biometric_worker.py')], input=payload,
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=45, check=False)
+    except subprocess.TimeoutExpired:
+        print(json.dumps({'event': 'biometric_failure', 'stage': 'WORKER', 'reason': 'TIMEOUT'}), file=sys.stderr, flush=True)
+        raise
+    if result.returncode or len(result.stdout) > 4096:
+        from biometric_worker import STAGES, REASONS, CameraImageRejected
+        diagnostic = {}
+        if len(result.stdout) <= 4096:
+            try: diagnostic = json.loads(result.stdout)
+            except (ValueError, TypeError): pass
+        if not isinstance(diagnostic, dict): diagnostic = {}
+        stage = diagnostic.get('stage')
+        reason = diagnostic.get('reason')
+        stage = stage if isinstance(stage, str) and stage in STAGES else 'WORKER'
+        reason = reason if isinstance(reason, str) and reason in REASONS else 'FAILED'
+        print(json.dumps({'event': 'biometric_failure', 'stage': stage, 'reason': reason}), file=sys.stderr, flush=True)
+        if stage in {'CAMERA_FACE_1', 'CAMERA_FACE_2', 'CAMERA_FACE_3'} and reason in {'IMAGE_REJECTED', 'IMAGE_SIZE_REJECTED', 'EXACTLY_ONE_FACE_REQUIRED', 'FACE_QUALITY_REJECTED'}:
+            raise CameraImageRejected(int(stage[-1]))
+        if stage in {'MODEL_LOAD', 'WORKER'}: raise OSError('biometric worker unavailable')
+        raise ValueError('biometric analysis rejected')
     data = json.loads(result.stdout)
     return data['face'], data['pad']
 
@@ -43,7 +62,7 @@ def score_frames(portrait, frames):
 def load_config(path):
     value = json.loads(Path(path).read_text())
     required = {'bind', 'origin', 'team', 'bundle', 'developmentAttestation', 'tlsCert', 'tlsKey', 'csca', 'database', 'pairingFile'}
-    if set(value) != required: raise ValueError('Configuration fields do not match the example')
+    if set(value) not in (required, required | {'listenPort'}): raise ValueError('Configuration fields do not match the example')
     origin = validate_origin(value['origin'])
     address = ipaddress.ip_address(value['bind'])
     if address.is_unspecified or not address.is_private or address.is_multicast:
@@ -63,7 +82,12 @@ def load_config(path):
     context.load_cert_chain(value['tlsCert'], value['tlsKey'])
     jar = ROOT.parent/'prototype/target/isolated-eid-lab.jar'
     if not jar.is_file(): raise ValueError('Build the verifier JAR first')
-    value['port'], value['pairing'], value['jar'] = origin.port, token, str(jar)
+    listen_port = value.get('listenPort', origin.port)
+    if type(listen_port) is not int or not 1024 <= listen_port <= 65535:
+        raise ValueError('Explicit unprivileged listener port required')
+    if 'listenPort' in value and not address.is_loopback:
+        raise ValueError('Separate ingress origin requires a loopback listener')
+    value['port'], value['pairing'], value['jar'] = listen_port, token, str(jar)
     return value
 
 

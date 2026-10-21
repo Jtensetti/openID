@@ -13,6 +13,7 @@ import time
 from urllib.parse import urlsplit
 
 from native import unique_object
+from biometric_worker import CameraImageRejected
 
 NATIVE_ROUTES = {
     '/native/start': ('start', 1024),
@@ -28,10 +29,10 @@ WALLET_ROUTES = {'/wallet/challenge': 'challenge', '/wallet/execute': 'execute'}
 def validate_origin(value):
     parsed = urlsplit(value)
     if (parsed.scheme != 'https' or not parsed.hostname or parsed.username or parsed.password
-            or parsed.path or parsed.query or parsed.fragment or parsed.port is None):
-        raise ValueError('Origin must be https://host:port without a trailing slash')
-    if not 1024 <= parsed.port <= 65535:
-        raise ValueError('Unprivileged port required')
+            or parsed.path or parsed.query or parsed.fragment):
+        raise ValueError('Origin must be HTTPS without credentials, path or query')
+    if parsed.port is not None and parsed.port != 443 and not 1024 <= parsed.port <= 65535:
+        raise ValueError('HTTPS or unprivileged port required')
     return parsed
 
 
@@ -181,6 +182,8 @@ class Runtime:
             target = self.native if path in NATIVE_ROUTES else self.wallet
             operation = NATIVE_ROUTES[path][0] if path in NATIVE_ROUTES else WALLET_ROUTES[path]
             return 200, getattr(target, operation)(request) if operation != 'start' else target.start()
+        except CameraImageRejected as error:
+            return 422, {'error': 'CAMERA_IMAGE_REJECTED', 'frame': error.frame}
         except (ValueError, TypeError, KeyError):
             return 400, {'error': 'REJECTED'}
         except (OSError, subprocess.SubprocessError, sqlite3.Error):

@@ -46,7 +46,7 @@ public final class PhoneController extends AbstractAuthenticationController<Phon
         pending = bridge.start(binding); request.getSession().setAttribute(PENDING, pending);
       }
     }
-    return new ModelAndView("phone", Map.of("authnId", binding, "code", pending.code(), "requestId", pending.id(), "service", PhoneBridge.SERVICE, "purpose", PhoneBridge.PURPOSE));
+    return new ModelAndView("phone", Map.of("restartUrl", sp+"/login", "authnId", binding, "code", pending.code(), "requestId", pending.id(), "service", PhoneBridge.SERVICE, "purpose", PhoneBridge.PURPOSE));
   }
   @GetMapping(value="/phone/qr", produces="image/svg+xml") @ResponseBody String qr(HttpServletRequest request) {
     return PhoneBridge.text(bridge.exchange("qr", pending(request)), "svg");
@@ -64,5 +64,7 @@ public final class PhoneController extends AbstractAuthenticationController<Phon
     request.getSession().removeAttribute(PENDING); return cancel(request);
   }
   @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class, UnrecoverableErrorException.class})
-  @ResponseStatus(HttpStatus.BAD_REQUEST) @ResponseBody String rejected() { return "Inloggningen har avslutats. Börja om i tjänsten."; }
+  @ResponseStatus(HttpStatus.BAD_REQUEST) ModelAndView rejected() {
+    return new ModelAndView("phone-error", Map.of("restartUrl", sp+"/login"));
+  }
 }

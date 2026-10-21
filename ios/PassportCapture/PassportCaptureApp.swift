@@ -9,6 +9,10 @@ import SwiftUI
                 #if DEBUG && targetEnvironment(simulator)
                 if ProcessInfo.processInfo.arguments.contains("--capture-guide-preview") {
                     CapturePreviewFixture()
+                } else if ProcessInfo.processInfo.arguments.contains("--usability-preview") {
+                    UsabilityPreviewFixture()
+                } else if ProcessInfo.processInfo.arguments.contains("--large-text-preview") {
+                    WalletRootView().environment(\.dynamicTypeSize, .accessibility5)
                 } else {
                     WalletRootView()
                 }

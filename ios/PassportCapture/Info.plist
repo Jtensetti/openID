@@ -13,13 +13,26 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.2.0</string>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>se.openid.request</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>openid</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>NFCReaderUsageDescription</key>
 	<string>Läs uppgifterna i ditt pass och kontrollera att chipet är äkta.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Ta tre bilder för att jämföra ditt ansikte med passfotot och kontrollera att du är framför kameran.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Öppna ditt ID och bekräfta dina val med Face ID.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Anslut till din verifieringsserver på ditt privata nätverk.</string>
 	<key>UILaunchScreen</key>
@@ -35,19 +48,6 @@
 	<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
 	<array>
 		<string>A0000002471001</string>
-	</array>
-	<key>NSFaceIDUsageDescription</key>
-	<string>Öppna ditt ID och bekräfta dina val med Face ID.</string>
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleURLName</key>
-			<string>se.openid.request</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>openid</string>
-			</array>
-		</dict>
 	</array>
 </dict>
 </plist>

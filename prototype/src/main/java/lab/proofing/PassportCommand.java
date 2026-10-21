@@ -13,7 +13,7 @@ public final class PassportCommand {
     try {
       var anchors = new HashSet<X509Certificate>();
       try (var stream = Files.newInputStream(Path.of(trustFile))) {
-        for (var c : CertificateFactory.getInstance("X.509").generateCertificates(stream)) anchors.add((X509Certificate)c);
+        anchors.addAll(PassportVerifier.loadTrust(stream));
       }
       byte[] input = System.in.readNBytes(3_000_001);
       if (input.length > 3_000_000) throw new IllegalArgumentException();
@@ -26,7 +26,9 @@ public final class PassportCommand {
           "portrait", Base64.getEncoder().encodeToString(result.portrait()), "mimeType", result.mimeType(), "identity", result.identity(),
           "chipAuthentication", "NOT_PERFORMED", "revocation", "NOT_CHECKED")));
     } catch (Exception e) {
-      System.out.println("{\"passiveAuthentication\":false,\"error\":\"VERIFICATION_FAILED\"}");
+      String stage = e instanceof PassportVerifier.Rejected rejected ? rejected.stage() : "CONFIGURATION";
+      System.out.println(json.writeValueAsString(Map.of("passiveAuthentication", false,
+          "error", "VERIFICATION_FAILED", "stage", stage)));
       System.exit(2);
     }
   }

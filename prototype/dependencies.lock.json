@@ -57,6 +57,11 @@
       "sha256": "ed894dcb68b9aa22320d6813950d8321d4f82c2c78e68770a443df33e36bdd4e"
     },
     {
+      "coordinate": "com.github.stephenc.jcip:jcip-annotations:jar:1.0-1",
+      "scope": "compile",
+      "sha256": "4fccff8382aafc589962c4edb262f6aa595e34f1e11e61057d1c6a96e8fc7323"
+    },
+    {
       "coordinate": "com.google.code.findbugs:jsr305:jar:3.0.2",
       "scope": "compile",
       "sha256": "766ad2a0783f2687962c8ad74ceecc38a28b9f72a2d085ee438b7813e928d0c7"
@@ -92,9 +97,24 @@
       "sha256": "890daa95dd3892d34d9fabc27cd5153656e6f369358625c88f4dc7b79cbd6c5a"
     },
     {
+      "coordinate": "com.nimbusds:content-type:jar:2.3",
+      "scope": "compile",
+      "sha256": "60349793e006fba96b532cb0c21e10e969fe0db8d87f91c3b9eaf82ba2998895"
+    },
+    {
+      "coordinate": "com.nimbusds:lang-tag:jar:1.7",
+      "scope": "compile",
+      "sha256": "e8c1c594e2425bdbea2d860de55c69b69fc5d59454452449a0f0913c2a5b8a31"
+    },
+    {
       "coordinate": "com.nimbusds:nimbus-jose-jwt:jar:10.10",
       "scope": "compile",
       "sha256": "0edd2fbaab79e13f87d145d021f85a5c59956b2b6b5e761c0d664c87f94cda15"
+    },
+    {
+      "coordinate": "com.nimbusds:oauth2-oidc-sdk:jar:11.38.2",
+      "scope": "compile",
+      "sha256": "30e63220c15bd93006c557bd0d614bb57a5f00232188693577c222383ea4bbe7"
     },
     {
       "coordinate": "com.upokecenter:cbor:jar:4.5.6",
@@ -183,12 +203,12 @@
     },
     {
       "coordinate": "net.minidev:accessors-smart:jar:2.6.0",
-      "scope": "test",
+      "scope": "compile",
       "sha256": "222c9f547bb20a99fc486403a398352d1306fb671b38abd7ecab6401df170e61"
     },
     {
       "coordinate": "net.minidev:json-smart:jar:2.6.0",
-      "scope": "test",
+      "scope": "compile",
       "sha256": "1ae4b561458afb540be8ec5c6dbb4f2e715a319a7ae64854998aaf924770d61b"
     },
     {
@@ -453,7 +473,7 @@
     },
     {
       "coordinate": "org.ow2.asm:asm:jar:9.7.1",
-      "scope": "test",
+      "scope": "compile",
       "sha256": "8cadd43ac5eb6d09de05faecca38b917a040bb9139c7edeb4cc81c740b713281"
     },
     {
@@ -822,6 +842,16 @@
       "sha256": "c8f7a98e7394adda02f6317249710e4d1b4c7a25aa8c7eace0c2eea52eb8bf85"
     },
     {
+      "coordinate": "se.oidc.nimbus:oidc-sweden-nimbus:jar:1.0.0",
+      "scope": "compile",
+      "sha256": "6afd65edf5bda411f593c400211e1d2243bbe979242ea9f154b7421a8b36b268"
+    },
+    {
+      "coordinate": "se.swedenconnect.oidf:common:jar:1.0.0",
+      "scope": "compile",
+      "sha256": "8ae443e08a543dd8b94c2a066d4e97c58df4e79d3a933f1de7c0ad91ce04edcc"
+    },
+    {
       "coordinate": "se.swedenconnect.opensaml:opensaml-addons:jar:2.2.1",
       "scope": "compile",
       "sha256": "847473fcf1cecd9ae2cdbe149400696159207091c965113ac3bf1f1bd51bf218"
@@ -840,6 +870,11 @@
       "coordinate": "se.swedenconnect.opensaml:opensaml-swedish-eid:jar:2.3.1",
       "scope": "compile",
       "sha256": "9e9e97418c92805bfad9c4564804096d0ad4fbcc7ce9a045927aa1cc8780b09f"
+    },
+    {
+      "coordinate": "se.swedenconnect.security:credentials-support-nimbus:jar:2.2.1",
+      "scope": "compile",
+      "sha256": "ea707a960f31629bbff0e894038a6d329cd1ebe24b44324af46de08f3624ccfc"
     },
     {
       "coordinate": "se.swedenconnect.security:credentials-support-opensaml:jar:2.2.1",
@@ -880,6 +915,16 @@
       "coordinate": "se.swedenconnect.spring.authnserver:authn-server-core:jar:1.0.3",
       "scope": "compile",
       "sha256": "e525d63949875ba19a94c24dcd183480a57bc89cd779399a14969579d399ae92"
+    },
+    {
+      "coordinate": "se.swedenconnect.spring.authnserver:authn-server-oidc-spring-boot-starter:jar:1.0.3",
+      "scope": "compile",
+      "sha256": "ee056758d0dc399e3e6d2fb12a8c5650159a22d8f3ac23cba2c339d70970664c"
+    },
+    {
+      "coordinate": "se.swedenconnect.spring.authnserver:authn-server-oidc:jar:1.0.3",
+      "scope": "compile",
+      "sha256": "4c24a2884058a7f855c2b0c45e5a7d74a550c3eaa632f323a317bfef1c48d0a7"
     },
     {
       "coordinate": "se.swedenconnect.spring.authnserver:authn-server-saml-spring-boot-starter:jar:1.0.3",

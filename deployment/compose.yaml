@@ -19,7 +19,7 @@ services:
     pids_limit: 128
     ulimits:
       nofile: {soft: 1024, hard: 1024}
-    tmpfs: [/tmp:size=128m,mode=1777]
+    tmpfs: ["/tmp:size=128m,mode=1777"]
     volumes:
       - ${OPENID_DIRECTORY:?Set OPENID_DIRECTORY}/runtime.json:/srv/openid/runtime.json:ro
       - ${OPENID_DIRECTORY}/secrets:/srv/openid/secrets:ro
@@ -44,7 +44,7 @@ services:
     cpus: 1
     mem_limit: 256m
     pids_limit: 32
-    tmpfs: [/tmp:size=16m,mode=1777]
+    tmpfs: ["/tmp:size=16m,mode=1777"]
     volumes:
       - ${OPENID_DIRECTORY}/data:/srv/openid/data
     healthcheck:
