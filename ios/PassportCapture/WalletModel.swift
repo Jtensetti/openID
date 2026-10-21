@@ -40,6 +40,7 @@ import LocalAuthentication
                 let saved = try vault.read("configuration", as: ServerConfiguration.self)
                 let selected = ServerConfiguration.initial(saved: saved)
                 configuration = try ServerConfiguration(origin: selected.origin, pairing: selected.pairing)
+                if saved == nil { try vault.save(selected, account: "configuration") }
                 credential = try vault.read("credential", as: LocalCredential.self)
                 unlocked = true
             } catch {
