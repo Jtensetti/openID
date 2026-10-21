@@ -64,6 +64,10 @@ struct HomeView: View {
                 Brand()
                 Text("Mitt ID").font(.largeTitle.bold()).accessibilityIdentifier("home.heading")
                 IdentityCard()
+                if model.configuration == nil || model.configuration?.isPublicBeta == true {
+                    Text("Betans öppettider: varje dag 09–17 svensk tid. Registrering, legitimering och spärr kräver att testservern är öppen.")
+                        .font(.subheadline).foregroundStyle(Palette.muted).accessibilityIdentifier("home.betaHours")
+                }
                 if let state = model.snapshot?.state, state != .active {
                     Text(state.guidance).font(.subheadline).foregroundStyle(Palette.muted)
                 }
@@ -288,7 +292,7 @@ struct SettingsView: View {
                 else {
                     if model.configuration?.isPublicBeta == true {
                         Label("Ansluten till openID beta", systemImage: "network")
-                        Text("Anslutningen sköts automatiskt. VPN behövs inte.").font(.caption).foregroundStyle(.secondary)
+                        Text("Anslutningen sköts automatiskt. VPN behövs inte. Testservern är öppen varje dag 09–17 svensk tid.").font(.caption).foregroundStyle(.secondary)
                     } else {
                         Button { model.settingsPresented = true } label: { Label("Anslutning", systemImage: "network") }
                         if let configuration = model.configuration { Text(configuration.origin).font(.caption).foregroundStyle(.secondary).textSelection(.enabled) }
