@@ -115,3 +115,37 @@ INT-03 (EU01–EU03): SDG:s gränsöverskridande förfaranden och eIDAS-erkänna
 är skilda från stöd för att läsa andra länders pass. Återanvändning av bevis
 via OOTS är ytterligare en integration. Tillämpningsbedömning, konsoliderad
 EU-rätt och fullständig profilmappning återstår. Ingen formell status höjs.
+
+### Utvecklingsordning inför leverantörsanslutning
+
+GOV-09 (D07, D08 K2.1–K2.9, D15): Organisation, finansiering, försäkring,
+utfärdaransvar och oberoende granskning saknar beslutat anslutningsunderlag.
+Formell status: OPEN. Registrerad juridisk person och behörig företrädare
+behöver fastställas innan organisationsmetadata eller ansökan färdigställs.
+Inga personliga organisationsnummer ska användas som testfixturer.
+
+ID-02: Nuvarande passprofil saknar verifierat personnummer. Nästa implementation
+ska ha en separat verifierad registerbindning, källreferens och kontrolltidpunkt.
+Saknad eller motsägande bindning ska neka utgivning av personnummerattribut.
+Testa skyddade uppgifter, namn-/datumavvikelser och förnyat pass utan att
+uppfinna registeråtkomst eller härleda personnummer från MRZ. Status: OPEN.
+
+SIG-01/02 (D01, D03 §§5, 8.3): Underskriftsflödet är en separat leveranslucka.
+Före implementation ska ansvarsgränsen mot signeringstjänst vara beslutad.
+Acceptansprov ska täcka dokumentändring, fel avsikt, återspelning, nekande
+och oberoende validering. Signerad legitimering är inte detta acceptansprov.
+Status: OPEN.
+
+FED-05 (T05–T08): Fast motpart i beta ersätter inte federationsmetadata.
+Förbered separat extern testmiljö, signerad metadata med utgång/rotation,
+behörighetskontroll av motparter och en attributpolicy utan passfoto som
+standardattribut till externa tjänster. OIDC:s Entity Configuration,
+Trust Marks och metadata-policy behöver separat implementation/bedömning.
+T07–T08 är utkast; bekräfta version före integration. Negativa prov ska
+täcka utgångna nycklar/metadata, saknade avtal och obehöriga tillitsnivåer.
+Status: OPEN.
+
+Prioritera GOV-09, ID-02/05 och operativ GOV-07/SEC-02 före utökad
+passlandslista. Utvärdera därefter underskrift, federation och drift mot
+den målmiljö som faktiskt ska granskas. Pilotens budget och öppettider
+är inte produktionsmål. Inga formella statusar höjs av denna plan.

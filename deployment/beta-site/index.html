@@ -1,1 +1,73 @@
-<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Prova openID</title><link rel="stylesheet" href="/beta.css"></head><body><main><p class="tag">openID · sluten beta</p><h1>Prova att legitimera dig.</h1><p class="intro">För dig som är inbjuden att testa openID på iPhone. Din registrering aktiveras manuellt innan du kan logga in.</p><a class="button" href="/login">Testa SAML-inloggning</a> <a class="button" href="/oidc/login">Testa OIDC-inloggning</a><p class="hint">Använd testkontot du fått av Jonatan. På datorn skannar du QR-koden med appen. På din iPhone väljer du Öppna openID.</p><section><h2>Kom igång</h2><ol><li>Installera openID från din personliga TestFlight-inbjudan.</li><li>Anslut appen till <strong>https://api.openid.tensetti.io</strong> med kopplingskoden du fått separat.</li><li>Registrera med ditt svenska pass. Följ pass- och kameraguiden.</li><li>När appen visar <strong>Inväntar aktivering</strong> är registreringen klar. Kontakta Jonatan och vänta på aktiveringen. Läs inte passet igen.</li><li>Hämta status under Mitt ID. När ditt ID är aktivt kan du testa inloggningen här.</li></ol></section><section><h2>Det här testar vi</h2><p>Godkänd och nekad legitimering, utgången QR-kod och tydlig återkoppling. Godkänn bara om tjänsten, syftet och kontrollkoden stämmer. Spärra bara ditt ID om du avser att avsluta det; därefter krävs en ny registrering och aktivering.</p><p>Denna beta är ingen godkänd e-legitimation och ska endast användas på testsidan. SAML och OIDC använder samma godkännande i appen och intygar privat pilotstatus, ingen godkänd tillitsnivå.</p></section><section><h2>Testa krav på tillitsnivå</h2><p>Betan uppfyller inte verifierade krav för LoA 1–4. Här kan du kontrollera att en inloggning med ett sådant krav stoppas, utan att nivån sänks i tysthet.</p><form method="get"><label for="loa">Krävd nivå</label> <select id="loa" name="loa"><option value="1">LoA 1</option><option value="2">LoA 2</option><option value="3">LoA 3</option><option value="4">LoA 4</option></select> <button formaction="/login">Prova med SAML</button> <button formaction="/oidc/login">Prova med OIDC</button></form></section><section><h2>Om du fastnar</h2><p>Testmiljön är planerad att vara igång kl. 09–17 svensk tid. Vid anslutningsfel, vänta och hämta status innan du försöker igen. En väntande registrering behöver aktiveras av Jonatan.</p><p>Kontakta <a href="mailto:jtensetti@protonmail.com">jtensetti@protonmail.com</a> för hjälp eller radering. Beskriv steget och feltexten. Skicka inte passbilder, passnummer, kopplingskod eller ansiktsbilder i e-post.</p></section></main></body></html>
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="openID är ett projekt för passbaserad identifiering på iPhone. Läs om den slutna piloten, utvecklingen och arbetet mot en godkänd e-legitimation.">
+  <title>openID — projektet och den slutna betan</title>
+  <link rel="stylesheet" href="/beta.css">
+</head>
+<body>
+<a class="skip" href="#innehall">Hoppa till innehållet</a>
+<header class="masthead">
+  <a class="wordmark" href="#" aria-label="openID, sidans början">open<span>ID</span></a>
+  <nav aria-label="Huvudmeny"><a href="#projektet">Projektet</a><a href="#status">Status</a><a href="#testa">För testare</a><a href="#kontakt">Kontakt</a></nav>
+</header>
+<main id="innehall">
+  <section class="hero" aria-labelledby="rubrik">
+    <p class="eyebrow">Under utveckling · sluten beta</p>
+    <h1 id="rubrik">Från pass till<br>identifiering i mobilen.</h1>
+    <p class="lead">Vi utvecklar openID för att du ska kunna registrera dig med ditt pass och sedan godkänna en legitimering på din iPhone.</p>
+    <p class="status-note">openID är inte en godkänd e-legitimation. Piloten används bara i vår testmiljö.</p>
+    <a class="button" href="#testa">Jag är inbjuden att testa <span aria-hidden="true">↘</span></a>
+  </section>
+
+  <section class="section" id="projektet" aria-labelledby="projekt-rubrik">
+    <p class="eyebrow">Projektet</p>
+    <h2 id="projekt-rubrik">Begripligt i varje steg.</h2>
+    <p>Det ska gå att förstå vad som kontrolleras, vem som ber dig legitimera dig och vad du godkänner. Om något misslyckas ska appen visa vad som hänt och hur du går vidare.</p>
+    <ol class="steps">
+      <li><span class="step-number" aria-hidden="true">01</span><h3>Läs passet</h3><p>Skanna passuppgifterna och läs chipet med telefonen. Den nuvarande piloten är avsedd för svenska pass.</p></li>
+      <li><span class="step-number" aria-hidden="true">02</span><h3>Följ kameraguiden</h3><p>Ta bilder framifrån och från sidorna. Registreringen kontrolleras och inväntar sedan manuell aktivering.</p></li>
+      <li><span class="step-number" aria-hidden="true">03</span><h3>Godkänn i appen</h3><p>Kontrollera tjänst, syfte och kontrollkod innan du godkänner. Du kan alltid neka begäran.</p></li>
+    </ol>
+  </section>
+
+  <section class="section" id="status" aria-labelledby="status-rubrik">
+    <p class="eyebrow">Läget i projektet</p>
+    <h2 id="status-rubrik">En fungerande pilot.<br>Ett större arbete kvar.</h2>
+    <dl class="status-list">
+      <div><dt>I piloten</dt><dd>Passläsning, kameraguide, manuell aktivering och inloggning på testsidan med SAML och OpenID Connect (OIDC).</dd></div>
+      <div><dt>Nästa steg</dt><dd>Registerkontroll, oberoende säkerhetsprov, elektronisk underskrift och en organisation för utgivning, support och drift.</dd></div>
+      <div><dt>Målet</dt><dd>Att kunna ansöka om Diggs granskning och därefter anslutning till auktorisationssystemet. Vi är ännu inte godkända av Digg eller anslutna till Sweden Connect.</dd></div>
+    </dl>
+    <p class="small">Status uppdaterad <time datetime="2026-10-21">21 oktober 2026</time>. Piloten intygar ingen godkänd tillitsnivå.</p>
+  </section>
+
+  <section class="section test-section" id="testa" aria-labelledby="test-rubrik">
+    <p class="eyebrow">För inbjudna testare</p>
+    <h2 id="test-rubrik">Prova en legitimering.</h2>
+    <p>Du behöver din TestFlight-inbjudan, separat testkonto och ett manuellt aktiverat ID. Betan är för testare i Sverige.</p>
+    <div class="actions"><a class="button" href="/login">Testa SAML</a><a class="button secondary" href="/oidc/login">Testa OpenID Connect</a></div>
+    <p class="small">På datorn skannar du QR-koden med appen. På din iPhone väljer du Öppna openID. Testmiljön är normalt tillgänglig kl. 09–17 svensk tid.</p>
+    <details><summary>Första gången du testar</summary>
+      <ol><li>Installera appen från din personliga TestFlight-inbjudan när bygget är tillgängligt.</li><li>Anslut appen till <strong>https://api.openid.tensetti.io</strong> med kopplingskoden du fått separat. Betan kräver ingen VPN.</li><li>Registrera med ditt svenska pass och följ kameraguiden.</li><li>Visas <strong>Inväntar aktivering</strong>? Kontakta Jonatan och vänta på aktiveringen. Läs inte passet igen.</li><li>Hämta status under Mitt ID. När ditt ID är aktivt kan du testa här.</li></ol>
+    </details>
+    <details><summary>Vad ska jag testa?</summary><p>Prova att godkänna, neka och låta en QR-kod gå ut. Godkänn bara när tjänsten, syftet och kontrollkoden stämmer. Spärra endast ditt ID om du avser att avsluta det; då krävs ny registrering och aktivering.</p></details>
+    <details><summary>Tekniskt test: krav på tillitsnivå</summary>
+      <p>LoA 1–4 utfärdas inte av betan. Dessa tester ska stoppa inloggningen, utan att sänka nivån i tysthet.</p>
+      <form method="get"><label for="loa">Krävd tillitsnivå</label><select id="loa" name="loa"><option value="1">LoA 1</option><option value="2">LoA 2</option><option value="3">LoA 3</option><option value="4">LoA 4</option></select><div class="actions"><button formaction="/login">Prova med SAML</button><button formaction="/oidc/login">Prova med OIDC</button></div></form>
+    </details>
+  </section>
+
+  <section class="section contact" id="kontakt" aria-labelledby="kontakt-rubrik">
+    <p class="eyebrow">Kontakt</p>
+    <h2 id="kontakt-rubrik">Frågor, återkoppling eller hjälp?</h2>
+    <p>Projektet drivs av Jonatan Tensetti. Hör av dig om du vill diskutera projektet, behöver hjälp i betan eller vill begära radering.</p>
+    <a class="contact-link" href="mailto:jtensetti@protonmail.com">jtensetti@protonmail.com</a>
+    <p class="small">Beskriv steget och feltexten när du rapporterar ett problem. Skicka inte passnummer, passbilder, ansiktsbilder, lösenord eller kopplingskod via e-post.</p>
+  </section>
+</main>
+<footer><span class="wordmark">open<span>ID</span></span><p>Ett självständigt projekt. Ingen anknytning till OpenID Foundation eller Digg.</p></footer>
+</body>
+</html>

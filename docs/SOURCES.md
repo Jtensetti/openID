@@ -67,3 +67,20 @@ T03 identifierades som version 1.0, daterad 2024-12-04. Biblioteksrevisionen
 profilcertifiering är utförd. Direktåtkomst till EUR-Lex blockerades vid
 denna genomgång; EU-hänvisningarna ersätter inte läsning av konsoliderad
 lydelse inför juridiskt ställningstagande.
+
+## Komplettering 2026-10-21: leverantörsanslutning
+
+D01–D09 har lästs på nytt för anslutningsanalysen. Separata krav och vårt
+eget återstående arbete finns under GOV-09 och FED-05 i kravöversikten.
+
+| ID | Källa, version och avgränsning |
+|---|---|
+| D15 | [MDFFS 2025:1](https://www.digg.se/om-oss/forfattningssamling/foreskrifter-om-krav-pa-leverantorers-ansokan-om-anslutning-till-auktorisationssystem-for-tjanster-for-elektronisk-identifiering-och-for-digital-post-mdffs-20251/foreskrifter-om-krav-pa-leverantorers-ansokan-om-anslutning-till-auktorisationssystem-for-tjanster-for-elektronisk-identifiering-och-for-digital-post-mdffs-20251), beslutad 2025-04-15, gäller från 2025-05-05. §§6–15 gäller leverantörens förutsättningar; tekniskt stöd är inte formellt godkännande. |
+| T05 | [Tekniska anslutningsregler, SAML](https://docs.swedenconnect.se/technical-framework/Tekniska_anslutningsregler.html), kontrollerad 2026-10-21, särskilt §§1.3 och 3.6.4. Föränderlig webbsida. |
+| T06 | [Security Requirements 1.0](https://docs.swedenconnect.se/federation/security-requirements.html), publicerad 2026-09-02. Algoritmer, nycklar och rotation för båda protokollen. |
+| T07 | [OpenID Federation Rules and Policies 1.0 draft 01](https://docs.swedenconnect.se/federation/oidf-rules.html), publicerad 2026-10-14. Utkast; införandeversion ska bekräftas med Digg. |
+| T08 | [OpenID Connect Metadata Requirements 1.0 draft 02](https://docs.swedenconnect.se/federation/oidc-metadata-requirements.html), publicerad 2026-10-12. Utkast; dokumentets status gäller framför indexets förkortade titel. |
+
+Ingen anslutnings- eller tillitsmärkning får deklareras bara för att en
+identifierare finns i dessa dokument. Organisation, avtal och godkännande
+ska vara styrkta för den avsedda miljön.
