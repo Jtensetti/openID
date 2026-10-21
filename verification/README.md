@@ -166,7 +166,10 @@ kontotjänsten ditt namn, passfoto och födelsedatum från MRZ. Du behöver inte
 klistra in något registrerings-ID.
 
 MRZ använder tvåsiffrigt årtal. Sekel, ålder och svenskt personnummer
-härleds inte. Namnet följer passets MRZ-translitterering.
+härleds inte från födelsedatum. För svenska pass tas i stället ett eventuellt
+person-/samordningsnummer ur det autentiserade DG1-fältet och bevaras med
+exakt 10 eller 12 siffror i den krypterade ägarprofilen. Det är inte ett
+registerbevis och delas inte genom SAML/OIDC. Namnet följer passets MRZ-translitterering.
 
 IdP och SP körs i separata processer på loopback-HTTPS. Sweden Connect
 1.0.3 verifierar den signerade begäran och skapar ett signerat, krypterat
