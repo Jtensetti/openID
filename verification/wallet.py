@@ -43,6 +43,7 @@ class Wallet:
         if self.path.stat().st_mode & 0o077: raise ValueError('database must be private (0600)')
         self.lock = threading.RLock()
         self.challenges = {}
+        self.document_links_enabled = True  # SQLite pilot; PostgreSQL has a separate schema/approval path.
         self.vault = IdentityVault(self.path.with_suffix('.identity-key'), runner=vault_runner)
         with self.transaction() as db:
             db.executescript('''
@@ -63,6 +64,14 @@ class Wallet:
                     credential TEXT PRIMARY KEY REFERENCES credentials(id),
                     person TEXT NOT NULL REFERENCES persons(id), version TEXT UNIQUE NOT NULL,
                     sealed TEXT NOT NULL, verified INTEGER NOT NULL, document_expires INTEGER NOT NULL);
+                CREATE TABLE IF NOT EXISTS document_links (
+                    document_tag TEXT PRIMARY KEY, person TEXT NOT NULL REFERENCES persons(id));
+                CREATE TABLE IF NOT EXISTS retired_documents (document_tag TEXT PRIMARY KEY);
+                CREATE TABLE IF NOT EXISTS profile_documents (
+                    credential TEXT PRIMARY KEY REFERENCES credentials(id), document_tag TEXT NOT NULL);
+                INSERT OR IGNORE INTO profile_documents
+                    SELECT profiles.credential,persons.document_tag FROM profiles
+                    JOIN persons ON persons.id=profiles.person;
                 CREATE TABLE IF NOT EXISTS federation_requests (
                     id TEXT PRIMARY KEY, credential TEXT REFERENCES credentials(id),
                     secret_hash TEXT NOT NULL, state TEXT NOT NULL, created INTEGER NOT NULL,
@@ -133,35 +142,51 @@ class Wallet:
                 if expiry <= self.clock(): raise ValueError('expired document')
                 self.vault.key(create=not db.execute('SELECT 1 FROM profiles LIMIT 1').fetchone())
                 tag = self.vault.document_tag(document)
+                if getattr(self, 'document_links_enabled', False) and db.execute(
+                        'SELECT 1 FROM retired_documents WHERE document_tag=?', (tag,)).fetchone():
+                    raise ValueError('replaced document cannot be reused')
                 db.execute('INSERT INTO persons VALUES(?,?) ON CONFLICT(document_tag) DO NOTHING',
                     (secrets.token_hex(32), tag))
                 person_id = db.execute('SELECT id FROM persons WHERE document_tag=?', (tag,)).fetchone()['id']
+                if getattr(self, 'document_links_enabled', False):
+                    linked = db.execute('SELECT person FROM document_links WHERE document_tag=?', (tag,)).fetchone()
+                    if linked is not None: person_id = linked['person']
                 sealed = self.vault.crypt('seal', ident, person_id, document.profile())
                 db.execute('INSERT INTO profiles VALUES(?,?,?,?,?,?)',
                     (ident, person_id, secrets.token_hex(32), json.dumps(sealed), int(self.clock()), expiry))
+                if getattr(self, 'document_links_enabled', False):
+                    db.execute('INSERT INTO profile_documents VALUES(?,?)', (ident, tag))
             self.event(db, ident, 'CAPTURE_VERIFIED')
         return {'id': ident, 'state': 'PENDING_REVIEW'}
 
     def activate(self, ident, decision, hours=24):
         # Operator-only; not exposed over HTTP.
+        with self.transaction() as db:
+            self._activate(db, ident, decision, hours)
+
+    def _activate(self, db, ident, decision, hours=24):
+        # Also used within the atomic, registry-checked document replacement transaction.
+        if type(self) is not Wallet: raise ValueError('activation requires backend approval')
         if not isinstance(decision, str) or not re.fullmatch('[A-Za-z0-9_-]{8,80}', decision):
             raise ValueError('non-personal decision reference required')
         if type(hours) is not int or not 1 <= hours <= 72: raise ValueError('pilot validity')
-        with self.transaction() as db:
-            row = self.credential(db, ident)
-            if row['state'] != 'PENDING_REVIEW' or self.clock()-row['created'] > 86400:
-                raise ValueError('new proofing required')
-            expires = int(self.clock())+hours*3600
-            profile = db.execute('SELECT * FROM profiles WHERE credential=?', (ident,)).fetchone()
-            if profile is not None:
-                self.vault.crypt('open', ident, profile['person'], json.loads(profile['sealed']))
-                expires = min(expires, profile['document_expires'])
-                if expires <= self.clock(): raise ValueError('expired document')
-                for old in db.execute('SELECT credential FROM profiles WHERE person=? AND credential!=?', (profile['person'], ident)):
-                    self._revoke(db, old['credential'])
-            db.execute('UPDATE credentials SET state=?,expires=?,decision=? WHERE id=?',
-                ('ACTIVE', expires, decision, ident))
-            self.event(db, ident, 'ACTIVATED')
+        row = self.credential(db, ident)
+        if row['state'] != 'PENDING_REVIEW' or self.clock()-row['created'] > 86400:
+            raise ValueError('new proofing required')
+        expires = int(self.clock())+hours*3600
+        profile = db.execute('SELECT * FROM profiles WHERE credential=?', (ident,)).fetchone()
+        if profile is not None:
+            if db.execute('''SELECT 1 FROM retired_documents r JOIN profile_documents p
+                             ON r.document_tag=p.document_tag WHERE p.credential=?''', (ident,)).fetchone():
+                raise ValueError('replaced document cannot be reused')
+            self.vault.crypt('open', ident, profile['person'], json.loads(profile['sealed']))
+            expires = min(expires, profile['document_expires'])
+            if expires <= self.clock(): raise ValueError('expired document')
+            for old in db.execute('SELECT credential FROM profiles WHERE person=? AND credential!=?', (profile['person'], ident)):
+                self._revoke(db, old['credential'])
+        db.execute('UPDATE credentials SET state=?,expires=?,decision=? WHERE id=?',
+            ('ACTIVE', expires, decision, ident))
+        self.event(db, ident, 'ACTIVATED')
 
     def revoke(self, ident):
         with self.transaction() as db: self._revoke(db, ident)

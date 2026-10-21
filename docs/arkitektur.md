@@ -87,7 +87,9 @@ härledning av sekel, ålder eller svenskt personnummer.
 Standardgiltigheten är 24 timmar, högst 72 och aldrig längre än passets
 giltighet. Ersättning för samma pass behåller det interna person-ID:t och
 spärrar äldre nycklar atomiskt. Ett annat pass med samma namn och födelsedatum
-slås inte ihop. Passförnyelse saknar ännu en färdig återställningsprocess.
+slås inte ihop. Passförnyelse har ett separat, registerkontrollerat operatörsflöde i SQLite-koden.
+Det saknar ännu verklig registeradapter och är inte aktiverat i betan.
+Se [registerbindning och ersättning](registerbindning.md).
 
 Personprofil och förminskat foto krypteras med Node `crypto` AES-256-GCM.
 Credential- och person-ID ingår i autentiserade kontextdata. En separat

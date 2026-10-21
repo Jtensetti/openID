@@ -16,6 +16,12 @@ def main():
     activate.add_argument('--hours', type=int, default=24)
     activate.add_argument('--private-pilot-only', action='store_true', required=True)
     revoke = sub.add_parser('revoke'); revoke.add_argument('credential')
+    replace = sub.add_parser('replace-passport')
+    replace.add_argument('previous'); replace.add_argument('replacement')
+    replace.add_argument('--registry-source', required=True)
+    replace.add_argument('--decision', required=True)
+    replace.add_argument('--hours', type=int, default=24)
+    replace.add_argument('--private-pilot-only', action='store_true', required=True)
     request = sub.add_parser('request'); request.add_argument('credential')
     result = sub.add_parser('consume'); result.add_argument('request')
     args = parser.parse_args()
@@ -29,6 +35,10 @@ def main():
             wallet.activate(args.credential, args.decision, args.hours); value={'state':'ACTIVE','scope':'PRIVATE_PILOT'}
         elif args.operation == 'revoke':
             wallet.revoke(args.credential); value={'state':'REVOKED'}
+        elif args.operation == 'replace-passport':
+            from registry_binding import RegistryBindings
+            value=RegistryBindings(wallet, source=args.registry_source).activate_replacement(
+                args.previous, args.replacement, args.decision, args.hours)
         elif args.operation == 'request':value=wallet.start_request(args.credential)
         else:
             # Secret via stdin rather than command line / shell history / process listing.

@@ -308,7 +308,7 @@ cd ../verification
 export PROOFING_FIXTURES=/tmp/openid-proofing-fixtures
 export PROOFING_JAVA="$JAVA_HOME/bin/java"
 export PROOFING_PYTHON="$PWD/.venv/bin/python"
-.venv/bin/python -m unittest -v test_verification test_native test_chip test_wallet test_relying_party test_identity test_runtime test_crypto_runtime
+.venv/bin/python -m unittest -v test_verification test_native test_chip test_wallet test_relying_party test_identity test_registry_binding test_runtime test_crypto_runtime
 node --test test-attest.mjs
 node browser-test.cjs
 node rp-browser-test.cjs
@@ -376,3 +376,13 @@ provar poängberäkningen; representativa data och oberoende prov återstår.
 Biometriarbetaren lämnar vid fel en fast stegkod (modellstart, passporträtt, kamerans ansikte, matchning eller PAD) och en tillåten orsakskod. Huvudprocessen validerar båda igen innan loggning. Bilder, råpoäng, identifierare och godtycklig undantagstext ingår inte. Modell-/arbetarfel ger otillgänglig tjänst, medan avvisad bildanalys inte ger godkänd kontroll. Detta ändrar inte experimentella trösklar eller den kvarstående kalibreringen.
 
 Ansiktsdetektionen görs i originalskala och, för bilder större än 480 pixlar, även med hela bilden proportionellt förminskad till högst 480 pixlar. [YuNet beskriver ett träningsområde på ungefär 10–300 pixlar per ansikte](https://github.com/opencv/opencv_zoo/blob/main/models/face_detection_yunet/README.md). Box och landmärken mappas tillbaka till originalpixlar; jämförelse och PAD använder originalbilden. Flera ansikten i endera skalan eller detektioner som inte överlappar tillräckligt avvisas. Modellversioner och trösklar är oförändrade. Förbättringen kräver fortsatt fysisk verifiering och biometrisk utvärdering.
+
+
+## Registerbindning och nytt pass
+
+`registry_binding.py` förbereder registerkontrollerad ersättning i SQLite.
+Ingen registerleverantör är ansluten. Funktionen kräver färska, entydiga bevis
+för båda dokumenten och separat manuell aktivering. En förlorad telefon kan
+spärras med befintlig `wallet_cli.py revoke`; den gamla nyckeln återaktiveras inte.
+Syntetiska prov använder interna test-ID:n och lämnar aldrig ut personnummer.
+Se [operatörsflöde, adapterkontrakt och begränsningar](../docs/registerbindning.md).

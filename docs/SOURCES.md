@@ -67,3 +67,8 @@ T03 identifierades som version 1.0, daterad 2024-12-04. Biblioteksrevisionen
 profilcertifiering är utförd. Direktåtkomst till EUR-Lex blockerades vid
 denna genomgång; EU-hänvisningarna ersätter inte läsning av konsoliderad
 lydelse inför juridiskt ställningstagande.
+
+
+## Registeridentifierare
+
+- [Skatteverket: samordningsnummer](https://www.skatteverket.se/privat/folkbokforing/personnummerochsamordningsnummer/samordningsnummer.4.5c281c7015abecc2e201130b.html), kontrollerad 2026-10-21. Dagfältet ökas med 60; kontrollsiffra ingår. Formatkontroll är inte registerverifiering eller bevis på styrkt identitet.

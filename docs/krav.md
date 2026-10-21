@@ -115,3 +115,21 @@ INT-03 (EU01–EU03): SDG:s gränsöverskridande förfaranden och eIDAS-erkänna
 är skilda från stöd för att läsa andra länders pass. Återanvändning av bevis
 via OOTS är ytterligare en integration. Tillämpningsbedömning, konsoliderad
 EU-rätt och fullständig profilmappning återstår. Ingen formell status höjs.
+
+
+### Registerbindning och ersättning i SQLite-piloten
+
+ID-02/ID-08–10: `registry_binding.py` separerar registerbevis från passprofil,
+nyckel och session. Svar binds till engångsfråga, credential, profilversion och
+dokumentreferens; skyddade uppgifter, tvetydighet, konflikt, utgång och
+återspelning stoppas. En registerkontrollerad ersättning av pass bevarar
+personkopplingen men byter profilversion och spärrar äldre nycklar atomiskt.
+Ersatta dokument kan inte användas för nyregistrering. Återläsning spärrar
+alla nycklar och kasserar registerbindningar.
+
+`test_registry_binding` använder en syntetisk adapter och provar även
+samtidighet, rollback, sessionsspärr och schemaövergång från befintlig pilot.
+Ingen verklig registeradapter, automatisk aktivering, ny HTTP-endpoint eller
+nationella identitetsattribut i federation införs. PostgreSQL-stöd och
+operativ återställning/spärrkanal återstår. Formell status: OPEN.
+Se [flöde, befogenheter och begränsningar](registerbindning.md).
