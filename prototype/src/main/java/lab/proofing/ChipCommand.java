@@ -19,7 +19,7 @@ public final class ChipCommand {
     try (var input = new BufferedInputStream(System.in)) {
       var anchors = new HashSet<X509Certificate>();
       try (var stream = Files.newInputStream(Path.of(trustFile))) {
-        for (var c : CertificateFactory.getInstance("X.509").generateCertificates(stream)) anchors.add((X509Certificate)c);
+        anchors.addAll(PassportVerifier.loadTrust(stream));
       }
       var request = line(input, 3_000_000);
       if (!fields(request, Set.of("sod", "dg1", "dg2", "dg14"))) throw new IOException();

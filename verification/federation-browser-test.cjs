@@ -108,12 +108,12 @@ const https = require('node:https');
     console.log('PASS: signed passport → encrypted identity → signed device consent → Sweden Connect encrypted SAML → separate HTTPS SP; decoded QR, claims, session rotation, CSRF/origin, other-browser replay, logout');
 
     id = await begin(); await command('reject',{requestId:id});
-    await page.getByRole('status').filter({hasText:'Inloggningen har avslutats'}).waitFor();
+    await page.getByRole('heading',{name:'Du nekade legitimeringen'}).waitFor();
     assert.equal((await context.request.get('https://localhost:8444/me')).status(),401);
     id = await begin(); await page.getByRole('button',{name:'Avbryt'}).click();
     assert.equal((await context.request.get('https://localhost:8444/me')).status(),401);
     id = await begin(); await command('advance',{seconds:121});
-    await page.getByRole('status').filter({hasText:'Inloggningen har avslutats'}).waitFor();
+    await page.getByRole('heading',{name:'QR-koden har gått ut'}).waitFor();
     await command('advance',{seconds:-121});
     console.log('PASS: signed rejection, cancellation and expired request deny login');
 

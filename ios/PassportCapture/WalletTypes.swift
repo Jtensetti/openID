@@ -2,8 +2,10 @@ import Foundation
 
 enum WalletError: LocalizedError {
     case configuration, rejected, unavailable, overloaded, cancelled, keyUnavailable
+    case cameraImageRejected(Int)
     var errorDescription: String? {
         switch self {
+        case .cameraImageRejected(let frame): return "Servern kunde inte hitta ett enda tydligt ansikte i bild \(frame) av 3. Registreringen är inte klar. Försök igen med jämnt ljus och bara dig själv i bilden."
         case .configuration: return "Ange en HTTPS-adress och en giltig kopplingskod från din server."
         case .rejected: return "Begäran kunde inte godkännas. Uppdatera status och försök igen."
         case .unavailable: return "Servern svarar inte. Kontrollera anslutningen och serverns certifikat."
@@ -33,6 +35,14 @@ struct ServerConfiguration: Codable, Equatable {
 
 enum CredentialState: String, Codable {
     case pending = "PENDING_REVIEW", active = "ACTIVE", revoked = "REVOKED", expired = "EXPIRED"
+    var guidance: String {
+        switch self {
+        case .pending: return "Registreringen är klar och väntar på aktivering. Du behöver inte läsa passet igen. Hämta status under Mitt ID efter att ditt ID aktiverats."
+        case .active: return "Starta en inloggning på testsidan och skanna QR-koden."
+        case .revoked: return "Ditt ID är spärrat och kan inte användas. Gå till Inställningar för att ta bort den spärrade nyckeln och registrera ett nytt ID."
+        case .expired: return "Ditt ID har gått ut. Gå till Inställningar för att ta bort den gamla nyckeln och registrera ett nytt ID."
+        }
+    }
     var title: String {
         switch self { case .pending: return "Inväntar aktivering"; case .active: return "Aktivt"; case .revoked: return "Spärrat"; case .expired: return "Utgånget" }
     }

@@ -42,12 +42,18 @@ public final class RelyingParty implements AutoCloseable {
   private final SyntheticRegistry registry;
   private final PhoneBridge phone;
   private final String base, idpBase;
+  private final PilotOidcClient oidc;
 
   public RelyingParty(TestKeys keys, String idpBase, String base, SyntheticRegistry registry) throws Exception {
     this(keys, idpBase, base, registry, null);
   }
   public RelyingParty(TestKeys keys, String idpBase, String base, SyntheticRegistry registry, PhoneBridge phone) throws Exception {
+    this(keys, idpBase, base, registry, phone, URI.create(base).getPort());
+  }
+  public RelyingParty(TestKeys keys, String idpBase, String base, SyntheticRegistry registry, PhoneBridge phone, int listenPort) throws Exception {
+    if (listenPort < 1024 || listenPort > 65535) throw new IllegalArgumentException("Unprivileged loopback port required");
     this.base = base; this.idpBase = idpBase; this.registry = registry; this.phone = phone;
+    oidc = phone != null && URI.create(base).getPort() == -1 ? new PilotOidcClient(keys, idpBase, base, phone) : null;
     idpMetadata = Metadata.parse(Metadata.idp(keys, idpBase));
     EntityDescriptor spMetadata = Metadata.parse(Metadata.sp(keys, base, phone != null));
     resolver = new DOMMetadataResolver(org.opensaml.core.xml.util.XMLObjectSupport.marshall(idpMetadata)); resolver.setId("local-test-idp"); resolver.initialize();
@@ -57,7 +63,7 @@ public final class RelyingParty implements AutoCloseable {
       @Override protected EntityDescriptor getIdpMetadata(String entity) { return idpMetadata.getEntityID().equals(entity) ? idpMetadata : null; }
     };
     generator.initialize();
-    server = HttpsServer.create(new InetSocketAddress("127.0.0.1", URI.create(base).getPort()), 20);
+    server = HttpsServer.create(new InetSocketAddress("127.0.0.1", listenPort), 20);
     server.setHttpsConfigurator(new HttpsConfigurator(keys.sslContext()));
     server.setExecutor(executor); server.createContext("/", this::handle); server.start();
   }
@@ -83,6 +89,7 @@ public final class RelyingParty implements AutoCloseable {
           x.getRequestHeaders().containsKey("Forwarded") || x.getRequestHeaders().containsKey("X-Forwarded-Host")) {
         send(x, 403, "Fel lokal motpart"); return;
       }
+      if (oidc != null && oidc.handle(x)) return;
       String path = x.getRequestURI().getPath(), method = x.getRequestMethod();
       if (path.equals("/health/ready") && method.equals("GET")) {
         boolean ready = phone == null ? registry.ready() : phone.ready();
@@ -91,6 +98,7 @@ public final class RelyingParty implements AutoCloseable {
         send(x, 200, phone == null ? "<h1>Lokal testtjänst</h1><p>Identitetskontrollen är simulerad.</p><p><a href='/login'>Starta testinloggning</a></p><p><a href='/me'>Visa min testsession</a></p><p><a href='" + idpBase + "'>Spärra testidentitet</a></p>" :
             "<p class='brand'>openID kontotjänst</p><h1>Ditt konto</h1><p><a href='/login'>Logga in med openID</a></p><p><a href='/me'>Visa min session</a></p>");
       } else if (path.equals("/login") && method.equals("GET")) {
+        if (x.getRequestURI().getRawQuery() != null) { send(x, 403, "<h1>Tillitsnivån stöds inte</h1><p>Betan intygar endast privat pilotstatus. LoA 1–4 kan inte utfärdas. Ingen inloggning startades.</p><a href='/'>Till testsidan</a>"); return; }
         String sid = UUID.randomUUID().toString(), relay = UUID.randomUUID().toString();
         Map<String, Long> revocations = phone == null ? registry.revocationVersions() : Map.of();
         var authn = generate(relay, r -> {});
@@ -107,7 +115,7 @@ public final class RelyingParty implements AutoCloseable {
         Session pending;
         synchronized (sessions) { pending = sessions.remove(cookie(x)); }
         if (pending == null || pending.request() == null || !pending.expires().isAfter(Instant.now())) {
-          send(x, 400, "Ingen aktiv begäran i denna webbläsarsession"); return;
+          send(x, 400, "<h1>Inloggningen har gått ut eller redan avslutats</h1><p>Börja om i samma webbläsare som du vill logga in i.</p><p><a href='/login'>Starta en ny inloggning</a></p>"); return;
         }
         consumedTransaction = HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
             .digest(pending.request().getID().getBytes(StandardCharsets.UTF_8)));
@@ -133,7 +141,7 @@ public final class RelyingParty implements AutoCloseable {
         }
       } else if (path.equals("/me") && method.equals("GET")) {
         Session session = current(x);
-        if (session == null) { send(x, 401, "Ingen aktiv session"); return; }
+        if (session == null) { send(x, 401, "<h1>Du är inte inloggad</h1><p>Sessionen kan ha gått ut eller ditt ID kunde inte längre bekräftas. Kontrollera status under Mitt ID i appen.</p><p><a href='/login'>Logga in igen</a></p>"); return; }
         if (phone != null) {
           send(x, 200, "<p class='brand'>openID kontotjänst</p><h1>Inloggad</h1><img src='/portrait' width='160' alt='Passfoto'><h2 id='identity'>" + HtmlUtils.htmlEscape(session.person().displayName()) +
               "</h2><p>Födelsedatum (MRZ): <span id='birth-date'>"+session.person().birthDateMrz()+"</span></p><form action='/logout' method='post'><input type='hidden' name='csrf' value='"+session.csrf()+"'><button>Logga ut</button></form>"); return;
@@ -142,7 +150,7 @@ public final class RelyingParty implements AutoCloseable {
             "</p><p>Identitetskontrollen är simulerad.</p><form action='/logout' method='post'><input type='hidden' name='csrf' value='" + session.csrf() + "'><button>Avsluta testsession</button></form>");
       } else if (path.equals("/portrait") && method.equals("GET") && phone != null) {
         Session session = current(x);
-        if (session == null) { send(x, 401, "Ingen aktiv session"); return; }
+        if (session == null) { send(x, 401, "<h1>Du är inte inloggad</h1><p>Sessionen kan ha gått ut eller ditt ID kunde inte längre bekräftas. Kontrollera status under Mitt ID i appen.</p><p><a href='/login'>Logga in igen</a></p>"); return; }
         byte[] image = Base64.getDecoder().decode(session.person().portrait());
         headers(x); x.getResponseHeaders().set("Content-Type", "image/jpeg");
         x.sendResponseHeaders(200, image.length); x.getResponseBody().write(image);
@@ -164,7 +172,7 @@ public final class RelyingParty implements AutoCloseable {
         catch (IllegalStateException ignored) { /* Login is denied below even if audit storage fails. */ }
       }
       // Never log SAML payloads, cookies, identities, request parameters or exception text.
-      send(x, 400, "Inloggningen nekades. Börja om i tjänsten.");
+      send(x, 400, "<h1>Inloggningen kunde inte slutföras</h1><p>Inget konto har öppnats. Kontrollera status under Mitt ID i appen och försök igen.</p><p><a href='/login'>Starta en ny inloggning</a></p>");
     } finally { x.close(); }
   }
   private ResponseProcessingInput input(Session s) {

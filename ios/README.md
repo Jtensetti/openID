@@ -23,8 +23,9 @@ open ios/PassportCapture.xcodeproj
    test-CA behöver dess rot installeras och betros på telefonen.
 4. Kör appen, välj **Öppna openID** och därefter **Anslut till servern**.
    Ange adress och kopplingskod från serverterminalen.
-5. Välj **Registrera med ditt pass**. Ange passnummer, födelsedatum och
-   utgångsdatum (ÅÅMMDD), godkänn överföringen och läs chipet. Håll sedan
+5. Välj **Registrera med ditt pass**. Välj **Skanna passuppgifter** och rikta kameran mot kodraderna på fotosidan.
+   Kontrollera de ifyllda uppgifterna. Manuell inmatning (datum ÅÅMMDD) finns kvar.
+   Godkänn överföringen och läs chipet. Håll sedan
    telefonen mot passet igen när säkerhetskontrollen startar. Därefter tas
    tre kamerabilder: framåt och åt båda sidor. Följ ovalen och håll kvar tills
    respektive bild har tagits. NFC-kontrollen kräver kontakt med servern hela tiden.
@@ -136,3 +137,86 @@ och oberoende granskning återstår; se [verifierarens
 begränsningar](../verification/README.md#begränsningar).
 Appen utfärdar ingen godkänd e-legitimation. Myndighetsanslutning,
 dokumentunderskrift och pushnotiser ingår inte.
+
+## Kamerainläsning och fel i registreringen
+
+VisionKit läser kodraderna lokalt med DataScannerViewController. Passnummer,
+födelsedatum och utgångsdatum fylls i först när en entydig TD3-rad med
+korrekta kontrollsiffror och kalenderdatum har hittats. Ingen OCR-bild sparas
+eller skickas. Kontrollsiffrorna är formatkontroller; äktheten avgörs fortsatt
+av serverns signatur-, hash- och chipkontroll. Utökade passnummer och andra
+MRZ-format kräver separat stöd; manuell inmatning finns kvar.
+
+NFC-rutan visar svenska instruktioner och procent för den aktuella datadelen,
+inte för hela registreringen. Efter läsning visas ett kvitto på att uppgifterna
+har lästs. Om kontrollen misslyckas visar vyn stoppsteget och **Börja om**;
+formuläret öppnas inte automatiskt med en missvisande stegindikator.
+
+`PassportMRZTests` använder endast genererade kodrader och provar giltig rad,
+fel kontrollsiffra, ogiltigt datum, flera möjliga pass och ofullständig text.
+Fysisk OCR, NFC och övergång till andra chipläsningen behöver provas på telefon.
+
+API-underlag: [Apples DataScanner-delegate](https://developer.apple.com/documentation/visionkit/datascannerviewcontrollerdelegate)
+(kontrollerat 2026-10-21).
+
+### Övergång till ansiktskameran och lokalt prov
+
+Efter de två chipläsningarna väljer användaren **Starta ansiktskontrollen**.
+Det ger utrymme att lägga undan passet och avsluta NFC-rutan innan kameran
+startar. Serverns befintliga sessionsgränser gäller även under väntan.
+
+Kamerakonfigurationen lägger till inmatningen före videoutmatningen och
+slutför sessionens konfiguration innan videoanslutningens orientering ställs in.
+Kameraavbrott, startfel och analysfel visas med en avgränsad steg-/sifferkod;
+inga bilder eller passuppgifter ingår i feltexten.
+
+**Inställningar → Prova ansiktskameran** kör samma fotograferingsguide lokalt,
+utan pass, serveranrop eller registrering. Bildresultatet kastas efter provet.
+Bakgrundsläge och navigering bort avbryter kameran. Ett lyckat kameraprov
+är inte en identitetskontroll eller ett test av serverns bildanalys.
+
+Kameraguiden visar korrigeringen direkt i bilden och en ram runt det upptäckta ansiktet. Indikatorerna Avstånd, Centrering, Vinkel och Bild visar vilka fångstvillkor som är uppfyllda. Sidovyer skiljer mellan för liten och för stor vridning. Dessa indikatorer är fångsthjälp, inte identitets- eller livenessgodkännande.
+
+Kameraguiden tillåter små naturliga rörelser: 0,45 sekunders hålltid med minst fyra godtagbara observationer, centrumavvikelse högst 0,14 och lutning högst 0,30 radianer. Stora rörelser och avvisade observationer nollställer fortfarande aktuell hålltid. Gränserna för sidovridning, ansiktsstorlek och bildkvalitet är oförändrade. Fysisk användbarhetskalibrering återstår.
+
+Riktningsguiden visar båda halvorna lila för frontbild, höger halva för högerbild och vänster för vänsterbild. Varje fångst bekräftas grönt i 0,65 sekunder innan nästa instruktion. Bildnummer visas separat. Kamerans obearbetade bild är ospeglad; förhandsbilden är speglad. Riktningarnas koppling till Vision-yaw måste även provas fysiskt.
+
+En kort korrigering av bildkvalitet, centrering eller liten vinkelavvikelse kan pausa hållningen. Högst 0,25 sekunders sammanlagd paus tillåts per hållning; paustid ger ingen framdrift. Försvunnet/flera ansikten, ogiltiga mätvärden, fel sida, stora rörelser och längre avbrott återställer hållningen. Endast en aktuell godtagbar bild får tas.
+
+Registreringens kameravy visar endast riktningsoval, pil/bekräftelse, bildnummer och en aktuell instruktion. Ansiktsram och upprepad stegrad är borttagna. De fyra diagnostikindikatorerna visas endast i Inställningar → Prova ansiktskameran. Fångstlogik och trösklar är oförändrade.
+
+## Status och återkoppling
+
+Efter upplåsning hämtas status automatiskt. Under hämtningen visas ett neutralt
+vänteläge. En misslyckad statushämtning visas i vyn med anslutningsråd och
+knappen **Hämta status**, utan en modal varning direkt efter Face ID.
+Avbruten lokal autentisering ger ingen felruta. Efter godkännande eller nekande
+visas en bekräftelse under Legitimera. Ett godkännande innebär inte att
+webbtjänsten har slutfört inloggningen. Vid osäkert resultat av en skrivande
+åtgärd uppmanas användaren att kontrollera status och Aktivitet innan nytt försök.
+Utgångna begäranden går inte att godkänna eller neka från bekräftelsevyn.
+
+## Begriplighet och tillgänglighet
+
+Ett aktivt ID visar **Legitimera mig** som huvudhandling. Under Legitimera
+är QR-skanning huvudvalet; länkinmatning finns i **Öppna en länk i stället**.
+Appen läser inte urklippet automatiskt. Samma-telefon-flödet förutsätter att
+tjänsten går att nå på telefonen; pilotens localhost-sida kräver fortfarande
+Mac och QR-kod.
+
+Passformuläret har beständiga fältnamn, datumexempel, valbara förberedelser
+och ett lokalt kameraprov. Saknade eller felaktigt formaterade uppgifter
+markeras först när användaren väljer Läs passet. Fokus flyttas till första
+fältet som behöver ändras; inga nätverks-/NFC-anrop görs då. Samma
+formatvalidering används för hjälpen och chipets åtkomstnyckel. Datumexempel
+innebär inte att ett århundrade härleds från passets tvåsiffriga årtal.
+
+Vid tillgänglighetsstorlek staplas identitetskortets innehåll. Kontrollkoden
+visas på två rader och läses siffra för siffra, inklusive inledande nollor.
+Kamerans instruktion flyttas under förhandsvisningen vid stor text utan att
+ändra bildutsnitt, huvudvinklar eller säkerhetskrav. QR-vyn går att rulla.
+
+Detta är förbättringar för provning, inte ett påstående om full tillgänglighet.
+Fulla språkversioner, fysisk VoiceOver-provning, alternativ till huvudrörelser
+och stödd fysisk minsta enhetsmodell återstår. Simulatorns testfixturer för
+layout finns endast i Debug och kan inte aktiveras i Release.

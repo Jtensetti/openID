@@ -105,4 +105,32 @@ class PassportVerifierTest {
     byte[] other = dg2.clone(); other[other.length-3]^=1;
     assertThrows(PassportVerifier.Rejected.class,()->verifier.verify(sod,dg1,other));
   }
+  @Test void acceptsExplicitEcParametersInProvisionedTrustAndRejectsUntrustedChain() throws Exception {
+    var bc = new org.bouncycastle.jce.provider.BouncyCastleProvider();
+    var named = org.bouncycastle.jce.ECNamedCurveTable.getParameterSpec("brainpoolP512r1");
+    var explicit = new org.bouncycastle.jce.spec.ECParameterSpec(named.getCurve(), named.getG(), named.getN(), named.getH());
+    var generator = KeyPairGenerator.getInstance("EC", bc); generator.initialize(explicit);
+    var rootKey = generator.generateKeyPair();
+    var rootName = new X500Name("CN=SYNTHETIC-EXPLICIT-CSCA");
+    var rootBuilder = new JcaX509v3CertificateBuilder(rootName, BigInteger.ONE,
+        Date.from(NOW.minusSeconds(86400)), Date.from(NOW.plusSeconds(86400)), rootName, rootKey.getPublic());
+    rootBuilder.addExtension(Extension.basicConstraints, true, new BasicConstraints(true));
+    rootBuilder.addExtension(Extension.keyUsage, true, new KeyUsage(KeyUsage.keyCertSign));
+    var root = new JcaX509CertificateConverter().setProvider(bc).getCertificate(rootBuilder.build(
+        new JcaContentSignerBuilder("SHA512withECDSA").setProvider(bc).build(rootKey.getPrivate())));
+    var loaded = PassportVerifier.loadTrust(new ByteArrayInputStream(root.getEncoded()));
+    assertEquals(1, loaded.size());
+    var leafBuilder = new JcaX509v3CertificateBuilder(rootName, BigInteger.TWO,
+        Date.from(NOW.minusSeconds(86400)), Date.from(NOW.plusSeconds(86400)), new X500Name("CN=SYNTHETIC-DSC"), signerKey.getPublic());
+    leafBuilder.addExtension(Extension.basicConstraints, true, new BasicConstraints(false));
+    leafBuilder.addExtension(Extension.keyUsage, true, new KeyUsage(KeyUsage.digitalSignature));
+    signer = new JcaX509CertificateConverter().setProvider(bc).getCertificate(leafBuilder.build(
+        new JcaContentSignerBuilder("SHA512withECDSA").setProvider(bc).build(rootKey.getPrivate())));
+    sod = sign("SHA-256", "SHA256withECDSA");
+    assertNotNull(new PassportVerifier(loaded, CLOCK).verify(sod, dg1, dg2));
+    assertThrows(PassportVerifier.Rejected.class, () -> verifier.verify(sod, dg1, dg2));
+    var tampered = dg2.clone(); tampered[tampered.length - 1] ^= 1;
+    assertThrows(PassportVerifier.Rejected.class, () -> new PassportVerifier(loaded, CLOCK).verify(sod, dg1, tampered));
+  }
+
 }

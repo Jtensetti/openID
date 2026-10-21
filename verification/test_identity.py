@@ -110,6 +110,9 @@ class IdentityTests(unittest.TestCase):
             if operation == 'reject': self.execute('reject', request['id'])
             elif operation == 'cancel': self.result(request, 'cancel')
             else: self.time += 121
+            expected = {'reject':'REJECTED', 'cancel':'CANCELLED', 'expire':'EXPIRED'}[operation]
+            self.assertEqual(expected, self.result(request, 'poll')['state'])
+            with self.assertRaises(ValueError): self.result(request, 'poll', secret='x'*43)
             with self.assertRaises(ValueError): self.wallet.execute(signed)
             with self.assertRaises(ValueError): self.result(request)
     def test_competing_devices_and_consumers_have_only_one_winner(self):

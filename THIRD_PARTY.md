@@ -6,7 +6,7 @@ Underhålls- och sårbarhetsuppgifter nedan avser dessa kontrolltillfällen.
 
 ## Lås och licensfiler
 
-Maven-grafen innehåller **180 JAR-artefakter**, låsta med version och SHA-256 i
+Maven-grafen innehåller **189 JAR-artefakter**, låsta med version och SHA-256 i
 [dependencies.lock.json](prototype/dependencies.lock.json).
 [CycloneDX-SBOM](prototype/evidence/bom.json) innehåller paket och deklarerade
 licenser; [OSV-resultatet](prototype/evidence/osv.json) innehåller den daterade
@@ -19,7 +19,7 @@ AWS-testets SDK, CI-verktyg och licenser finns i
 
 | Komponent | Låst version / full källrevision | Användning och licens |
 |---|---|---|
-| [Spring Authentication Server](https://github.com/swedenconnect/spring-authentication-server) | 1.0.3 / `dd49df31aa250eaacbd3a27466a05ec331b6dddc` | Parent-POM, SAML-starter och provider-API. Apache-2.0. |
+| [Spring Authentication Server](https://github.com/swedenconnect/spring-authentication-server) | 1.0.3 / `dd49df31aa250eaacbd3a27466a05ec331b6dddc` | Parent-POM, SAML-/OIDC-starter och provider-API. Apache-2.0. |
 | [Credentials Support](https://github.com/swedenconnect/credentials-support) | 2.2.1 / `831d82d890ade02ee6fed81198996e3b7ef55e96` | PKCS12, OpenSAML-adapter och Spring-integration. Apache-2.0. |
 | [Sweden Connect Test Client](https://github.com/swedenconnect/sweden-connect-test-client) | 1.0.19 / `87aac956a762928b11a640e30382f7e5ca5fef1b` | Enbart adaptern `CustomResponseProcessor.java`. Apache-2.0. |
 | [SQLite JDBC](https://github.com/xerial/sqlite-jdbc) | 3.53.4.0 / `cab7981c19ce04d691f0675f0b2586afc2bbf803` | Java-labbens register. Apache-2.0 och Zentus BSD-2-Clause; SQLite 3.53.4 är public domain. |
@@ -131,3 +131,22 @@ attributions- och källkodskrav. Tredjepartslicenserna gäller sina respektive f
 Formellt uppdateringsansvar och produktionsförvaltare är inte utsedda.
 Beroendeändringar ska uppdatera lås, SBOM, licens-/advisorykontroll och
 berörda tester enligt [utvecklingsinstruktionerna](docs/utveckling.md).
+
+## OIDC-komplettering 2026-10-21
+
+Samma upstream-release 1.0.3 används för OIDC-starter och OIDC-modulen.
+Nimbus OAuth2/OIDC SDK 11.38.2 och JOSE/JWT 10.10 används för meddelanden
+och tokenvalidering. Nya transitiva komponenter är content-type 2.3,
+lang-tag 1.7, jcip-annotations 1.0-1, oidc-sweden-nimbus 1.0.0,
+Sweden Connect OIDF common 1.0.0 och credentials-support-nimbus 2.2.1.
+Samtliga nya komponenter deklarerar Apache-2.0 i hämtade Maven-underlag;
+JAR-innehållens licens- och NOTICE-filer bevaras. Inga upstream-källfiler
+har kopierats till OIDC-adaptern.
+
+Låset innehåller 189 artefakter med SHA-256. Tre tidigare testberoenden
+(json-smart, accessors-smart och ASM) ingår nu vid körning; deras versioner
+och checksummor är oförändrade. CycloneDX-SBOM och daterad OSV-kontroll
+är uppdaterade. OSV gav inga matchande fynd för de 189 koordinaterna;
+det är inte bevis för frånvaro av sårbarheter. Nya integrationen är
+begränsad till privat pilot. Produktionsförvaltare och oberoende granskare
+återstår enligt förvaltningsavsnittet ovan.

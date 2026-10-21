@@ -5,11 +5,34 @@ from pathlib import Path
 import sys
 
 
+STAGES = {'MODEL_LOAD', 'INPUT', 'FACE_MATCH', 'PORTRAIT_FACE', 'CAMERA_FACE', 'CAMERA_FACE_1', 'CAMERA_FACE_2', 'CAMERA_FACE_3', 'PAD'}
+REASONS = {'MODEL_INTEGRITY_FAILED', 'PAD_MODEL_INTEGRITY_FAILED', 'IMAGE_SIZE_REJECTED',
+           'IMAGE_REJECTED', 'EXACTLY_ONE_FACE_REQUIRED', 'FACE_QUALITY_REJECTED',
+           'PAD_FACE_QUALITY_REJECTED', 'INVALID_SCORE', 'INVALID_PAD_SCORE'}
+
+
+class CameraImageRejected(ValueError):
+    def __init__(self, frame):
+        if type(frame) is not int or frame not in (1, 2, 3): raise ValueError('frame')
+        self.frame = frame
+        super().__init__('camera image rejected')
+
+
+def run_stage(stage, operation):
+    try:
+        return operation()
+    except Exception as error:
+        reason = str(error)
+        # Never serialize arbitrary exception messages or image contents.
+        print(json.dumps({'stage': stage, 'reason': reason if reason in REASONS else 'FAILED'}), flush=True)
+        raise SystemExit(2) from None
+
+
 def main():
     from face import FaceMatcher
     from pad import PresentationAttackDetector
-    matcher = FaceMatcher(Path(__file__).parent/'models')
-    pad = PresentationAttackDetector(Path(__file__).parent/'models')
+    matcher = run_stage('MODEL_LOAD', lambda: FaceMatcher(Path(__file__).parent/'models'))
+    pad = run_stage('MODEL_LOAD', lambda: PresentationAttackDetector(Path(__file__).parent/'models'))
     if sys.argv[1:] == ['--check']:
         print('{"ready":true}')
         return
@@ -19,11 +42,12 @@ def main():
     portrait = base64.b64decode(data['portrait'], validate=True)
     frames = [base64.b64decode(frame, validate=True) for frame in data['frames']]
     if len(frames) != 3: raise ValueError('frames')
+    run_stage('PORTRAIT_FACE', lambda: matcher.decode_face(portrait))
     face_scores, pad_scores = [], []
-    for frame in frames:
-        face_scores.append(matcher.compare(portrait, frame))
-        image, face = matcher.decode_face(frame)
-        pad_scores.append(pad.score(image, face))
+    for index, frame in enumerate(frames):
+        image, face = run_stage(f'CAMERA_FACE_{index + 1}', lambda: matcher.decode_face(frame))
+        face_scores.append(run_stage('FACE_MATCH', lambda: matcher.compare(portrait, frame)))
+        pad_scores.append(run_stage('PAD', lambda: pad.score(image, face)))
     print(json.dumps({'face': face_scores, 'pad': pad_scores}, allow_nan=False))
 
 

@@ -56,3 +56,62 @@ Aktuell originaltext behöver kontrolleras inför en formell bedömning.
 Verifiering redovisas med revision, kommando, resultat och begränsning i
 [testöversikten](testning.md) eller PR:n. Formell acceptans kräver beslutsfattare,
 datum och omfattning. Känsliga underlag lagras utanför det publika repot.
+
+### Privat telefonprov: inmatning och diagnos
+
+ID-05/INT-02: Kamerans TD3-text används endast för att fylla i chipets
+åtkomstuppgifter, efter kontrollsiffror och datumvalidering. Den ersätter
+inte identitetskontroll. OCR-bilder lagras inte. Fysisk kameraläsning återstår.
+OPS-01/02: Fast stegkod vid avvisad passkontroll möjliggör felsökning utan
+passuppgifter eller godtycklig undantagstext i loggen. Formell status är oförändrad.
+
+ID-05: Certifikatinläsning och PKIX använder den låsta Bouncy Castle-providern
+för stöd för explicita EC-parametrar. Ett genererat Brainpool-prov täcker
+betrodd kedja, obetrodd kedja och ändrad datagrupp. Detta ändrar inte
+kraven på tillitsankare eller den kvarstående kontrollen av certifikatspärr.
+
+ID-05: Kameraguiden visar ansiktsram, separata fångstindikatorer och korrigering direkt i förhandsbilden. För liten/stor sidovridning skiljs åt. Fångstgränserna är oförändrade; fysisk användbarhet och sidofångst behöver verifieras på telefon.
+
+ID-05: Fångstguidens tolerans för små rörelser, centrering och lutning har ökats och hålltid kortats till 0,45 s/minst fyra observationer. Syntetiska prov täcker naturlig variation och fortsatt avvisning av stora rörelser. Serverns identitetskontroller och tre skilda huvudpositioner ändras inte. Fysisk användbarhet behöver bekräftas.
+
+ID-05: Riktningsguide framåt/höger/vänster med separat fångstbekräftelse. Begränsad pausbudget utan tillgodoräknad avbrottstid provas med syntetiska mätserier, inklusive upprepade avbrott och fel sida. Fysiskt prov av speglad riktning och användbarhet återstår.
+
+ID-05/INT-02: Biometriarbetaren rapporterar endast fasta steg och tillåtna orsakskoder. Huvudprocessen validerar koderna igen och skiljer modell-/arbetarfel från avvisad bildanalys. Inga bilder, poäng eller godtyckliga undantagstexter loggas. Diagnostik ändrar inte experimentella gränser eller formell status.
+
+ID-05: YuNet-detektor använder två helbildsskalor för högupplösta kamerabilder. Fleransiktsfall och motstridiga detektioner avvisas; originalbild används för ansiktsjämförelse och PAD. Bildfel returneras som fast kod med bildnummer 1–3, utan råpoäng eller bilddata. Testar skalåterföring och negativa fall; ingen ändrad formell status.
+
+### Felåterkoppling för legitimering
+
+ID-09, ID-10 och FED-02: appen skiljer statushämtning från godkännande,
+nekande och spärr. Testsidan skiljer känt nekande, avbrott och utgången
+begäran från ett okänt anslutnings-/kontrollfel. Okänd orsak presenteras inte
+som bekräftad spärr eller bekräftat nekande. Avslutade QR-begäranden döljs
+och en länk erbjuder en ny inloggning. Status får återhämtas automatiskt;
+godkännanden skickas aldrig om automatiskt. Formell kravstatus ändras inte.
+
+### OIDC och tillitsnivåer i privat beta
+
+FED-03 (T03): Authorization Code med S256 PKCE, `state`, `nonce`,
+`private_key_jwt` och fast motpart/redirect. Samma signerade enhetsgodkännande
+som SAML. Servern får bara intyga den privata autentiseringskontexten;
+begärd nivå får inte kopieras till utfärdat resultat. Tekniska tester är
+inte fullständig Sweden Connect-profilöverensstämmelse eller anslutning.
+
+FED-04 (D08, D09, T04): Tillitsnivå är en policy för hela utfärdande- och
+livscykelprocessen. Betan utfärdar inte LoA 1–4. Diggs tillitsramverk omfattar
+nivå 2–4; att identifierarregistret även innehåller LoA1 innebär inget godkännande.
+Stöd för högre nivåer kräver styrkt identitetskontroll, nyckelskydd,
+återställning, spärr, organisation, drift och tillämplig granskning.
+LoA4 förutsätter en särskild utfärdande- och autentiseringslösning;
+nuvarande pass-/kameraflöde är inte tillräckligt bevis.
+
+GOV-08 (D08, D09, D14): Luckor kvarstår för dokumenterad tillitspolicy,
+behörighetsseparation, revision, personuppgiftsbehandling och gallring,
+incidenthantering, kontinuerligt spärrstöd, ekonomiska/organisatoriska krav
+samt avtal och formellt godkännande. Manuell aktivering kvarstår men utgör
+inte ensam bevis för att kraven är uppfyllda.
+
+INT-03 (EU01–EU03): SDG:s gränsöverskridande förfaranden och eIDAS-erkännande
+är skilda från stöd för att läsa andra länders pass. Återanvändning av bevis
+via OOTS är ytterligare en integration. Tillämpningsbedömning, konsoliderad
+EU-rätt och fullständig profilmappning återstår. Ingen formell status höjs.

@@ -1,10 +1,10 @@
 {
   "bomFormat" : "CycloneDX",
   "specVersion" : "1.6",
-  "serialNumber" : "urn:uuid:733ed4f9-707f-3210-82c5-2e7f5a79e12b",
+  "serialNumber" : "urn:uuid:d9bb8ab0-a34a-3ac5-adfd-5a0d7ff0b173",
   "version" : 1,
   "metadata" : {
-    "timestamp" : "2026-10-19T13:54:43Z",
+    "timestamp" : "2026-10-21T14:27:18Z",
     "lifecycles" : [
       {
         "phase" : "build"
@@ -86,7 +86,7 @@
     "properties" : [
       {
         "name" : "maven.goal",
-        "value" : "makeAggregateBom"
+        "value" : "makeBom"
       },
       {
         "name" : "maven.scopes",
@@ -6891,72 +6891,6 @@
     },
     {
       "type" : "library",
-      "bom-ref" : "pkg:maven/com.nimbusds/nimbus-jose-jwt@10.10?type=jar",
-      "publisher" : "Connect2id Ltd.",
-      "group" : "com.nimbusds",
-      "name" : "nimbus-jose-jwt",
-      "version" : "10.10",
-      "description" : "Java library for Javascript Object Signing and Encryption (JOSE) and JSON Web Tokens (JWT)",
-      "scope" : "required",
-      "hashes" : [
-        {
-          "alg" : "MD5",
-          "content" : "d5c8eaafa3ab21717eaa5f25c7abfdda"
-        },
-        {
-          "alg" : "SHA-1",
-          "content" : "7069197c295f0bfa168a092a05241c2ea6b444c1"
-        },
-        {
-          "alg" : "SHA-256",
-          "content" : "0edd2fbaab79e13f87d145d021f85a5c59956b2b6b5e761c0d664c87f94cda15"
-        },
-        {
-          "alg" : "SHA-512",
-          "content" : "fbc1ed44eb79d651104d5e7dd78c047c81e94438c57918c6d37600e9782a0fd4b8291f727533f849a7a22b9bb3ad5ec353848b2fda850536d7b55e2ede48b40b"
-        },
-        {
-          "alg" : "SHA-384",
-          "content" : "b47d91e88315debfc3158e3546227dd9e3ac13f5fc831db0594ab6be07bb47a09b243bf2e797b447b43a8c8e7134e73c"
-        },
-        {
-          "alg" : "SHA3-384",
-          "content" : "e7120683656f051ef7ce9b3c1b9da455507d88d77af530e3c1336c9661087e38c576b75c5eefe1514f5f5ddd3481a6af"
-        },
-        {
-          "alg" : "SHA3-256",
-          "content" : "751dc5376710b5ad10949287b9f018eec63fe50eb944163a73f9599d1a83677b"
-        },
-        {
-          "alg" : "SHA3-512",
-          "content" : "73e172e563f4a401b85ac4ec12eacb3f2600d2f2cce0b32a77ed6edc679bde3c28a01c2a835c575127c416a31596d07ee320089da9a28d744b29aed8850284e6"
-        }
-      ],
-      "licenses" : [
-        {
-          "license" : {
-            "id" : "Apache-2.0"
-          }
-        }
-      ],
-      "purl" : "pkg:maven/com.nimbusds/nimbus-jose-jwt@10.10?type=jar",
-      "externalReferences" : [
-        {
-          "type" : "website",
-          "url" : "https://bitbucket.org/connect2id/nimbus-jose-jwt"
-        },
-        {
-          "type" : "distribution-intake",
-          "url" : "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
-        },
-        {
-          "type" : "vcs",
-          "url" : "https://bitbucket.org/connect2id/nimbus-jose-jwt"
-        }
-      ]
-    },
-    {
-      "type" : "library",
       "bom-ref" : "pkg:maven/tools.jackson.core/jackson-core@3.1.7?type=jar",
       "publisher" : "FasterXML",
       "group" : "tools.jackson.core",
@@ -7084,6 +7018,653 @@
         {
           "type" : "vcs",
           "url" : "https://github.com/swedenconnect/opensaml-eidas/tree/main"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/se.swedenconnect.spring.authnserver/authn-server-oidc-spring-boot-starter@1.0.3?type=jar",
+      "publisher" : "Sweden Connect",
+      "group" : "se.swedenconnect.spring.authnserver",
+      "name" : "authn-server-oidc-spring-boot-starter",
+      "version" : "1.0.3",
+      "description" : "Spring Authentication Server Spring Boot starter for OpenID Connect",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "3c867e2cb198b617aad84091329851e2"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "139cd2d3a224bcb0b6cb060c497f85cc8b85e75e"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "ee056758d0dc399e3e6d2fb12a8c5650159a22d8f3ac23cba2c339d70970664c"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "535c4fa790bf7238fa17304638e2e891af7178d5acea67cf0263b5a7a034de09544f32565d013e6bd1cd77b5621cc6d63bf798c0a0585fad2f1c02947765c1a0"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "cb1de532072abd488c840dc3913ee67b289cadef0ba854a1bfb0084002ead73134e8f0c4485b940fdfe37b652261da1b"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "d1f75cb5991e2467dce6e8fd80c7471d2c78cddbb86993410fd2bca24586cae7061570ed0ae7946cf26ffbaa05585e58"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "6364a56b7d2cd358c3915f23c86b1256a302e865c2afc226d709b1d0999180d2"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "7b62432c909645b8d4b46d28b5d439e7977e35ab20af2c96fff905153463fdacfb6722a20b7cb343330b4aa5e81fa2bb898458a923d80214c50585ca4fd1585f"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "id" : "Apache-2.0"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/se.swedenconnect.spring.authnserver/authn-server-oidc-spring-boot-starter@1.0.3?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://docs.swedenconnect.se/spring-authentication-server"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://github.com/swedenconnect/spring-authentication-server/tree/main/authn-server-oidc-spring-boot-starter"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/se.swedenconnect.spring.authnserver/authn-server-oidc@1.0.3?type=jar",
+      "publisher" : "Sweden Connect",
+      "group" : "se.swedenconnect.spring.authnserver",
+      "name" : "authn-server-oidc",
+      "version" : "1.0.3",
+      "description" : "Spring Authentication Server OpenID Provider support",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "71c72b78b8036f76d9c611389413cb2f"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "0c36d54f74b14e23c77ada8279a095dc9d4d807e"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "4c24a2884058a7f855c2b0c45e5a7d74a550c3eaa632f323a317bfef1c48d0a7"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "e2a4d686189f248b09d747c5f2bce1d25971337b3bbbe5e426627922e5ead1c391e3e1c90716e8557b3489d4bcf1fe5d2378cb76898bbe8618b4459a20eaf265"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "4b6c6740d4a4581734d63e92c6946221c5601d674139c950165216d2d6f026156df1d9beb01e6a78b203a9475bdb4dab"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "b01a33de37e5ccff16947e5f98e1e50d99ecd25c25d2aa1197f094616ce973b6e22cc967e0a644c90bd27f2ccf4a4e50"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "9eae155272bb0ce9ccdb5585fdb5ffe2ababa4dee43a90719a84d9351d0719a3"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "0c8569a6d47378fc26255d19be6a5def24e0624db939d9a7e4aa38152101de8cfe384433e6cfc78d563e161bd7a9742550c287c1f600fdee2338800c53fc4ba7"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "id" : "Apache-2.0"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/se.swedenconnect.spring.authnserver/authn-server-oidc@1.0.3?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://docs.swedenconnect.se/spring-authentication-server"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://github.com/swedenconnect/spring-authentication-server/tree/main/authn-server-oidc"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/com.nimbusds/nimbus-jose-jwt@10.10?type=jar",
+      "publisher" : "Connect2id Ltd.",
+      "group" : "com.nimbusds",
+      "name" : "nimbus-jose-jwt",
+      "version" : "10.10",
+      "description" : "Java library for Javascript Object Signing and Encryption (JOSE) and JSON Web Tokens (JWT)",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "d5c8eaafa3ab21717eaa5f25c7abfdda"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "7069197c295f0bfa168a092a05241c2ea6b444c1"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "0edd2fbaab79e13f87d145d021f85a5c59956b2b6b5e761c0d664c87f94cda15"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "fbc1ed44eb79d651104d5e7dd78c047c81e94438c57918c6d37600e9782a0fd4b8291f727533f849a7a22b9bb3ad5ec353848b2fda850536d7b55e2ede48b40b"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "b47d91e88315debfc3158e3546227dd9e3ac13f5fc831db0594ab6be07bb47a09b243bf2e797b447b43a8c8e7134e73c"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "e7120683656f051ef7ce9b3c1b9da455507d88d77af530e3c1336c9661087e38c576b75c5eefe1514f5f5ddd3481a6af"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "751dc5376710b5ad10949287b9f018eec63fe50eb944163a73f9599d1a83677b"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "73e172e563f4a401b85ac4ec12eacb3f2600d2f2cce0b32a77ed6edc679bde3c28a01c2a835c575127c416a31596d07ee320089da9a28d744b29aed8850284e6"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "id" : "Apache-2.0"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/com.nimbusds/nimbus-jose-jwt@10.10?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://bitbucket.org/connect2id/nimbus-jose-jwt"
+        },
+        {
+          "type" : "distribution-intake",
+          "url" : "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://bitbucket.org/connect2id/nimbus-jose-jwt"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/com.nimbusds/oauth2-oidc-sdk@11.38.2?type=jar",
+      "publisher" : "Connect2id Ltd.",
+      "group" : "com.nimbusds",
+      "name" : "oauth2-oidc-sdk",
+      "version" : "11.38.2",
+      "description" : "OAuth 2.0 SDK with OpenID Connect and Federation extensions for developing client and server applications.",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "38e046019e13d821b2c4bc17b0aa7bb1"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "633504f3430c148cc583d9d481f5f4e48e29cccf"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "30e63220c15bd93006c557bd0d614bb57a5f00232188693577c222383ea4bbe7"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "30928fd2dcb6680ad1a8bf0923b2e7125eca4ec22eae584695468db82529a17f43ac405ecd28e622446ea4c96755b9c111311deb7d53179cb9c435fa0140f114"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "daec981126c784ad4214d7959e72f2c4464fa2cdfc35d41523d032448b0bea32a7d275908cea9d1afc9b3533be6a6159"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "4282a8dbfd0b80180b72883cb9a5cdb28be7c68fe2c571d36a8cbe5541cb87b79405214512a3dfdcbf539629062bd0e0"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "260ca92e0aeed607eb58bc11f06a4ca825ca03b7c6da048eb9fd231acab9fca2"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "5de230dd0e11e61afc711ed0c5e1e33526c955109b1edbaf4330d595aac565a51164b775d82f81caa1fa0a3a9b10d7dbbb64cde0d6d595b8c8618733c8229889"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "id" : "Apache-2.0"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/com.nimbusds/oauth2-oidc-sdk@11.38.2?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://bitbucket.org/connect2id/oauth-2.0-sdk-with-openid-connect-extensions"
+        },
+        {
+          "type" : "distribution-intake",
+          "url" : "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://bitbucket.org/connect2id/oauth-2.0-sdk-with-openid-connect-extensions"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/com.github.stephenc.jcip/jcip-annotations@1.0-1?type=jar",
+      "group" : "com.github.stephenc.jcip",
+      "name" : "jcip-annotations",
+      "version" : "1.0-1",
+      "description" : "A clean room implementation of the JCIP Annotations based entirely on the specification provided by the javadocs.",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "d62dbfa8789378457ada685e2f614846"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "ef31541dd28ae2cefdd17c7ebf352d93e9058c63"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "4fccff8382aafc589962c4edb262f6aa595e34f1e11e61057d1c6a96e8fc7323"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "02fcd16a30d0e68b3e9e4899731181c6abb7117baa15c096ca940e01dde08bb86101cbeae552c497f8a90d923b5fa2f2b6f3850baf8dc94dbd399887924a9069"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "88b0ecfde391a3d8468349c70e1539569768dfac3233dfe0b4660904df04e6c6bf26ed9c0784b9b22c122c3448e2a6b6"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "487b53f48b55b98a61ae60abedc43543887944867aa6bcb78d5ed46e2d0d7c19510c5fcadc362d939313feafdcfc55e1"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "3e79c8f58865d2d58a5311a8bb45772007f07e7f3ed2780784d1e4382dc934d0"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "ff32665e1b6d8176ccc7e8c836ca7343c2603dab053e42d79b4258d51a14ff63933c67d24034169ac91e11ebda21cc2c84a2a540072e656d2a8e6fcea7808421"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "id" : "Apache-2.0"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/com.github.stephenc.jcip/jcip-annotations@1.0-1?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "http://stephenc.github.com/jcip-annotations"
+        },
+        {
+          "type" : "distribution-intake",
+          "url" : "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
+        },
+        {
+          "type" : "issue-tracker",
+          "url" : "http://github.com/stephenc/jcip-annotations/issues"
+        },
+        {
+          "type" : "vcs",
+          "url" : "http://github.com/stephenc/jcip-annotations/tree/master/"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/com.nimbusds/content-type@2.3?type=jar",
+      "publisher" : "Connect2id Ltd.",
+      "group" : "com.nimbusds",
+      "name" : "content-type",
+      "version" : "2.3",
+      "description" : "Java library for Content (Media) Type representation",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "f0fc0d6be73e838863e2197c03a27c3f"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "e3aa0be212d7a42839a8f3f506f5b990bcce0222"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "60349793e006fba96b532cb0c21e10e969fe0db8d87f91c3b9eaf82ba2998895"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "58f7fe3b4303cecd6eac73c3345af71536479ce4bc38c88153bdcf6176a7cf5a0875420ea4a6024b4e734b78de08a8e544014b435cb63416c759b957ad3818e4"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "9dbe31f543aaf807093fe1dd18a0ed33346252e2f6fce598e1b193b9d73fcebf79608fce6a620ede8ea7adf45f1a7422"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "67b8b5d051230739ee85678006758450cd6510c5fb9a6b3134d43f644c2d70bc6dc3cff6133b132b5b158a1f346880a9"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "b8046b3dd12321400b4643ff0c47ea5c1e77d6252177bdd8be6f0e0b234c80bf"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "734a6a5a383aac8dcfaca09c8e37637f74334ce2d5c050b519277ad7c20f065fad44b5a6417cdc32d6cd43f80c0e1e0c37d9daa9279651facb6c38cb88376396"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "id" : "Apache-2.0"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/com.nimbusds/content-type@2.3?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://bitbucket.org/connect2id/nimbus-content-type"
+        },
+        {
+          "type" : "distribution-intake",
+          "url" : "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://bitbucket.org/connect2id/nimbus-content-type"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/com.nimbusds/lang-tag@1.7?type=jar",
+      "publisher" : "Connect2id Ltd.",
+      "group" : "com.nimbusds",
+      "name" : "lang-tag",
+      "version" : "1.7",
+      "description" : "Java implementation of \"Tags for Identifying Languages\" (RFC 5646)",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "31b8a4f76fdbf21f1d667f9d6618e0b2"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "97c73ecd70bc7e8eefb26c5eea84f251a63f1031"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "e8c1c594e2425bdbea2d860de55c69b69fc5d59454452449a0f0913c2a5b8a31"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "494267766c974ce16a99cb221953edc91fde8db0c920230758ecea0ea9d3006e95d86ad46f7a9d61b810d85b0fa6da9a3ce2b507cdbe4be320c499eaea93666b"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "fdc2cde39a1b07a2542cbc07222afd6292ae19cb1f9ae008476f7ec1b8ebe1e3e84aca08e47e1ef81887a23ac5267d00"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "b0e673087533f60173a11a55b0fde554c0830e7b3b6609e1ea6546de19fc9a97fbfe6eee73580d09b2de66989d0603c7"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "ea208d4eb55212ce9835a9be60396861b0fc33f4161efee3736c3e7159acb9f7"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "450f819981d73711c30d838261ff55a7f1988c8b965c786708dc27fbd10a2018cfde82b8fee5d7d1022eacf085dfdabe22d9de92462eba80e2c15a116c3c73ed"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "id" : "Apache-2.0"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/com.nimbusds/lang-tag@1.7?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://bitbucket.org/connect2id/nimbus-language-tags"
+        },
+        {
+          "type" : "distribution-intake",
+          "url" : "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://bitbucket.org/connect2id/nimbus-language-tags.git"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/se.swedenconnect.security/credentials-support-nimbus@2.2.1?type=jar",
+      "publisher" : "Sweden Connect",
+      "group" : "se.swedenconnect.security",
+      "name" : "credentials-support-nimbus",
+      "version" : "2.2.1",
+      "description" : "Sweden Connect Credentials Nimbus Support Library",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "7c4abb992944b36c591fedb4d4adec99"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "e24fd4e527114c1dd2b7f073573826859f4c9457"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "ea707a960f31629bbff0e894038a6d329cd1ebe24b44324af46de08f3624ccfc"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "68fe4644a1c50cfbe642db3068391dc027265f988ee0751fea1d205bfe4c122db6183fcbb7bcc71c2688935a9a74e3a5641e8541fef397d0dc0240293106df8f"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "f853537d1859f84535be27930b53e9f07dfb7d676c7b07d4e3c739f9b5098ad35bf8b77f03aa99f1478975e963b5f5bc"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "78bbffa86dc514b349174dc0e905b2294078a87e90b5427db415a3691ed9814c157e2a482391b641123cb99c504c19da"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "62654f326be49213ccea3a6bb2845399e5ab4317888bed19e83f39ea60469df7"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "51d575ff87d4e5bf647670a055afb3fe2310481d79fbb5017652b7b9c67ef8bfc7ef11f174371abf1f49bc96ae11ebe01a7c37f698bc354b466555182b2dda1a"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "id" : "Apache-2.0"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/se.swedenconnect.security/credentials-support-nimbus@2.2.1?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://github.com/swedenconnect/credentials-support"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://github.com/swedenconnect/credentials-support/tree/main"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/se.oidc.nimbus/oidc-sweden-nimbus@1.0.0?type=jar",
+      "publisher" : "Sweden Connect",
+      "group" : "se.oidc.nimbus",
+      "name" : "oidc-sweden-nimbus",
+      "version" : "1.0.0",
+      "description" : "Nimbus SDK extension library for OIDC Sweden",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "fc2b6ffc77266ae3956bdd4930dc872b"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "6fa76d7c280e9b1bd78cb186a096c101f03eded3"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "6afd65edf5bda411f593c400211e1d2243bbe979242ea9f154b7421a8b36b268"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "f4450b1ae02611ece76f2988b85bc41a4a4e33c13eeeea7dcd54538c4f437fb2130ddd0bc44de7a638b24418606dfd6de4637c98b145f8cb1d479d02b4223e1e"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "c2d912f1b1bc66c8a19c39f34902265a4dd007efca05734b33057778593872d8585fc63d5a2996c70619bfd1d32b7f82"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "9a8b0408ae87cfc6f903cbc7ebe7a94df6b58aaa1d3483f093616a987bfac955cee2f3762fbb7600099df665965045c8"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "6d2e3ae74d26f8fa74894f1eff34a8226d9b0a070df7815cd4fefb47bc7dbfd8"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "2e568df34945fcfb912397489e071c921daacadcde968b21b7c38d1381049d286b3c67465be8e3a4292cdc5d58c691de6a21b8074f88b40958773f3df03c40f9"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "id" : "Apache-2.0"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/se.oidc.nimbus/oidc-sweden-nimbus@1.0.0?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://github.com/oidc-sweden/oidc-sweden-nimbus"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://github.com/oidc-sweden/oidc-sweden-nimbus/tree/main"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/se.swedenconnect.oidf/common@1.0.0?type=jar",
+      "publisher" : "Sweden Connect",
+      "group" : "se.swedenconnect.oidf",
+      "name" : "common",
+      "version" : "1.0.0",
+      "description" : "Shared building blocks for the OpenID Federation Services: entity and registry records, record sources, caches, the federation tree and entity statement signing",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "73aa77e67bdd1247269543b7aef3e515"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "72b26553a67cbd6d088ae2efc8e264937947e247"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "8ae443e08a543dd8b94c2a066d4e97c58df4e79d3a933f1de7c0ad91ce04edcc"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "41eebc5def7019b3ec887c65692ae339b72bce8f2f50acbc1a04f22d6f08bdd4de97a1602d58074ea01cf6dd846be22a5c6bdb9df92ed73e1ecd70d82407c98d"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "c9df4648d81a28553a42be8304d6ef16a00631ce20be9013de5d67a4c016830d9b77a28f4cd431e7b137c0588c736b20"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "3bd20d8bea64c824abdbf5e1f3f64eab174f28e320058ba4163a1e5379909e6f0d6d2bdfe48a391b912faa8f0db26235"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "b617c29c817869f15331e16c3e26a42639f7f2ea2494623f3127471af18359a7"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "50e60fbf2a27a75099b14a61547db99afcef5bd2ebc9155153cb2e692f38fc304ce18a1c3486626e891a9f10d048902d85d2c4add88d254fd61c10455abd6e14"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "id" : "Apache-2.0"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/se.swedenconnect.oidf/common@1.0.0?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://docs.swedenconnect.se/openid-federation-services"
+        },
+        {
+          "type" : "distribution-intake",
+          "url" : "https://maven.pkg.github.com/swedenconnect/openid-federation-services"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://github.com/swedenconnect/openid-federation-services/tree/main"
         }
       ]
     },
@@ -12151,6 +12732,7 @@
         "pkg:maven/com.yubico/webauthn-server-core@2.10.1?type=jar",
         "pkg:maven/org.xerial/sqlite-jdbc@3.53.4.0?type=jar",
         "pkg:maven/se.swedenconnect.spring.authnserver/authn-server-saml-spring-boot-starter@1.0.3?type=jar",
+        "pkg:maven/se.swedenconnect.spring.authnserver/authn-server-oidc-spring-boot-starter@1.0.3?type=jar",
         "pkg:maven/org.springframework.boot/spring-boot-starter-thymeleaf@4.1.1?type=jar",
         "pkg:maven/org.springframework.boot/spring-boot-starter-test-classic@4.1.1?type=jar",
         "pkg:maven/org.jsoup/jsoup@1.23.2?type=jar",
@@ -13095,6 +13677,91 @@
       ]
     },
     {
+      "ref" : "pkg:maven/se.swedenconnect.spring.authnserver/authn-server-oidc-spring-boot-starter@1.0.3?type=jar",
+      "dependsOn" : [
+        "pkg:maven/org.springframework.boot/spring-boot-starter@4.1.1?type=jar",
+        "pkg:maven/org.springframework.boot/spring-boot-starter-web@4.1.1?type=jar",
+        "pkg:maven/se.swedenconnect.spring.authnserver/authn-server-autoconfigure@1.0.3?type=jar",
+        "pkg:maven/se.swedenconnect.spring.authnserver/authn-server-oidc@1.0.3?type=jar",
+        "pkg:maven/org.slf4j/slf4j-api@2.0.18?type=jar"
+      ]
+    },
+    {
+      "ref" : "pkg:maven/se.swedenconnect.spring.authnserver/authn-server-oidc@1.0.3?type=jar",
+      "dependsOn" : [
+        "pkg:maven/se.swedenconnect.spring.authnserver/authn-server-core@1.0.3?type=jar",
+        "pkg:maven/com.nimbusds/nimbus-jose-jwt@10.10?type=jar",
+        "pkg:maven/com.nimbusds/oauth2-oidc-sdk@11.38.2?type=jar",
+        "pkg:maven/se.swedenconnect.security/credentials-support-nimbus@2.2.1?type=jar",
+        "pkg:maven/se.oidc.nimbus/oidc-sweden-nimbus@1.0.0?type=jar",
+        "pkg:maven/se.swedenconnect.oidf/common@1.0.0?type=jar",
+        "pkg:maven/org.slf4j/slf4j-api@2.0.18?type=jar"
+      ]
+    },
+    {
+      "ref" : "pkg:maven/com.nimbusds/oauth2-oidc-sdk@11.38.2?type=jar",
+      "dependsOn" : [
+        "pkg:maven/com.github.stephenc.jcip/jcip-annotations@1.0-1?type=jar",
+        "pkg:maven/com.nimbusds/content-type@2.3?type=jar",
+        "pkg:maven/net.minidev/json-smart@2.6.0?type=jar",
+        "pkg:maven/com.nimbusds/lang-tag@1.7?type=jar",
+        "pkg:maven/com.nimbusds/nimbus-jose-jwt@10.10?type=jar"
+      ]
+    },
+    {
+      "ref" : "pkg:maven/com.github.stephenc.jcip/jcip-annotations@1.0-1?type=jar",
+      "dependsOn" : [ ]
+    },
+    {
+      "ref" : "pkg:maven/com.nimbusds/content-type@2.3?type=jar",
+      "dependsOn" : [ ]
+    },
+    {
+      "ref" : "pkg:maven/net.minidev/json-smart@2.6.0?type=jar",
+      "dependsOn" : [
+        "pkg:maven/net.minidev/accessors-smart@2.6.0?type=jar"
+      ]
+    },
+    {
+      "ref" : "pkg:maven/net.minidev/accessors-smart@2.6.0?type=jar",
+      "dependsOn" : [
+        "pkg:maven/org.ow2.asm/asm@9.7.1?type=jar"
+      ]
+    },
+    {
+      "ref" : "pkg:maven/org.ow2.asm/asm@9.7.1?type=jar",
+      "dependsOn" : [ ]
+    },
+    {
+      "ref" : "pkg:maven/com.nimbusds/lang-tag@1.7?type=jar",
+      "dependsOn" : [ ]
+    },
+    {
+      "ref" : "pkg:maven/se.swedenconnect.security/credentials-support-nimbus@2.2.1?type=jar",
+      "dependsOn" : [
+        "pkg:maven/com.nimbusds/nimbus-jose-jwt@10.10?type=jar",
+        "pkg:maven/se.swedenconnect.security/credentials-support@2.2.1?type=jar",
+        "pkg:maven/jakarta.annotation/jakarta.annotation-api@3.0.0?type=jar",
+        "pkg:maven/org.slf4j/slf4j-api@2.0.18?type=jar"
+      ]
+    },
+    {
+      "ref" : "pkg:maven/se.oidc.nimbus/oidc-sweden-nimbus@1.0.0?type=jar",
+      "dependsOn" : [
+        "pkg:maven/com.nimbusds/nimbus-jose-jwt@10.10?type=jar",
+        "pkg:maven/com.nimbusds/oauth2-oidc-sdk@11.38.2?type=jar",
+        "pkg:maven/org.slf4j/slf4j-api@2.0.18?type=jar"
+      ]
+    },
+    {
+      "ref" : "pkg:maven/se.swedenconnect.oidf/common@1.0.0?type=jar",
+      "dependsOn" : [
+        "pkg:maven/com.nimbusds/nimbus-jose-jwt@10.10?type=jar",
+        "pkg:maven/jakarta.annotation/jakarta.annotation-api@3.0.0?type=jar",
+        "pkg:maven/com.nimbusds/oauth2-oidc-sdk@11.38.2?type=jar"
+      ]
+    },
+    {
       "ref" : "pkg:maven/org.springframework.boot/spring-boot-starter-thymeleaf@4.1.1?type=jar",
       "dependsOn" : [
         "pkg:maven/org.springframework.boot/spring-boot-starter@4.1.1?type=jar",
@@ -13185,22 +13852,6 @@
         "pkg:maven/net.minidev/json-smart@2.6.0?type=jar",
         "pkg:maven/org.slf4j/slf4j-api@2.0.18?type=jar"
       ]
-    },
-    {
-      "ref" : "pkg:maven/net.minidev/json-smart@2.6.0?type=jar",
-      "dependsOn" : [
-        "pkg:maven/net.minidev/accessors-smart@2.6.0?type=jar"
-      ]
-    },
-    {
-      "ref" : "pkg:maven/net.minidev/accessors-smart@2.6.0?type=jar",
-      "dependsOn" : [
-        "pkg:maven/org.ow2.asm/asm@9.7.1?type=jar"
-      ]
-    },
-    {
-      "ref" : "pkg:maven/org.ow2.asm/asm@9.7.1?type=jar",
-      "dependsOn" : [ ]
     },
     {
       "ref" : "pkg:maven/org.assertj/assertj-core@3.27.7?type=jar",

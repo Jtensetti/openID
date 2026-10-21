@@ -15,11 +15,17 @@ for key,name in sets.items():
         tag=key+'/'+f.name
         add(tag,f'isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = {quoted(f.name)}; sourceTree = "<group>";')
         add('build/'+tag,f'isa = PBXBuildFile; fileRef = {ref(tag)};')
-    add('group/'+key,f'isa = PBXGroup; children = ({",".join(ref(key+"/"+f.name) for f in files)},); path = {name}; sourceTree = "<group>";')
+    resources = [p for p in (ROOT/name).iterdir() if p.suffix in ('.xcassets', '.xcprivacy')] if key == 'app' else []
+    for resource in resources:
+        tag=key+'/'+resource.name
+        kind='folder.assetcatalog' if resource.suffix == '.xcassets' else 'text.xml'
+        add(tag,f'isa = PBXFileReference; lastKnownFileType = {kind}; path = {quoted(resource.name)}; sourceTree = "<group>";')
+        add('build/'+tag,f'isa = PBXBuildFile; fileRef = {ref(tag)};')
+    add('group/'+key,f'isa = PBXGroup; children = ({",".join(ref(key+"/"+f.name) for f in files+resources)},); path = {name}; sourceTree = "<group>";')
     add('sources/'+key,f'isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = ({",".join(ref("build/"+key+"/"+f.name) for f in files)},); runOnlyForDeploymentPostprocessing = 0;')
     framework=ref('nfcbuild')+',' if key=='app' else ''
     add('frameworks/'+key,f'isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = ({framework}); runOnlyForDeploymentPostprocessing = 0;')
-    add('resources/'+key,'isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0;')
+    add('resources/'+key,f'isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = ({",".join(ref("build/"+key+"/"+f.name) for f in resources)}); runOnlyForDeploymentPostprocessing = 0;')
     ext='app' if key=='app' else 'xctest'
     add('product/'+key,f'isa = PBXFileReference; explicitFileType = {"wrapper.application" if key=="app" else "wrapper.cfbundle"}; path = {name}.{ext}; sourceTree = BUILT_PRODUCTS_DIR;')
     deps=''
@@ -36,7 +42,7 @@ for key,name in sets.items():
         settings+='LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks"; '
         if config=='Debug':settings+='SWIFT_OPTIMIZATION_LEVEL = "-Onone"; SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG; ENABLE_TESTABILITY = YES; DEBUG_INFORMATION_FORMAT = dwarf; ONLY_ACTIVE_ARCH = YES; '
         else:settings+='SWIFT_OPTIMIZATION_LEVEL = "-O"; DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym"; '
-        if key=='app':settings+='INFOPLIST_FILE = PassportCapture/Info.plist; CODE_SIGN_ENTITLEMENTS = PassportCapture/PassportCapture.entitlements; '
+        if key=='app':settings+='MARKETING_VERSION = 0.2.0; CURRENT_PROJECT_VERSION = 100; ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; INFOPLIST_FILE = PassportCapture/Info.plist; CODE_SIGN_ENTITLEMENTS = PassportCapture/PassportCapture.entitlements; '
         else:settings+='GENERATE_INFOPLIST_FILE = YES; '
         if key=='unit':settings+='TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PassportCapture.app/PassportCapture"; BUNDLE_LOADER = "$(TEST_HOST)"; '
         if key=='ui':settings+='TEST_TARGET_NAME = PassportCapture; '

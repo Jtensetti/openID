@@ -60,3 +60,59 @@ får inte innehålla verkliga handlingar, bilder, tokens eller privata nycklar.
 [WebAuthn](../prototype/evidence/web-verification.md) dokumenterar tidigare
 revisioner. Deras testantal och omfattning gäller respektive daterade körning.
 Maskinläsbara rapporter bevaras för spårbarhet.
+
+## Återkoppling vid avbruten inloggning
+
+`node verification/test-phone-feedback.cjs` provar webbklientens meddelanden,
+begränsade återförsök för statushämtning och att ett avbrott inte utlöser
+slutförande. DOM och nätverk är testdubblar i detta prov. Det separata
+`federation-browser-test.cjs` provar samma slutlägen i Chromium.
+`test_identity` verifierar att utgången status bara lämnas efter rätt
+begäransbindning och aldrig tillåter konsumtion av ett godkännande.
+`WalletSecurityTests` skiljer hämtfel från osäkra beslut och lokal avbruten
+autentisering. En fysisk iPhone behövs för att bedöma timing och upplevelse
+kring Face ID.
+
+## Personas och tillgänglighetsprov
+
+Fiktiva personas används för designhypoteser; de är inte deltagare i
+användarprov. `WalletUITests` provar beständiga passfältnamn, ett saknat datum
+utan startad kontroll, kontrollkod med inledande nolla vid största textstorlek
+samt kamerainstruktion utanför förhandsvisningen vid stor text.
+`PassportAccessKeyTests` jämför fälthjälpens formatbeslut med NFC-nyckelns
+validering. Riktiga användarprov och hjälpmedelsprov behövs för att bedöma
+självständighet, begriplighet och eventuell försämring för andra användare.
+
+## Privat OIDC-pilot
+
+`verification/oidc-negative-test.py` körs med kandidat-JAR i en engångscontainer
+utan externt nät och utan pilotens data/nycklar. `idp.example.test` och
+`sp.example.test` pekar endast på containerns loopback. Testet skapar egen
+TLS-ingång, separata testnycklar, syntetisk identitet och signerat
+enhetsgodkännande. TLS-validering är på både före och bakom ingången.
+
+Verifierat 2026-10-21 med Spring Authentication Server 1.0.3:
+
+- Positiv Authorization Code-inloggning med S256 PKCE och private_key_jwt.
+- Korrekt signerade ID-token med fel nonce, issuer, audience, utgångstid
+  eller autentiseringskontext avvisas. Fel algoritm/signatur avvisas.
+- Fel code_verifier, token-redirect och saknad klientassertion avvisas.
+- Saknad PKCE, plain-metod, okänd klient, fel redirect och krav på LoA3
+  avvisas innan en godkännandebegäran skapas.
+- Fel state, återanvänd callback och konsumerad pending-session avvisas.
+- Nekande, utgången QR och spärr före/efter inloggning ger ingen åtkomst.
+- Pilotens testval LoA1–4 avvisas; de nivåerna utfärdas inte.
+- Syntetiska namn/födelseuppgifter finns inte i tjänsteloggarna.
+
+Kör i pilotimagen med läsbar verifieringskatalog och kandidat-JAR,
+`--network none --add-host idp.example.test:127.0.0.1
+--add-host sp.example.test:127.0.0.1`, lässkyddad rot och skrivbar `/tmp`.
+Testet behöver Python-standardbibliotek, OpenSSL, Java/keytool och samma
+signeringshjälp som `test_wallet`. Skapa aldrig värdnamnspekningar eller
+förtroendeundantag i den verkliga testmiljön för detta prov.
+
+Live-provet verifierade publik TLS, betakontoskydd, SAML-/OIDC-QR,
+avvisade nivåkrav, skyddade sessionssidor och nekad tokenväxling utan
+klientautentisering. Det ersätter inte ett manuellt TestFlight-prov med
+fysiskt pass och produktionsmiljön för App Attest. Extern
+Sweden Connect-interoperabilitet och formell tillitsbedömning återstår.

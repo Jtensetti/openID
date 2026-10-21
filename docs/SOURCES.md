@@ -50,3 +50,20 @@ Den införda versionen, licensen och lokala policyn finns i
 Exakta revisioner, licenser och underhållskontroller finns i
 [THIRD_PARTY.md](../THIRD_PARTY.md). Pass-, NFC- och modellkällor finns i
 [verifierarens komponentregister](../verification/THIRD_PARTY.md).
+
+## Komplettering 2026-10-21: OIDC, tillitsnivåer och EU
+
+| ID | Primärkälla och avgränsning |
+|---|---|
+| T04 | [Sweden Connect identifierarregister](https://docs.swedenconnect.se/technical-framework/latest/03_-_Registry_for_Identifiers.html), §3.1.1. Identifierare är inte certifiering. |
+| D14 | [Diggs författningssamling](https://www.digg.se/om-oss/forfattningssamling): MDFFS 2025:1 samt 2025:2/2025:3 med ändringar 2026:3/2026:4. Fullständig tillämpningsbedömning återstår. |
+| EU01 | [eIDAS, förordning 910/2014](https://eur-lex.europa.eu/eli/reg/2014/910/oj), ändrad genom 2024/1183. |
+| EU02 | [Genomförandeförordning 2015/1502](https://eur-lex.europa.eu/eli/reg_impl/2015/1502/oj), tillitsnivåer low/substantial/high. |
+| EU03 | [SDG, förordning 2018/1724](https://eur-lex.europa.eu/eli/reg/2018/1724/oj), särskilt artikel 13. |
+
+T03 identifierades som version 1.0, daterad 2024-12-04. Biblioteksrevisionen
+är separat: Spring Authentication Server 1.0.3,
+`dd49df31aa250eaacbd3a27466a05ec331b6dddc`. Ingen fullständig
+profilcertifiering är utförd. Direktåtkomst till EUR-Lex blockerades vid
+denna genomgång; EU-hänvisningarna ersätter inte läsning av konsoliderad
+lydelse inför juridiskt ställningstagande.

@@ -25,12 +25,14 @@ public class IdpApplication {
     return new WebAuthnService(registry, base, java.time.Clock.systemUTC(), enabled);
   }
   @Bean
-  AuthnServerConfigurerAdapter labProtocolSecurity(@Value("${lab.phone:false}") boolean phone) {
+  AuthnServerConfigurerAdapter labProtocolSecurity(@Value("${lab.phone:false}") boolean phone, @Value("${authn-server.oidc.enabled:false}") boolean oidc) {
     return (http, configurer) -> {
       // Replace the upstream matcher that exempts ALL protocol/provider endpoints from CSRF.
       // Only the signed SAML HTTP-POST binding is exempt; approval routes remain protected.
       http.csrf(AbstractHttpConfigurer::disable);
-      http.csrf(csrf -> csrf.ignoringRequestMatchers("/saml2/post/authn"));
+      http.csrf(csrf -> csrf.ignoringRequestMatchers(oidc ? new String[]{"/saml2/post/authn", "/oidc/token"} : new String[]{"/saml2/post/authn"}));
+      if (oidc) configurer.protocol(se.swedenconnect.spring.authnserver.oidc.config.OidcProviderConfigurer.class,
+          op -> op.attributeMapping(lab.phone.PhoneAttributes.oidcMapping()).requirePkce(true));
       configurer.authnFlowMaxAge(java.time.Duration.ofSeconds(phone ? 120 : 60));
       if (phone) configurer.protocol(se.swedenconnect.spring.authnserver.saml.config.Saml2IdpConfigurer.class,
           saml -> saml.attributeMapping(lab.phone.PhoneAttributes.mapping()));
