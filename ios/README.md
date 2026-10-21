@@ -21,8 +21,9 @@ open ios/PassportCapture.xcodeproj
 3. Starta [pilotmiljön](../deployment/README.md) på en Linux-dator.
    Telefonen måste nå HTTPS-adressen och lita på certifikatet. För en privat
    test-CA behöver dess rot installeras och betros på telefonen.
-4. Kör appen, välj **Öppna openID** och därefter **Anslut till servern**.
-   Ange adress och kopplingskod från serverterminalen.
+4. Kör appen och välj **Öppna openID**. Nya installationer ansluts automatiskt
+   till `https://api.openid.tensetti.io`, utan VPN eller kopplingskod.
+   Sparad serverkonfiguration behålls för befintliga privata test-ID:n.
 5. Välj **Registrera med ditt pass**. Välj **Skanna passuppgifter** och rikta kameran mot kodraderna på fotosidan.
    Kontrollera de ifyllda uppgifterna. Manuell inmatning (datum ÅÅMMDD) finns kvar.
    Godkänn överföringen och läs chipet. Håll sedan
@@ -36,8 +37,8 @@ open ios/PassportCapture.xcodeproj
 
 App Attest-entitlement är `development`; använd serverflaggan
 `--development-attestation` för detta bygge. Installation från Xcode kräver
-Apple-signering men ingen App Store-publicering. TestFlight/distribution
-ingår inte i byggkonfigurationen.
+Apple-signering men ingen App Store-publicering. Vid TestFlight-export använder Xcode produktionsmiljön för App Attest.
+Betaservern tillåter automatisk anslutning endast med produktionsattestering.
 
 ## Funktioner
 

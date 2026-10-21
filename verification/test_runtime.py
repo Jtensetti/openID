@@ -29,6 +29,41 @@ class RuntimeTests(unittest.TestCase):
         result = b''.join(self.app(env, lambda status, headers: response.append((int(status[:3]), dict(headers)))))
         return response[0][0], json.loads(result), response[0][1]
 
+    def test_public_admission_keeps_metrics_admin_and_origin_closed(self):
+        self.app = Runtime(self.native, self.wallet, 'https://localhost:8765', 'a'*43, public_enrollment=True)
+        self.assertEqual(200, self.request(HTTP_X_CSRF_TOKEN='')[0])
+        self.assertEqual(403, self.request('/metrics', 'GET', HTTP_X_CSRF_TOKEN='')[0])
+        self.assertEqual(403, self.request('/activate', HTTP_X_CSRF_TOKEN='')[0])
+        self.assertEqual(403, self.request(HTTP_ORIGIN='https://evil.invalid', HTTP_X_CSRF_TOKEN='')[0])
+        self.assertEqual(403, self.request(HTTP_HOST='evil.invalid', HTTP_X_CSRF_TOKEN='')[0])
+        self.native.start.assert_called_once()
+        self.wallet.activate.assert_not_called()
+
+    def test_public_admission_does_not_skip_attestation_or_wallet_signature(self):
+        from native import NativeSessions
+        attest = Mock(); attest.verify.side_effect = ValueError('invalid attestation')
+        native = NativeSessions(attest, Mock(), Mock(), Mock())
+        self.app = Runtime(native, self.wallet, 'https://localhost:8765', 'a'*43, public_enrollment=True)
+        _, session, _ = self.request(HTTP_X_CSRF_TOKEN='')
+        body = json.dumps({'id': session['id']}).encode()
+        for route in ['/native/chip/start', '/native/finish']:
+            self.assertEqual(400, self.request(route, body=body, HTTP_X_CSRF_TOKEN='')[0])
+        self.wallet.execute.side_effect = ValueError('signature missing')
+        self.assertEqual(400, self.request('/wallet/execute', HTTP_X_CSRF_TOKEN='')[0])
+        self.wallet.activate.assert_not_called()
+
+    def test_public_configuration_forbids_development_attestation(self):
+        from serve import load_config
+        fields = dict(bind='127.0.0.1', origin='https://api.openid.tensetti.io', team='A'*10,
+            bundle='se.openid.PassportCapture', developmentAttestation=True, tlsCert='/missing',
+            tlsKey='/missing', csca='/missing', database='/missing', pairingFile='/missing', publicEnrollment=True)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)/'config.json'; path.write_text(json.dumps(fields))
+            with self.assertRaisesRegex(ValueError, 'production App Attest'): load_config(path)
+            fields.update(developmentAttestation=False, origin='https://localhost:8765')
+            path.write_text(json.dumps(fields))
+            with self.assertRaisesRegex(ValueError, 'canonical origin'): load_config(path)
+
     def test_camera_rejection_returns_only_safe_frame_code(self):
         from biometric_worker import CameraImageRejected
         self.native.finish.side_effect = CameraImageRejected(2)

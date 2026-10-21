@@ -286,8 +286,13 @@ struct SettingsView: View {
             Section("Ditt openID") {
                 if !model.unlocked { Button { model.unlock() } label: { Label("Lås upp openID", systemImage: "faceid") } }
                 else {
-                    Button { model.settingsPresented = true } label: { Label("Anslutning", systemImage: "network") }
-                    if let configuration = model.configuration { Text(configuration.origin).font(.caption).foregroundStyle(.secondary).textSelection(.enabled) }
+                    if model.configuration?.isPublicBeta == true {
+                        Label("Ansluten till openID beta", systemImage: "network")
+                        Text("Anslutningen sköts automatiskt. VPN behövs inte.").font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        Button { model.settingsPresented = true } label: { Label("Anslutning", systemImage: "network") }
+                        if let configuration = model.configuration { Text(configuration.origin).font(.caption).foregroundStyle(.secondary).textSelection(.enabled) }
+                    }
                     if let credential = model.credential {
                         LabeledContent("Enhet", value: "Den här telefonen")
                         VStack(alignment: .leading, spacing: 8) {

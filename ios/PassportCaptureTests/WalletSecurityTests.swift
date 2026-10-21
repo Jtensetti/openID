@@ -101,6 +101,16 @@ final class WalletSecurityTests: XCTestCase {
         }
         XCTAssertThrowsError(try envelope(["version":2]).validatedBytes(configuration:config,credentialID:ident,action:"approve",request:request,now:now))
     }
+    func testAutomaticBetaConnectionAndExistingServerBinding() throws {
+        let beta = ServerConfiguration.initial(saved: nil)
+        XCTAssertEqual(beta.origin, "https://api.openid.tensetti.io")
+        XCTAssertTrue(beta.pairing.isEmpty)
+        XCTAssertTrue(beta.isPublicBeta)
+        XCTAssertEqual(ServerConfiguration.initial(saved: config), config)
+        for origin in ["https://evil.invalid", "http://api.openid.tensetti.io", "https://api.openid.tensetti.io.evil.invalid", "https://10.77.0.1:8765"] {
+            XCTAssertThrowsError(try ServerConfiguration(origin: origin, pairing: ""))
+        }
+    }
     func testHTTPSOriginNormalization() throws {
         XCTAssertEqual(try ServerConfiguration(origin: "https://example.test/", pairing: config.pairing).origin, "https://example.test")
     }

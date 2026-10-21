@@ -17,15 +17,22 @@ enum WalletError: LocalizedError {
 }
 
 struct ServerConfiguration: Codable, Equatable {
+    static let betaOrigin = "https://api.openid.tensetti.io"
+    static var beta: ServerConfiguration { try! ServerConfiguration(origin: betaOrigin, pairing: "") }
     let origin: String
     let pairing: String
+    var isPublicBeta: Bool { origin == Self.betaOrigin }
+    static func initial(saved: ServerConfiguration?) -> ServerConfiguration {
+        // Keep enrolled devices bound to their saved server. Never migrate a private identity.
+        saved ?? beta
+    }
     init(origin: String, pairing: String) throws {
         let value = origin.trimmingCharacters(in: .whitespacesAndNewlines)
         guard var parts = URLComponents(string: value), parts.scheme == "https",
               let host = parts.host, !host.isEmpty, parts.user == nil, parts.password == nil,
               parts.query == nil, parts.fragment == nil, parts.percentEncodedPath == "" || parts.percentEncodedPath == "/",
               parts.port == nil || (1...65535).contains(parts.port!),
-              pairing.range(of: "^[A-Za-z0-9_-]{32,128}\\z", options: .regularExpression) != nil else { throw WalletError.configuration }
+              (pairing.range(of: "^[A-Za-z0-9_-]{32,128}\\z", options: .regularExpression) != nil || (value == Self.betaOrigin && pairing.isEmpty)) else { throw WalletError.configuration }
         parts.path = ""
         guard let url = parts.url else { throw WalletError.configuration }
         self.origin = url.absoluteString; self.pairing = pairing

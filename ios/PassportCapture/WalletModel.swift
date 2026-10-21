@@ -37,9 +37,9 @@ import LocalAuthentication
                 let auth = LAContext(); context = auth
                 guard try await auth.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Öppna ditt openID") else { throw WalletError.cancelled }
                 try Task.checkCancellation(); guard generation == epoch else { return }
-                if let saved = try vault.read("configuration", as: ServerConfiguration.self) {
-                    configuration = try ServerConfiguration(origin: saved.origin, pairing: saved.pairing)
-                }
+                let saved = try vault.read("configuration", as: ServerConfiguration.self)
+                let selected = ServerConfiguration.initial(saved: saved)
+                configuration = try ServerConfiguration(origin: selected.origin, pairing: selected.pairing)
                 credential = try vault.read("credential", as: LocalCredential.self)
                 unlocked = true
             } catch {
@@ -153,7 +153,7 @@ import LocalAuthentication
         if ["approve", "reject", "revoke"].contains(action) {
             return "Vi kunde inte bekräfta att ditt val registrerades. Hämta status under Mitt ID och kontrollera Aktivitet innan du försöker igen."
         }
-        return "Kunde inte nå tjänsten. Kontrollera internet och WireGuard och försök sedan igen."
+        return "Kunde inte nå tjänsten. Kontrollera internetanslutningen och försök sedan igen."
     }
     func open(_ url: URL) {
         guard let id = RequestLink.identifier(url) else { error = "Länken är inte en giltig openID-begäran."; return }

@@ -26,7 +26,7 @@ final class WalletAPI {
         request.httpMethod = "POST"; request.timeoutInterval = 60
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(configuration.origin, forHTTPHeaderField: "Origin")
-        request.setValue(configuration.pairing, forHTTPHeaderField: "X-CSRF-Token")
+        if !configuration.pairing.isEmpty { request.setValue(configuration.pairing, forHTTPHeaderField: "X-CSRF-Token") }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         guard request.httpBody!.count <= 14_000_000 else { throw WalletError.rejected }
         // Check size while streaming; data(for:) would buffer the entire response.

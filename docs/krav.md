@@ -172,3 +172,18 @@ signerade testdata, manipulation, format, äldre profiler och attributgränsen.
 Fältets förekomst i det privata svenska passet återstår att bekräfta vid en
 ny läsning. Inga tidigare råa passdata återskapas. ID-02 förblir OPEN eftersom
 registerkontroll och hantering av skyddade uppgifter återstår.
+
+
+## Automatisk anslutning i sluten TestFlight-beta
+
+Nya appinstallationer använder den fasta publika HTTPS-adressen utan VPN
+eller inbyggd kopplingshemlighet. Sparade serverbindningar bevaras.
+`publicEnrollment` är avstängd som standard och får endast aktiveras för
+betans kanoniska adress med produktions-App Attest. Den öppnar endast
+befintliga registrerings- och signerade plånboksrutter; metrics och
+administration kräver fortsatt separat behörighet. Origin, storleksgränser,
+frekvensbegränsning och begränsat antal sessioner gäller även utan kopplingskod.
+App Attest, chip-/pass-/bildkontroll och manuell aktivering kvarstår.
+TestFlight-inbjudan är distributionskontroll, inte identitetsbevis.
+`RuntimeTests` provar åtkomstgränserna, och `WalletSecurityTests` provar
+standardanslutning och bevarad privat serverbindning.
