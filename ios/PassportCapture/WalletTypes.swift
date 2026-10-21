@@ -105,7 +105,11 @@ struct PassportIdentity: Decodable {
     let displayName: String
     let birthDateMrz: String
     let portraitJpeg: String
+    var passportPersonalNumber: String? = nil
     func validate() throws {
+        if let number = passportPersonalNumber {
+            guard number.range(of: "^(?:[0-9]{10}|[0-9]{12})\\z", options: .regularExpression) != nil else { throw WalletError.rejected }
+        }
         guard displayName.range(of: "^[A-Z ]{1,89}\\z", options: .regularExpression) != nil,
               birthDateMrz.range(of: "^[0-9]{6}\\z", options: .regularExpression) != nil,
               let image = Data(base64Encoded: portraitJpeg), image.count <= 24000,

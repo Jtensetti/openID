@@ -133,3 +133,42 @@ Ingen verklig registeradapter, automatisk aktivering, ny HTTP-endpoint eller
 nationella identitetsattribut i federation införs. PostgreSQL-stöd och
 operativ återställning/spärrkanal återstår. Formell status: OPEN.
 Se [flöde, befogenheter och begränsningar](registerbindning.md).
+
+
+## Kontroll av passfält och registerkrav 2026-10-21
+
+ID-02 är fortsatt OPEN. Kodgranskning av revision a7ffe976 visar att appen
+läser DG1, DG2, DG14 och SOD. Servern autentiserar datagruppernas hashvärden
+mot signerad SOD. Identitetsmodellen tar ut namn, MRZ-födelsedatum,
+nationalitet, utfärdarland, dokumentnummer och utgångsdatum. DG1:s
+optional-data/personnummerfält tas inte ut; DG11 läses inte. Den sparade
+profilen saknar därför nationell identitetsbeteckning. Rå DG1 bevaras inte
+av det granskade flödet, så en tidigare privat läsning bevisar inte vilket
+innehåll detta fält hade. Ingen privat personakt har öppnats i denna kontroll.
+
+D08 K5.7 kräver nationell identitetsbeteckning; K5.8 kräver jämförelse mot
+officiellt register. D09 accepterar även registeruppgifter via mellanhand.
+K5.9 medger alternativa kontroller för skyddade uppgifter. D09 K5.14
+rekommenderar uppdatering varje helgfri vardag. Passbaserad fjärridentifiering
+enligt K5.13 ersätter inte registerkontrollen. Ingen särskild leverantör
+föreskrivs. Uppgifterna på chipet och registeruppgifternas aktualitet är två
+skilda bevis. Ingen anslutning beställs med stöd av denna inventering.
+
+Uppdaterad implementation: efter signatur-, certifikatkedje- och hashkontroll
+läser servern DG1:s personal-number-fält för utfärdarland SWE. Tomt fält ger
+ingen identitetsbeteckning. 10 eller 12 ASCII-siffror med giltigt datum och
+Luhn-kontroll bevaras exakt; sekel gissas inte. Dag över 60 behandlas som
+samordningsnummer vid datumkontrollen. Andra länders optional-data tolkas inte
+som svenska identitetsbeteckningar. Felaktigt svenskt fält avvisas.
+
+`passportPersonalNumber` lagras i den krypterade passprofilen och visas i
+ägarens app med upplysning om att folkbokföringskontroll saknas. Fältet används
+inte som registerbevis eller för automatisk sammanfogning av personposter.
+Federationsgränsen lämnar endast de befintliga visningsfälten namn,
+MRZ-födelsedatum och porträtt; personnumret lämnas inte genom SAML/OIDC.
+`PassportVerifierTest`, `test_identity` och `WalletSecurityTests` täcker
+signerade testdata, manipulation, format, äldre profiler och attributgränsen.
+
+Fältets förekomst i det privata svenska passet återstår att bekräfta vid en
+ny läsning. Inga tidigare råa passdata återskapas. ID-02 förblir OPEN eftersom
+registerkontroll och hantering av skyddade uppgifter återstår.

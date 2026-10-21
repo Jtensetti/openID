@@ -121,6 +121,10 @@ struct IdentityCard: View {
                     Text(model.snapshot?.identity?.displayName ?? (model.unlocked ? (model.credential != nil ? "Mitt ID" : "Inget ID registrerat") : "Låst")).font(.title2.weight(.medium))
                     if let identity = model.snapshot?.identity {
                         Text("Född enligt passet · \(identity.birthDateMrz)").font(.caption)
+                        if let number = identity.passportPersonalNumber {
+                            Text("Identitetsnummer i passet · \(number)").font(.caption).textSelection(.enabled)
+                            Text("Avläst från passets chip. Inte kontrollerat mot folkbokföringen.").font(.caption2)
+                        }
                     }
                     HStack(spacing: 6) {
                         Image(systemName: model.snapshot?.state == .active ? "checkmark.circle.fill" : "info.circle").accessibilityHidden(true)

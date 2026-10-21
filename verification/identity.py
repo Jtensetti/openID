@@ -20,10 +20,10 @@ class VerifiedDocument:
 
     @classmethod
     def from_verifier(cls, value):
-        if value.get('passiveAuthentication') is not True or set(value.get('identity', {})) != FIELDS:
+        if value.get('passiveAuthentication') is not True or set(value.get('identity', {})) not in (FIELDS, FIELDS | {'passportPersonalNumber'}):
             raise ValueError('passport identity missing')
         identity = value['identity']
-        if any(not isinstance(v, str) for v in identity.values()): raise ValueError('identity fields')
+        if any(not isinstance(identity[k], str) for k in FIELDS): raise ValueError('identity fields')
         for field in ('givenNames', 'familyName'):
             if not re.fullmatch('[A-Z ]{0,44}', identity[field]): raise ValueError('name')
         if not (identity['givenNames'] or identity['familyName']): raise ValueError('name')
@@ -34,6 +34,15 @@ class VerifiedDocument:
         if not re.fullmatch('[A-Z0-9]{1,9}', identity['documentNumber']): raise ValueError('document number')
         if not re.fullmatch('[0-9]{4}-[0-9]{2}-[0-9]{2}', identity['documentExpires']): raise ValueError('expiry')
         date.fromisoformat(identity['documentExpires'])
+        number = identity.get('passportPersonalNumber')
+        if number is not None:
+            if identity['issuingState'] != 'SWE' or not isinstance(number, str) or not re.fullmatch(r'(?:[0-9]{10}|[0-9]{12})', number):
+                raise ValueError('passport personal number')
+            short = number[-10:]
+            day = int(short[4:6]); day = day-60 if day > 60 else day
+            date(int(number[:4]) if len(number) == 12 else 2000+int(short[:2]), int(short[2:4]), day)
+            products = [int(c)*(2 if i % 2 == 0 else 1) for i,c in enumerate(short)]
+            if sum(n//10+n%10 for n in products) % 10: raise ValueError('passport personal number')
         portrait = base64.b64decode(value['portrait'], validate=True)
         if not 0 < len(portrait) <= 2_000_000: raise ValueError('portrait size')
         return cls(portrait, dict(identity))

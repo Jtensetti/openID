@@ -391,7 +391,8 @@ class Wallet:
                 raise ValueError('no unconsumed approval')
             self.event(db, row['credential'], 'AUTHENTICATED', request)
             return {'state': 'AUTHENTICATED', 'credentialId': row['credential'], 'version': profile['version'],
-                'subject': self.federation_subject(db, audience, profile['person']), 'identity': identity}
+                'subject': self.federation_subject(db, audience, profile['person']),
+                'identity': {k: identity[k] for k in ('displayName', 'birthDateMrz', 'portraitJpeg')}}
 
     def federation_subject(self, db, audience, person):
         return self.vault.reference('subject-v1:'+audience, person)

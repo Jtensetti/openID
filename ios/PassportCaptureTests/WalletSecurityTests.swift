@@ -73,6 +73,28 @@ final class WalletSecurityTests: XCTestCase {
         snapshot.identity = identity
         XCTAssertThrowsError(try snapshot.validate(for:ident))
     }
+    func testPassportNumberDecodesWithoutChangingLegacyProfiles() throws {
+        let image = Data([0xff,0xd8,0xff,0xd9]).base64EncodedString()
+        var payload: [String: Any] = ["displayName":"ALICE SYNTHETIC", "birthDateMrz":"570413", "portraitJpeg":image]
+        func decode() throws -> PassportIdentity {
+            try JSONDecoder().decode(PassportIdentity.self, from: JSONSerialization.data(withJSONObject: payload))
+        }
+        XCTAssertNil(try decode().passportPersonalNumber)
+        payload["passportPersonalNumber"] = NSNull()
+        XCTAssertNil(try decode().passportPersonalNumber)
+        for number in ["195704133106", "5704133106"] {
+            payload["passportPersonalNumber"] = number
+            let value = try decode()
+            XCTAssertEqual(value.passportPersonalNumber, number)
+            XCTAssertNoThrow(try value.validate())
+        }
+        for number in ["19570413-3106", "570413310", "195704133106\n", "ABCDEFGHIJKL"] {
+            payload["passportPersonalNumber"] = number
+            XCTAssertThrowsError(try decode().validate())
+        }
+        payload["passportPersonalNumber"] = 123
+        XCTAssertThrowsError(try decode())
+    }
     func testMalformedPayloadAndVersionCannotBeSigned() {
         for raw in ["!", Data("{}".utf8).base64EncodedString(), Data(repeating: 0, count: 5000).base64EncodedString()] {
             XCTAssertThrowsError(try DeviceChallenge(id:"challenge",signingInput:raw).validatedBytes(configuration:config,credentialID:ident,action:"approve",request:request,now:now))

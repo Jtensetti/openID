@@ -16,7 +16,12 @@ import org.jmrtd.lds.icao.DG2File;
 /** Passive authentication of SOD, DG1 and DG2 against an operator-provided CSCA. */
 public final class PassportVerifier {
   public record Identity(String givenNames, String familyName, String birthDateMrz, String nationality,
-      String issuingState, String documentNumber, String documentExpires) {}
+      String issuingState, String documentNumber, String documentExpires, String passportPersonalNumber) {
+    public Identity(String givenNames, String familyName, String birthDateMrz, String nationality,
+        String issuingState, String documentNumber, String documentExpires) {
+      this(givenNames, familyName, birthDateMrz, nationality, issuingState, documentNumber, documentExpires, null);
+    }
+  }
   public record Result(byte[] portrait, String mimeType, LocalDate expires, Identity identity) {
     public Result { portrait = portrait.clone(); }
     @Override public byte[] portrait() { return portrait.clone(); }
@@ -106,10 +111,34 @@ public final class PassportVerifier {
       // MRZ does not encode the century. Validate month/day without assigning one.
       LocalDate.of(2000 + Integer.parseInt(birth.substring(0, 2)), Integer.parseInt(birth.substring(2, 4)), Integer.parseInt(birth.substring(4, 6)));
       var identity = new Identity(name(mrz.getSecondaryIdentifier()), name(mrz.getPrimaryIdentifier()), birth,
-          mrz.getNationality(), mrz.getIssuingState(), mrz.getDocumentNumber(), expiry.toString());
+          mrz.getNationality(), mrz.getIssuingState(), mrz.getDocumentNumber(), expiry.toString(), personalNumber(mrz));
       if (identity.familyName().isEmpty() && identity.givenNames().isEmpty()) throw new Rejected();
       return new Result(image, portrait.getMimeType(), expiry, identity);
     } catch (Exception e) { throw new Rejected(stage); } // No untrusted document contents in logs/errors.
+  }
+  /** Signed DG1 only. Preserve the supplied century (or its absence); not a registry check. */
+  private static String personalNumber(org.jmrtd.lds.icao.MRZInfo mrz) throws Rejected {
+    if (!"SWE".equals(mrz.getIssuingState())) return null;
+    String value = mrz.getPersonalNumber();
+    if (value == null) return null;
+    value = value.replaceFirst("<+$", "");
+    if (value.isEmpty()) return null;
+    if (!value.matches("(?:[0-9]{10}|[0-9]{12})")) throw new Rejected("PERSONAL_NUMBER_FORMAT");
+    String shortValue = value.substring(value.length() - 10);
+    int year = value.length() == 12 ? Integer.parseInt(value.substring(0, 4)) : 2000 + Integer.parseInt(shortValue.substring(0, 2));
+    if (year < 1) throw new Rejected("PERSONAL_NUMBER_FORMAT");
+    int day = Integer.parseInt(shortValue.substring(4, 6));
+    // Coordination numbers use day + 60. This does not establish their registry status.
+    if (day > 60) day -= 60;
+    try { LocalDate.of(year, Integer.parseInt(shortValue.substring(2, 4)), day); }
+    catch (java.time.DateTimeException e) { throw new Rejected("PERSONAL_NUMBER_FORMAT"); }
+    int sum = 0;
+    for (int i = 0; i < 10; i++) {
+      int product = (shortValue.charAt(i) - '0') * (i % 2 == 0 ? 2 : 1);
+      sum += product / 10 + product % 10;
+    }
+    if (sum % 10 != 0) throw new Rejected("PERSONAL_NUMBER_FORMAT");
+    return value;
   }
   private static String name(String value) throws Rejected {
     String normalized = value.replace('<', ' ').strip().replaceAll(" +", " ");
