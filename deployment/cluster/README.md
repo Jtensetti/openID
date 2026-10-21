@@ -23,8 +23,11 @@ så att bekräftade spärrar inte går förlorade.
 
 ## Databas och befogenheter
 
-Kör `schema.sql` en gång i den nya databasen. Schemat ägs av `openid_owner`,
-som saknar inloggning. Ge aldrig applikations- eller operatörskonton medlemskap
+Kör `schema.sql` en gång som databasägare med `CREATEROLE`; återställning
+kräver även `CREATEDB`. PostgreSQL-superuser behövs inte. Schemat ägs av
+`openid_owner`, som saknar inloggning. Installationen ger administratören
+medlemskap med `SET` och `INHERIT` i ägarrollen, vilket även behövs för
+återställning på RDS. Ge aldrig applikations- eller operatörskonton medlemskap
 i ägarrollen. Skapa separata LOGIN-konton och tilldela dessa grupproller:
 
 | Roll | Tillåtet |
@@ -278,8 +281,9 @@ initiering, unseal och ledarbyte. En del av CI använder en enda unseal-del;
 detta är en testfixtur, inte en operativ nyckelceremoni.
 Kapacitetsrapporten gäller signerad autentisering och profilhämtning över TLS,
 inte NFC eller biometrisk registrering. Efter instansbortfall körs även 120
-sekunder med åtta samtidiga klienter, avsiktligt begränsat till åtta operationer/s
-under klientadressens hastighetsgräns. Svartider, worker-minne och öppna
+sekunder med åtta samtidiga klienter, avsiktligt begränsat till fyra operationer/s.
+Det motsvarar åtta HTTP-anrop/s och ryms under hastighetsgränsen även om
+alla anslutningar hamnar i samma worker. Svartider, worker-minne och öppna
 filbeskrivare mäts; omstart, kvarlämnade challenges och växande resursåtgång
 kan få provet att misslyckas. Detta är inte ett mått på maximal kapacitet.
 CI:s OpenBao dev-läge används endast i övriga tillfälliga integrationstester.

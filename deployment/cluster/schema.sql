@@ -12,6 +12,8 @@ BEGIN
   END IF;
  END LOOP;
 END $$;
+-- CREATEROLE alone does not allow SET ROLE or inherited ownership on PostgreSQL 16+.
+GRANT openid_owner TO CURRENT_USER WITH INHERIT TRUE, SET TRUE;
 CREATE SCHEMA openid AUTHORIZATION openid_owner;
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 SET ROLE openid_owner;

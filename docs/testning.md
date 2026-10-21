@@ -46,6 +46,7 @@ Tabellen är ett daterat resultat för revisionen ovan.
 - [iOS-bygge och simulator](../ios/README.md#bygg-och-testa).
 - [Pilotens drift- och belastningsprov](../deployment/README.md#drift-och-kapacitet).
 - [Delat register och nyckeltjänst](../deployment/cluster/README.md#tester).
+- [Tidsbegränsat RDS-prov](../deployment/aws/README.md).
 - [Driftcontainerns HTTP-prov](../ops/README.md#kör-lokalt).
 
 Linux med Unix-sockets krävs för federationsproven. Xcode kräver macOS;

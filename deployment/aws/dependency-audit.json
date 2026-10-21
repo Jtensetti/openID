@@ -1,0 +1,149 @@
+{
+  "checked": "2026-10-20T19:16:56.569154+00:00",
+  "scope": "AWS test harness Python dependencies; excludes operating system and Lambda managed SDK",
+  "packages": [
+    {
+      "name": "boto3",
+      "version": "1.43.115",
+      "source": "https://github.com/boto/boto3",
+      "commit": "2f9e300be2ff0b7dc781e87d8532b6d834072044",
+      "archived": false,
+      "lastPush": "2026-10-19T19:17:55Z",
+      "releaseUploaded": "2026-10-19T19:19:51.444211Z",
+      "license": "Apache-2.0",
+      "licenseFiles": [
+        "boto3-1.43.115.dist-info/LICENSE",
+        "boto3-1.43.115.dist-info/NOTICE"
+      ],
+      "requires": [
+        "botocore (<1.44.0,>=1.43.115)",
+        "jmespath (<2.0.0,>=0.7.1)",
+        "s3transfer (<0.20.0,>=0.19.0)",
+        "botocore[crt] (<2.0a0,>=1.21.0) ; extra == 'crt'"
+      ],
+      "pypiVulnerabilities": [],
+      "osv": {}
+    },
+    {
+      "name": "botocore",
+      "version": "1.43.115",
+      "source": "https://github.com/boto/botocore",
+      "commit": "626f4f2360bf535e56adf5e2d56722c0c47f7d27",
+      "archived": false,
+      "lastPush": "2026-10-19T19:14:00Z",
+      "releaseUploaded": "2026-10-19T19:19:42.203233Z",
+      "license": "Apache-2.0",
+      "licenseFiles": [
+        "botocore-1.43.115.dist-info/LICENSE.txt",
+        "botocore-1.43.115.dist-info/NOTICE"
+      ],
+      "requires": [
+        "jmespath (<2.0.0,>=0.7.1)",
+        "python-dateutil (<3.0.0,>=2.1)",
+        "urllib3 (!=2.2.0,<3,>=1.25.4)",
+        "awscrt (==0.36.0) ; extra == 'crt'"
+      ],
+      "pypiVulnerabilities": [],
+      "osv": {}
+    },
+    {
+      "name": "jmespath",
+      "version": "1.1.0",
+      "source": "https://github.com/jmespath/jmespath.py",
+      "commit": "6ff419a8b171d055a9bfc6904605bceb8b7a80ef",
+      "archived": false,
+      "lastPush": "2026-04-20T23:12:00Z",
+      "releaseUploaded": "2026-01-22T16:35:24.919874Z",
+      "license": "MIT",
+      "licenseFiles": [
+        "jmespath-1.1.0.dist-info/LICENSE"
+      ],
+      "requires": [],
+      "pypiVulnerabilities": [],
+      "osv": {}
+    },
+    {
+      "name": "python-dateutil",
+      "version": "2.9.0.post0",
+      "source": "https://github.com/dateutil/dateutil",
+      "commit": "1ae807774053c071acc9e7d3d27778fba0a7773e",
+      "archived": false,
+      "lastPush": "2026-10-19T22:44:54Z",
+      "releaseUploaded": "2024-03-01T18:36:18.570437Z",
+      "license": "BSD-3-Clause",
+      "licenseFiles": [
+        "python_dateutil-2.9.0.post0.dist-info/LICENSE"
+      ],
+      "requires": [
+        "six >=1.5"
+      ],
+      "pypiVulnerabilities": [],
+      "osv": {}
+    },
+    {
+      "name": "s3transfer",
+      "version": "0.19.3",
+      "source": "https://github.com/boto/s3transfer",
+      "commit": "bd79b574183287b82765b34eb8a9dd4d7d40b12d",
+      "archived": false,
+      "lastPush": "2026-10-19T19:16:26Z",
+      "releaseUploaded": "2026-10-19T19:19:48.309477Z",
+      "license": "Apache-2.0",
+      "licenseFiles": [
+        "s3transfer-0.19.3.dist-info/LICENSE.txt",
+        "s3transfer-0.19.3.dist-info/NOTICE.txt"
+      ],
+      "requires": [
+        "botocore (<2.0a.0,>=1.37.4)",
+        "botocore[crt] (<2.0a.0,>=1.37.4) ; extra == 'crt'"
+      ],
+      "pypiVulnerabilities": [],
+      "osv": {}
+    },
+    {
+      "name": "six",
+      "version": "1.17.0",
+      "source": "https://github.com/benjaminp/six",
+      "commit": "ebd9b3af90247b8858d415a05e96e9ee61e48d07",
+      "archived": false,
+      "lastPush": "2026-02-23T02:19:45Z",
+      "releaseUploaded": "2024-12-04T17:35:26.475808Z",
+      "license": "MIT",
+      "licenseFiles": [
+        "six-1.17.0.dist-info/LICENSE"
+      ],
+      "requires": [],
+      "pypiVulnerabilities": [],
+      "osv": {}
+    },
+    {
+      "name": "urllib3",
+      "version": "2.8.0",
+      "source": "https://github.com/urllib3/urllib3",
+      "commit": "b1d30ab61fe0db8f11092805e8c5ac43e091064a",
+      "archived": false,
+      "lastPush": "2026-10-20T18:57:02Z",
+      "releaseUploaded": "2026-09-15T19:29:34.577402Z",
+      "license": "MIT",
+      "licenseFiles": [
+        "urllib3-2.8.0.dist-info/licenses/LICENSE.txt"
+      ],
+      "requires": [
+        "brotli>=1.2.0; (platform_python_implementation == 'CPython') and extra == 'brotli'",
+        "brotlicffi>=1.2.0.0; (platform_python_implementation != 'CPython') and extra == 'brotli'",
+        "h2<5,>=4; extra == 'h2'",
+        "pysocks!=1.5.7,<2.0,>=1.5.6; extra == 'socks'",
+        "backports-zstd>=1.0.0; (python_version < '3.14') and extra == 'zstd'"
+      ],
+      "pypiVulnerabilities": [],
+      "osv": {}
+    }
+  ],
+  "guard": {
+    "source": "https://github.com/aws-cloudformation/cloudformation-guard",
+    "commit": "e531ef56092abb662e08fc6062c92db6d53f99c9",
+    "archived": false,
+    "lastPush": "2026-10-17T11:30:28Z",
+    "advisories": []
+  }
+}

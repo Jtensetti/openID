@@ -1,0 +1,18 @@
+let databases = Resources.*[ Type == 'AWS::RDS::DBInstance' ]
+let runners = Resources.*[ Type == 'AWS::EC2::Instance' ]
+rule private_encrypted_database {
+  %databases.Properties.PubliclyAccessible == false
+  %databases.Properties.StorageEncrypted == true
+  %databases.Properties.ManageMasterUserPassword == true
+  %databases.Properties.MasterUserPassword !exists
+  %databases.Properties.MaxAllocatedStorage !exists
+}
+rule bounded_test_resources {
+  %databases.Properties.DBInstanceClass == 'db.t4g.micro'
+  %databases.Properties.AllocatedStorage == '20'
+  %databases.DeletionPolicy == 'Delete'
+  %runners.Properties.InstanceType == 't3.small'
+  %runners.Properties.CreditSpecification.CPUCredits == 'standard'
+  %runners.Properties.MetadataOptions.HttpTokens == 'required'
+  Resources.RunnerSecurity.Properties.SecurityGroupIngress !exists
+}

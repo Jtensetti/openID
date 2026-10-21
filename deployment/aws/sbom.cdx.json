@@ -1,0 +1,210 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-10-20T19:16:56.569154+00:00"
+  },
+  "components": [
+    {
+      "type": "library",
+      "name": "boto3",
+      "version": "1.43.115",
+      "purl": "pkg:pypi/boto3@1.43.115",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "6667a0c21d48dc125dbba88444bc8a601ce881a99341a0e6169f9333898e620d"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/boto/boto3/tree/2f9e300be2ff0b7dc781e87d8532b6d834072044"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "botocore",
+      "version": "1.43.115",
+      "purl": "pkg:pypi/botocore@1.43.115",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "9ceda640c868bc15f5399129e8cfdef8cbb4b350e8a99547c9b5f477cfb9619a"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/boto/botocore/tree/626f4f2360bf535e56adf5e2d56722c0c47f7d27"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "jmespath",
+      "version": "1.1.0",
+      "purl": "pkg:pypi/jmespath@1.1.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "a5663118de4908c91729bea0acadca56526eb2698e83de10cd116ae0f4e97c64"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/jmespath/jmespath.py/tree/6ff419a8b171d055a9bfc6904605bceb8b7a80ef"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "python-dateutil",
+      "version": "2.9.0.post0",
+      "purl": "pkg:pypi/python-dateutil@2.9.0.post0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-3-Clause"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/dateutil/dateutil/tree/1ae807774053c071acc9e7d3d27778fba0a7773e"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "s3transfer",
+      "version": "0.19.3",
+      "purl": "pkg:pypi/s3transfer@0.19.3",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "24eb7535804306355e31c952a90022bf5b2f9d760f9a11062c7493a217c08553"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/boto/s3transfer/tree/bd79b574183287b82765b34eb8a9dd4d7d40b12d"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "six",
+      "version": "1.17.0",
+      "purl": "pkg:pypi/six@1.17.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/benjaminp/six/tree/ebd9b3af90247b8858d415a05e96e9ee61e48d07"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "urllib3",
+      "version": "2.8.0",
+      "purl": "pkg:pypi/urllib3@2.8.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/urllib3/urllib3/tree/b1d30ab61fe0db8f11092805e8c5ac43e091064a"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "name": "cloudformation-guard",
+      "version": "3.2.1",
+      "purl": "pkg:github/aws-cloudformation/cloudformation-guard@3.2.1",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "09c2b8cfd81d513374a8da89d4805dc55006a3da52bbf598e272022d4d198e94"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/aws-cloudformation/cloudformation-guard/tree/e531ef56092abb662e08fc6062c92db6d53f99c9"
+        }
+      ]
+    }
+  ]
+}
