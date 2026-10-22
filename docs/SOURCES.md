@@ -67,3 +67,17 @@ T03 identifierades som version 1.0, daterad 2024-12-04. Biblioteksrevisionen
 profilcertifiering är utförd. Direktåtkomst till EUR-Lex blockerades vid
 denna genomgång; EU-hänvisningarna ersätter inte läsning av konsoliderad
 lydelse inför juridiskt ställningstagande.
+
+
+## Registeridentifierare
+
+- [Skatteverket: samordningsnummer](https://www.skatteverket.se/privat/folkbokforing/personnummerochsamordningsnummer/samordningsnummer.4.5c281c7015abecc2e201130b.html), kontrollerad 2026-10-21. Dagfältet ökas med 60; kontrollsiffra ingår. Formatkontroll är inte registerverifiering eller bevis på styrkt identitet.
+
+
+### Omkontroll av passfält och ID-02, 2026-10-21
+
+D08 (webbversion daterad 2022-10-04) och D09 (2025-03-14) har lästs på nytt,
+särskilt K5.7–K5.9, K5.13 och K5.14. Ingen formell kravstatus ändras.
+[ICAO Doc 9303, del 10, åttonde upplagan med ändringar](https://www.icao.int/publications/documents/9303_p10_cons_en.pdf),
+tabell 72: DG11 kan innehålla personal number och fullständigt födelsedatum;
+fälten är valfria. Detta bevisar inte förekomst i ett visst svenskt pass.

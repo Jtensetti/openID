@@ -2,7 +2,13 @@
 
 Server för passkontroll, ansiktsjämförelse, liveness och iPhone-appens
 pilotregister. [SAML-inloggningen](#saml-inloggning-med-passets-identitet) binder
-appens nyckel till passets personuppgifter och använder Sweden Connect.
+appens nyckel till passets personuppgifter och använder bibliotek från Sweden Connect.
+[OIDC](../docs/oidc-pilot.md) använder samma godkännandeflöde. Detta innebär
+inte anslutning till Sweden Connect-federationen.
+
+Kommandona nedan gäller lokala och privata prov. För den publika betans
+spärrkontroll, kontaktbindning och manuella aktivering, följ
+[driftinstruktionen](../deployment/continuity/README.md).
 
 ## Körning på Linux x86_64
 
@@ -166,7 +172,10 @@ kontotjänsten ditt namn, passfoto och födelsedatum från MRZ. Du behöver inte
 klistra in något registrerings-ID.
 
 MRZ använder tvåsiffrigt årtal. Sekel, ålder och svenskt personnummer
-härleds inte. Namnet följer passets MRZ-translitterering.
+härleds inte från födelsedatum. För svenska pass tas i stället ett eventuellt
+person-/samordningsnummer ur det autentiserade DG1-fältet och bevaras med
+exakt 10 eller 12 siffror i den krypterade ägarprofilen. Det är inte ett
+registerbevis och delas inte genom SAML/OIDC. Namnet följer passets MRZ-translitterering.
 
 IdP och SP körs i separata processer på loopback-HTTPS. Sweden Connect
 1.0.3 verifierar den signerade begäran och skapar ett signerat, krypterat
@@ -262,7 +271,11 @@ behålls efter spärr men lämnas inte ut till appen eller tjänsten. Automatisk
 gallring och nyckelrotation saknas; operatören måste fastställa lagringstid
 och radera pilotens data och nyckel efter provet.
 **Återläsning av gamla databasfiler stöds inte**: den kan återställa en spärrad
-nyckel. Ett externt spärrankare saknas. Inga adminfunktioner exponeras via HTTP.
+nyckel. Använd `recovery.py restore`, som spärrar återställda nycklar.
+Den publika betan kontrollerar dessutom den separata aktuella spärrtabellen;
+dess konfiguration och migrationsmarkör måste bevaras. Återställ aldrig
+en äldre programversion som saknar denna kontroll. Det privata grundläget
+saknar externt spärrankare. Inga adminfunktioner exponeras via HTTP.
 
 ## Kontroller
 
@@ -308,7 +321,7 @@ cd ../verification
 export PROOFING_FIXTURES=/tmp/openid-proofing-fixtures
 export PROOFING_JAVA="$JAVA_HOME/bin/java"
 export PROOFING_PYTHON="$PWD/.venv/bin/python"
-.venv/bin/python -m unittest -v test_verification test_native test_chip test_wallet test_relying_party test_identity test_runtime test_crypto_runtime
+.venv/bin/python -m unittest -v test_verification test_native test_chip test_wallet test_relying_party test_identity test_registry_binding test_runtime test_crypto_runtime
 node --test test-attest.mjs
 node browser-test.cjs
 node rp-browser-test.cjs
@@ -326,8 +339,9 @@ utloggning, nekande, avbrott, spärr, offline/återanslutning och mobil layout.
 RP-fixturen använder en temporär databas och testnyckel; styrningen går via
 stdin och inga HTTP-testvägar läggs till.
 
-Fysisk NFC, Secure Enclave, Face ID och Apple App Attest på iPhone återstår
-att prova. Testerna berör ID-05/06/09/10, SEC-01/03, FED-02 och TEST-01;
+Privat telefonprov har bekräftat registrering, visat personnummer och SAML.
+CI ersätter inte fysiska enhetsprov; separat spärr, avbrott och fler enheter
+behöver fortsatt verifieras. Testerna berör ID-05/06/09/10, SEC-01/03, FED-02 och TEST-01;
 formell kravstatus ändras inte.
 
 SAML-webbtestet kör verifierare, IdP och SP i separata processer. Passets
@@ -376,3 +390,13 @@ provar poängberäkningen; representativa data och oberoende prov återstår.
 Biometriarbetaren lämnar vid fel en fast stegkod (modellstart, passporträtt, kamerans ansikte, matchning eller PAD) och en tillåten orsakskod. Huvudprocessen validerar båda igen innan loggning. Bilder, råpoäng, identifierare och godtycklig undantagstext ingår inte. Modell-/arbetarfel ger otillgänglig tjänst, medan avvisad bildanalys inte ger godkänd kontroll. Detta ändrar inte experimentella trösklar eller den kvarstående kalibreringen.
 
 Ansiktsdetektionen görs i originalskala och, för bilder större än 480 pixlar, även med hela bilden proportionellt förminskad till högst 480 pixlar. [YuNet beskriver ett träningsområde på ungefär 10–300 pixlar per ansikte](https://github.com/opencv/opencv_zoo/blob/main/models/face_detection_yunet/README.md). Box och landmärken mappas tillbaka till originalpixlar; jämförelse och PAD använder originalbilden. Flera ansikten i endera skalan eller detektioner som inte överlappar tillräckligt avvisas. Modellversioner och trösklar är oförändrade. Förbättringen kräver fortsatt fysisk verifiering och biometrisk utvärdering.
+
+
+## Registerbindning och nytt pass
+
+`registry_binding.py` förbereder registerkontrollerad ersättning i SQLite.
+Ingen registerleverantör är ansluten. Funktionen kräver färska, entydiga bevis
+för båda dokumenten och separat manuell aktivering. En förlorad telefon kan
+spärras med befintlig `wallet_cli.py revoke`; den gamla nyckeln återaktiveras inte.
+Syntetiska prov använder interna test-ID:n och lämnar aldrig ut personnummer.
+Se [operatörsflöde, adapterkontrakt och begränsningar](../docs/registerbindning.md).

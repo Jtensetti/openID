@@ -64,6 +64,10 @@ struct HomeView: View {
                 Brand()
                 Text("Mitt ID").font(.largeTitle.bold()).accessibilityIdentifier("home.heading")
                 IdentityCard()
+                if model.configuration == nil || model.configuration?.isPublicBeta == true {
+                    Text(model.revocationProof == nil ? "Betans öppettider: varje dag 09–17 svensk tid. Registrering, legitimering och spärr kräver att testservern är öppen." : "Registrering och legitimering: varje dag 09–17 svensk tid. Spärr fungerar dygnet runt med internetanslutning.")
+                        .font(.subheadline).foregroundStyle(Palette.muted).accessibilityIdentifier("home.betaHours")
+                }
                 if let state = model.snapshot?.state, state != .active {
                     Text(state.guidance).font(.subheadline).foregroundStyle(Palette.muted)
                 }
@@ -121,6 +125,10 @@ struct IdentityCard: View {
                     Text(model.snapshot?.identity?.displayName ?? (model.unlocked ? (model.credential != nil ? "Mitt ID" : "Inget ID registrerat") : "Låst")).font(.title2.weight(.medium))
                     if let identity = model.snapshot?.identity {
                         Text("Född enligt passet · \(identity.birthDateMrz)").font(.caption)
+                        if let number = identity.passportPersonalNumber {
+                            Text("Identitetsnummer i passet · \(number)").font(.caption).textSelection(.enabled)
+                            Text("Avläst från passets chip. Inte kontrollerat mot folkbokföringen.").font(.caption2)
+                        }
                     }
                     HStack(spacing: 6) {
                         Image(systemName: model.snapshot?.state == .active ? "checkmark.circle.fill" : "info.circle").accessibilityHidden(true)
@@ -282,8 +290,13 @@ struct SettingsView: View {
             Section("Ditt openID") {
                 if !model.unlocked { Button { model.unlock() } label: { Label("Lås upp openID", systemImage: "faceid") } }
                 else {
-                    Button { model.settingsPresented = true } label: { Label("Anslutning", systemImage: "network") }
-                    if let configuration = model.configuration { Text(configuration.origin).font(.caption).foregroundStyle(.secondary).textSelection(.enabled) }
+                    if model.configuration?.isPublicBeta == true {
+                        Label("Ansluten till openID beta", systemImage: "network")
+                        Text("Anslutningen sköts automatiskt. VPN behövs inte. Testservern är öppen varje dag 09–17 svensk tid.").font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        Button { model.settingsPresented = true } label: { Label("Anslutning", systemImage: "network") }
+                        if let configuration = model.configuration { Text(configuration.origin).font(.caption).foregroundStyle(.secondary).textSelection(.enabled) }
+                    }
                     if let credential = model.credential {
                         LabeledContent("Enhet", value: "Den här telefonen")
                         VStack(alignment: .leading, spacing: 8) {
@@ -296,7 +309,16 @@ struct SettingsView: View {
             }
             if model.unlocked && model.credential != nil {
                 Section("Spärr och ny telefon") {
-                    Button("Spärra mitt ID", role: .destructive) { revoke = true }.disabled(model.busy)
+                    Button("Spärra mitt ID", role: .destructive) { revoke = true }.disabled(!model.canRevoke)
+                    if let message = model.statusMessage { Text(message).font(.callout) }
+                    if let proof = model.revocationProof {
+                        Text("Spärr fungerar dygnet runt när du har internetanslutning, även när testservern är stängd.").font(.caption)
+                        DisclosureGroup("Spara din spärrkod") {
+                            Text("Spara koden på en säker plats utanför telefonen. Den kan bara spärra ditt ID, aldrig aktivera eller återställa det.")
+                            Text(proof.code).font(.caption.monospaced()).textSelection(.enabled)
+                            Link("Öppna spärrsidan", destination: RevocationProof.endpoint)
+                        }
+                    }
                     if model.snapshot?.state == .revoked || model.snapshot?.state == .expired {
                         Button("Ta bort nyckeln från telefonen", role: .destructive) { forget = true }
                     }
@@ -372,7 +394,7 @@ struct EnrollmentView: View {
                         DisclosureGroup("Förbered dig innan du börjar") {
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("1. Ha ditt svenska pass och din iPhone redo. Andra utfärdarländer är ännu inte verifierade i piloten.")
-                                Text("2. Använd stabilt internet och låt WireGuard vara anslutet.")
+                                Text("2. Använd stabilt internet. Den publika betan behöver ingen VPN.")
                                 Text("3. Lägg passet plant. Telefonens överkant ska hållas mot passet vid två läsningar.")
                                 Text("4. Sitt eller stå bekvämt med jämnt ljus. Du kan stödja telefonen när du tar ansiktsbilder.")
                                 Button("Prova kameran först – utan att skicka bilder") { focusedField = nil; cameraPractice = true }
@@ -448,7 +470,7 @@ struct GuideView: View {
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         List {
-            Section("Innan du börjar") { Text("Du behöver ett svenskt pass, en kompatibel iPhone och stabil internetanslutning. I piloten behöver WireGuard vara på. Du kan prova ansiktskameran under Inställningar utan att skicka bilder.") }
+            Section("Innan du börjar") { Text("Du behöver ett svenskt pass, en kompatibel iPhone och stabil internetanslutning. Den publika betan ansluter automatiskt utan VPN. Du kan prova ansiktskameran under Inställningar utan att skicka bilder.") }
             Section("Registrera en gång") { Text("Skanna passuppgifterna eller skriv in dem. Läs chipet i två omgångar och följ kamerans instruktioner. När kontrollen är klar behöver operatören aktivera ditt ID. Du behöver inte läsa passet vid varje inloggning.") }
             Section("Legitimera") { Text("Starta inloggningen hos testtjänsten. Skanna QR-koden, kontrollera tjänst och kod och godkänn i appen.") }
             Section("På samma telefon") { Text("Om tjänstens sida går att öppna på telefonen, välj Öppna openID där. Du behöver inte skanna din egen skärm. Pilotens nuvarande testsida öppnas på Macen och används med QR-kod.") }
@@ -463,7 +485,10 @@ struct GuideView: View {
 struct RecoveryView: View {
     var body: some View {
         List {
-            Section("Spärra först") { Text("Kontakta operatören för att spärra ditt ID. Att radera appen räcker inte.") }
+            Section("Spärra först") {
+                Text("Har du sparat din spärrkod kan du spärra dygnet runt från en annan telefon eller dator. Saknar du koden, kontakta pilotens operatör. Att radera appen spärrar inte ditt ID.")
+                Link("Öppna spärrsidan", destination: RevocationProof.endpoint)
+            }
             Section("Ny telefon") { Text("Installera appen, registrera dig med passet och invänta aktivering. Nyckeln kan inte flyttas mellan telefoner eller återställas från en säkerhetskopia.") }
         }.navigationTitle("Förlorad telefon")
     }
@@ -471,8 +496,8 @@ struct RecoveryView: View {
 struct PrivacyView: View {
     var body: some View {
         List {
-            Section("På telefonen") { Text("Serveradress och kopplingskod lagras i nyckelringen. ID-nyckeln skyddas av telefonen. Appen sparar inte passuppgifter eller bilder.") }
-            Section("På servern") { Text("Chipdata och kamerabilder behandlas i minnet. Registret sparar namn, födelsedatum, nationalitet, passets utfärdarland, giltighet och foto krypterat samt publik nyckel, status och händelser. Operatören ansvarar för lagringstiderna och kan aktivera eller spärra ditt ID.") }
+            Section("På telefonen") { Text("Serveradress, eventuell kopplingskod och din separata spärrkod lagras i nyckelringen. ID-nyckeln skyddas av telefonen. Appen sparar inte passuppgifter eller bilder.") }
+            Section("På servern") { Text("Chipdata och kamerabilder behandlas i minnet. Registret sparar namn, födelsedatum, nationalitet, passets utfärdarland, giltighet, foto och eventuellt personnummer från chipet krypterat samt publik nyckel, status och händelser. Operatören ansvarar för lagringstiderna och kan aktivera eller spärra ditt ID.") }
             Section("När du legitimerar dig") { Text("Appen visar vilken tjänst du loggar in hos och vilka uppgifter du delar. En spärrad nyckel kan inte användas igen.") }
             Section("Godkännande") { Text("Du bekräftar med Face ID, Touch ID eller enhetskod. Appen låses när du lämnar den.") }
         }.navigationTitle("Integritet").navigationBarTitleDisplayMode(.inline)

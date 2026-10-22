@@ -14,6 +14,8 @@ from test_wallet import crypt
 from wallet import Wallet, FEDERATION_PURPOSE
 
 AUDIENCE = 'https://localhost:8444/sp'
+# Reserved SPAR test identity: testfall-foer-personsoekning-i-kundtestmiljoen_v8.pdf §3.1.
+TEST_PERSON_NUMBER = '195704133106'
 
 def document(**changes):
     identity = dict(givenNames='ALICE', familyName='SYNTHETIC', birthDateMrz='900101', nationality='UTO',
@@ -58,6 +60,36 @@ class IdentityTests(unittest.TestCase):
         self.assertEqual('000229', value['birthDateMrz']); self.assertNotIn('birthDate', value); self.assertNotIn('personalIdentityNumber', value)
         for dob in ('19000101', '001332', '000230', '900229', 'ABCDEF'):
             with self.assertRaises(ValueError): document(birthDateMrz=dob)
+    def test_passport_number_preserves_century_and_accepts_legacy_or_missing_field(self):
+        for number in (TEST_PERSON_NUMBER, TEST_PERSON_NUMBER[2:]):
+            value = document(issuingState='SWE', passportPersonalNumber=number).profile()
+            self.assertEqual(number, value['passportPersonalNumber'])
+            self.assertNotIn('personalIdentityNumber', value)
+        self.assertNotIn('passportPersonalNumber', document().profile())
+        self.assertIsNone(document(passportPersonalNumber=None).profile()['passportPersonalNumber'])
+    def test_passport_number_rejects_wrong_country_and_malformed_values(self):
+        with self.assertRaises(ValueError): document(passportPersonalNumber=TEST_PERSON_NUMBER)
+        for value in ('195704133107', '19570413310', '195713133106', '195704003106',
+                      '1957<4133106', '19570413-3106', TEST_PERSON_NUMBER+'\n', 195704133106, ''):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                document(issuingState='SWE', passportPersonalNumber=value)
+    def test_passport_number_is_encrypted_owner_only_and_does_not_activate_or_merge(self):
+        for key, number in ((1, 'TEST00002'), (2, 'TEST00003')):
+            result = self.wallet.enroll(self.keys[key]['publicKey'], document(issuingState='SWE',
+                documentNumber=number, passportPersonalNumber=TEST_PERSON_NUMBER))
+            self.assertEqual('PENDING_REVIEW', result['state'])
+            self.assertEqual(TEST_PERSON_NUMBER, self.execute(key=key)['identity']['passportPersonalNumber'])
+            self.assertNotIn(TEST_PERSON_NUMBER.encode(), self.db.read_bytes())
+            with self.assertRaises(ValueError): self.sign('approve', self.start()['id'], key)
+            self.wallet.activate(result['id'], 'REVIEW-number-test')
+        first, second = self.login(1), self.login(2)
+        self.assertNotEqual(first['subject'], second['subject'])
+        for result in (first, second):
+            self.assertEqual({'displayName', 'birthDateMrz', 'portraitJpeg'}, set(result['identity']))
+            self.assertNotIn(TEST_PERSON_NUMBER, json.dumps(result))
+        self.assertNotIn('passportPersonalNumber', self.execute()['identity'])
+        self.execute('revoke', key=1)
+        self.assertIsNone(self.execute(key=1)['identity'])
     def test_key_only_credential_cannot_approve_federation(self):
         legacy = self.wallet.enroll(self.keys[1]['publicKey'])['id']; self.wallet.activate(legacy, 'REVIEW-legacy-001')
         request = self.start()

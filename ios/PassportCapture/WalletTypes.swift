@@ -17,15 +17,22 @@ enum WalletError: LocalizedError {
 }
 
 struct ServerConfiguration: Codable, Equatable {
+    static let betaOrigin = "https://api.openid.tensetti.io"
+    static var beta: ServerConfiguration { try! ServerConfiguration(origin: betaOrigin, pairing: "") }
     let origin: String
     let pairing: String
+    var isPublicBeta: Bool { origin == Self.betaOrigin }
+    static func initial(saved: ServerConfiguration?) -> ServerConfiguration {
+        // Keep enrolled devices bound to their saved server. Never migrate a private identity.
+        saved ?? beta
+    }
     init(origin: String, pairing: String) throws {
         let value = origin.trimmingCharacters(in: .whitespacesAndNewlines)
         guard var parts = URLComponents(string: value), parts.scheme == "https",
               let host = parts.host, !host.isEmpty, parts.user == nil, parts.password == nil,
               parts.query == nil, parts.fragment == nil, parts.percentEncodedPath == "" || parts.percentEncodedPath == "/",
               parts.port == nil || (1...65535).contains(parts.port!),
-              pairing.range(of: "^[A-Za-z0-9_-]{32,128}\\z", options: .regularExpression) != nil else { throw WalletError.configuration }
+              (pairing.range(of: "^[A-Za-z0-9_-]{32,128}\\z", options: .regularExpression) != nil || (value == Self.betaOrigin && pairing.isEmpty)) else { throw WalletError.configuration }
         parts.path = ""
         guard let url = parts.url else { throw WalletError.configuration }
         self.origin = url.absoluteString; self.pairing = pairing
@@ -87,12 +94,14 @@ struct WalletSnapshot: Decodable {
     let environment: String
     let legalIdentityIssued: Bool
     var identity: PassportIdentity? = nil
+    var revocationCode: String? = nil
     func validate(for id: String) throws {
         guard credentialId == id, environment == "PRIVATE_PILOT", !legalIdentityIssued,
               requests.count <= 5, events.count <= 50,
               state == .active || requests.isEmpty,
               (state == .active || state == .pending) || identity == nil else { throw WalletError.rejected }
         try identity?.validate()
+        if let code = revocationCode { try RevocationProof(origin: ServerConfiguration.betaOrigin, code: code).validate(for: id) }
         for request in requests {
             guard request.id.range(of: "^[a-f0-9]{64}\\z", options: .regularExpression) != nil,
                   !request.relyingParty.isEmpty, request.relyingParty.count <= 100,
@@ -101,11 +110,27 @@ struct WalletSnapshot: Decodable {
         }
     }
 }
+
+struct RevocationProof: Codable {
+    let origin: String
+    let code: String
+    static let endpoint = URL(string: "https://o86p8fy3h6.execute-api.eu-north-1.amazonaws.com/revoke")!
+    func validate(for credentialID: String) throws {
+        guard origin == ServerConfiguration.betaOrigin,
+              code.hasPrefix(credentialID + "."),
+              code.range(of: "^[a-f0-9]{64}\\.[A-Za-z0-9_-]{43}\\z", options: .regularExpression) != nil else { throw WalletError.rejected }
+    }
+    var token: String { String(code.suffix(43)) }
+}
 struct PassportIdentity: Decodable {
     let displayName: String
     let birthDateMrz: String
     let portraitJpeg: String
+    var passportPersonalNumber: String? = nil
     func validate() throws {
+        if let number = passportPersonalNumber {
+            guard number.range(of: "^(?:[0-9]{10}|[0-9]{12})\\z", options: .regularExpression) != nil else { throw WalletError.rejected }
+        }
         guard displayName.range(of: "^[A-Z ]{1,89}\\z", options: .regularExpression) != nil,
               birthDateMrz.range(of: "^[0-9]{6}\\z", options: .regularExpression) != nil,
               let image = Data(base64Encoded: portraitJpeg), image.count <= 24000,

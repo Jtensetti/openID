@@ -109,8 +109,8 @@ private struct DirectionArc: Shape {
         let start = right ? -82.0 : 98.0
         for index in 0...80 {
             let angle = (start + Double(index) * 164 / 80) * .pi / 180
-            let point = CGPoint(x: rect.midX + rect.width / 2 * cos(angle),
-                                y: rect.midY + rect.height / 2 * sin(angle))
+            let point = CGPoint(x: rect.midX + rect.width / 2 * CGFloat(Darwin.cos(angle)),
+                                y: rect.midY + rect.height / 2 * CGFloat(Darwin.sin(angle)))
             if index == 0 { path.move(to: point) } else { path.addLine(to: point) }
         }
         return path

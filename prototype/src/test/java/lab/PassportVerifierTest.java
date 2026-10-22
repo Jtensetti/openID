@@ -53,6 +53,35 @@ class PassportVerifierTest {
   byte[] dg1(String expiry) {
     return new DG1File(MRZInfo.createTD3MRZInfo("P", "UTO", "SYNTHETIC", "ALICE", "TEST00001", "UTO", "900101", Gender.UNSPECIFIED, expiry, "")).getEncoded();
   }
+  // Reserved SPAR test identity, testfall-foer-personsoekning-i-kundtestmiljoen_v8.pdf §3.1.
+  byte[] numberedDg1(String issuer, String number) {
+    return new DG1File(MRZInfo.createTD3MRZInfo("P", issuer, "SYNTHETIC", "ALICE", "TEST00001", issuer,
+        "570413", Gender.UNSPECIFIED, "301019", number)).getEncoded();
+  }
+  @ParameterizedTest @ValueSource(strings={"195704133106", "5704133106"})
+  void extractsSwedishNumberOnlyFromAuthenticatedDg1WithoutInferringCentury(String number) throws Exception {
+    dg1 = numberedDg1("SWE", number); sod = sign("SHA-256", "SHA256withECDSA");
+    assertEquals(number, verifier.verify(sod, dg1, dg2).identity().passportPersonalNumber());
+    var other = key(); var untrusted = certificate(other,"CN=SYNTHETIC-CSCA",other,"CN=SYNTHETIC-CSCA",true);
+    assertThrows(PassportVerifier.Rejected.class, () -> new PassportVerifier(Set.of(untrusted), CLOCK).verify(sod,dg1,dg2));
+    byte[] changed = numberedDg1("SWE", "195704133107");
+    assertEquals("DATA_HASHES", assertThrows(PassportVerifier.Rejected.class,
+        () -> verifier.verify(sod, changed, dg2)).stage());
+  }
+  @ParameterizedTest @ValueSource(strings={"", "<<<<<<<<<<<<<<"})
+  void missingSwedishOptionalNumberDoesNotInventAnIdentity(String number) throws Exception {
+    dg1 = numberedDg1("SWE", number); sod = sign("SHA-256", "SHA256withECDSA");
+    assertNull(verifier.verify(sod,dg1,dg2).identity().passportPersonalNumber());
+  }
+  @ParameterizedTest @ValueSource(strings={"195704133107", "19570413310", "195713133106", "195704003106", "1957<4133106", "ABCDEFGHIJKL"})
+  void rejectsMalformedSwedishNumberEvenWithValidSignature(String number) throws Exception {
+    dg1 = numberedDg1("SWE", number); sod = sign("SHA-256", "SHA256withECDSA");
+    assertThrows(PassportVerifier.Rejected.class, () -> verifier.verify(sod,dg1,dg2));
+  }
+  @Test void foreignOptionalFieldIsNotTreatedAsSwedishNumber() throws Exception {
+    dg1 = numberedDg1("UTO", "195704133106"); sod = sign("SHA-256", "SHA256withECDSA");
+    assertNull(verifier.verify(sod,dg1,dg2).identity().passportPersonalNumber());
+  }
   byte[] sign(String hash, String signature) throws Exception {
     var digest = MessageDigest.getInstance(hash);
     return new SODFile(hash, signature, Map.of(1,digest.digest(dg1),2,digest.digest(dg2)), signerKey.getPrivate(), signer).getEncoded();

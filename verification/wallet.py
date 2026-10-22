@@ -33,16 +33,32 @@ def identifier(value):
     return value
 
 class Wallet:
-    def __init__(self, path, origin, clock=time.time, crypto=device_crypto, vault_runner=None):
+    def __init__(self, path, origin, clock=time.time, crypto=device_crypto, vault_runner=None, revocation=None, notifications=False):
         self.path, self.origin, self.clock, self.crypto = Path(path).absolute(), origin, clock, crypto
+        self.revocation = revocation
+        self.notifications = notifications
         if self.path.is_symlink() or self.path.parent.is_symlink(): raise ValueError('database symlink')
         self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         if self.path.parent.stat().st_mode & 0o077: raise ValueError('database directory must be private (0700)')
         fd = os.open(self.path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
         os.close(fd)
         if self.path.stat().st_mode & 0o077: raise ValueError('database must be private (0600)')
+        marker = self.path.with_suffix('.continuity-required')
+        if marker.exists() or marker.is_symlink():
+            if marker.is_symlink() or not marker.is_file() or marker.read_bytes() != b'v1\n':
+                raise ValueError('invalid continuity migration marker')
+            if self.revocation is None or not self.notifications:
+                raise ValueError('migrated wallet requires independent revocation and notices')
+        elif self.revocation is not None and self.notifications:
+            fd = os.open(marker, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(fd, 'wb') as stream:
+                stream.write(b'v1\n'); stream.flush(); os.fsync(stream.fileno())
+            directory_fd = os.open(self.path.parent, os.O_RDONLY | os.O_DIRECTORY)
+            try: os.fsync(directory_fd)
+            finally: os.close(directory_fd)
         self.lock = threading.RLock()
         self.challenges = {}
+        self.document_links_enabled = True  # SQLite pilot; PostgreSQL has a separate schema/approval path.
         self.vault = IdentityVault(self.path.with_suffix('.identity-key'), runner=vault_runner)
         with self.transaction() as db:
             db.executescript('''
@@ -63,6 +79,14 @@ class Wallet:
                     credential TEXT PRIMARY KEY REFERENCES credentials(id),
                     person TEXT NOT NULL REFERENCES persons(id), version TEXT UNIQUE NOT NULL,
                     sealed TEXT NOT NULL, verified INTEGER NOT NULL, document_expires INTEGER NOT NULL);
+                CREATE TABLE IF NOT EXISTS document_links (
+                    document_tag TEXT PRIMARY KEY, person TEXT NOT NULL REFERENCES persons(id));
+                CREATE TABLE IF NOT EXISTS retired_documents (document_tag TEXT PRIMARY KEY);
+                CREATE TABLE IF NOT EXISTS profile_documents (
+                    credential TEXT PRIMARY KEY REFERENCES credentials(id), document_tag TEXT NOT NULL);
+                INSERT OR IGNORE INTO profile_documents
+                    SELECT profiles.credential,persons.document_tag FROM profiles
+                    JOIN persons ON persons.id=profiles.person;
                 CREATE TABLE IF NOT EXISTS federation_requests (
                     id TEXT PRIMARY KEY, credential TEXT REFERENCES credentials(id),
                     secret_hash TEXT NOT NULL, state TEXT NOT NULL, created INTEGER NOT NULL,
@@ -73,6 +97,9 @@ class Wallet:
                 CREATE INDEX IF NOT EXISTS profile_person ON profiles(person);
                 CREATE INDEX IF NOT EXISTS federation_pending ON federation_requests(state,expires);
             ''')
+            if self.notifications:
+                from notices import install
+                install(db)
 
     @contextmanager
     def transaction(self):
@@ -109,6 +136,10 @@ class Wallet:
 
     def state(self, row):
         if row['state'] == 'ACTIVE' and row['expires'] <= self.clock(): return 'EXPIRED'
+        if row['state'] == 'ACTIVE' and getattr(self, 'revocation', None) is not None:
+            remote = self.revocation.request('status', row['id'])
+            if remote == 'REVOKED': return 'REVOKED'
+            if remote != 'ENABLED': raise ValueError('credential not registered at revocation authority')
         return row['state']
 
     def active(self, db, ident):
@@ -133,41 +164,64 @@ class Wallet:
                 if expiry <= self.clock(): raise ValueError('expired document')
                 self.vault.key(create=not db.execute('SELECT 1 FROM profiles LIMIT 1').fetchone())
                 tag = self.vault.document_tag(document)
+                if getattr(self, 'document_links_enabled', False) and db.execute(
+                        'SELECT 1 FROM retired_documents WHERE document_tag=?', (tag,)).fetchone():
+                    raise ValueError('replaced document cannot be reused')
                 db.execute('INSERT INTO persons VALUES(?,?) ON CONFLICT(document_tag) DO NOTHING',
                     (secrets.token_hex(32), tag))
                 person_id = db.execute('SELECT id FROM persons WHERE document_tag=?', (tag,)).fetchone()['id']
+                if getattr(self, 'document_links_enabled', False):
+                    linked = db.execute('SELECT person FROM document_links WHERE document_tag=?', (tag,)).fetchone()
+                    if linked is not None: person_id = linked['person']
                 sealed = self.vault.crypt('seal', ident, person_id, document.profile())
                 db.execute('INSERT INTO profiles VALUES(?,?,?,?,?,?)',
                     (ident, person_id, secrets.token_hex(32), json.dumps(sealed), int(self.clock()), expiry))
+                if getattr(self, 'document_links_enabled', False):
+                    db.execute('INSERT INTO profile_documents VALUES(?,?)', (ident, tag))
             self.event(db, ident, 'CAPTURE_VERIFIED')
         return {'id': ident, 'state': 'PENDING_REVIEW'}
 
     def activate(self, ident, decision, hours=24):
         # Operator-only; not exposed over HTTP.
+        with self.transaction() as db:
+            self._activate(db, ident, decision, hours)
+
+    def _activate(self, db, ident, decision, hours=24):
+        # Also used within the atomic, registry-checked document replacement transaction.
+        if type(self) is not Wallet: raise ValueError('activation requires backend approval')
         if not isinstance(decision, str) or not re.fullmatch('[A-Za-z0-9_-]{8,80}', decision):
             raise ValueError('non-personal decision reference required')
         if type(hours) is not int or not 1 <= hours <= 72: raise ValueError('pilot validity')
-        with self.transaction() as db:
-            row = self.credential(db, ident)
-            if row['state'] != 'PENDING_REVIEW' or self.clock()-row['created'] > 86400:
-                raise ValueError('new proofing required')
-            expires = int(self.clock())+hours*3600
-            profile = db.execute('SELECT * FROM profiles WHERE credential=?', (ident,)).fetchone()
-            if profile is not None:
-                self.vault.crypt('open', ident, profile['person'], json.loads(profile['sealed']))
-                expires = min(expires, profile['document_expires'])
-                if expires <= self.clock(): raise ValueError('expired document')
-                for old in db.execute('SELECT credential FROM profiles WHERE person=? AND credential!=?', (profile['person'], ident)):
-                    self._revoke(db, old['credential'])
-            db.execute('UPDATE credentials SET state=?,expires=?,decision=? WHERE id=?',
-                ('ACTIVE', expires, decision, ident))
-            self.event(db, ident, 'ACTIVATED')
+        row = self.credential(db, ident)
+        if row['state'] != 'PENDING_REVIEW' or self.clock()-row['created'] > 86400:
+            raise ValueError('new proofing required')
+        if self.revocation is not None: self.revocation.assert_allowed(ident)
+        expires = int(self.clock())+hours*3600
+        profile = db.execute('SELECT * FROM profiles WHERE credential=?', (ident,)).fetchone()
+        if profile is not None:
+            if db.execute('''SELECT 1 FROM retired_documents r JOIN profile_documents p
+                             ON r.document_tag=p.document_tag WHERE p.credential=?''', (ident,)).fetchone():
+                raise ValueError('replaced document cannot be reused')
+            self.vault.crypt('open', ident, profile['person'], json.loads(profile['sealed']))
+            expires = min(expires, profile['document_expires'])
+            if expires <= self.clock(): raise ValueError('expired document')
+            for old in db.execute('SELECT credential FROM profiles WHERE person=? AND credential!=?', (profile['person'], ident)):
+                self._revoke(db, old['credential'])
+        db.execute('UPDATE credentials SET state=?,expires=?,decision=? WHERE id=?',
+            ('ACTIVE', expires, decision, ident))
+        self.event(db, ident, 'ACTIVATED')
+        if self.notifications:
+            from notices import activation
+            activation(db, ident, int(self.clock()))
 
     def revoke(self, ident):
         with self.transaction() as db: self._revoke(db, ident)
 
     def _revoke(self, db, ident):
         row = self.credential(db, ident)
+        # Persist remotely first: a local rollback may deny service but must never
+        # undo a revocation. Repeating this call is safe, including after restore.
+        if getattr(self, 'revocation', None) is not None: self.revocation.revoke(ident)
         if row['state'] != 'REVOKED':
             db.execute('UPDATE credentials SET state=? WHERE id=?', ('REVOKED', ident))
             db.execute("UPDATE requests SET state='CANCELLED' WHERE credential=? AND state IN ('PENDING','APPROVED')", (ident,))
@@ -311,8 +365,20 @@ class Wallet:
         identity = None
         if profile is not None and state in ('ACTIVE', 'PENDING_REVIEW'):
             identity = self.vault.crypt('open', ident, profile['person'], json.loads(profile['sealed']))
+        revocation_code = None
+        if getattr(self, 'notifications', False) and state in ('ACTIVE', 'PENDING_REVIEW'):
+            code = db.execute('''SELECT r.sealed FROM revocation_codes r JOIN notice_contacts n
+                ON r.credential=n.credential AND r.contact_version=n.contact_version
+                WHERE r.credential=?''', (ident,)).fetchone()
+            if code is not None:
+                value = self.vault.crypt('open', ident, 'revocation-token-v1', json.loads(code['sealed']))
+                token = value.get('token')
+                if not isinstance(token, str) or not re.fullmatch('[A-Za-z0-9_-]{43}', token):
+                    raise ValueError('invalid revocation proof')
+                revocation_code = ident+'.'+token
         return {'credentialId': ident, 'state': state, 'createdAt': row['created'], 'expiresAt': row['expires'], 'identity': identity,
-            'requests': requests, 'events': events, 'environment': 'PRIVATE_PILOT', 'legalIdentityIssued': False}
+            'requests': requests, 'events': events, 'environment': 'PRIVATE_PILOT', 'legalIdentityIssued': False,
+            'revocationCode': revocation_code}
 
     def verified_profile(self, db, ident):
         self.active(db, ident)
@@ -366,7 +432,8 @@ class Wallet:
                 raise ValueError('no unconsumed approval')
             self.event(db, row['credential'], 'AUTHENTICATED', request)
             return {'state': 'AUTHENTICATED', 'credentialId': row['credential'], 'version': profile['version'],
-                'subject': self.federation_subject(db, audience, profile['person']), 'identity': identity}
+                'subject': self.federation_subject(db, audience, profile['person']),
+                'identity': {k: identity[k] for k in ('displayName', 'birthDateMrz', 'portraitJpeg')}}
 
     def federation_subject(self, db, audience, person):
         return self.vault.reference('subject-v1:'+audience, person)

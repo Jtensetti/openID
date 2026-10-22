@@ -1,5 +1,17 @@
 # Testning
 
+## Aktuell verifiering
+
+Aktuella körningar och deras exakta revisioner finns i
+[GitHub Actions](https://github.com/Jtensetti/openID/actions).
+[PR #22](https://github.com/Jtensetti/openID/pull/22) redovisar den separata
+spärrtjänstens syntetiska AWS-prov med betans verifierare stoppad, köexport
+och SES-kvittens. Kvittensen bevisar inte leverans till inkorgen.
+Fysisk iPhone-spärr och faktisk schemalagd nattstart återstår.
+
+Privata telefonprov har bekräftat passläsning, personnummer och SAML-inloggning.
+De är funktionella prov, inte oberoende säkerhets- eller tillgänglighetsgranskning.
+
 ## Daterat verifieringsresultat
 
 Revision `246118bbd3dc754ad075852037248a011c4510ab`, 2026-10-20:

@@ -50,6 +50,9 @@ def restore(source, destination, identity_key=None):
             db.execute("UPDATE credentials SET state='REVOKED'")
             db.execute("UPDATE requests SET state='CANCELLED' WHERE state IN ('PENDING','APPROVED')")
             db.execute("UPDATE federation_requests SET state='CANCELLED' WHERE state IN ('PENDING','APPROVED')")
+            if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='registry_bindings'").fetchone():
+                # A backup cannot establish that a registry check is still current.
+                db.execute('DELETE FROM registry_bindings')
             has_profiles = bool(db.execute('SELECT 1 FROM profiles LIMIT 1').fetchone())
             db.commit()
         if has_profiles:

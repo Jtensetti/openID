@@ -73,11 +73,43 @@ final class WalletSecurityTests: XCTestCase {
         snapshot.identity = identity
         XCTAssertThrowsError(try snapshot.validate(for:ident))
     }
+    func testPassportNumberDecodesWithoutChangingLegacyProfiles() throws {
+        let image = Data([0xff,0xd8,0xff,0xd9]).base64EncodedString()
+        var payload: [String: Any] = ["displayName":"ALICE SYNTHETIC", "birthDateMrz":"570413", "portraitJpeg":image]
+        func decode() throws -> PassportIdentity {
+            try JSONDecoder().decode(PassportIdentity.self, from: JSONSerialization.data(withJSONObject: payload))
+        }
+        XCTAssertNil(try decode().passportPersonalNumber)
+        payload["passportPersonalNumber"] = NSNull()
+        XCTAssertNil(try decode().passportPersonalNumber)
+        for number in ["195704133106", "5704133106"] {
+            payload["passportPersonalNumber"] = number
+            let value = try decode()
+            XCTAssertEqual(value.passportPersonalNumber, number)
+            XCTAssertNoThrow(try value.validate())
+        }
+        for number in ["19570413-3106", "570413310", "195704133106\n", "ABCDEFGHIJKL"] {
+            payload["passportPersonalNumber"] = number
+            XCTAssertThrowsError(try decode().validate())
+        }
+        payload["passportPersonalNumber"] = 123
+        XCTAssertThrowsError(try decode())
+    }
     func testMalformedPayloadAndVersionCannotBeSigned() {
         for raw in ["!", Data("{}".utf8).base64EncodedString(), Data(repeating: 0, count: 5000).base64EncodedString()] {
             XCTAssertThrowsError(try DeviceChallenge(id:"challenge",signingInput:raw).validatedBytes(configuration:config,credentialID:ident,action:"approve",request:request,now:now))
         }
         XCTAssertThrowsError(try envelope(["version":2]).validatedBytes(configuration:config,credentialID:ident,action:"approve",request:request,now:now))
+    }
+    func testAutomaticBetaConnectionAndExistingServerBinding() throws {
+        let beta = ServerConfiguration.initial(saved: nil)
+        XCTAssertEqual(beta.origin, "https://api.openid.tensetti.io")
+        XCTAssertTrue(beta.pairing.isEmpty)
+        XCTAssertTrue(beta.isPublicBeta)
+        XCTAssertEqual(ServerConfiguration.initial(saved: config), config)
+        for origin in ["https://evil.invalid", "http://api.openid.tensetti.io", "https://api.openid.tensetti.io.evil.invalid", "https://10.77.0.1:8765"] {
+            XCTAssertThrowsError(try ServerConfiguration(origin: origin, pairing: ""))
+        }
     }
     func testHTTPSOriginNormalization() throws {
         XCTAssertEqual(try ServerConfiguration(origin: "https://example.test/", pairing: config.pairing).origin, "https://example.test")
@@ -107,5 +139,27 @@ final class WalletSecurityTests: XCTestCase {
     func testRevokedSnapshotMustNotOfferApproval() {
         let revoked = WalletSnapshot(credentialId:ident,state:.revoked,createdAt:1,expiresAt:2000,requests:[request],events:[],environment:"PRIVATE_PILOT",legalIdentityIssued:false)
         XCTAssertThrowsError(try revoked.validate(for:ident))
+    }
+    func testRevocationProofIsBoundToCredentialAndPublicBeta() throws {
+        let code = ident + "." + String(repeating: "x", count: 43)
+        try RevocationProof(origin: ServerConfiguration.betaOrigin, code: code).validate(for: ident)
+        XCTAssertThrowsError(try RevocationProof(origin: "https://other.invalid", code: code).validate(for: ident))
+        XCTAssertThrowsError(try RevocationProof(origin: ServerConfiguration.betaOrigin, code: code).validate(for: String(repeating: "b", count: 64)))
+        for invalid in [code + "?redirect=evil", code + "\n", String(code.dropLast()), "short"] {
+            XCTAssertThrowsError(try RevocationProof(origin: ServerConfiguration.betaOrigin, code: invalid).validate(for: ident))
+        }
+    }
+    func testRevocationProofIsNotPutInEndpointURL() {
+        XCTAssertEqual(RevocationProof.endpoint.scheme, "https")
+        XCTAssertNil(RevocationProof.endpoint.query)
+        XCTAssertNil(RevocationProof.endpoint.fragment)
+    }
+    @MainActor func testRevocationMayInterruptStatusButNeverAnUnconfirmedDecision() {
+        XCTAssertTrue(WalletModel.canInterruptForRevocation("snapshot"))
+        XCTAssertTrue(WalletModel.canInterruptForRevocation("inspect"))
+        for action in [nil, "approve", "reject", "revoke", "enroll", "unknown"] as [String?] {
+            XCTAssertFalse(WalletModel.canInterruptForRevocation(action))
+        }
+        XCTAssertFalse(WalletModel().canRevoke)
     }
 }

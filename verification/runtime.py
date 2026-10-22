@@ -58,10 +58,12 @@ class RateLimit:
 
 
 class Runtime:
-    def __init__(self, native, wallet, origin, pairing, body_timeout=15, metrics_token=None, role='combined'):
+    def __init__(self, native, wallet, origin, pairing, body_timeout=15, metrics_token=None, role='combined', public_enrollment=False):
         self.authority = validate_origin(origin).netloc
         if not isinstance(pairing, str) or len(pairing) < 43 or not pairing.isascii():
             raise ValueError('Pairing secret must contain at least 43 ASCII characters')
+        if type(public_enrollment) is not bool: raise ValueError('public enrollment flag')
+        self.public_enrollment = public_enrollment
         self.native, self.wallet, self.origin, self.pairing = native, wallet, origin, pairing
         if role not in ('combined', 'wallet', 'proofing'): raise ValueError('runtime role')
         if metrics_token is not None and (len(metrics_token) < 43 or not metrics_token.isascii() or metrics_token == pairing):
@@ -148,7 +150,11 @@ class Runtime:
                 return 403, {'error': 'DENIED'}
             return self.metrics()
         token = env.get('HTTP_X_CSRF_TOKEN', '')
-        if not isinstance(token, str) or not token.isascii() or not secrets.compare_digest(token, self.pairing):
+        paired = isinstance(token, str) and token.isascii() and secrets.compare_digest(token, self.pairing)
+        # Public app admission does not authenticate identity: NativeSessions still requires
+        # production App Attest, authenticated chip/face checks; wallet operations require signatures.
+        public_api = self.public_enrollment and method == 'POST' and (path in NATIVE_ROUTES or path in WALLET_ROUTES)
+        if not paired and not public_api:
             return 403, {'error': 'DENIED'}
         if method == 'GET' and path == '/metrics':
             return self.metrics()

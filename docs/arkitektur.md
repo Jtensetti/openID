@@ -1,7 +1,8 @@
 # Arkitektur
 
 Appflödet består av en iPhone-klient, en verifieringsserver med SQLite-register
-och två lokala Java-processer för SAML. Det finns också två äldre testlägen.
+och separata Java-processer för SAML/OIDC. Den publika betan använder dessutom
+en oberoende spärrtjänst och aviseringskö. Se [avisering och spärr](avisering-och-sparr.md). Det finns också två äldre testlägen.
 
 ## Komponenter
 
@@ -87,7 +88,9 @@ härledning av sekel, ålder eller svenskt personnummer.
 Standardgiltigheten är 24 timmar, högst 72 och aldrig längre än passets
 giltighet. Ersättning för samma pass behåller det interna person-ID:t och
 spärrar äldre nycklar atomiskt. Ett annat pass med samma namn och födelsedatum
-slås inte ihop. Passförnyelse saknar ännu en färdig återställningsprocess.
+slås inte ihop. Passförnyelse har ett separat, registerkontrollerat operatörsflöde i SQLite-koden.
+Det saknar ännu verklig registeradapter och är inte aktiverat i betan.
+Se [registerbindning och ersättning](registerbindning.md).
 
 Personprofil och förminskat foto krypteras med Node `crypto` AES-256-GCM.
 Credential- och person-ID ingår i autentiserade kontextdata. En separat
@@ -150,7 +153,8 @@ De utgör därför inte separata administrativa säkerhetszoner.
 
 ## Återstående kontroller
 
-Fotografering på fysisk iPhone, biometrisk/PAD-kalibrering, injektion och relä,
+Bredare fysiska enhetsprov, biometrisk/PAD-kalibrering, injektion och relä,
 certifikatspärr, registerkontroll, HSM, operativ befogenhetsseparation och återställning med
-beständig spärrstatus återstår. Dokumentunderskrift är inte implementerad.
+beständig spärrstatus behöver fortsatt operativ verifiering. Den separata
+spärrtjänsten har provats med syntetiskt ID medan betans server var stoppad. Dokumentunderskrift är inte implementerad.
 Se [krav](krav.md), [testning](testning.md) och [säkerhet](../SECURITY.md).

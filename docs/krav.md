@@ -17,7 +17,7 @@ Aktuell originaltext behöver kontrolleras inför en formell bedömning.
 | ID-07 | Faktorer/nyckelskydd, D08 K6.1–K6.2 | Secure Enclave/Keychain i iOS-koden; CryptoKit/server-interoperabilitet testad. | Fysiskt enhetstest och verifierad hårdvarubindning på servern. WebAuthn-labben använder attestering `none`. |
 | ID-08 | Återställning, D08 K6.3 | Nyregistrering för samma pass ersätter nyckeln; spärrad nyckel kan inte aktiveras igen. | Förlorad telefon utan självbetjäning, nytt pass och skydd mot gammal databasåterläsning. |
 | ID-09 | Bindning/giltighet, D08 K6.4–K6.7 | Signerade engångsoperationer, utgång och samtidiga beslut testas i Python och XCTest. | Oberoende avisering och komplett utgivningsprocess. |
-| ID-10 | Spärr, D03 §8.6 | App eller operatörs-CLI; spärr kontrolleras vid godkännande, konsumtion och skyddad SP-läsning. | Åtkomlig spärrkanal dygnet runt, bemanning och distribuerad drift. |
+| ID-10 | Spärr, D03 §8.6 | App, operatörs-CLI och separat spärrtjänst i den publika betan; aktuell status kontrolleras vid godkännande, konsumtion och skyddad SP-läsning. | Sammanhängande telefonprov, schemalagd återstart, bemanning och oberoende granskning. |
 | ID-11 | Bevarande/avveckling, D08 K2.7–K2.8, K5.5 | Råunderlag lagras inte; PostgreSQL-läget har begränsad gallring och Transit-omkryptering. | Fastställda lagringstider, avveckling och gallring av administrativa loggar/personlänkar. |
 
 ## Protokoll och säkerhet
@@ -70,11 +70,8 @@ för stöd för explicita EC-parametrar. Ett genererat Brainpool-prov täcker
 betrodd kedja, obetrodd kedja och ändrad datagrupp. Detta ändrar inte
 kraven på tillitsankare eller den kvarstående kontrollen av certifikatspärr.
 
-ID-05: Kameraguiden visar ansiktsram, separata fångstindikatorer och korrigering direkt i förhandsbilden. För liten/stor sidovridning skiljs åt. Fångstgränserna är oförändrade; fysisk användbarhet och sidofångst behöver verifieras på telefon.
-
-ID-05: Fångstguidens tolerans för små rörelser, centrering och lutning har ökats och hålltid kortats till 0,45 s/minst fyra observationer. Syntetiska prov täcker naturlig variation och fortsatt avvisning av stora rörelser. Serverns identitetskontroller och tre skilda huvudpositioner ändras inte. Fysisk användbarhet behöver bekräftas.
-
-ID-05: Riktningsguide framåt/höger/vänster med separat fångstbekräftelse. Begränsad pausbudget utan tillgodoräknad avbrottstid provas med syntetiska mätserier, inklusive upprepade avbrott och fel sida. Fysiskt prov av speglad riktning och användbarhet återstår.
+ID-05: Aktuell riktningsguide, fångsttrösklar och lokalt kameraprov beskrivs i
+[iPhone-dokumentationen](../ios/README.md#fotografering). Guiden är inte ett liveness-bevis.
 
 ID-05/INT-02: Biometriarbetaren rapporterar endast fasta steg och tillåtna orsakskoder. Huvudprocessen validerar koderna igen och skiljer modell-/arbetarfel från avvisad bildanalys. Inga bilder, poäng eller godtyckliga undantagstexter loggas. Diagnostik ändrar inte experimentella gränser eller formell status.
 
@@ -115,3 +112,80 @@ INT-03 (EU01–EU03): SDG:s gränsöverskridande förfaranden och eIDAS-erkänna
 är skilda från stöd för att läsa andra länders pass. Återanvändning av bevis
 via OOTS är ytterligare en integration. Tillämpningsbedömning, konsoliderad
 EU-rätt och fullständig profilmappning återstår. Ingen formell status höjs.
+
+
+### Registerbindning och ersättning i SQLite-piloten
+
+ID-02/ID-08–10: `registry_binding.py` separerar registerbevis från passprofil,
+nyckel och session. Svar binds till engångsfråga, credential, profilversion och
+dokumentreferens; skyddade uppgifter, tvetydighet, konflikt, utgång och
+återspelning stoppas. En registerkontrollerad ersättning av pass bevarar
+personkopplingen men byter profilversion och spärrar äldre nycklar atomiskt.
+Ersatta dokument kan inte användas för nyregistrering. Återläsning spärrar
+alla nycklar och kasserar registerbindningar.
+
+`test_registry_binding` använder en syntetisk adapter och provar även
+samtidighet, rollback, sessionsspärr och schemaövergång från befintlig pilot.
+Ingen verklig registeradapter, automatisk aktivering, ny HTTP-endpoint eller
+nationella identitetsattribut i federation införs. PostgreSQL-stöd och
+operativ återställning återstår. Separat spärr i SQLite-betan beskrivs i
+[avisering och spärr](avisering-och-sparr.md). Formell status: OPEN.
+Se [flöde, befogenheter och begränsningar](registerbindning.md).
+
+
+## Personnummer från signerade passuppgifter
+
+D08 K5.7 kräver nationell identitetsbeteckning; K5.8 kräver jämförelse mot
+officiellt register. D09 accepterar även registeruppgifter via mellanhand.
+K5.9 medger alternativa kontroller för skyddade uppgifter. D09 K5.14
+rekommenderar uppdatering varje helgfri vardag. Passbaserad fjärridentifiering
+enligt K5.13 ersätter inte registerkontrollen. Ingen särskild leverantör
+föreskrivs. Uppgifterna på chipet och registeruppgifternas aktualitet är två
+skilda bevis. Ingen anslutning beställs med stöd av denna inventering.
+
+Uppdaterad implementation: efter signatur-, certifikatkedje- och hashkontroll
+läser servern DG1:s personal-number-fält för utfärdarland SWE. Tomt fält ger
+ingen identitetsbeteckning. 10 eller 12 ASCII-siffror med giltigt datum och
+Luhn-kontroll bevaras exakt; sekel gissas inte. Dag över 60 behandlas som
+samordningsnummer vid datumkontrollen. Andra länders optional-data tolkas inte
+som svenska identitetsbeteckningar. Felaktigt svenskt fält avvisas.
+
+`passportPersonalNumber` lagras i den krypterade passprofilen och visas i
+ägarens app med upplysning om att folkbokföringskontroll saknas. Fältet används
+inte som registerbevis eller för automatisk sammanfogning av personposter.
+Federationsgränsen lämnar endast de befintliga visningsfälten namn,
+MRZ-födelsedatum och porträtt; personnumret lämnas inte genom SAML/OIDC.
+`PassportVerifierTest`, `test_identity` och `WalletSecurityTests` täcker
+signerade testdata, manipulation, format, äldre profiler och attributgränsen.
+
+Fältets förekomst och visning har bekräftats vid ett privat telefonprov.
+Detta styrker inte uppgifternas aktualitet i ett officiellt register. ID-02 förblir OPEN eftersom
+registerkontroll och hantering av skyddade uppgifter återstår.
+
+
+## Automatisk anslutning i sluten TestFlight-beta
+
+Nya appinstallationer använder den fasta publika HTTPS-adressen utan VPN
+eller inbyggd kopplingshemlighet. Sparade serverbindningar bevaras.
+`publicEnrollment` är avstängd som standard och får endast aktiveras för
+betans kanoniska adress med produktions-App Attest. Den öppnar endast
+befintliga registrerings- och signerade plånboksrutter; metrics och
+administration kräver fortsatt separat behörighet. Origin, storleksgränser,
+frekvensbegränsning och begränsat antal sessioner gäller även utan kopplingskod.
+App Attest, chip-/pass-/bildkontroll och manuell aktivering kvarstår.
+TestFlight-inbjudan är distributionskontroll, inte identitetsbevis.
+`RuntimeTests` provar åtkomstgränserna, och `WalletSecurityTests` provar
+standardanslutning och bevarad privat serverbindning.
+
+## Nyckelfiler och kravspårning 2026-10-22
+
+SEC-02/K4.3: lokal profilnyckel måste vara en vanlig fil med en hårdlänk,
+privata rättigheter och utan exekveringsrätt. Öppning utan följning av symlänk
+och utan blockering stoppar FIFO före läsning. Kontrollen avser det öppnade
+filobjektet. Detta ersätter inte HSM, skydd mot tjänstekontot eller
+administrativ flerpersonskontroll. `test_identity_key` provar avvisning av
+FIFO, katalog, symlänk, hårdlänk, breda rättigheter och fel längd.
+
+Se [40-punktsmatrisen](digg-kravmatris.md) och
+[avisering och spärr](avisering-och-sparr.md). Formell status
+förblir OPEN; dokumenten är ännu inte fastställda eller operativt verifierade.

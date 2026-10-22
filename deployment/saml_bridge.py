@@ -7,7 +7,7 @@ import socket
 import stat
 import threading
 from federation import FederationServer
-from wallet import Wallet
+from revocation import configured_wallet
 
 path = Path('/srv/openid/data/federation.sock')
 if path.exists() or path.is_symlink():
@@ -26,7 +26,7 @@ for sig in (signal.SIGTERM, signal.SIGINT):
     signal.signal(sig, lambda *_: stop.set())
 origins_file = os.environ.get('OPENID_PILOT_ORIGINS')
 audience = json.loads(Path(origins_file).read_text())['sp'] + '/sp' if origins_file else 'https://localhost:8444/sp'
-bridge = FederationServer(path, Wallet('/srv/openid/data/wallet.sqlite', 'local-saml-bridge'), audience=audience)
+bridge = FederationServer(path, configured_wallet('/srv/openid/data/wallet.sqlite', 'local-saml-bridge'), audience=audience)
 try:
     stop.wait()
 finally:

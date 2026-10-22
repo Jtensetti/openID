@@ -1,8 +1,3 @@
-prototype/target/
+# Lokala kördata innehåller privata nycklar och identitetsregister.
 prototype/.local/
-prototype/node_modules/
-*.log
-
 prototype/.local-*/
-**/__pycache__/
-ops/.build/

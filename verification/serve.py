@@ -62,7 +62,11 @@ def score_frames(portrait, frames):
 def load_config(path):
     value = json.loads(Path(path).read_text())
     required = {'bind', 'origin', 'team', 'bundle', 'developmentAttestation', 'tlsCert', 'tlsKey', 'csca', 'database', 'pairingFile'}
-    if set(value) not in (required, required | {'listenPort'}): raise ValueError('Configuration fields do not match the example')
+    if not required <= set(value) or set(value) - required - {'listenPort', 'publicEnrollment'}:
+        raise ValueError('Configuration fields do not match the example')
+    if type(value.get('publicEnrollment', False)) is not bool: raise ValueError('Public enrollment flag')
+    if value.get('publicEnrollment', False) and (value['developmentAttestation'] is not False or value['origin'] != 'https://api.openid.tensetti.io'):
+        raise ValueError('Public beta requires production App Attest and the canonical origin')
     origin = validate_origin(value['origin'])
     address = ipaddress.ip_address(value['bind'])
     if address.is_unspecified or not address.is_private or address.is_multicast:
@@ -108,13 +112,13 @@ class Lease:
 
 
 def open_wallet(database, origin):
-    from wallet import Wallet
+    from revocation import configured_wallet
     path = Path(database)
     marker = path.with_suffix('.initialized')
     if marker.exists() or marker.is_symlink():
         if private_file(marker) != b'1\n' or not path.is_file():
             raise ValueError('Previously initialized database is missing')
-    wallet = Wallet(path, origin)
+    wallet = configured_wallet(path, origin)
     wallet.health()
     try: fd = os.open(marker, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
     except FileExistsError: pass
@@ -205,7 +209,7 @@ def main():
                 lambda data: verify_document(command, data), None, None, wallet=wallet,
                 chip_factory=lambda data: ChipProcess([*command[:-2], 'authenticate-chip', command[-1]], data),
                 biometrics=score_frames)
-            app = Runtime(native, wallet, config['origin'], config['pairing'])
+            app = Runtime(native, wallet, config['origin'], config['pairing'], public_enrollment=config.get('publicEnrollment', False))
             app.crypto = crypto
             return app
 

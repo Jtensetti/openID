@@ -11,18 +11,19 @@ Från repots rot:
 open ios/PassportCapture.xcodeproj
 ```
 
-1. Använd **Xcode 16.4**, schemat **PassportCapture** och en ansluten
+1. Använd schemat **PassportCapture** och en ansluten
    iPhone med iOS 16 eller senare. Swift Package Manager hämtar de låsta
-   beroendena.
+   beroendena. CI använder Xcode 16.4; TestFlight-bygge 106 byggdes med Xcode 27.1.
 2. Välj Apple-utvecklingsteam och bundle-ID under **Signing & Capabilities**.
    Aktivera **NFC Tag Reading** och **App Attest** i App ID/provisioneringsprofilen.
    Standard-ID är `se.openid.PassportCapture`. Samma team och bundle-ID ska
    anges på servern.
-3. Starta [pilotmiljön](../deployment/README.md) på en Linux-dator.
+3. För en egen privat server: starta [pilotmiljön](../deployment/README.md) på en Linux-dator.
    Telefonen måste nå HTTPS-adressen och lita på certifikatet. För en privat
    test-CA behöver dess rot installeras och betros på telefonen.
-4. Kör appen, välj **Öppna openID** och därefter **Anslut till servern**.
-   Ange adress och kopplingskod från serverterminalen.
+4. Kör appen och välj **Öppna openID**. Nya installationer ansluts automatiskt
+   till `https://api.openid.tensetti.io`, utan VPN eller kopplingskod.
+   Sparad serverkonfiguration behålls för befintliga privata test-ID:n.
 5. Välj **Registrera med ditt pass**. Välj **Skanna passuppgifter** och rikta kameran mot kodraderna på fotosidan.
    Kontrollera de ifyllda uppgifterna. Manuell inmatning (datum ÅÅMMDD) finns kvar.
    Godkänn överföringen och läs chipet. Håll sedan
@@ -36,8 +37,8 @@ open ios/PassportCapture.xcodeproj
 
 App Attest-entitlement är `development`; använd serverflaggan
 `--development-attestation` för detta bygge. Installation från Xcode kräver
-Apple-signering men ingen App Store-publicering. TestFlight/distribution
-ingår inte i byggkonfigurationen.
+Apple-signering men ingen App Store-publicering. Vid TestFlight-export använder Xcode produktionsmiljön för App Attest.
+Betaservern tillåter automatisk anslutning endast med produktionsattestering.
 
 ## Funktioner
 
@@ -50,36 +51,32 @@ ingår inte i byggkonfigurationen.
 | Aktivitet | De 50 senaste serverhändelserna. |
 | Inställningar | Anslutning, applås, permanent spärr och borttagning av spärrad/utgången nyckel. |
 
-Förlorad telefon spärras av operatören. Ny telefon kräver ny registrering
-och aktivering. Aktivering för samma pass spärrar den äldre nyckeln.
+I den publika betan kan innehavaren spara en separat spärrkod under
+Inställningar. Koden används av appen eller webbformuläret även när
+verifieraren är stängd. Den måste ha hämtats före avbrottet och sparats utanför
+telefonen för att fungera vid förlust. Privata ID:n migreras inte automatiskt.
+Ny telefon kräver ny registrering och manuell aktivering.
+Se [avisering och spärr](../docs/avisering-och-sparr.md).
 
 ## Fotografering
 
-Vision kontrollerar att ett enda ansikte syns samt dess placering, storlek, huvudvinkel
-och bildkvalitet
-på telefonen. Första bilden tas framifrån. Användaren väljer sedan sida; sista
-bilden kräver motsatt huvudvridning. Förhandsvisningen är speglad, skickade
-bilder är ospeglade och stående. Ringen runt ovalen visar hur långt fotograferingen har kommit.
+Vision vägleder placering, avstånd, huvudvinkel och bildkvalitet. Tre bilder
+krävs: framåt, höger och vänster. Förhandsbilden är speglad; skickade bilder
+är ospeglade. Ovalens båda halvor lyser lila för frontbilden, sedan respektive
+sida. Grönt bekräftar fångsten i 0,65 sekunder. Bildnummer visas separat.
 
-Varje position kräver minst 0,65 sekunders stabilitet och sex observationer.
-Avbrott över 0,3 sekunder nollställer tiden för den aktuella positionen. Fotograferingen
-avbryts efter
-45 sekunder, vid avbrott eller kamerafel. Bilderna lämnar inte kameraflödet
-förrän alla tre har tagits; ingen partiell serie skickas.
+Varje position kräver 0,45 sekunders hålltid och minst fyra godtagbara
+observationer. Kort korrigering får pausa hållningen högst 0,25 sekunder
+sammanlagt; pausen ger ingen framdrift. Fel sida, flera eller försvunna
+ansikten, stora rörelser och längre avbrott återställer hållningen.
+Aktuella trösklar finns i `PassportCapture/CaptureGuide.swift` och provas i
+`CaptureGuideTests`. Kameraguiden visar fångstvillkor, inte verifierad identitet.
 
-Bilden framifrån tillåter högst 8 graders vridning; sidobilder cirka 15–34 grader.
-Pitch/roll begränsas till cirka 13 grader. Visions kvalitetsvärde ska vara
-minst 0,25. Detta är startvärden för kameraguiden och behöver provas på
-fysiska enheter, inklusive sidobilder, glasögon och olika ljusförhållanden.
-
-Ringen visar fotograferingens förlopp, inte verifierad identitet eller liveness. Servern
-kontrollerar fortfarande App Attest, bildunikhet, ansiktsjämförelse och PAD
-för alla tre bilderna. Den verifierar inte huvudrörelsernas förlopp. Skydd mot
-film, deepfake och kamerainjektion behöver separat utvärdering.
-
-Vid överbelastning ber appen dig vänta och uppdatera status. Den skickar
-inte automatiskt om godkännanden. Efter nätverksavbrott ska status hämtas
-innan registrering eller annan åtgärd försöks igen.
+Registreringen visar riktningsoval, bildnummer och en aktuell instruktion.
+**Inställningar → Prova ansiktskameran** visar även diagnostikindikatorer och
+kastar bilderna efter det lokala provet. Inget serveranrop eller registrering sker.
+Servern kontrollerar App Attest, bildunikhet, ansiktsjämförelse och PAD men
+verifierar inte rörelseförloppet. Oberoende prov av film och injektion återstår.
 
 ## Nycklar och avbrott
 
@@ -128,7 +125,8 @@ CI sparar även `openID-capture-guide.png`. Fixturen öppnar ingen kamera och
 kan inte registrera en identitet.
 
 Simulatorn kan inte testa pass-NFC, Secure Enclave eller Apple App Attest.
-Den fysiska integrationen återstår att prova på en signerad iPhone-installation.
+Privat telefonprov har bekräftat passläsning, personnummer och SAML-inloggning.
+Den nya separata spärrfunktionen behöver fortfarande ett sammanhängande telefonprov.
 
 ## Kvar att verifiera
 
@@ -159,31 +157,9 @@ Fysisk OCR, NFC och övergång till andra chipläsningen behöver provas på tel
 API-underlag: [Apples DataScanner-delegate](https://developer.apple.com/documentation/visionkit/datascannerviewcontrollerdelegate)
 (kontrollerat 2026-10-21).
 
-### Övergång till ansiktskameran och lokalt prov
-
 Efter de två chipläsningarna väljer användaren **Starta ansiktskontrollen**.
-Det ger utrymme att lägga undan passet och avsluta NFC-rutan innan kameran
-startar. Serverns befintliga sessionsgränser gäller även under väntan.
-
-Kamerakonfigurationen lägger till inmatningen före videoutmatningen och
-slutför sessionens konfiguration innan videoanslutningens orientering ställs in.
-Kameraavbrott, startfel och analysfel visas med en avgränsad steg-/sifferkod;
-inga bilder eller passuppgifter ingår i feltexten.
-
-**Inställningar → Prova ansiktskameran** kör samma fotograferingsguide lokalt,
-utan pass, serveranrop eller registrering. Bildresultatet kastas efter provet.
-Bakgrundsläge och navigering bort avbryter kameran. Ett lyckat kameraprov
-är inte en identitetskontroll eller ett test av serverns bildanalys.
-
-Kameraguiden visar korrigeringen direkt i bilden och en ram runt det upptäckta ansiktet. Indikatorerna Avstånd, Centrering, Vinkel och Bild visar vilka fångstvillkor som är uppfyllda. Sidovyer skiljer mellan för liten och för stor vridning. Dessa indikatorer är fångsthjälp, inte identitets- eller livenessgodkännande.
-
-Kameraguiden tillåter små naturliga rörelser: 0,45 sekunders hålltid med minst fyra godtagbara observationer, centrumavvikelse högst 0,14 och lutning högst 0,30 radianer. Stora rörelser och avvisade observationer nollställer fortfarande aktuell hålltid. Gränserna för sidovridning, ansiktsstorlek och bildkvalitet är oförändrade. Fysisk användbarhetskalibrering återstår.
-
-Riktningsguiden visar båda halvorna lila för frontbild, höger halva för högerbild och vänster för vänsterbild. Varje fångst bekräftas grönt i 0,65 sekunder innan nästa instruktion. Bildnummer visas separat. Kamerans obearbetade bild är ospeglad; förhandsbilden är speglad. Riktningarnas koppling till Vision-yaw måste även provas fysiskt.
-
-En kort korrigering av bildkvalitet, centrering eller liten vinkelavvikelse kan pausa hållningen. Högst 0,25 sekunders sammanlagd paus tillåts per hållning; paustid ger ingen framdrift. Försvunnet/flera ansikten, ogiltiga mätvärden, fel sida, stora rörelser och längre avbrott återställer hållningen. Endast en aktuell godtagbar bild får tas.
-
-Registreringens kameravy visar endast riktningsoval, pil/bekräftelse, bildnummer och en aktuell instruktion. Ansiktsram och upprepad stegrad är borttagna. De fyra diagnostikindikatorerna visas endast i Inställningar → Prova ansiktskameran. Fångstlogik och trösklar är oförändrade.
+Passet kan då läggas undan innan kameran startar. Serverns sessionsgränser gäller
+även under väntan. Kameraavbrott och analysfel visas med avgränsade felkoder.
 
 ## Status och återkoppling
 
@@ -201,8 +177,8 @@ Utgångna begäranden går inte att godkänna eller neka från bekräftelsevyn.
 Ett aktivt ID visar **Legitimera mig** som huvudhandling. Under Legitimera
 är QR-skanning huvudvalet; länkinmatning finns i **Öppna en länk i stället**.
 Appen läser inte urklippet automatiskt. Samma-telefon-flödet förutsätter att
-tjänsten går att nå på telefonen; pilotens localhost-sida kräver fortfarande
-Mac och QR-kod.
+tjänsten går att nå på telefonen; den lokala labbsidan kräver dator och QR-kod, medan betans testsida
+kan nås via publik HTTPS.
 
 Passformuläret har beständiga fältnamn, datumexempel, valbara förberedelser
 och ett lokalt kameraprov. Saknade eller felaktigt formaterade uppgifter

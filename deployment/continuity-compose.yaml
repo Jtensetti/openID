@@ -1,0 +1,38 @@
+# Apply only after operator migration and delivery queue setup are complete.
+# docker compose -f beta-compose.yaml -f continuity-compose.yaml ...
+services:
+  verifier:
+    environment:
+      OPENID_CONTINUITY_CONFIG: /srv/openid/continuity.json
+    volumes:
+      - ${OPENID_BETA_DIRECTORY:?Set OPENID_BETA_DIRECTORY}/continuity.json:/srv/openid/continuity.json:ro
+  bridge:
+    environment:
+      OPENID_CONTINUITY_CONFIG: /srv/openid/continuity.json
+    volumes:
+      - ${OPENID_BETA_DIRECTORY:?Set OPENID_BETA_DIRECTORY}/continuity.json:/srv/openid/continuity.json:ro
+  notice-exporter:
+    image: openid-pilot:beta
+    network_mode: host
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 70s
+    mem_limit: 128m
+    cpus: 0.25
+    pids_limit: 64
+    healthcheck: {disable: true}
+    tmpfs: ["/tmp:size=16m,mode=1777"]
+    entrypoint: [python, /app/verification/notice_exporter.py]
+    environment:
+      OPENID_CONTINUITY_CONFIG: /srv/openid/continuity.json
+      OPENID_NOTICE_QUEUE_URL: ${OPENID_NOTICE_QUEUE_URL:?Set OPENID_NOTICE_QUEUE_URL}
+    volumes:
+      - ${OPENID_BETA_DIRECTORY:?Set OPENID_BETA_DIRECTORY}/data:/srv/openid/data
+      - ${OPENID_BETA_DIRECTORY}/continuity.json:/srv/openid/continuity.json:ro
+    logging:
+      driver: json-file
+      options: {max-size: 1m, max-file: "2"}

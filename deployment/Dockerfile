@@ -44,8 +44,13 @@ COPY prototype/licenses /app/licenses/java
 COPY verification/THIRD_PARTY.md /app/licenses/verification.md
 COPY THIRD_PARTY.md /app/licenses/components.md
 RUN python download_models.py
-COPY verification/crypto_runtime.py verification/serve.py verification/runtime.py verification/biometric_worker.py verification/native.py verification/chip.py verification/server.py verification/wallet.py verification/wallet_cli.py verification/identity.py verification/recovery.py verification/relying_party.py ./
+COPY deployment/aws/requirements.lock /app/aws-requirements.lock
+RUN pip install --no-cache-dir --require-hashes --only-binary=:all: -r /app/aws-requirements.lock
+COPY deployment/aws/licenses /app/licenses/aws
+COPY deployment/aws/THIRD_PARTY.md deployment/aws/sbom.cdx.json /app/licenses/aws/
+COPY verification/crypto_runtime.py verification/serve.py verification/runtime.py verification/biometric_worker.py verification/native.py verification/chip.py verification/server.py verification/wallet.py verification/wallet_cli.py verification/registry_binding.py verification/identity.py verification/recovery.py verification/relying_party.py ./
 COPY verification/crypto-worker.mjs verification/attest.mjs verification/device-signature.mjs verification/profile-crypto.mjs ./
+COPY verification/revocation.py verification/notices.py verification/notice_exporter.py verification/continuity_operator.py ./
 COPY verification/rp_web ./rp_web
 COPY deployment/probe.py ./probe.py
 USER 10001:10001
