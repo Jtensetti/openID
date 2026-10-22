@@ -2,8 +2,9 @@
 
 Status 2026-10-22: [den separata tjänsten](../deployment/continuity/README.md)
 är kopplad till den publika SQLite-betan. Verifierare, federationsbrygga och
-operatörskommandon använder samma spärrkontroll. Appbygge 105 innehåller
-kodlagring och direkt spärr. Den privata testmiljön är inte migrerad.
+operatörskommandon använder samma spärrkontroll. Appbygge 106 innehåller
+kodlagring och direkt spärr som kan avbryta en väntande statuskontroll.
+Ett pågående godkännande eller avslag avbryts inte. Den privata testmiljön är inte migrerad.
 K6.6 och K6.8 är delvis tekniskt täckta och har fortsatt formell status OPEN.
 
 ## Oberoende avisering

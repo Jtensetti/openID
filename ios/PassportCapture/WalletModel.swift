@@ -19,9 +19,20 @@ import LocalAuthentication
     private var context: LAContext?
     private var operationContext: LAContext?
     private var task: Task<Void, Never>?
+    private var activeAction: String?
     private var generation = UUID()
     private var pendingLink: String?
     let verification = VerificationFlow()
+
+    var canRevoke: Bool {
+        guard unlocked, credential != nil else { return false }
+        if !busy { return true }
+        return configuration?.isPublicBeta == true && revocationProof != nil
+            && Self.canInterruptForRevocation(activeAction)
+    }
+    static func canInterruptForRevocation(_ action: String?) -> Bool {
+        action == "snapshot" || action == "inspect"
+    }
 
     func unlock() {
         guard !busy else { return }
@@ -61,7 +72,7 @@ import LocalAuthentication
         operationContext?.invalidate(); operationContext = nil
         verification.cancel(); snapshot = nil; credential = nil; configuration = nil; revocationProof = nil
         focusedRequest = nil; registrationPresented = false; settingsPresented = false
-        unlocked = false; busy = false; error = nil; statusMessage = nil; decisionMessage = nil
+        unlocked = false; busy = false; activeAction = nil; error = nil; statusMessage = nil; decisionMessage = nil
     }
     func saveConfiguration(origin: String, pairing: String) throws {
         guard unlocked, !busy, !verification.busy else { throw WalletError.rejected }
@@ -88,14 +99,21 @@ import LocalAuthentication
     func decide(_ request: WalletRequest, approve: Bool) { perform(approve ? "approve" : "reject", request: request) }
     func revoke() {
         guard configuration?.isPublicBeta == true, let proof = revocationProof else { perform("revoke"); return }
-        guard unlocked, !busy, let credential else { return }
-        busy = true; error = nil; statusMessage = nil
+        guard canRevoke, let credential else { return }
+        // Only a read-only status request may be cancelled. A pending approval
+        // must finish; cancelling its local Task cannot undo a server decision.
+        if busy {
+            generation = UUID(); task?.cancel(); pendingLink = nil
+            focusedRequest = nil
+        }
+        busy = true; activeAction = "revoke"; error = nil; statusMessage = nil
         let epoch = generation
         task = Task {
-            defer { if generation == epoch { busy = false } }
+            defer { if generation == epoch { busy = false; activeAction = nil } }
             do {
                 try proof.validate(for: credential.id)
                 let auth = LAContext(); operationContext = auth
+                defer { auth.invalidate(); if generation == epoch { operationContext = nil } }
                 guard try await auth.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Spärra ditt ID permanent") else { throw WalletError.cancelled }
                 try Task.checkCancellation(); guard generation == epoch else { return }
                 var request = URLRequest(url: RevocationProof.endpoint)
@@ -123,12 +141,12 @@ import LocalAuthentication
             error = "QR-koden har gått ut. Starta en ny inloggning på testsidan och skanna den nya koden."
             return
         }
-        busy = true; error = nil; statusMessage = nil; decisionMessage = nil
+        busy = true; activeAction = action; error = nil; statusMessage = nil; decisionMessage = nil
         let epoch = generation
         task = Task {
             defer {
                 if generation == epoch {
-                    busy = false
+                    busy = false; activeAction = nil
                     if pendingLink != nil { refresh() }
                 }
             }
@@ -187,7 +205,7 @@ import LocalAuthentication
     }
     static func failureMessage(action: String, error: Error) -> String {
         if action == "snapshot" {
-            return "Kunde inte hämta aktuell status. Kontrollera internet och att WireGuard är anslutet. Tryck sedan på Hämta status."
+            return "Kunde inte hämta aktuell status. Kontrollera internetanslutningen och serverns öppettid. Tryck sedan på Hämta status. En sparad spärrkod kan användas även när testservern är stängd."
         }
         if action == "inspect", let value = error as? WalletError, case .rejected = value {
             return "Begäran kunde inte öppnas. Den kan ha gått ut eller avslutats, eller ditt ID kan vara inaktivt. Hämta status under Mitt ID. Om ditt ID är aktivt, starta en ny inloggning på testsidan."

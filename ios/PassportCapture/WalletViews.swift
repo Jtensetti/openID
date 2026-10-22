@@ -309,7 +309,8 @@ struct SettingsView: View {
             }
             if model.unlocked && model.credential != nil {
                 Section("Spärr och ny telefon") {
-                    Button("Spärra mitt ID", role: .destructive) { revoke = true }.disabled(model.busy)
+                    Button("Spärra mitt ID", role: .destructive) { revoke = true }.disabled(!model.canRevoke)
+                    if let message = model.statusMessage { Text(message).font(.callout) }
                     if let proof = model.revocationProof {
                         Text("Spärr fungerar dygnet runt när du har internetanslutning, även när testservern är stängd.").font(.caption)
                         DisclosureGroup("Spara din spärrkod") {
@@ -393,7 +394,7 @@ struct EnrollmentView: View {
                         DisclosureGroup("Förbered dig innan du börjar") {
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("1. Ha ditt svenska pass och din iPhone redo. Andra utfärdarländer är ännu inte verifierade i piloten.")
-                                Text("2. Använd stabilt internet och låt WireGuard vara anslutet.")
+                                Text("2. Använd stabilt internet. Den publika betan behöver ingen VPN.")
                                 Text("3. Lägg passet plant. Telefonens överkant ska hållas mot passet vid två läsningar.")
                                 Text("4. Sitt eller stå bekvämt med jämnt ljus. Du kan stödja telefonen när du tar ansiktsbilder.")
                                 Button("Prova kameran först – utan att skicka bilder") { focusedField = nil; cameraPractice = true }
@@ -469,7 +470,7 @@ struct GuideView: View {
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         List {
-            Section("Innan du börjar") { Text("Du behöver ett svenskt pass, en kompatibel iPhone och stabil internetanslutning. I piloten behöver WireGuard vara på. Du kan prova ansiktskameran under Inställningar utan att skicka bilder.") }
+            Section("Innan du börjar") { Text("Du behöver ett svenskt pass, en kompatibel iPhone och stabil internetanslutning. Den publika betan ansluter automatiskt utan VPN. Du kan prova ansiktskameran under Inställningar utan att skicka bilder.") }
             Section("Registrera en gång") { Text("Skanna passuppgifterna eller skriv in dem. Läs chipet i två omgångar och följ kamerans instruktioner. När kontrollen är klar behöver operatören aktivera ditt ID. Du behöver inte läsa passet vid varje inloggning.") }
             Section("Legitimera") { Text("Starta inloggningen hos testtjänsten. Skanna QR-koden, kontrollera tjänst och kod och godkänn i appen.") }
             Section("På samma telefon") { Text("Om tjänstens sida går att öppna på telefonen, välj Öppna openID där. Du behöver inte skanna din egen skärm. Pilotens nuvarande testsida öppnas på Macen och används med QR-kod.") }

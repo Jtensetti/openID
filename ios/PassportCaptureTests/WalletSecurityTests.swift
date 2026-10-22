@@ -154,4 +154,12 @@ final class WalletSecurityTests: XCTestCase {
         XCTAssertNil(RevocationProof.endpoint.query)
         XCTAssertNil(RevocationProof.endpoint.fragment)
     }
+    @MainActor func testRevocationMayInterruptStatusButNeverAnUnconfirmedDecision() {
+        XCTAssertTrue(WalletModel.canInterruptForRevocation("snapshot"))
+        XCTAssertTrue(WalletModel.canInterruptForRevocation("inspect"))
+        for action in [nil, "approve", "reject", "revoke", "enroll", "unknown"] as [String?] {
+            XCTAssertFalse(WalletModel.canInterruptForRevocation(action))
+        }
+        XCTAssertFalse(WalletModel().canRevoke)
+    }
 }

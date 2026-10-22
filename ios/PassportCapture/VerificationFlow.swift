@@ -49,7 +49,7 @@ import NFCPassportReader
                 let service = DCAppAttestService.shared
                 guard service.isSupported else { throw FlowError.rejected }
                 stepTitle = "Ansluter säkert"
-                status = "Kontrollerar anslutningen och appen. Låt WireGuard vara på."
+                status = "Kontrollerar anslutningen och appen."
                 let start = try await api.postObject("/native/start", body: [:])
                 guard let id = start["id"] as? String, let challenge = start["challenge"] as? String else { throw FlowError.rejected }
                 let keyID = try await service.generateKey()
