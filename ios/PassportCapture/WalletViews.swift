@@ -484,7 +484,10 @@ struct GuideView: View {
 struct RecoveryView: View {
     var body: some View {
         List {
-            Section("Spärra först") { Text("Kontakta operatören för att spärra ditt ID. Att radera appen räcker inte.") }
+            Section("Spärra först") {
+                Text("Har du sparat din spärrkod kan du spärra dygnet runt från en annan telefon eller dator. Saknar du koden, kontakta pilotens operatör. Att radera appen spärrar inte ditt ID.")
+                Link("Öppna spärrsidan", destination: RevocationProof.endpoint)
+            }
             Section("Ny telefon") { Text("Installera appen, registrera dig med passet och invänta aktivering. Nyckeln kan inte flyttas mellan telefoner eller återställas från en säkerhetskopia.") }
         }.navigationTitle("Förlorad telefon")
     }
@@ -492,7 +495,7 @@ struct RecoveryView: View {
 struct PrivacyView: View {
     var body: some View {
         List {
-            Section("På telefonen") { Text("Serveradress och kopplingskod lagras i nyckelringen. ID-nyckeln skyddas av telefonen. Appen sparar inte passuppgifter eller bilder.") }
+            Section("På telefonen") { Text("Serveradress, eventuell kopplingskod och din separata spärrkod lagras i nyckelringen. ID-nyckeln skyddas av telefonen. Appen sparar inte passuppgifter eller bilder.") }
             Section("På servern") { Text("Chipdata och kamerabilder behandlas i minnet. Registret sparar namn, födelsedatum, nationalitet, passets utfärdarland, giltighet, foto och eventuellt personnummer från chipet krypterat samt publik nyckel, status och händelser. Operatören ansvarar för lagringstiderna och kan aktivera eller spärra ditt ID.") }
             Section("När du legitimerar dig") { Text("Appen visar vilken tjänst du loggar in hos och vilka uppgifter du delar. En spärrad nyckel kan inte användas igen.") }
             Section("Godkännande") { Text("Du bekräftar med Face ID, Touch ID eller enhetskod. Appen låses när du lämnar den.") }
