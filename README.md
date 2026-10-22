@@ -30,6 +30,8 @@ får inte läggas i repot. Läs [säkerhetsinformationen](SECURITY.md) och
 - [Arkitektur](docs/arkitektur.md)
 - [OIDC i den privata piloten](docs/oidc-pilot.md)
 - [Tekniska krav och verifieringsluckor](docs/krav.md)
+- [Diggs 40 tillämpliga kravpunkter](docs/digg-kravmatris.md)
+- [Förslag till drift- och säkerhetsrutiner](docs/styrningsrutiner.md)
 - [Utveckling](docs/utveckling.md)
 - [Testning](docs/testning.md)
 - [Källregister](docs/SOURCES.md)

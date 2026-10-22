@@ -1,0 +1,81 @@
+# Kravmatris: mål tillitsnivå 3
+
+Bedömning 2026-10-22, teknisk bas `510bfe7`. 40 relevanta numrerade punkter för
+passbaserad distansutgivning. Varje rad är en samlad punkt, inte varje underkrav.
+Status: **T** stark teknisk täckning (6), **D** delvis (20), **S** saknas/ej styrkt (14).
+Samtliga har formell status **OPEN**. T betyder inte uppfyllt eller godkänt.
+Utkast och nya skydd ändrar inte status utan verifierad tillämpning och evidens.
+Detta är en preliminär egenbedömning, inte en revision eller ett procentmått.
+
+Källor: [Diggs ramverk](https://www.digg.se/digitala-tjanster/e-legitimering/om-e-legitimering/tillitsnivaer-for-e-legitimering/tillitsramverk-for-svensk-e-legitimation)
+och [vägledning](https://www.digg.se/digitala-tjanster/e-legitimering/om-e-legitimering/tillitsnivaer-for-e-legitimering/tillitsramverk-for-svensk-e-legitimation/vagledning-for-utfardare).
+Kontrollerade 2026-10-22. Ramverkstexten anger 2022-10-04; sidfoten 2024-12-20.
+Kravnamnen nedan är våra arbetsrubriker. Originaltexten styr.
+
+K2.5 (nivå 4), K5.10–K5.12 (alternativa identifieringsmetoder) och K6.7
+(personligt utlämnande) är utanför vald metod, inte uppfyllda. Om metoden ändras
+ska tillämpligheten omprövas. Auktorisationsavtal, eIDAS och full Sweden
+Connect-profil kräver separata bedömningar.
+
+Rollkolumnen anger behövd funktion, inte tillsatta personer. Evidens finns i
+[tekniska krav](krav.md), [arkitektur](arkitektur.md), [testöversikt](testning.md)
+och respektive komponent. Klusterfunktioner i CI räknas inte som driftsatta i SQLite-betan.
+
+| Krav | Status | Ansvarig funktion | Område | Kvar för att stänga punkten |
+|---|---|---|---|---|
+| K2.1 | S | Organisation | Juridisk person, försäkring | Beslut om utfärdarorganisation och försäkringsbevis; enskild firma uppfyller inte juridisk-personkravet. |
+| K2.2 | S | Organisation | Operationell verksamhet | Visa bemanning, ansvar och fungerande processer i hela verksamheten. |
+| K2.3 | S | Organisation | Ekonomisk uthållighet | Dokumentera finansiering och riskbärande för minst ett år. |
+| K2.4 | D | Säkerhetsansvarig | Ledningssystem | Fastställ rutiner, roller och riskregister; genomför och dokumentera risk- och incidentövningar. |
+| K2.6 | S | Avtalsansvarig | Underleverantörer | Kartlägg säkerhetskritiska leverantörer och kontrollera avtal, ansvar och underlag. |
+| K2.7 | D | Dataskydd/drift | Spårbarhet | Definiera vilka händelser och handlingar som bevaras; visa komplett, åtkomstskyddad historik. |
+| K2.8 | S | Dataskydd | Bevarande | Fastställ laglig bevarande- och gallringsplan; verifiera läsbarhet och radering över tid. |
+| K2.9 | S | Oberoende revisor | Internrevision | Utse oberoende kompetent funktion och upprätta treårig revisionsplan. |
+| K3.1 | D | Drift | Fysiskt skydd | Kontrollera molnleverantörens underlag och egna datorer, medier och åtkomst. |
+| K3.2 | S | Organisation | Personal | Dokumentera rollanpassad bakgrundskontroll och utbildning före tillträde. |
+| K3.3 | D | Drift | Behörigheter | Inventera verkliga konton och inför återkommande åtkomstgranskning och avslutsrutin. |
+| K3.4 | D | Organisation/drift | Arbetsfördelning | Klusterkod kräver skilda operatörslogins; verkliga personer, administratörer och drift behöver separeras. |
+| K4.1 | D | Säkerhetsansvarig | Kontrollernas effektivitet | Samla hotmodell, riskbeslut och oberoende prov av tillämpliga kontroller. |
+| K4.2 | T | Utveckling | Skyddad kommunikation | Negativa kanal-/replaytester finns; granska samtliga driftvägar och extern interoperabilitet. |
+| K4.3 | D | Nyckelförvaltare | Servernycklar | Lokala filer/OpenBao är inte bevisad HSM; verifiera hårdvaruskydd, flerpersonskontroll, rotation och återställning. |
+| K4.4 | D | Drift | Säker förändring | Lås och CI finns; inför bevakning, sårbarhetsundersökning, patchansvar och incidentberedskap. |
+| K5.1 | D | Utfärdare | Villkor | Publicera fastställda villkor och begränsningar för innehavare och förlitande parter. |
+| K5.2 | D | Utveckling/utfärdare | Villkor i ansökan | Visa rätt versions villkor före ansökan och bevara acceptansbevis. |
+| K5.3 | S | Utfärdare | Utfärdardeklaration | Färdigställ och fastställ deklarationen; mall i styrningsrutiner är inte beslutad policy. |
+| K5.4 | S | Organisation | Ägande och styrning | Förbered verifierbar redovisning för behörig mottagare. |
+| K5.5 | S | Utfärdare | Avveckling | Fastställ ansvar, information, spärr, arkiv och kontrollerad avvecklingsplan. |
+| K5.6 | D | Utveckling/utfärdare | Ansökan | Användarinitierad registrering finns; knyt acceptans och villkorsversion till ansökan. |
+| K5.7 | D | Utveckling | Nationell identitetsbeteckning | Signerat passfält implementerat och privat prov bekräftat; besluta hantering av saknat nummer utan automatisk aktivering. |
+| K5.8 | S | Registeransvarig | Registerjämförelse | SPAR är kandidat; verklig åtkomst, adapter och avvikelseprov saknas. Ingen beställning gjord. |
+| K5.9 | S | Registeransvarig | Skyddade uppgifter | Fastställ likvärdig kontroll och begränsad manuell handläggning; syntetiska avvisningsprov räcker inte. |
+| K5.13 | D | Utveckling/granskare | Passbaserad distanskontroll | Chip och biometriflöde finns; kalibrera PAD/biometri och pröva injektion, relä och certifikatspärr oberoende. |
+| K5.14 | D | Registeransvarig | Innehavarregister | Krypterat register finns; inför aktualisering, registeravstämning och dokumenterad avvikelsehantering. |
+| K6.1 | T | Utveckling | Två faktorer | Enhetsnyckel och lokal användarverifiering finns; styrk bindning och beteende på stödda fysiska enheter. |
+| K6.2 | D | Utveckling | Aktiveringsskydd | Verifiera hårdvarubindning, kloningsmotstånd och spärr vid förändrade lokala skydd. |
+| K6.3 | D | Utveckling/support | Byte av aktiveringsmedel | Komplettera säker ersättning vid förlorad telefon och nytt pass utan supportgenväg. |
+| K6.4 | D | Utveckling | Unik personbindning | Nyckel/passbindning finns; verifiera registeranknytning, dubbletter och dokumentbyte. |
+| K6.5 | T | Utveckling | Giltighetstid | Betan begränsar giltighet till 24–72 timmar och passets datum; fastställ produktionspolicy och riskunderlag. |
+| K6.6 | S | Utveckling/utfärdare | Oberoende avisering | Verifierad separat kontaktväg och leveransbevis saknas; se teknisk design. |
+| K6.8 | S | Drift/support | Tillgänglig spärr | Appspärr finns endast under serverdrift; implementera och öva separat kanal samt förlorad-enhet-flöde. |
+| K6.9 | D | Utveckling/drift | Säker verkställighet | Signerad spärr, sessionsavslag och negativa tester finns; verifiera drift, missbruksskydd och återstart. |
+| K7.1 | T | Utveckling | Giltighetskontroll | Signatur och aktuell spärr/utgång kontrolleras; oberoende kontroll av alla produktionsvägar återstår. |
+| K7.2 | T | Utveckling | Angreppsskydd | Engångsutmaningar och bindningar testas; oberoende test av relä, missbruk och full drift återstår. |
+| K8.1 | D | Drift | Intygstjänstens tillgänglighet | Identifiering finns; 09–17 är en pilotbegränsning, ingen verifierad produktionsnivå. |
+| K8.2 | D | Utveckling | Intygsskydd | SAML signeras/krypteras och OIDC har bunden kodväxling; full profilmappning och extern validering återstår. |
+| K8.3 | T | Utveckling | Förnyad identifiering | Kortlivade begäranden/sessioner finns; verifiera sammanhängande policy för SAML och OIDC i avsedd drift. |
+
+## Uppdateringsregel
+
+Varje stängningsförslag ska ange revision, miljö, provresultat, bevisreferens,
+ansvarig och oberoende kontroll där sådan krävs. Verkliga personakter,
+konton, nycklar och känsliga revisionsunderlag lagras separat; publikt anges
+endast en referens. Varken manuell aktivering eller godkänd CI ersätter granskning.
+
+## Första arbetsordning
+
+1. Inför [styrningsrutiner](styrningsrutiner.md) och utse ansvariga.
+2. Förstärk lokalt nyckelskydd och prova avvisning av osäkra filer.
+3. Implementera [avisering och spärr](avisering-och-sparr.md) först när
+   kontaktkälla, verkställighet och driftmodell är beslutade och provbara.
+4. Utvärdera SPAR-åtkomst; beställ ingen anslutning utan kostnadsbeslut.
+5. Förbered oberoende provning och beslut om utfärdarorganisation.

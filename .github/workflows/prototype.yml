@@ -71,7 +71,7 @@ jobs:
           export PROOFING_FIXTURES=/tmp/openid-proofing-fixtures
           export PROOFING_JAVA="$JAVA_HOME/bin/java"
           export PROOFING_PYTHON="$PWD/.venv/bin/python"
-          .venv/bin/python -m unittest -v test_verification test_native test_chip test_wallet test_relying_party test_identity test_registry_binding test_runtime test_crypto_runtime
+          .venv/bin/python -m unittest -v test_verification test_native test_chip test_wallet test_relying_party test_identity test_identity_key test_registry_binding test_runtime test_crypto_runtime
           .venv/bin/python runtime_smoke.py
           .venv/bin/python load_runtime.py --requests 400 --concurrency 32 --output "$RUNNER_TEMP/runtime-load.json"
           node --test test-attest.mjs

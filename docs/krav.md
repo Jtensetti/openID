@@ -187,3 +187,16 @@ App Attest, chip-/pass-/bildkontroll och manuell aktivering kvarstår.
 TestFlight-inbjudan är distributionskontroll, inte identitetsbevis.
 `RuntimeTests` provar åtkomstgränserna, och `WalletSecurityTests` provar
 standardanslutning och bevarad privat serverbindning.
+
+## Nyckelfiler och kravspårning 2026-10-22
+
+SEC-02/K4.3: lokal profilnyckel måste vara en vanlig fil med en hårdlänk,
+privata rättigheter och utan exekveringsrätt. Öppning utan följning av symlänk
+och utan blockering stoppar FIFO före läsning. Kontrollen avser det öppnade
+filobjektet. Detta ersätter inte HSM, skydd mot tjänstekontot eller
+administrativ flerpersonskontroll. `test_identity_key` provar avvisning av
+FIFO, katalog, symlänk, hårdlänk, breda rättigheter och fel längd.
+
+Se [40-punktsmatrisen](digg-kravmatris.md), [rutinförslag](styrningsrutiner.md)
+och [design för avisering/spärr](avisering-och-sparr.md). Formell status
+förblir OPEN; dokumenten är ännu inte fastställda eller operativt verifierade.

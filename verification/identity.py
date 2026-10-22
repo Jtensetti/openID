@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import re
 import secrets
+import stat
 import subprocess
 
 FIELDS = {'givenNames', 'familyName', 'birthDateMrz', 'nationality', 'issuingState', 'documentNumber', 'documentExpires'}
@@ -75,9 +76,14 @@ class IdentityVault:
             else:
                 with os.fdopen(fd, 'wb') as stream:
                     stream.write(secrets.token_bytes(64)); stream.flush(); os.fsync(stream.fileno())
-        fd = os.open(self.path, os.O_RDONLY | os.O_NOFOLLOW)
+        fd = os.open(self.path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
         with os.fdopen(fd, 'rb') as stream:
-            if os.fstat(stream.fileno()).st_mode & 0o077: raise ValueError('identity key must be private (0600)')
+            metadata = os.fstat(stream.fileno())
+            # Validate the opened object; nonblocking open prevents a FIFO from
+            # hanging the verifier before its type can be checked.
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+                raise ValueError('identity key must be a single regular file')
+            if metadata.st_mode & 0o177: raise ValueError('identity key must be private (0600)')
             key = stream.read(65)
         if len(key) != 64: raise ValueError('identity key unavailable')
         return key
