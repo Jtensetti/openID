@@ -2,7 +2,13 @@
 
 Server för passkontroll, ansiktsjämförelse, liveness och iPhone-appens
 pilotregister. [SAML-inloggningen](#saml-inloggning-med-passets-identitet) binder
-appens nyckel till passets personuppgifter och använder Sweden Connect.
+appens nyckel till passets personuppgifter och använder bibliotek från Sweden Connect.
+[OIDC](../docs/oidc-pilot.md) använder samma godkännandeflöde. Detta innebär
+inte anslutning till Sweden Connect-federationen.
+
+Kommandona nedan gäller lokala och privata prov. För den publika betans
+spärrkontroll, kontaktbindning och manuella aktivering, följ
+[driftinstruktionen](../deployment/continuity/README.md).
 
 ## Körning på Linux x86_64
 
@@ -265,7 +271,11 @@ behålls efter spärr men lämnas inte ut till appen eller tjänsten. Automatisk
 gallring och nyckelrotation saknas; operatören måste fastställa lagringstid
 och radera pilotens data och nyckel efter provet.
 **Återläsning av gamla databasfiler stöds inte**: den kan återställa en spärrad
-nyckel. Ett externt spärrankare saknas. Inga adminfunktioner exponeras via HTTP.
+nyckel. Använd `recovery.py restore`, som spärrar återställda nycklar.
+Den publika betan kontrollerar dessutom den separata aktuella spärrtabellen;
+dess konfiguration och migrationsmarkör måste bevaras. Återställ aldrig
+en äldre programversion som saknar denna kontroll. Det privata grundläget
+saknar externt spärrankare. Inga adminfunktioner exponeras via HTTP.
 
 ## Kontroller
 
@@ -329,8 +339,9 @@ utloggning, nekande, avbrott, spärr, offline/återanslutning och mobil layout.
 RP-fixturen använder en temporär databas och testnyckel; styrningen går via
 stdin och inga HTTP-testvägar läggs till.
 
-Fysisk NFC, Secure Enclave, Face ID och Apple App Attest på iPhone återstår
-att prova. Testerna berör ID-05/06/09/10, SEC-01/03, FED-02 och TEST-01;
+Privat telefonprov har bekräftat registrering, visat personnummer och SAML.
+CI ersätter inte fysiska enhetsprov; separat spärr, avbrott och fler enheter
+behöver fortsatt verifieras. Testerna berör ID-05/06/09/10, SEC-01/03, FED-02 och TEST-01;
 formell kravstatus ändras inte.
 
 SAML-webbtestet kör verifierare, IdP och SP i separata processer. Passets

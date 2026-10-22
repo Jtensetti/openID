@@ -9,15 +9,20 @@ säkerhetsgranskning.
   simulerad identitetskontroll. Normal omstart bevarar spärrar och publika
   nycklar. Krasch och återläsning spärrar alla credentials.
 - `verification/` och `ios/`: passverifiering, ansiktsjämförelse, RGB-PAD,
-  NFC-fångst och enhetsautentisering för en privat pilot. Registrering
+  NFC-fångst och enhetsautentisering för sluten beta och privata telefonprov. Registrering
   kräver separat operatörsaktivering. `phone-idp` och `phone-sp` kopplar
-  detta register till en separat lokal SAML-tjänst.
+  detta register till separata SAML-/OIDC-testtjänster.
+- `deployment/continuity/`: separat spärrtjänst och köad avisering för den publika
+  betan. Privata ID:n är inte automatiskt migrerade. Se
+  [drift och begränsningar](deployment/continuity/README.md).
 - `ops/`: driftcontainer i Render, utan e-id-funktioner.
 
-Fysisk NFC/App Attest, modellernas felgrader, bildinjektion och certifikatspärr
-återstår att utvärdera. Se [verifierarens begränsningar](verification/README.md#begränsningar)
+Privata telefonprov har bekräftat passläsning och SAML-inloggning. Bredare
+enhetsprov, modellernas felgrader, bildinjektion och certifikatspärr återstår. Se [verifierarens begränsningar](verification/README.md#begränsningar)
 och [testöversikten](docs/testning.md).
-Labben och testtjänsten ska inte exponeras via tunnel eller proxy.
+De lokala labblägena ska inte exponeras via tunnel eller proxy. Den publika
+betan har separat ingress och konfiguration; labbkommandon öppnar inte en
+säker publik tjänst.
 
 WebAuthn kräver användarverifiering, engångschallenge, exakt ursprung och
 sessionsbindning. Attestering `none` ger ingen garanti om fabrikat,
@@ -43,7 +48,7 @@ kan läsa nyckeln och aktivera credentials. Använd endast
 `recovery.py restore` för återläsning av pilotdatabasen: den spärrar alla
 återställda nycklar och kräver ny registrering. Manuell återläsning som
 bevarar aktiva nycklar kan förlora senare spärrar och stöds inte.
-SAML-tjänsten nekar åtkomst om spärrkontrollen inte kan nås. Se
+SAML-/OIDC-tjänsterna nekar åtkomst om spärrkontrollen inte kan nås. Se
 [lagring och nycklar](verification/README.md#spärr-och-lagring).
 
 En publicerad hemlighet ska betraktas som röjd: stoppa exponeringen,

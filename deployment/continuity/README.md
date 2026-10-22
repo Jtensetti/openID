@@ -151,3 +151,13 @@ innehavaren spara den utanför telefonen för användning vid förlorad enhet.
 Källor: [DynamoDB konsistens](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.ReadConsistency.html),
 [villkorade uppdateringar](https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_UpdateItem.html),
 [SES testläge](https://docs.aws.amazon.com/ses/latest/dg/request-production-access.html).
+
+## Pilotbudget
+
+Testservern behåller 09–17 svensk tid. De separata tjänsterna kräver ingen ny
+dygnet-runt-server, NAT Gateway eller provisionerad Lambda-kapacitet.
+Planeringskalkylen är 29,16 USD/månad för befintlig drift plus 2 USD reserv för
+spärr och avisering. Med 12 SEK/USD och 25 procent moms blir det 467,40 kr/månad
+för cirka tio pilotanvändare. Kalkylen räknar inte med gratisnivå eller krediter.
+AWS Budget-larm bevakar utfallet, men är inget hårt fakturatak. Högre trafik,
+missbruk, ändrade priser eller växelkurs kräver en ny bedömning före utökning.
