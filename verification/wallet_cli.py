@@ -3,7 +3,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from wallet import Wallet
+from revocation import configured_wallet
 
 def main():
     parser = argparse.ArgumentParser(description='openID private pilot operations')
@@ -26,7 +26,7 @@ def main():
     result = sub.add_parser('consume'); result.add_argument('request')
     args = parser.parse_args()
     if not args.db.is_file():parser.error('Existing wallet database required')
-    wallet = Wallet(args.db, 'local-operator')
+    wallet = configured_wallet(args.db, 'local-operator')
     try:
         if args.operation == 'pending':
             with wallet.transaction() as db:

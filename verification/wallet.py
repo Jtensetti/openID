@@ -43,6 +43,19 @@ class Wallet:
         fd = os.open(self.path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
         os.close(fd)
         if self.path.stat().st_mode & 0o077: raise ValueError('database must be private (0600)')
+        marker = self.path.with_suffix('.continuity-required')
+        if marker.exists() or marker.is_symlink():
+            if marker.is_symlink() or not marker.is_file() or marker.read_bytes() != b'v1\n':
+                raise ValueError('invalid continuity migration marker')
+            if self.revocation is None or not self.notifications:
+                raise ValueError('migrated wallet requires independent revocation and notices')
+        elif self.revocation is not None and self.notifications:
+            fd = os.open(marker, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(fd, 'wb') as stream:
+                stream.write(b'v1\n'); stream.flush(); os.fsync(stream.fileno())
+            directory_fd = os.open(self.path.parent, os.O_RDONLY | os.O_DIRECTORY)
+            try: os.fsync(directory_fd)
+            finally: os.close(directory_fd)
         self.lock = threading.RLock()
         self.challenges = {}
         self.document_links_enabled = True  # SQLite pilot; PostgreSQL has a separate schema/approval path.
@@ -352,8 +365,20 @@ class Wallet:
         identity = None
         if profile is not None and state in ('ACTIVE', 'PENDING_REVIEW'):
             identity = self.vault.crypt('open', ident, profile['person'], json.loads(profile['sealed']))
+        revocation_code = None
+        if getattr(self, 'notifications', False) and state in ('ACTIVE', 'PENDING_REVIEW'):
+            code = db.execute('''SELECT r.sealed FROM revocation_codes r JOIN notice_contacts n
+                ON r.credential=n.credential AND r.contact_version=n.contact_version
+                WHERE r.credential=?''', (ident,)).fetchone()
+            if code is not None:
+                value = self.vault.crypt('open', ident, 'revocation-token-v1', json.loads(code['sealed']))
+                token = value.get('token')
+                if not isinstance(token, str) or not re.fullmatch('[A-Za-z0-9_-]{43}', token):
+                    raise ValueError('invalid revocation proof')
+                revocation_code = ident+'.'+token
         return {'credentialId': ident, 'state': state, 'createdAt': row['created'], 'expiresAt': row['expires'], 'identity': identity,
-            'requests': requests, 'events': events, 'environment': 'PRIVATE_PILOT', 'legalIdentityIssued': False}
+            'requests': requests, 'events': events, 'environment': 'PRIVATE_PILOT', 'legalIdentityIssued': False,
+            'revocationCode': revocation_code}
 
     def verified_profile(self, db, ident):
         self.active(db, ident)

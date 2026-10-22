@@ -65,7 +65,7 @@ struct HomeView: View {
                 Text("Mitt ID").font(.largeTitle.bold()).accessibilityIdentifier("home.heading")
                 IdentityCard()
                 if model.configuration == nil || model.configuration?.isPublicBeta == true {
-                    Text("Betans öppettider: varje dag 09–17 svensk tid. Registrering, legitimering och spärr kräver att testservern är öppen.")
+                    Text(model.revocationProof == nil ? "Betans öppettider: varje dag 09–17 svensk tid. Registrering, legitimering och spärr kräver att testservern är öppen." : "Registrering och legitimering: varje dag 09–17 svensk tid. Spärr fungerar dygnet runt med internetanslutning.")
                         .font(.subheadline).foregroundStyle(Palette.muted).accessibilityIdentifier("home.betaHours")
                 }
                 if let state = model.snapshot?.state, state != .active {
@@ -310,6 +310,14 @@ struct SettingsView: View {
             if model.unlocked && model.credential != nil {
                 Section("Spärr och ny telefon") {
                     Button("Spärra mitt ID", role: .destructive) { revoke = true }.disabled(model.busy)
+                    if let proof = model.revocationProof {
+                        Text("Spärr fungerar dygnet runt när du har internetanslutning, även när testservern är stängd.").font(.caption)
+                        DisclosureGroup("Spara din spärrkod") {
+                            Text("Spara koden på en säker plats utanför telefonen. Den kan bara spärra ditt ID, aldrig aktivera eller återställa det.")
+                            Text(proof.code).font(.caption.monospaced()).textSelection(.enabled)
+                            Link("Öppna spärrsidan", destination: RevocationProof.endpoint)
+                        }
+                    }
                     if model.snapshot?.state == .revoked || model.snapshot?.state == .expired {
                         Button("Ta bort nyckeln från telefonen", role: .destructive) { forget = true }
                     }

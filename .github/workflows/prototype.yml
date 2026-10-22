@@ -2,9 +2,9 @@ name: Server and authentication tests
 on:
   push:
     branches: [main, 'feat/**']
-    paths: ['prototype/**', 'ops/**', 'verification/**', 'deployment/cluster/**', '.github/workflows/prototype.yml', '.github/scripts/postgres-tls.sh']
+    paths: ['prototype/**', 'ops/**', 'verification/**', 'deployment/cluster/**', 'deployment/continuity/**', '.github/workflows/prototype.yml', '.github/scripts/postgres-tls.sh']
   pull_request:
-    paths: ['prototype/**', 'ops/**', 'verification/**', 'deployment/cluster/**', '.github/workflows/prototype.yml', '.github/scripts/postgres-tls.sh']
+    paths: ['prototype/**', 'ops/**', 'verification/**', 'deployment/cluster/**', 'deployment/continuity/**', '.github/workflows/prototype.yml', '.github/scripts/postgres-tls.sh']
 permissions:
   contents: read
 jobs:
@@ -71,7 +71,7 @@ jobs:
           export PROOFING_FIXTURES=/tmp/openid-proofing-fixtures
           export PROOFING_JAVA="$JAVA_HOME/bin/java"
           export PROOFING_PYTHON="$PWD/.venv/bin/python"
-          .venv/bin/python -m unittest -v test_verification test_native test_chip test_wallet test_relying_party test_identity test_identity_key test_registry_binding test_runtime test_crypto_runtime test_revocation test_notices
+          .venv/bin/python -m unittest -v test_verification test_native test_chip test_wallet test_relying_party test_identity test_identity_key test_registry_binding test_runtime test_crypto_runtime test_revocation test_notices test_continuity_config test_continuity_operator
           .venv/bin/python -m unittest discover -s ../deployment/continuity -p 'test_*.py' -v
           .venv/bin/python runtime_smoke.py
           .venv/bin/python load_runtime.py --requests 400 --concurrency 32 --output "$RUNNER_TEMP/runtime-load.json"

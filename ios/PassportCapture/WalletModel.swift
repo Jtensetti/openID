@@ -5,6 +5,7 @@ import LocalAuthentication
     @Published private(set) var configuration: ServerConfiguration?
     @Published private(set) var credential: LocalCredential?
     @Published private(set) var snapshot: WalletSnapshot?
+    @Published private(set) var revocationProof: RevocationProof?
     @Published private(set) var unlocked = false
     @Published private(set) var busy = false
     @Published var error: String?
@@ -42,6 +43,11 @@ import LocalAuthentication
                 configuration = try ServerConfiguration(origin: selected.origin, pairing: selected.pairing)
                 if saved == nil { try vault.save(selected, account: "configuration") }
                 credential = try vault.read("credential", as: LocalCredential.self)
+                if selected.isPublicBeta, let credential,
+                   let proof = try vault.read("revocation-" + credential.id, as: RevocationProof.self) {
+                    try proof.validate(for: credential.id)
+                    revocationProof = proof
+                }
                 unlocked = true
             } catch {
                 if generation == epoch, !Self.wasCancelled(error) {
@@ -53,7 +59,7 @@ import LocalAuthentication
     func lock() {
         generation = UUID(); task?.cancel(); context?.invalidate(); context = nil
         operationContext?.invalidate(); operationContext = nil
-        verification.cancel(); snapshot = nil; credential = nil; configuration = nil
+        verification.cancel(); snapshot = nil; credential = nil; configuration = nil; revocationProof = nil
         focusedRequest = nil; registrationPresented = false; settingsPresented = false
         unlocked = false; busy = false; error = nil; statusMessage = nil; decisionMessage = nil
     }
@@ -80,7 +86,36 @@ import LocalAuthentication
         else { perform("snapshot") }
     }
     func decide(_ request: WalletRequest, approve: Bool) { perform(approve ? "approve" : "reject", request: request) }
-    func revoke() { perform("revoke") }
+    func revoke() {
+        guard configuration?.isPublicBeta == true, let proof = revocationProof else { perform("revoke"); return }
+        guard unlocked, !busy, let credential else { return }
+        busy = true; error = nil; statusMessage = nil
+        let epoch = generation
+        task = Task {
+            defer { if generation == epoch { busy = false } }
+            do {
+                try proof.validate(for: credential.id)
+                let auth = LAContext(); operationContext = auth
+                guard try await auth.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Spärra ditt ID permanent") else { throw WalletError.cancelled }
+                try Task.checkCancellation(); guard generation == epoch else { return }
+                var request = URLRequest(url: RevocationProof.endpoint)
+                request.httpMethod = "POST"; request.timeoutInterval = 20
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                request.httpBody = try JSONSerialization.data(withJSONObject: ["credential": credential.id, "token": proof.token, "confirm": true])
+                let session = URLSession(configuration: .ephemeral, delegate: RevocationRedirectPolicy(), delegateQueue: nil)
+                defer { session.invalidateAndCancel() }
+                let (_, response) = try await session.data(for: request)
+                try Task.checkCancellation(); guard generation == epoch else { return }
+                guard let http = response as? HTTPURLResponse, http.url == RevocationProof.endpoint, http.statusCode == 200 else { throw WalletError.unavailable }
+                snapshot = nil; focusedRequest = nil
+                statusMessage = "Ditt ID är spärrat permanent. Registrera ett nytt ID om du vill använda openID igen."
+            } catch {
+                if generation == epoch, !Self.wasCancelled(error) {
+                    self.error = "Spärren kunde inte bekräftas. Kontrollera internetanslutningen och försök igen. Att radera appen spärrar inte ditt ID."
+                }
+            }
+        }
+    }
     private func perform(_ action: String, request: WalletRequest? = nil, inspectID: String? = nil) {
         guard unlocked, !busy, let configuration, let credential else { return }
         if let request, request.expired {
@@ -118,6 +153,12 @@ import LocalAuthentication
                     "signature": signature.base64EncodedString()], as: WalletSnapshot.self)
                 try result.validate(for: credential.id)
                 try Task.checkCancellation(); guard generation == epoch else { return }
+                if configuration.isPublicBeta, let code = result.revocationCode {
+                    let proof = RevocationProof(origin: configuration.origin, code: code)
+                    try proof.validate(for: credential.id)
+                    try vault.save(proof, account: "revocation-" + credential.id)
+                    revocationProof = proof
+                }
                 snapshot = result; focusedRequest = nil
                 if action == "approve" { decisionMessage = "Ditt godkännande har skickats. Gå tillbaka till testsidan för att se om inloggningen är klar." }
                 if action == "reject" { decisionMessage = "Du nekade legitimeringen. Vill du försöka igen, starta en ny inloggning på testsidan." }
@@ -163,6 +204,16 @@ import LocalAuthentication
     }
     func forgetRevokedCredential() throws {
         guard unlocked, !busy, snapshot?.state == .revoked || snapshot?.state == .expired else { throw WalletError.rejected }
-        try vault.remove("credential"); credential = nil; snapshot = nil
+        if let credential { try vault.remove("revocation-" + credential.id) }
+        try vault.remove("credential"); credential = nil; snapshot = nil; revocationProof = nil
+    }
+}
+
+final class RevocationRedirectPolicy: NSObject, URLSessionTaskDelegate {
+    func urlSession(_ session: URLSession, task: URLSessionTask,
+                    willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest,
+                    completionHandler: @escaping (URLRequest?) -> Void) {
+        // A revocation proof must never follow a redirect to another endpoint.
+        completionHandler(nil)
     }
 }

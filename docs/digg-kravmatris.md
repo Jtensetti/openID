@@ -2,7 +2,7 @@
 
 Bedömning 2026-10-22, teknisk bas `510bfe7`. 40 relevanta numrerade punkter för
 passbaserad distansutgivning. Varje rad är en samlad punkt, inte varje underkrav.
-Status: **T** stark teknisk täckning (6), **D** delvis (20), **S** saknas/ej styrkt (14).
+Status: **T** stark teknisk täckning (6), **D** delvis (22), **S** saknas/ej styrkt (12).
 Samtliga har formell status **OPEN**. T betyder inte uppfyllt eller godkänt.
 Utkast och nya skydd ändrar inte status utan verifierad tillämpning och evidens.
 Detta är en preliminär egenbedömning, inte en revision eller ett procentmått.
@@ -55,8 +55,8 @@ och respektive komponent. Klusterfunktioner i CI räknas inte som driftsatta i S
 | K6.3 | D | Utveckling/support | Byte av aktiveringsmedel | Komplettera säker ersättning vid förlorad telefon och nytt pass utan supportgenväg. |
 | K6.4 | D | Utveckling | Unik personbindning | Nyckel/passbindning finns; verifiera registeranknytning, dubbletter och dokumentbyte. |
 | K6.5 | T | Utveckling | Giltighetstid | Betan begränsar giltighet till 24–72 timmar och passets datum; fastställ produktionspolicy och riskunderlag. |
-| K6.6 | S | Utveckling/utfärdare | Oberoende avisering | Verifierad separat kontaktväg och leveransbevis saknas; se teknisk design. |
-| K6.8 | S | Drift/support | Tillgänglig spärr | Appspärr finns endast under serverdrift; implementera och öva separat kanal samt förlorad-enhet-flöde. |
+| K6.6 | D | Utveckling/utfärdare | Oberoende avisering | Transaktionell utkorg, separat SQS/SES-konsument och kvittenser är implementerade och provade med syntetisk händelse. Verklig separat person–kontaktkontroll, leveransbevis och operativ felhantering kvarstår. |
+| K6.8 | D | Drift/support | Tillgänglig spärr | Separat spärrtjänst och negativa AWS-prov finns. Appkoppling, kodutlämning, migration och komplett natt-/återstartsprov måste verifieras i pilotdriften; formell status kvarstår OPEN. |
 | K6.9 | D | Utveckling/drift | Säker verkställighet | Signerad spärr, sessionsavslag och negativa tester finns; verifiera drift, missbruksskydd och återstart. |
 | K7.1 | T | Utveckling | Giltighetskontroll | Signatur och aktuell spärr/utgång kontrolleras; oberoende kontroll av alla produktionsvägar återstår. |
 | K7.2 | T | Utveckling | Angreppsskydd | Engångsutmaningar och bindningar testas; oberoende test av relä, missbruk och full drift återstår. |

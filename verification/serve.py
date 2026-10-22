@@ -112,13 +112,13 @@ class Lease:
 
 
 def open_wallet(database, origin):
-    from wallet import Wallet
+    from revocation import configured_wallet
     path = Path(database)
     marker = path.with_suffix('.initialized')
     if marker.exists() or marker.is_symlink():
         if private_file(marker) != b'1\n' or not path.is_file():
             raise ValueError('Previously initialized database is missing')
-    wallet = Wallet(path, origin)
+    wallet = configured_wallet(path, origin)
     wallet.health()
     try: fd = os.open(marker, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
     except FileExistsError: pass

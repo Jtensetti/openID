@@ -140,4 +140,18 @@ final class WalletSecurityTests: XCTestCase {
         let revoked = WalletSnapshot(credentialId:ident,state:.revoked,createdAt:1,expiresAt:2000,requests:[request],events:[],environment:"PRIVATE_PILOT",legalIdentityIssued:false)
         XCTAssertThrowsError(try revoked.validate(for:ident))
     }
+    func testRevocationProofIsBoundToCredentialAndPublicBeta() throws {
+        let code = ident + "." + String(repeating: "x", count: 43)
+        try RevocationProof(origin: ServerConfiguration.betaOrigin, code: code).validate(for: ident)
+        XCTAssertThrowsError(try RevocationProof(origin: "https://other.invalid", code: code).validate(for: ident))
+        XCTAssertThrowsError(try RevocationProof(origin: ServerConfiguration.betaOrigin, code: code).validate(for: String(repeating: "b", count: 64)))
+        for invalid in [code + "?redirect=evil", code + "\n", String(code.dropLast()), "short"] {
+            XCTAssertThrowsError(try RevocationProof(origin: ServerConfiguration.betaOrigin, code: invalid).validate(for: ident))
+        }
+    }
+    func testRevocationProofIsNotPutInEndpointURL() {
+        XCTAssertEqual(RevocationProof.endpoint.scheme, "https")
+        XCTAssertNil(RevocationProof.endpoint.query)
+        XCTAssertNil(RevocationProof.endpoint.fragment)
+    }
 }

@@ -4,10 +4,23 @@ Backend and public handlers must be separate Lambda functions with separate
 IAM roles. Provisioning is operator-only and is not exposed by either handler.
 """
 import hashlib
+import base64
+import html
 import json
 import os
 import re
 import time
+from urllib.parse import parse_qs
+
+FORM = '''<!doctype html><html lang="sv"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Spärra ditt openID</title><main><h1>Spärra ditt openID</h1>
+<p>Du kan spärra dygnet runt. Du behöver spärrkoden som du sparat från appen. Spärren är permanent.</p>
+<form method="post" action="/revoke"><p><label for="code">Spärrkod</label><br>
+<input id="code" name="code" type="password" required maxlength="108" autocomplete="off" spellcheck="false"></p>
+<p><label><input type="checkbox" name="confirm" value="yes" required>Jag vill spärra mitt ID permanent.</label></p>
+<button type="submit">Spärra permanent</button></form>
+<p>Saknar du spärrkoden behöver du kontakta pilotens operatör. Att radera appen spärrar inte ditt ID.</p>
+<p><a href="https://openid.tensetti.io">Till projektsidan</a></p></main></html>'''
 
 
 def identifier(value):
@@ -74,25 +87,48 @@ def response(status, message):
         'body': json.dumps({'message': message}, ensure_ascii=False)}
 
 
+def page(status, body):
+    result = response(status, '')
+    result['headers'].update({'Content-Type': 'text/html; charset=utf-8',
+        'Content-Security-Policy': "default-src 'none'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"})
+    result['body'] = body
+    return result
+
+
 def public_handler(event, context):
     # Tokens belong in a POST body, never in URLs, logs or automatic email links.
-    if event.get('requestContext', {}).get('http', {}).get('method') != 'POST':
+    method = event.get('requestContext', {}).get('http', {}).get('method')
+    if method == 'GET': return page(200, FORM)
+    if method != 'POST':
         return response(405, 'Använd spärrformuläret för att bekräfta spärren.')
     raw = event.get('body', '')
-    if event.get('isBase64Encoded') or not isinstance(raw, str) or len(raw) > 1024:
+    is_form = event.get('headers', {}).get('content-type', '').split(';')[0] == 'application/x-www-form-urlencoded'
+    def reply(status, message):
+        if not is_form: return response(status, message)
+        return page(status, '<!doctype html><html lang="sv"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Spärr av openID</title><main><h1>Spärr av openID</h1><p>'+html.escape(message)+'</p><a href="/revoke">Till spärrformuläret</a></main></html>')
+    if not isinstance(raw, str) or len(raw) > 2048:
         return response(400, 'Kontrollera spärrkoden och försök igen.')
     try:
-        data = json.loads(raw)
+        if event.get('isBase64Encoded'):
+            raw = base64.b64decode(raw, validate=True).decode('utf-8')
+        if len(raw) > 1024: raise ValueError('request size')
+        if is_form:
+            fields = parse_qs(raw, strict_parsing=True, max_num_fields=3)
+            if set(fields) != {'code', 'confirm'} or any(len(v) != 1 for v in fields.values()):
+                raise ValueError('form fields')
+            credential, token = fields['code'][0].strip().split('.')
+            data = {'credential': credential, 'token': token, 'confirm': fields['confirm'] == ['yes']}
+        else: data = json.loads(raw)
         if not isinstance(data, dict) or set(data) != {'credential', 'token', 'confirm'} or data['confirm'] is not True:
             raise ValueError('confirmation required')
         # None would select the backend's unconditional path, so validate here.
         if not isinstance(data['token'], str):
             raise ValueError('revocation proof required')
         store().revoke(data['credential'], data['token'])
-        return response(200, 'Ditt ID är spärrat. Det kan inte aktiveras igen.')
+        return reply(200, 'Ditt ID är spärrat. Det kan inte aktiveras igen.')
     except (ValueError, TypeError):
-        return response(400, 'Kontrollera spärrkoden och försök igen.')
+        return reply(400, 'Kontrollera spärrkoden och försök igen.')
     except Exception as error:
         if getattr(error, 'response', {}).get('Error', {}).get('Code') == 'ConditionalCheckFailedException':
-            return response(400, 'Kontrollera spärrkoden och försök igen.')
-        return response(503, 'Spärren kunde inte bekräftas. Försök igen. Ditt ID är inte bekräftat spärrat.')
+            return reply(400, 'Kontrollera spärrkoden och försök igen.')
+        return reply(503, 'Spärren kunde inte bekräftas. Försök igen. Ditt ID är inte bekräftat spärrat.')

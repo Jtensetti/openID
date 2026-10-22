@@ -58,18 +58,19 @@ python3 deployment/continuity/template.py > /tmp/openid-continuity.json
 
 Lokala tester använder syntetiska identiteter, injicerad kryptostubb och en
 atomisk tabellmodell. De är inte prov av NFC, signaturer eller AWS-behörigheter.
-Mallen använder AWS Python 3.12-runtime med dess medföljande SDK. Före pilotens
-skyddade ID-trafik ska SDK paketeras med projektets låsta beroenden och SBOM;
-den inline-paketerade mallen är en isolerad integrationsmiljö.
+Mallen använder AWS Python 3.12-runtime. Före pilotens skyddade ID-trafik ska
+`SdkLayerArn` peka på en versionslåst Lambda-layer byggd från
+`deployment/aws/requirements.lock`, inklusive dess licenser och SBOM. Utan detta
+är mallen en isolerad integrationsmiljö med AWS medföljande SDK.
 
 Kvar innan användare kan förlita sig på tjänsten:
 
-- Obligatorisk konfiguration och IAM-klient i både verifierare, operatörsverktyg
-  och federationsbrygga. De injicerade testgränssnitten aktiverar inte detta.
-- Migration av alla befintliga ID:n utan möjlighet att tyst stänga av kontrollen.
-- Säker utlämning av spärrkod och tillgängligt webbformulär för förlorad telefon.
-- Beständig leveranskö, oföränderliga kontaktversioner, SES-arbetare samt hantering
-  av leverans, studs och klagomål. Utkorgsexporten är ännu ett injicerat gränssnitt.
+- Aktivera den gemensamma konfigurationen nedan i den valda pilotdriften efter
+  granskad migration av eventuella befintliga ID:n.
+- Installera appversionen med separat spärrkod. Den tidigare appversionen kan
+  inte spara koden och spärra direkt när verifieraren är avstängd.
+- Provkör SQS/SES med rätt kontaktbindning och säkerställ att operatören tar emot
+  vidarebefordrade studsar/klagomål. `ACCEPTED` är inte leveransbevis.
 - Ändamålsenlig separat kontaktkontroll; verifierad e-postadress bevisar inte ensam
   att adressen tillhör den passkontrollerade personen.
 - Sammanhängande tester av SAML/OIDC, befintliga sessioner, nattstopp och återstart
@@ -80,6 +81,47 @@ körningar per funktion och tabellen max fem läs-/skrivenheter per sekund.
 Det begränsar resursanvändning men är ingen garanterad fakturagräns och kan
 begränsa tillgänglighet vid missbruk. Inga request-body-loggar skapas. CloudWatch
 standardmätvärden finns; egna diagnostikloggar och larm återstår.
+
+## Koppla verifierare, brygga och app
+
+`configured_wallet` används av `serve.py`, `saml_bridge.py` och `wallet_cli.py`.
+Sätt `OPENID_CONTINUITY_CONFIG` till en absolut, vanlig fil med mode 0600:
+
+```json
+{"version":1,"region":"eu-north-1","backendFunction":"arn:aws:lambda:eu-north-1:123456789012:function:your-backend"}
+```
+
+Använd `deployment/continuity-compose.yaml` tillsammans med `beta-compose.yaml`.
+Sätt också `OPENID_NOTICE_QUEUE_URL` till stackens `NoticeQueueUrl`. Serverrollen
+behöver endast `lambda:InvokeFunction` för backendfunktionen och `sqs:SendMessage`
+för den kön. Den får inte skriva kontakt- eller aktiveringsposter i DynamoDB.
+Notifieringsexportören går på testservern; kökonsumenten går separat i Lambda.
+En ännu ej exporterad utkorgspost väntar till nästa serverstart. Vid ordnad
+avstängning måste utkorgen därför tömmas och eventuella fel hanteras före stopp.
+
+En migrerad wallet får en `wallet.continuity-required`-markör. Gamla lokala
+kommandon utan konfiguration vägrar öppna den. Driftkonfigurationen måste också
+bevaras separat från databasbackuper; markören ersätter inte det kravet.
+
+Operatören förbereder en kontakt med `continuity_operator.py`, separat IAM-
+behörighet till de två tabellerna och flaggan `--independently-verified-contact`.
+E-post läses från stdin, inte kommandoraden. Granskningsreferensen ska motsvara
+en verkligt genomförd separat kontroll. Verktyget aktiverar aldrig ett ID.
+Remote registrering använder villkorade, atomiska skrivningar. Om ett svar
+försvinner jämförs oföränderliga poster; inga spärrar eller kontakter skrivs över.
+Därefter görs det vanliga manuella aktiveringsbeslutet med `wallet_cli.py`.
+
+Spärrhemligheten lagras krypterad med befintligt AES-GCM-bibliotek och egen
+AAD-domän i wallet. Endast dess hash går till spärrtabellen. Efter separat
+kontaktbindning lämnas koden ut i en enhetssignerad snapshot. Den nya iPhone-
+appen binder koden till registrerings-ID och publik betaorigin, lagrar den i
+icke-synkroniserad Keychain och kan spärra direkt över HTTPS efter lokal
+användarverifiering. HTTP-omdirigeringar tillåts inte. Privat serverkonfiguration
+och privata ID:n flyttas aldrig automatiskt till den publika tjänsten.
+
+`GET /revoke` visar ett enkelt formulär utan skript eller spårning. POST kräver
+spärrkod och uttrycklig bekräftelse. Koden får inte läggas i länkar. Appen låter
+innehavaren spara den utanför telefonen för användning vid förlorad enhet.
 
 Källor: [DynamoDB konsistens](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.ReadConsistency.html),
 [villkorade uppdateringar](https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_UpdateItem.html),

@@ -94,12 +94,14 @@ struct WalletSnapshot: Decodable {
     let environment: String
     let legalIdentityIssued: Bool
     var identity: PassportIdentity? = nil
+    var revocationCode: String? = nil
     func validate(for id: String) throws {
         guard credentialId == id, environment == "PRIVATE_PILOT", !legalIdentityIssued,
               requests.count <= 5, events.count <= 50,
               state == .active || requests.isEmpty,
               (state == .active || state == .pending) || identity == nil else { throw WalletError.rejected }
         try identity?.validate()
+        if let code = revocationCode { try RevocationProof(origin: ServerConfiguration.betaOrigin, code: code).validate(for: id) }
         for request in requests {
             guard request.id.range(of: "^[a-f0-9]{64}\\z", options: .regularExpression) != nil,
                   !request.relyingParty.isEmpty, request.relyingParty.count <= 100,
@@ -107,6 +109,18 @@ struct WalletSnapshot: Decodable {
                   request.code.range(of: "^[0-9]{6}\\z", options: .regularExpression) != nil else { throw WalletError.rejected }
         }
     }
+}
+
+struct RevocationProof: Codable {
+    let origin: String
+    let code: String
+    static let endpoint = URL(string: "https://o86p8fy3h6.execute-api.eu-north-1.amazonaws.com/revoke")!
+    func validate(for credentialID: String) throws {
+        guard origin == ServerConfiguration.betaOrigin,
+              code.hasPrefix(credentialID + "."),
+              code.range(of: "^[a-f0-9]{64}\\.[A-Za-z0-9_-]{43}\\z", options: .regularExpression) != nil else { throw WalletError.rejected }
+    }
+    var token: String { String(code.suffix(43)) }
 }
 struct PassportIdentity: Decodable {
     let displayName: String

@@ -64,8 +64,27 @@ class AuthorityTests(unittest.TestCase):
         self.assertEqual('ENABLED', self.authority.status(self.credential)['state'])
 
     def test_email_scanner_get_and_missing_confirmation_never_revoke(self):
-        self.assertEqual(405, self.call({'requestContext': {'http': {'method': 'GET'}}})['statusCode'])
+        self.assertEqual(200, self.call({'requestContext': {'http': {'method': 'GET'}}})['statusCode'])
         self.assertEqual(400, self.call(self.event(confirm=False))['statusCode'])
+        self.assertEqual('ENABLED', self.authority.status(self.credential)['state'])
+
+    def test_browser_form_and_base64_payload(self):
+        import base64
+        body = 'code='+self.credential+'.'+self.token+'&confirm=yes'
+        event = self.event()
+        event.update(headers={'content-type': 'application/x-www-form-urlencoded'},
+                     body=base64.b64encode(body.encode()).decode(), isBase64Encoded=True)
+        result = self.call(event)
+        self.assertEqual(200, result['statusCode'])
+        self.assertIn('text/html', result['headers']['Content-Type'])
+        self.assertNotIn(self.token, result['body'])
+        self.assertEqual('REVOKED', self.authority.status(self.credential)['state'])
+
+    def test_duplicate_confirmation_is_rejected(self):
+        event = self.event()
+        event.update(headers={'content-type': 'application/x-www-form-urlencoded'},
+                     body='code='+self.credential+'.'+self.token+'&confirm=yes&confirm=no')
+        self.assertEqual(400, self.call(event)['statusCode'])
         self.assertEqual('ENABLED', self.authority.status(self.credential)['state'])
 
     def test_concurrent_replays_are_idempotent(self):

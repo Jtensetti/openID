@@ -22,6 +22,9 @@ def install(db):
         contact_version TEXT NOT NULL, kind TEXT NOT NULL, created INTEGER NOT NULL,
         status TEXT NOT NULL DEFAULT 'PENDING', attempts INTEGER NOT NULL DEFAULT 0,
         accepted_reference TEXT)''')
+    db.execute('''CREATE TABLE IF NOT EXISTS revocation_codes (
+        credential TEXT PRIMARY KEY REFERENCES credentials(id),
+        sealed TEXT NOT NULL, contact_version TEXT NOT NULL, evidence TEXT NOT NULL)''')
 
 
 def bind_contact(db, credential, contact_version, evidence):

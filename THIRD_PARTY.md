@@ -16,6 +16,9 @@ sårbarhetskontrollen. npm-paketen låses med integritetshash i respektive
 
 AWS-testets SDK, CI-verktyg och licenser finns i
 [deployment/aws/THIRD_PARTY.md](deployment/aws/THIRD_PARTY.md).
+Samma hash-låsta SDK och SBOM används nu också av pilotcontainerns
+spärrklient och aviseringskö samt av den separata Lambda-tjänstens SDK-layer.
+Inga SDK-versioner eller transitiva beroenden ändras genom denna återanvändning.
 
 | Komponent | Låst version / full källrevision | Användning och licens |
 |---|---|---|
