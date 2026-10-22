@@ -31,7 +31,7 @@ def template():
                 'Version': '2012-10-17', 'Statement': [{'Effect': 'Allow', 'Action': actions,
                     'Resource': {'Fn::GetAtt': ['Ledger', 'Arn']}}]}}]}}
         resources[name] = {'Type': 'AWS::Lambda::Function', 'Properties': {
-            'Runtime': 'python3.12', 'Handler': 'index.'+handler, 'MemorySize': 128,
+            'Runtime': 'python3.12', 'Handler': 'index.'+handler, 'MemorySize': 512,
             'Timeout': 8, 'ReservedConcurrentExecutions': 2,
             'Role': {'Fn::GetAtt': [name+'Role', 'Arn']},
             'Environment': {'Variables': {'REVOCATION_TABLE': {'Ref': 'Ledger'}}},
@@ -89,7 +89,7 @@ def template():
                                                     'ses:FeedbackAddress': {'Ref': 'FeedbackAddress'}}}}
                 ]}}]}},
         'Delivery': {'Type': 'AWS::Lambda::Function', 'Properties': {
-            'Runtime': 'python3.12', 'Handler': 'index.handler', 'MemorySize': 128,
+            'Runtime': 'python3.12', 'Handler': 'index.handler', 'MemorySize': 512,
             'Timeout': 20, 'ReservedConcurrentExecutions': 2,
             'Role': {'Fn::GetAtt': ['DeliveryRole', 'Arn']},
             'Environment': {'Variables': {'NOTICE_TABLE': {'Ref': 'NoticeLedger'},

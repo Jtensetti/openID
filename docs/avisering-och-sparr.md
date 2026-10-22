@@ -1,50 +1,56 @@
-# Oberoende avisering och spärr – teknisk design
+# Oberoende avisering och spärr
 
-Status 2026-10-22: första implementationen finns som isolerad kandidat i
-[deployment/continuity](../deployment/continuity/README.md). Wallet har injicerbar
-extern spärrkontroll och en transaktionell aviseringsutkorg. Pilotens befintliga
-ID-trafik använder ännu inte dessa. K6.6 och K6.8 kvarstår OPEN.
+Status 2026-10-22: [den separata tjänsten](../deployment/continuity/README.md)
+är kopplad till den publika SQLite-betan. Verifierare, federationsbrygga och
+operatörskommandon använder samma spärrkontroll. Appbygge 105 innehåller
+kodlagring och direkt spärr. Den privata testmiljön är inte migrerad.
+K6.6 och K6.8 är delvis tekniskt täckta och har fortsatt formell status OPEN.
 
 ## Oberoende avisering
 
 En adress som angriparen anger under samma passregistrering är inte i sig
-oberoende. Innan implementation behöver kontaktens ursprung beslutas:
-exempelvis separat verifierad befintlig kontakt eller registerstödd kanal.
+oberoende. Operatören ska före aktivering fastställa och dokumentera kontaktens
+ursprung, exempelvis separat kontrollerad befintlig kontakt eller registerstödd kanal.
 E-postleveransens lämplighet och kontaktbindningen ska riskbedömas; ett
 SMTP-svar eller en öppningspixel styrker inte att rätt person informerats.
 
-Föreslagen kedja: granskad ansökan → fastställd separat kontakt →
-atomiskt utfärdandebeslut och aviseringspost → leverans → verifierad
-hantering enligt beslutad policy. Fram till dess kvarstår manuell pilotaktivering.
-En ny framtida produktionsaktivering ska stoppas om kontaktbevis eller
-nödvändig avisering saknas; inför inte detta utan migration och negativa prov.
+Pilotkedja: granskad ansökan → separat kontaktbindning → manuellt
+aktiveringsbeslut och aviseringspost i samma transaktion → beständig SQS-kö →
+SES. Aktivering utan kontaktbindning nekas. Kontaktbindning aktiverar aldrig
+ett ID. SES-mottagaren måste även vara verifierad medan kontot är i testläge.
 
-Aviseringspost: slumpmässigt händelse-ID, intern credentialreferens,
-kontaktversion, mallversion, skapandetid, försökstid och leveransstatus.
+Aviseringspost: stabilt händelse-ID, intern credentialreferens,
+kontaktversion, mallversion, skapandetid, antal försök och transportstatus.
 Kontaktadress lagras krypterat med begränsad åtkomst. Meddelandet innehåller
-produkt, tid och väg till spärrhjälp, inte personnummer, passnummer, bild,
+produkt och väg till spärrhjälp, inte personnummer, passnummer, bild,
 nyckel eller länk som automatiskt godkänner något. Dubbel leverans kan ske
 vid nätfel; dubbel utfärdning får aldrig ske. Bytt kontakt får inte omdirigera
 redan beslutad avisering utan ny kontroll.
 
-Acceptansprov: saknad kontakt, ändrad kontaktversion, rollback, krasch mellan
+Syntetiska prov täcker saknad kontakt, ändrad kontaktversion, rollback, krasch mellan
 beslut och leverans, dubbla jobb, leveransfel, förfalskad kvittens och spärr
 under pågående leverans. Loggar får inte innehålla kontaktadresser eller tokens.
+
+Utkorgens `QUEUED` och mottagarens `ACCEPTED` betyder transportkvittens, inte
+bevis på att rätt person läst aviseringen. SES kan vidarebefordra studsar till
+operatören. Separat person–kontaktkontroll, beslutad leveranspolicy, automatiska
+driftlarm och bemanning återstår. Köexport sker på testservern; en oexporterad
+post efter ett abrupt avbrott väntar till nästa serverstart. Redan köade jobb
+behandlas av den separata tjänsten även när testservern är avstängd.
 
 ## Spärr när verifieraren är stängd
 
 En statisk projektsida kan visas dygnet runt men kan inte ensam ändra
 spärrstatus. En e-postlåda tar emot ärenden men bevisar varken identitet,
 bemanning eller verkställighet. Vi får inte kalla något av detta en färdig
-spärrtjänst. Pilotens 09–17-begränsning ska fortsatt visas.
+spärrtjänst. Pilotens 09–17-begränsning gäller registrering och legitimering.
 
-Alternativ att utreda utan beställning: separat liten beständig spärrtjänst
-med autentiserad begäran och strikt separata rättigheter. Den får endast
-spärra, aldrig aktivera eller ändra kontakt. Nyckeln till tjänsten och dess
-auktoritativa status måste skyddas och återställas utan att spärrar går förlorade.
-Gratisnivå hos leverantör är inget bevis på noll framtida kostnad eller SLA.
+Den publika spärrfunktionen i Lambda tar emot ett separat återkallelsebevis och
+skriver en permanent spärr i DynamoDB. Den får inte aktivera eller ändra kontakt.
+Appen sparar beviset i Keychain och låter innehavaren spara det utanför telefonen.
+Spärrformuläret fungerar utan appen och lägger aldrig koden i en URL.
 
-Alla verifierare och intygskonsumenter måste kontrollera aktuell spärrstatus.
+Verifieraren och federationsbryggan kontrollerar aktuell spärrstatus utan positiv cache.
 Om status inte kan kontrolleras ska åtkomst nekas. Efter nattstopp måste
 spärrar vara synkroniserade innan någon legitimering tillåts. Lokalt cachad
 ACTIVE-status får aldrig övertrumfa spärr. En kvittens om mottaget ärende
@@ -55,14 +61,15 @@ behövs. Publicera ingen endpoint som spärrar på enbart personnummer eller
 namn. Återkallelsebevis ska inte fungera som återställnings-/aktiveringsbevis.
 Begränsa försök utan att möjliggöra masspärr eller permanent utelåsning.
 
-Acceptansprov: fel nyckel, replay, dubbel spärr, samtidig legitimering,
-förlorad telefon, otillgänglig statuskälla, omstart efter nattspärr,
-gammal backup, manipulerad kö, utebliven kvittens och isolerad nätverkspartition.
+Negativa tester täcker fel kod, replay, dubbel spärr, otillgänglig statuskälla,
+gammal backup och kömanipulation. I AWS har ett syntetiskt ID spärrats med
+betans tjänster stoppade. Efter återöppning av dess wallet nekades ny
+legitimering, befintlig federationssession och konsumtion av en godkänd begäran.
+Fysisk iPhone, faktisk schemalagd nattstart och oberoende missbruksprov återstår.
 
-## Nästa beslut
+## Kvarvarande beslut
 
-Kontaktkälla, tillförlitlig leveranskontroll, autentisering utan telefon,
-auktoritativ spärrlagring, tjänstens nyckelförvaltning och kostnadsunderlag
-måste väljas innan detta blir drift. Befintliga projektverktyg ger åtkomst
-men ersätter inte dessa beslut. Organisation och bemanning är separata
-förutsättningar som kod inte kan uppfylla.
+Fastställ kontaktkontroll, leveranspolicy, hantering när spärrkod saknas,
+återställning av den auktoritativa tabellen och operativ beredskap.
+Organisation, bemanning och oberoende granskning är separata förutsättningar.
+En teknisk pilot med manuell aktivering är inte ett tillitsgodkännande.

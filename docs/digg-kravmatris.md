@@ -1,6 +1,6 @@
 # Kravmatris: mål tillitsnivå 3
 
-Bedömning 2026-10-22, teknisk bas `510bfe7`. 40 relevanta numrerade punkter för
+Bedömning 2026-10-22, teknisk bas `9c3ea77`. 40 relevanta numrerade punkter för
 passbaserad distansutgivning. Varje rad är en samlad punkt, inte varje underkrav.
 Status: **T** stark teknisk täckning (6), **D** delvis (22), **S** saknas/ej styrkt (12).
 Samtliga har formell status **OPEN**. T betyder inte uppfyllt eller godkänt.
@@ -55,8 +55,8 @@ och respektive komponent. Klusterfunktioner i CI räknas inte som driftsatta i S
 | K6.3 | D | Utveckling/support | Byte av aktiveringsmedel | Komplettera säker ersättning vid förlorad telefon och nytt pass utan supportgenväg. |
 | K6.4 | D | Utveckling | Unik personbindning | Nyckel/passbindning finns; verifiera registeranknytning, dubbletter och dokumentbyte. |
 | K6.5 | T | Utveckling | Giltighetstid | Betan begränsar giltighet till 24–72 timmar och passets datum; fastställ produktionspolicy och riskunderlag. |
-| K6.6 | D | Utveckling/utfärdare | Oberoende avisering | Transaktionell utkorg, separat SQS/SES-konsument och kvittenser är implementerade och provade med syntetisk händelse. Verklig separat person–kontaktkontroll, leveransbevis och operativ felhantering kvarstår. |
-| K6.8 | D | Drift/support | Tillgänglig spärr | Separat spärrtjänst och negativa AWS-prov finns. Appkoppling, kodutlämning, migration och komplett natt-/återstartsprov måste verifieras i pilotdriften; formell status kvarstår OPEN. |
+| K6.6 | D | Utveckling/utfärdare | Oberoende avisering | Transaktionell utkorg och separat SQS/SES-konsument är inkopplade i den publika betan; syntetisk aktivering och transportkvittens provade. Verklig separat person–kontaktkontroll, leveransbevis och operativ felhantering kvarstår. |
+| K6.8 | D | Drift/support | Tillgänglig spärr | Publik beta och appkod är kopplade till separat spärrtjänst. Syntetiskt prov med stoppade betatjänster och återstartad wallet nekar gammal ACTIVE-status och session. Fysisk app, schemalagd nattstart, operativ beredskap och oberoende prov återstår; formell status OPEN. |
 | K6.9 | D | Utveckling/drift | Säker verkställighet | Signerad spärr, sessionsavslag och negativa tester finns; verifiera drift, missbruksskydd och återstart. |
 | K7.1 | T | Utveckling | Giltighetskontroll | Signatur och aktuell spärr/utgång kontrolleras; oberoende kontroll av alla produktionsvägar återstår. |
 | K7.2 | T | Utveckling | Angreppsskydd | Engångsutmaningar och bindningar testas; oberoende test av relä, missbruk och full drift återstår. |
@@ -75,7 +75,7 @@ endast en referens. Varken manuell aktivering eller godkänd CI ersätter gransk
 
 1. Inför [styrningsrutiner](styrningsrutiner.md) och utse ansvariga.
 2. Förstärk lokalt nyckelskydd och prova avvisning av osäkra filer.
-3. Implementera [avisering och spärr](avisering-och-sparr.md) först när
-   kontaktkälla, verkställighet och driftmodell är beslutade och provbara.
+3. Slutför användarprov och driftberedskap för [avisering och spärr](avisering-och-sparr.md),
+   inklusive verklig separat kontaktkontroll och leveransfel.
 4. Utvärdera SPAR-åtkomst; beställ ingen anslutning utan kostnadsbeslut.
 5. Förbered oberoende provning och beslut om utfärdarorganisation.
