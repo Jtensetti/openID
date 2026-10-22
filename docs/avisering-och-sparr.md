@@ -1,7 +1,9 @@
 # Oberoende avisering och spärr – teknisk design
 
-Status 2026-10-22: design, inte implementerad eller driftsatt. K6.6 och
-K6.8 kvarstår OPEN. Ingen ny molntjänst eller leveranskanal beställs.
+Status 2026-10-22: första implementationen finns som isolerad kandidat i
+[deployment/continuity](../deployment/continuity/README.md). Wallet har injicerbar
+extern spärrkontroll och en transaktionell aviseringsutkorg. Pilotens befintliga
+ID-trafik använder ännu inte dessa. K6.6 och K6.8 kvarstår OPEN.
 
 ## Oberoende avisering
 

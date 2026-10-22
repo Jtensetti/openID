@@ -33,8 +33,10 @@ def identifier(value):
     return value
 
 class Wallet:
-    def __init__(self, path, origin, clock=time.time, crypto=device_crypto, vault_runner=None):
+    def __init__(self, path, origin, clock=time.time, crypto=device_crypto, vault_runner=None, revocation=None, notifications=False):
         self.path, self.origin, self.clock, self.crypto = Path(path).absolute(), origin, clock, crypto
+        self.revocation = revocation
+        self.notifications = notifications
         if self.path.is_symlink() or self.path.parent.is_symlink(): raise ValueError('database symlink')
         self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         if self.path.parent.stat().st_mode & 0o077: raise ValueError('database directory must be private (0700)')
@@ -82,6 +84,9 @@ class Wallet:
                 CREATE INDEX IF NOT EXISTS profile_person ON profiles(person);
                 CREATE INDEX IF NOT EXISTS federation_pending ON federation_requests(state,expires);
             ''')
+            if self.notifications:
+                from notices import install
+                install(db)
 
     @contextmanager
     def transaction(self):
@@ -118,6 +123,10 @@ class Wallet:
 
     def state(self, row):
         if row['state'] == 'ACTIVE' and row['expires'] <= self.clock(): return 'EXPIRED'
+        if row['state'] == 'ACTIVE' and getattr(self, 'revocation', None) is not None:
+            remote = self.revocation.request('status', row['id'])
+            if remote == 'REVOKED': return 'REVOKED'
+            if remote != 'ENABLED': raise ValueError('credential not registered at revocation authority')
         return row['state']
 
     def active(self, db, ident):
@@ -173,6 +182,7 @@ class Wallet:
         row = self.credential(db, ident)
         if row['state'] != 'PENDING_REVIEW' or self.clock()-row['created'] > 86400:
             raise ValueError('new proofing required')
+        if self.revocation is not None: self.revocation.assert_allowed(ident)
         expires = int(self.clock())+hours*3600
         profile = db.execute('SELECT * FROM profiles WHERE credential=?', (ident,)).fetchone()
         if profile is not None:
@@ -187,12 +197,18 @@ class Wallet:
         db.execute('UPDATE credentials SET state=?,expires=?,decision=? WHERE id=?',
             ('ACTIVE', expires, decision, ident))
         self.event(db, ident, 'ACTIVATED')
+        if self.notifications:
+            from notices import activation
+            activation(db, ident, int(self.clock()))
 
     def revoke(self, ident):
         with self.transaction() as db: self._revoke(db, ident)
 
     def _revoke(self, db, ident):
         row = self.credential(db, ident)
+        # Persist remotely first: a local rollback may deny service but must never
+        # undo a revocation. Repeating this call is safe, including after restore.
+        if getattr(self, 'revocation', None) is not None: self.revocation.revoke(ident)
         if row['state'] != 'REVOKED':
             db.execute('UPDATE credentials SET state=? WHERE id=?', ('REVOKED', ident))
             db.execute("UPDATE requests SET state='CANCELLED' WHERE credential=? AND state IN ('PENDING','APPROVED')", (ident,))
