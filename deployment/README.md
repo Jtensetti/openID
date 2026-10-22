@@ -7,6 +7,15 @@ nå datorns HTTPS-adress. Appen installeras separat från Xcode.
 Detta är en miljö för telefonprov. Den är inte öppnad för publik e-id-utgivning.
 Modellkalibrering, fysisk NFC/App Attest och oberoende granskning återstår.
 
+## Publik TestFlight-beta
+
+Instruktionerna nedan gäller den egna privata miljön. Betan använder i stället
+`beta-compose.yaml` tillsammans med `continuity-compose.yaml`, produktions-App
+Attest och den fasta publika HTTPS-adressen. Följ
+[spärrtjänstens driftinstruktion](continuity/README.md) för kontaktbindning,
+manuell aktivering, behörigheter och återställningsgränser.
+Privata ID:n migreras inte genom att byta serveradress i appen.
+
 ## Förbered och starta
 
 Kräver Docker med Compose, Python 3 och OpenSSL på värddatorn. Använd ett

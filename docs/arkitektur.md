@@ -1,7 +1,8 @@
 # Arkitektur
 
 Appflödet består av en iPhone-klient, en verifieringsserver med SQLite-register
-och två lokala Java-processer för SAML. Det finns också två äldre testlägen.
+och separata Java-processer för SAML/OIDC. Den publika betan använder dessutom
+en oberoende spärrtjänst och aviseringskö. Se [avisering och spärr](avisering-och-sparr.md). Det finns också två äldre testlägen.
 
 ## Komponenter
 
@@ -152,7 +153,8 @@ De utgör därför inte separata administrativa säkerhetszoner.
 
 ## Återstående kontroller
 
-Fotografering på fysisk iPhone, biometrisk/PAD-kalibrering, injektion och relä,
+Bredare fysiska enhetsprov, biometrisk/PAD-kalibrering, injektion och relä,
 certifikatspärr, registerkontroll, HSM, operativ befogenhetsseparation och återställning med
-beständig spärrstatus återstår. Dokumentunderskrift är inte implementerad.
+beständig spärrstatus behöver fortsatt operativ verifiering. Den separata
+spärrtjänsten har provats med syntetiskt ID medan betans server var stoppad. Dokumentunderskrift är inte implementerad.
 Se [krav](krav.md), [testning](testning.md) och [säkerhet](../SECURITY.md).

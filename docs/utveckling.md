@@ -5,7 +5,7 @@
 | Del | Verktyg och instruktioner |
 |---|---|
 | Verifierare och SAML | Linux x86_64, Python 3.12, Node 24.19.0, Temurin 21.0.12.1+1 och Maven 3.9.11. [Start och tester](../verification/README.md). |
-| iPhone | macOS, Xcode 16.4 och iOS 16+. [Projekt och signering](../ios/README.md). |
+| iPhone | macOS och iOS 16+. CI: Xcode 16.4; bygge 106: Xcode 27.1. [Projekt och signering](../ios/README.md). |
 | WebAuthn-labb | JDK 21 och Chromium; låst Playwright 1.62.1. [Start och tester](../prototype/README.md). |
 | Driftcontainer | Docker med digestlåst Temurin. [Körning](../ops/README.md). |
 

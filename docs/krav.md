@@ -17,7 +17,7 @@ Aktuell originaltext behöver kontrolleras inför en formell bedömning.
 | ID-07 | Faktorer/nyckelskydd, D08 K6.1–K6.2 | Secure Enclave/Keychain i iOS-koden; CryptoKit/server-interoperabilitet testad. | Fysiskt enhetstest och verifierad hårdvarubindning på servern. WebAuthn-labben använder attestering `none`. |
 | ID-08 | Återställning, D08 K6.3 | Nyregistrering för samma pass ersätter nyckeln; spärrad nyckel kan inte aktiveras igen. | Förlorad telefon utan självbetjäning, nytt pass och skydd mot gammal databasåterläsning. |
 | ID-09 | Bindning/giltighet, D08 K6.4–K6.7 | Signerade engångsoperationer, utgång och samtidiga beslut testas i Python och XCTest. | Oberoende avisering och komplett utgivningsprocess. |
-| ID-10 | Spärr, D03 §8.6 | App eller operatörs-CLI; spärr kontrolleras vid godkännande, konsumtion och skyddad SP-läsning. | Åtkomlig spärrkanal dygnet runt, bemanning och distribuerad drift. |
+| ID-10 | Spärr, D03 §8.6 | App, operatörs-CLI och separat spärrtjänst i den publika betan; aktuell status kontrolleras vid godkännande, konsumtion och skyddad SP-läsning. | Sammanhängande telefonprov, schemalagd återstart, bemanning och oberoende granskning. |
 | ID-11 | Bevarande/avveckling, D08 K2.7–K2.8, K5.5 | Råunderlag lagras inte; PostgreSQL-läget har begränsad gallring och Transit-omkryptering. | Fastställda lagringstider, avveckling och gallring av administrativa loggar/personlänkar. |
 
 ## Protokoll och säkerhet
@@ -70,11 +70,8 @@ för stöd för explicita EC-parametrar. Ett genererat Brainpool-prov täcker
 betrodd kedja, obetrodd kedja och ändrad datagrupp. Detta ändrar inte
 kraven på tillitsankare eller den kvarstående kontrollen av certifikatspärr.
 
-ID-05: Kameraguiden visar ansiktsram, separata fångstindikatorer och korrigering direkt i förhandsbilden. För liten/stor sidovridning skiljs åt. Fångstgränserna är oförändrade; fysisk användbarhet och sidofångst behöver verifieras på telefon.
-
-ID-05: Fångstguidens tolerans för små rörelser, centrering och lutning har ökats och hålltid kortats till 0,45 s/minst fyra observationer. Syntetiska prov täcker naturlig variation och fortsatt avvisning av stora rörelser. Serverns identitetskontroller och tre skilda huvudpositioner ändras inte. Fysisk användbarhet behöver bekräftas.
-
-ID-05: Riktningsguide framåt/höger/vänster med separat fångstbekräftelse. Begränsad pausbudget utan tillgodoräknad avbrottstid provas med syntetiska mätserier, inklusive upprepade avbrott och fel sida. Fysiskt prov av speglad riktning och användbarhet återstår.
+ID-05: Aktuell riktningsguide, fångsttrösklar och lokalt kameraprov beskrivs i
+[iPhone-dokumentationen](../ios/README.md#fotografering). Guiden är inte ett liveness-bevis.
 
 ID-05/INT-02: Biometriarbetaren rapporterar endast fasta steg och tillåtna orsakskoder. Huvudprocessen validerar koderna igen och skiljer modell-/arbetarfel från avvisad bildanalys. Inga bilder, poäng eller godtyckliga undantagstexter loggas. Diagnostik ändrar inte experimentella gränser eller formell status.
 
@@ -131,20 +128,12 @@ alla nycklar och kasserar registerbindningar.
 samtidighet, rollback, sessionsspärr och schemaövergång från befintlig pilot.
 Ingen verklig registeradapter, automatisk aktivering, ny HTTP-endpoint eller
 nationella identitetsattribut i federation införs. PostgreSQL-stöd och
-operativ återställning/spärrkanal återstår. Formell status: OPEN.
+operativ återställning återstår. Separat spärr i SQLite-betan beskrivs i
+[avisering och spärr](avisering-och-sparr.md). Formell status: OPEN.
 Se [flöde, befogenheter och begränsningar](registerbindning.md).
 
 
-## Kontroll av passfält och registerkrav 2026-10-21
-
-ID-02 är fortsatt OPEN. Kodgranskning av revision a7ffe976 visar att appen
-läser DG1, DG2, DG14 och SOD. Servern autentiserar datagruppernas hashvärden
-mot signerad SOD. Identitetsmodellen tar ut namn, MRZ-födelsedatum,
-nationalitet, utfärdarland, dokumentnummer och utgångsdatum. DG1:s
-optional-data/personnummerfält tas inte ut; DG11 läses inte. Den sparade
-profilen saknar därför nationell identitetsbeteckning. Rå DG1 bevaras inte
-av det granskade flödet, så en tidigare privat läsning bevisar inte vilket
-innehåll detta fält hade. Ingen privat personakt har öppnats i denna kontroll.
+## Personnummer från signerade passuppgifter
 
 D08 K5.7 kräver nationell identitetsbeteckning; K5.8 kräver jämförelse mot
 officiellt register. D09 accepterar även registeruppgifter via mellanhand.
@@ -169,8 +158,8 @@ MRZ-födelsedatum och porträtt; personnumret lämnas inte genom SAML/OIDC.
 `PassportVerifierTest`, `test_identity` och `WalletSecurityTests` täcker
 signerade testdata, manipulation, format, äldre profiler och attributgränsen.
 
-Fältets förekomst i det privata svenska passet återstår att bekräfta vid en
-ny läsning. Inga tidigare råa passdata återskapas. ID-02 förblir OPEN eftersom
+Fältets förekomst och visning har bekräftats vid ett privat telefonprov.
+Detta styrker inte uppgifternas aktualitet i ett officiellt register. ID-02 förblir OPEN eftersom
 registerkontroll och hantering av skyddade uppgifter återstår.
 
 

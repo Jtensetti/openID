@@ -6,3 +6,13 @@ prototype/node_modules/
 prototype/.local-*/
 **/__pycache__/
 ops/.build/
+
+# Lokala byggresultat och macOS/Xcode-inställningar
+.DS_Store
+**/xcuserdata/
+**/DerivedData/
+*.xcarchive/
+*.xcresult/
+*.ipa
+verification/.venv/
+verification/node_modules/
