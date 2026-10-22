@@ -37,8 +37,8 @@ uppdaterats efter denna körning; äldre versioner finns i Git-historiken.
 | `python3 -m unittest discover -s ops/tests -v` | 6 verkliga HTTP/processtester godkända. Negativa vägar, metoder, aktiveringsförsök via miljövariabler, fel port, loggkanariefågel och verifierad timeout för ofullständig request. |
 | OSV | 171 Maven-artefakter, inga publicerade fynd vid kontrolltillfället; se `osv.json`. |
 | Docker-image | Docker/Podman saknas på arbetsvärden. [GitHub Actions](https://github.com/Jtensetti/openID/actions/runs/39244622896) byggde och testade den driftsatta källrevisionen med nät avstängt, read-only, non-root och borttagna capabilities: godkänt. |
-| Render-deploy | `dep-dbb01es9v7es73a6c2k0` blev `live` 2026-10-19 11:37:09 UTC, från revision `0299d31b458fd72b2251dc2cc192858e66beab45`. Frankfurt/free, auto-deploy av, TCP-hälsokontroll. [Faktisk konfiguration](../../ops/evidence/render-deployment.json). |
-| Extern HTTPS | 13 kontroller godkända med certifikatvalidering och utan redirects: liveness 200/SEALED, readiness och autentiseringsvägar 503, testmaterial otillgängligt, aktivering via query/POST nekad, säkerhetsheaders bevarade. [Maskinläsbart resultat](../../ops/evidence/render-https.json), [omkörning](../../ops/README.md). |
+| Render-deploy | `dep-dbb01es9v7es73a6c2k0` blev `live` 2026-10-19 11:37:09 UTC, från revision `0299d31b458fd72b2251dc2cc192858e66beab45`. Frankfurt/free, auto-deploy av, TCP-hälsokontroll. [Faktisk konfiguration](https://github.com/Jtensetti/openID/blob/a20803b/ops/evidence/render-deployment.json). |
+| Extern HTTPS | 13 kontroller godkända med certifikatvalidering och utan redirects: liveness 200/SEALED, readiness och autentiseringsvägar 503, testmaterial otillgängligt, aktivering via query/POST nekad, säkerhetsheaders bevarade. [Maskinläsbart resultat](https://github.com/Jtensetti/openID/blob/a20803b/ops/evidence/render-https.json), [omkörning](../../ops/README.md). |
 
 Maskinläsbara JUnit-fall: [test-results.json](test-results.json). Nya tester
 utökar den tidigare G1-körningen; äldre [verification.md](verification.md)

@@ -41,7 +41,7 @@ och respektive komponent. Klusterfunktioner i CI räknas inte som driftsatta i S
 | K4.4 | D | Drift | Säker förändring | Lås och CI finns; inför bevakning, sårbarhetsundersökning, patchansvar och incidentberedskap. |
 | K5.1 | D | Utfärdare | Villkor | Publicera fastställda villkor och begränsningar för innehavare och förlitande parter. |
 | K5.2 | D | Utveckling/utfärdare | Villkor i ansökan | Visa rätt versions villkor före ansökan och bevara acceptansbevis. |
-| K5.3 | S | Utfärdare | Utfärdardeklaration | Färdigställ och fastställ deklarationen; mall i styrningsrutiner är inte beslutad policy. |
+| K5.3 | S | Utfärdare | Utfärdardeklaration | Färdigställ och fastställ utfärdardeklarationen i organisationens styrande dokument. |
 | K5.4 | S | Organisation | Ägande och styrning | Förbered verifierbar redovisning för behörig mottagare. |
 | K5.5 | S | Utfärdare | Avveckling | Fastställ ansvar, information, spärr, arkiv och kontrollerad avvecklingsplan. |
 | K5.6 | D | Utveckling/utfärdare | Ansökan | Användarinitierad registrering finns; knyt acceptans och villkorsversion till ansökan. |
@@ -73,7 +73,7 @@ endast en referens. Varken manuell aktivering eller godkänd CI ersätter gransk
 
 ## Första arbetsordning
 
-1. Inför [styrningsrutiner](styrningsrutiner.md) och utse ansvariga.
+1. Fastställ organisationens styrningsrutiner och utse ansvariga utanför kodrepot.
 2. Förstärk lokalt nyckelskydd och prova avvisning av osäkra filer.
 3. Slutför användarprov och driftberedskap för [avisering och spärr](avisering-och-sparr.md),
    inklusive verklig separat kontaktkontroll och leveransfel.

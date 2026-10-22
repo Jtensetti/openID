@@ -186,6 +186,6 @@ filobjektet. Detta ersätter inte HSM, skydd mot tjänstekontot eller
 administrativ flerpersonskontroll. `test_identity_key` provar avvisning av
 FIFO, katalog, symlänk, hårdlänk, breda rättigheter och fel längd.
 
-Se [40-punktsmatrisen](digg-kravmatris.md), [rutinförslag](styrningsrutiner.md)
-och [design för avisering/spärr](avisering-och-sparr.md). Formell status
+Se [40-punktsmatrisen](digg-kravmatris.md) och
+[avisering och spärr](avisering-och-sparr.md). Formell status
 förblir OPEN; dokumenten är ännu inte fastställda eller operativt verifierade.

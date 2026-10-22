@@ -28,7 +28,8 @@ tyst installera på en annan plattform.
 
 Publik dokumentation ska beskriva programvaran, API:er, driftkrav och
 designbeslut. Affärskalkyler, kontaktutkast och intern korrespondens hanteras
-separat. Kommentarer i kod ska förklara en avsikt eller begränsning som inte
+separat. Lokala IDE-layouter och driftsinventarier ingår inte i kodbasen.
+Versionshantera delade bygginställningar och tekniska instruktioner. Kommentarer i kod ska förklara en avsikt eller begränsning som inte
 framgår av koden. Tillfälliga arbetsloggar hör hemma i PR:n.
 
 ## Nästa tekniska arbete
