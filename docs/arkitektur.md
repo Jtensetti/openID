@@ -156,5 +156,11 @@ De utgör därför inte separata administrativa säkerhetszoner.
 Bredare fysiska enhetsprov, biometrisk/PAD-kalibrering, injektion och relä,
 certifikatspärr, registerkontroll, HSM, operativ befogenhetsseparation och återställning med
 beständig spärrstatus behöver fortsatt operativ verifiering. Den separata
-spärrtjänsten har provats med syntetiskt ID medan betans server var stoppad. Dokumentunderskrift är inte implementerad.
+spärrtjänsten har provats med syntetiskt ID medan betans server var stoppad.
+Dokumentunderskrift finns i den separata syntetiska `start-web`-labben:
+`SigningController` binder visad text och uttrycklig avsikt till en ny
+WebAuthn-ceremoni; `SigningCeremony` kontrollerar spärr och engångsbruk;
+`TestDocumentSigner` skapar CMS med en separat tillfällig testnyckel.
+Detta flöde är inte aktiverat i telefonpiloten eller anslutet till SignService.
+Se [prövningsunderlaget](provningsunderlag.md).
 Se [krav](krav.md), [testning](testning.md) och [säkerhet](../SECURITY.md).

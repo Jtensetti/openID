@@ -9,7 +9,10 @@ OIDC-kod och token hanteras av testsidans server, aldrig av QR-koden.
 Flödet använder Authorization Code, S256 PKCE, slumpmässigt `state` och
 `nonce`, 30 sekunders kodlivslängd och `private_key_jwt` med fast registrerad
 RSA-nyckel. Mottagaren verifierar signatur, RS256, issuer, audience,
-nonce, tidsgränser och den egna autentiseringskontexten. Pending-state
+nonce, tidsgränser och den egna autentiseringskontexten. `max_age=0`
+begär färsk autentisering; mottagaren nekar saknad eller för gammal
+`auth_time`. Kontexten begärs som essential claim utan samtidig
+`acr_values`. Pending-state
 konsumeras en gång; en skyddad session gäller högst fem minuter och kräver
 fortsatt giltigt ID vid varje åtkomst. Ingen refresh token begärs eller lagras.
 
@@ -35,3 +38,8 @@ myndighetsmetadata eller produktionsnycklar tillåts i denna pilot.
 Krav: FED-03, FED-04, FED-02 och ID-10. Fullständig extern
 interoperabilitet, tillitsgodkännande och oberoende säkerhetsgranskning
 återstår. Upstream och beroenden anges i THIRD_PARTY.md.
+
+Versionsbunden profilmappning och CI-artefakter finns i
+[prövningsunderlaget](provningsunderlag.md). Federerade underskriftsbegäranden
+med SignMessage/SAD får inte använda den vanliga inloggningsbekräftelsen;
+providerna avvisar dessa tills en särskild integration finns.

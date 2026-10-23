@@ -68,7 +68,7 @@ final class PilotOidcClient {
     parameters.put("response_type","code");parameters.put("scope","openid");parameters.put("client_id",client);
     parameters.put("redirect_uri",base+"/oidc/callback");parameters.put("state",p.state().getValue());parameters.put("nonce",p.nonce().getValue());
     parameters.put("code_challenge",CodeChallenge.compute(CodeChallengeMethod.S256,p.verifier()).getValue());parameters.put("code_challenge_method","S256");
-    parameters.put("acr_values",PhoneIdentity.CONTEXT);parameters.put("prompt","login");
+    parameters.put("prompt","login");parameters.put("max_age","0");
     parameters.put("claims",new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(Map.of("id_token",claims)));
     var query=new StringJoiner("&");parameters.forEach((k,v)->query.add(URLEncoder.encode(k,StandardCharsets.UTF_8)+"="+URLEncoder.encode(v,StandardCharsets.UTF_8)));
     setCookie(x,sid);redirect(x,issuer+"/oidc/authorize?"+query);
@@ -96,6 +96,10 @@ final class PilotOidcClient {
     var jwt=((OIDCTokenResponse)tokens.toSuccessResponse()).getOIDCTokens().getIDToken();
     IDTokenClaimsSet c=validator.validate(jwt,p.nonce());
     if(!PhoneIdentity.CONTEXT.equals(c.getStringClaim("acr")))throw new IllegalStateException();
+    // max_age=0 requires a fresh authentication and an auth_time claim (OIDC Core 3.1.2.1).
+    Date authenticated=c.getAuthenticationTime();
+    if(authenticated==null || authenticated.toInstant().isBefore(p.expires().minusSeconds(121))
+        || authenticated.toInstant().isAfter(Instant.now()))throw new IllegalStateException();
     var identity=new PhoneIdentity(c.getStringClaim(PhoneIdentity.SUBJECT),c.getStringClaim(PhoneIdentity.CREDENTIAL),c.getStringClaim(PhoneIdentity.VERSION),
         c.getStringClaim("name"),c.getStringClaim(PhoneIdentity.BIRTH),c.getStringClaim(PhoneIdentity.PORTRAIT));
     if(!bridge.active(identity))throw new IllegalStateException();

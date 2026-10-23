@@ -57,6 +57,7 @@ with tempfile.TemporaryDirectory() as tmp:
                 except OSError: pass
                 time.sleep(.3)
             else: raise AssertionError('startup failed')
+        assert request(client(),'https://localhost:8443/sign/')[0] != 200
         key=json.loads(crypt(op='new'))
         ident=wallet.enroll(key['publicKey'],document())['id']; wallet.activate(ident,'REVIEW-negative-test-001')
         def sign(action,rid):

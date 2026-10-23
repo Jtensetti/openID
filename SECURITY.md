@@ -12,6 +12,13 @@ säkerhetsgranskning.
   NFC-fångst och enhetsautentisering för sluten beta och privata telefonprov. Registrering
   kräver separat operatörsaktivering. `phone-idp` och `phone-sp` kopplar
   detta register till separata SAML-/OIDC-testtjänster.
+
+`start-web` innehåller även en syntetisk dokumentunderskriftslabb med
+separat WebAuthn-godkännande och tillfällig test-CA. Ingen verklig handling
+kan laddas upp. Signeringsnycklarna ligger i JVM-minnet, inte i HSM, och
+labben erbjuder varken kvalificerad underskrift eller långtidsvalidering.
+Rutter för detta flöde aktiveras inte av `phone-idp`/telefonpiloten.
+Federerade SignMessage-/SAD-begäranden avvisas av inloggningsproviderna.
 - `deployment/continuity/`: separat spärrtjänst och köad avisering för den publika
   betan. Privata ID:n är inte automatiskt migrerade. Se
   [drift och begränsningar](deployment/continuity/README.md).

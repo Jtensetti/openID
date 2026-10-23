@@ -98,6 +98,12 @@ SBOM hämtar licensdeklarationer från Maven-POM:er. Filgranskningen fann:
   finns kvar i SBOM; filuppgiften behövs vid distributionsgranskning.
 - Bouncy Castle 1.86 anger ”Bouncy Castle Licence”; JAR:ens LICENSE innehåller
   MIT-text med The Legion of the Bouncy Castle som rättighetshavare.
+  Samma redan låsta `bcpkix`/`bcprov` används för den syntetiska
+  dokumentunderskriftens CMS och X.509; inga nya Java-beroenden tillkommer.
+  OpenSSL är en separat testvalidator från testmiljön. Exakt version
+  sparas i `openssl-results.json`; den är inte en produktionskomponent
+  eller ett betrott certifikatutfärdarregister. Uppdateringsansvaret följer
+  labbens befintliga beroendegranskning.
 - Logback 1.5.38 deklarerar EPL-2.0/LGPL-2.1; Jakarta Annotation/Servlet
   EPL-2.0/GPL med Classpath Exception; Cryptacular 1.3.0 Apache-2.0/LGPL.
   Biblioteken är oförändrade. JUnit 6.0.3 är EPL-2.0 och används endast i test.

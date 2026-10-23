@@ -35,7 +35,9 @@ jobs:
           printf 'JAVA_HOME=%s\n' "$RUNNER_TEMP/jdk-21.0.12.1+1" >> "$GITHUB_ENV"
           printf '%s\n' "$RUNNER_TEMP/jdk-21.0.12.1+1/bin" >> "$GITHUB_PATH"
       - name: Compile and test HTTPS, SAML and lifecycle
-        run: ./mvnw -B -ntp clean verify dependency:list -DoutputAbsoluteArtifactFilename=true -DoutputFile=target/dependencies.txt
+        run: ./mvnw -B -ntp clean verify dependency:list -DoutputAbsoluteArtifactFilename=true -DoutputFile=target/dependencies.txt -Dsignature.fixtureDirectory=target/signature-fixtures
+      - name: Verify document signature using the independent OpenSSL implementation
+        run: python3 scripts/verify-signature.py target/signature-fixtures/synthetic-signature.zip --report target/signature-fixtures/openssl-results.json
       - name: Verify resolved versions and SHA-256 checksums
         run: python3 scripts/dependencies.py
       - name: Packaged CLI smoke test with certificate verification
@@ -102,3 +104,15 @@ jobs:
           name: runtime-capacity
           path: ${{ runner.temp }}/runtime-load.json
           retention-days: 14
+      - name: Package SAML and signature evidence
+        if: always()
+        env:
+          SOURCE_REVISION: '${{ github.event.pull_request.head.sha || github.sha }}'
+        run: python3 scripts/collect-evidence.py --kind java --output "$RUNNER_TEMP/assurance-evidence" --job-status '${{ job.status }}'
+      - name: Save SAML and signature evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: saml-signature-evidence
+          path: '${{ runner.temp }}/assurance-evidence'
+          retention-days: 90

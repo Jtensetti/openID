@@ -19,6 +19,7 @@
     </form>
     <p>Välj en passkey eller FIDO2-säkerhetsnyckel. En passkey kan synkroniseras av din nyckelleverantör.</p>
     <p><a class="action" th:href="${sp}">Öppna testtjänsten</a></p>
+    <p th:if="${available and registered}"><a href="/sign/">Skriv under ett syntetiskt testdokument</a></p>
   </section>
   <section><h2>Installera från webben</h2>
     <button id="install" hidden>Installera testplånboken</button>

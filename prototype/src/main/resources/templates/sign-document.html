@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="sv" xmlns:th="http://www.thymeleaf.org"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Skriv under testdokument · openID</title>
+  <link rel="stylesheet" href="/wallet/wallet.css"><script src="/wallet/wallet.js" defer></script>
+</head><body><main>
+  <p class="eyebrow">openID / underskriftslabb</p><h1>Läs och skriv under</h1>
+  <p class="notice">Enbart syntetiskt test. Identitetskontrollen är simulerad. Testet är inte en godkänd eller kvalificerad underskriftstjänst.</p>
+  <section aria-labelledby="document-title"><h2 id="document-title">Hela dokumentet</h2><pre id="document" th:text="${tx.text()}"></pre></section>
+  <p>Dokumentets SHA-256: <code id="document-digest" th:text="${tx.digest()}"></code></p>
+  <form id="document-signature" method="post" th:action="@{/sign/finish}">
+    <input type="hidden" name="transaction" th:value="${tx.id()}"><input type="hidden" name="digest" th:value="${tx.digest()}"><input type="hidden" name="response" value="">
+    <label><input type="checkbox" name="intent" value="sign-this-document" required><span th:text="${intent}"></span></label>
+    <button type="submit">Skriv under med testnyckel</button>
+  </form>
+  <form method="post" th:action="@{/sign/cancel}"><button class="secondary">Avbryt utan underskrift</button></form>
+  <p>Bekräfta inom 60 sekunder. Efter underskrift kan du hämta dokumentet, underskriften och testcertifikaten.</p>
+  <p id="status" role="status" aria-live="polite"></p><noscript>JavaScript och WebAuthn krävs.</noscript>
+</main></body></html>

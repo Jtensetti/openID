@@ -62,6 +62,25 @@ async function run(transport) {
     assert.equal(await page.evaluate(() => navigator.serviceWorker.controller !== null), true);
     assert.deepEqual(await page.evaluate(() => caches.keys()), []);
 
+    // A separate, explicit signing ceremony; a normal SAML login must not supply consent.
+    await page.getByRole('link', {name: 'Skriv under ett syntetiskt testdokument'}).click();
+    const documentText = await page.locator('#document').textContent();
+    const documentHash = crypto.createHash('sha256').update(documentText, 'utf8').digest('hex');
+    assert.equal(await page.locator('#document-digest').textContent(), documentHash);
+    assert.equal(await page.locator('body').evaluate(el => el.scrollWidth <= innerWidth), true);
+    await page.getByRole('checkbox').check();
+    await page.getByRole('button', {name: 'Skriv under med testnyckel'}).click();
+    await page.waitForURL(idp + '/sign/result');
+    const downloadResponse = await page.evaluate(async () => { const r = await fetch('/sign/download'); return {status: r.status, bytes: Array.from(new Uint8Array(await r.arrayBuffer()))}; });
+    assert.equal(downloadResponse.status, 200);
+    const archive = path.join(temp, 'signature.zip');
+    fs.writeFileSync(archive, Buffer.from(downloadResponse.bytes));
+    execFileSync('python3', [path.join(root, 'scripts/verify-signature.py'), archive, '--report', path.join(temp, 'openssl.json')], {timeout: 30000});
+    await page.goto(idp + '/sign/');
+    await page.getByRole('button', {name: 'Avbryt utan underskrift'}).click();
+    await page.waitForURL(idp + '/wallet/');
+    assert.equal(await page.evaluate(async () => (await fetch('/sign/download')).status), 400);
+
     async function login() {
       await page.goto(sp);
       await page.getByRole('link', {name: 'Starta testinloggning'}).click();
@@ -94,7 +113,7 @@ async function run(transport) {
     await page.goto(idp + '/wallet/');
     assert.deepEqual(await page.evaluate(() => caches.keys()), []);
     assert.deepEqual(errors, []); assert.deepEqual(external, []);
-    console.log(`PASS: WebAuthn ${transport}, registration, signed/encrypted SAML, logout, revocation, manifest, mobile layout and offline refusal`);
+    console.log(`PASS: WebAuthn ${transport}, registration, document signature/OpenSSL, cancellation, signed/encrypted SAML, logout, revocation, manifest, mobile layout and offline refusal`);
   } finally {
     if (browser) await browser.close();
     if (app && app.exitCode === null) {

@@ -30,7 +30,7 @@ Aktuell originaltext behöver kontrolleras inför en formell bedömning.
 | GOV-07 | Befogenheter, D08 K3.4 | PostgreSQL-funktioner kräver två olika operatörsinloggningar; tjänstekonton saknar aktiveringsrätt. Schemainstallation och återställning stöder administratör utan superuser. Negativa tester nekar tjänste- och operatörskonton ägarmedlemskap och rollbyte. | Verklig personseparation, kontroll av ägar-/administratörsåtkomst och oberoende granskning. |
 | FED-01 | Federationsprofil, D03 §8.4; T01–T03 | Sweden Connect SAML med lokal metadata och egen autentiseringskontext. | Full profilmappning och accepterad extern anslutning. |
 | FED-02 | Mottagare/avsikt, D03 §§8.2–8.3 | Appen visar och signerar tjänst, syfte och kod. `test_identity`, XCTest och federationsprovet testar byte av bindningar och replay. | Närhets-/reläskydd och externa motparter. |
-| SIG-01/02 | Dokumentunderskrift, T01 | Ingen implementation. | Dokumentpresentation, innehållsbindning, signering och oberoende valideringskedja. |
+| SIG-01/02 | Dokumentunderskrift, T01, T05–T08 | Syntetisk WebAuthn-labb visar exakt text och kräver separat underskriftsavsikt. CMS-signering och certifikatbindning provas med Bouncy Castle och OpenSSL. Byte, fel signerare, avbrott, replay och spärr provas. | Federerad underskriftsintegration, vald produktionsprofil, verklig identitet, CA/HSM, betrodd tid, långtidsbevis och extern granskning. Se [prövningsunderlaget](provningsunderlag.md). |
 | TEST-01 | Testmiljö, D03 §8.9 | Genererade pass/nycklar, lokala motparter och automatiserad CI. | Extern acceptanstestmiljö och fysiska enheter. |
 
 ## Drift och rapportering

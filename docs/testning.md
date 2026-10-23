@@ -4,6 +4,9 @@
 
 Aktuella körningar och deras exakta revisioner finns i
 [GitHub Actions](https://github.com/Jtensetti/openID/actions).
+[Prövningsunderlaget för OIDC, SAML och underskrift](provningsunderlag.md)
+beskriver reproducerbara prov och CI-artefakter med källrevision,
+testad revision, kontrollsummor och uttrycklig avgränsning mot formellt godkännande.
 [PR #22](https://github.com/Jtensetti/openID/pull/22) redovisar den separata
 spärrtjänstens syntetiska AWS-prov med betans verifierare stoppad, köexport
 och SES-kvittens. Kvittensen bevisar inte leverans till inkorgen.
@@ -131,3 +134,16 @@ avvisade nivåkrav, skyddade sessionssidor och nekad tokenväxling utan
 klientautentisering. Det ersätter inte ett manuellt TestFlight-prov med
 fysiskt pass och produktionsmiljön för App Attest. Extern
 Sweden Connect-interoperabilitet och formell tillitsbedömning återstår.
+
+CI kör nu `protocol_evidence.py`, som kräver lyckad avslutning av både
+SAML- och OIDC-processprovet. OIDC-provet omfattar dessutom färsk `auth_time`,
+felaktiga signerade klientintyg, återspelat klientintyg och återanvänd kod.
+Resultatet innehåller 5 SAML- och 11 OIDC-kontrollgrupper; flera grupper
+omfattar flera negativa varianter. Det är inte ett antal certifieringskrav.
+
+Den syntetiska underskriftslabben provas med `DocumentSignatureTest`,
+`SigningCeremonyTest`, `SigningFlowTest`, `SignatureRequestPolicyTest`
+och Chromium för USB-/plattformsautentiserare. OpenSSL verifierar samma
+exporterade CMS-dokument och avvisar förändring av innehåll/radslut,
+fel CA, utgånget certifikat och manipulerad signatur. En skild
+kryptografisk implementation är inte en oberoende organisatorisk revision.

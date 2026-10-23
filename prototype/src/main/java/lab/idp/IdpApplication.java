@@ -41,7 +41,7 @@ public class IdpApplication {
   @Bean @Order(2)
   SecurityFilterChain labPages(HttpSecurity http) throws Exception {
     // CSRF stays enabled for approval and revocation forms.
-    return http.authorizeHttpRequests(a -> a.requestMatchers("/", "/phone/**", "/lab", "/lab/revoke", "/lab/webauthn/**", "/wallet/**", "/error").permitAll().anyRequest().denyAll())
+    return http.authorizeHttpRequests(a -> a.requestMatchers("/", "/phone/**", "/lab", "/lab/revoke", "/lab/webauthn/**", "/wallet/**", "/sign/**", "/error").permitAll().anyRequest().denyAll())
         .headers(h -> h.contentSecurityPolicy(c -> c.policyDirectives(PAGE_CSP)))
         .build();
   }
@@ -51,7 +51,7 @@ public class IdpApplication {
       @Override protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
         if (!request.getRemoteAddr().equals("127.0.0.1") || !java.net.URI.create(base).getAuthority().equals(request.getHeader("Host")) ||
             request.getHeader("Forwarded") != null || request.getHeader("X-Forwarded-Host") != null ||
-            ((request.getRequestURI().startsWith("/lab") || request.getRequestURI().startsWith("/wallet") || request.getRequestURI().startsWith("/phone")) && request.getMethod().equals("POST") && !base.equals(request.getHeader("Origin")))) {
+            ((request.getRequestURI().startsWith("/lab") || request.getRequestURI().startsWith("/wallet") || request.getRequestURI().startsWith("/phone") || request.getRequestURI().startsWith("/sign/")) && request.getMethod().equals("POST") && !base.equals(request.getHeader("Origin")))) {
           response.sendError(403); return;
         }
         // no-referrer makes browser form POSTs send Origin:null, defeating the strict origin check.

@@ -128,6 +128,19 @@ Granska diff, licenser och advisories och kör testerna.
 Resultat: [SAML](evidence/verification.md), [lagring](evidence/g2-verification.md),
 [WebAuthn](evidence/web-verification.md).
 
+## Prova dokumentunderskrift
+
+I `start-web`, registrera testnyckeln och välj **Skriv under ett syntetiskt
+testdokument** i testplånboken. Hela texten visas innan ett separat
+WebAuthn-godkännande begärs. Resultatet kan laddas ned som en ZIP med
+originaltext, CMS-signatur och testcertifikat. Inga egna dokument kan laddas
+upp. Flödet finns inte i `start`, `phone-idp` eller iPhone-piloten.
+
+[Prövningsunderlaget](../docs/provningsunderlag.md) innehåller kommandon
+för export och OpenSSL-validering samt tydliga kvarstående krav för
+federerad och produktionsmässig underskrift. Testet använder simulerad
+identitet och är inte en godkänd eller kvalificerad underskriftstjänst.
+
 ## Protokoll och tillstånd
 
 | Del | Utförande |
