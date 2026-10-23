@@ -47,6 +47,8 @@ får inte läggas i repot. Läs [säkerhetsinformationen](SECURITY.md) och
 - [Diggs 40 tillämpliga kravpunkter](docs/digg-kravmatris.md)
 - [Utveckling](docs/utveckling.md)
 - [Testning](docs/testning.md)
+- [Förutsättningar inför bredare utgivning](docs/infor-utgivning.md)
+- [Protokoll för fysisk acceptans](docs/fysisk-acceptans.md)
 - [Källregister](docs/SOURCES.md)
 
 Kodagenter börjar i [AGENTS.md](AGENTS.md), som hänvisar till projektets

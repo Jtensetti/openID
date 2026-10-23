@@ -112,7 +112,8 @@ HMAC-referens för att känna igen samma pass vid nyregistrering.
 Personen får ett internt slump-ID. Tjänsten får ett separat pseudonymt
 subjekt. Aktivering av en ny nyckel för samma pass spärrar äldre nycklar
 atomiskt. Ett annat pass med samma namn och födelsedatum slås inte ihop.
-Passförnyelse och registerkontroll kräver en framtida återställningsprocess.
+Passförnyelse har ett [separat operatörsflöde](../docs/registerbindning.md)
+som kräver registerbevis. Den verkliga registeradaptern saknas fortfarande.
 
 ## Aktivera och prova inloggning
 
@@ -321,7 +322,7 @@ cd ../verification
 export PROOFING_FIXTURES=/tmp/openid-proofing-fixtures
 export PROOFING_JAVA="$JAVA_HOME/bin/java"
 export PROOFING_PYTHON="$PWD/.venv/bin/python"
-.venv/bin/python -m unittest -v test_verification test_native test_chip test_wallet test_relying_party test_identity test_registry_binding test_runtime test_crypto_runtime
+.venv/bin/python -m unittest -v test_verification test_biometric_diagnostics test_native test_chip test_wallet test_relying_party test_identity test_registry_binding test_runtime test_crypto_runtime
 node --test test-attest.mjs
 node browser-test.cjs
 node rp-browser-test.cjs
@@ -391,6 +392,18 @@ Biometriarbetaren lämnar vid fel en fast stegkod (modellstart, passporträtt, k
 
 Ansiktsdetektionen görs i originalskala och, för bilder större än 480 pixlar, även med hela bilden proportionellt förminskad till högst 480 pixlar. [YuNet beskriver ett träningsområde på ungefär 10–300 pixlar per ansikte](https://github.com/opencv/opencv_zoo/blob/main/models/face_detection_yunet/README.md). Box och landmärken mappas tillbaka till originalpixlar; jämförelse och PAD använder originalbilden. Flera ansikten i endera skalan eller detektioner som inte överlappar tillräckligt avvisas. Modellversioner och trösklar är oförändrade. Förbättringen kräver fortsatt fysisk verifiering och biometrisk utvärdering.
 
+
+### Beräkning per registreringsförsök
+
+Den isolerade biometriarbetaren avkodar och detekterar varje bild en gång
+per registreringsförsök. Passporträttets SFace-vektor beräknas en gång och
+används för de tre jämförelserna; PAD får samma kontrollerade kamerabild och
+landmärken som ansiktsjämförelsen. Detta minskar anropen till `decode_face`
+från tio till fyra och SFace-featureberäkningar från sex till fyra.
+Vektorer delas inte mellan försök och lämnar inte arbetaren. Antalet
+PAD-kontroller, kvalitetskontrollerna, trösklarna och processens tidsgräns
+är oförändrade. Antalet borttagna beräkningar är inte ett uppmätt mått på
+hela registreringens svarstid.
 
 ## Registerbindning och nytt pass
 

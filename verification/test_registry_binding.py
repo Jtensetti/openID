@@ -17,13 +17,17 @@ from wallet import Wallet
 from recovery import backup, restore
 
 AUDIENCE = 'https://service.invalid/sp'
+# Published SPAR examples, not generated national identifiers:
+# https://www.statenspersonadressregister.se/master/start/teknisk-info/filtransport/filer-foer-aviseringar/
+TEST_PERSON_NUMBER = '195704133106'
+OTHER_TEST_PERSON_NUMBER = '198007199295'
 
 
-def document(number='TEST00001'):
+def document(number='TEST00001', **fields):
     return VerifiedDocument.from_verifier({
         'passiveAuthentication': True, 'portrait': base64.b64encode(b'synthetic-image-placeholder').decode(),
         'identity': dict(givenNames='ALICE', familyName='SYNTHETIC', birthDateMrz='900101',
-                         nationality='UTO', issuingState='UTO', documentNumber=number, documentExpires='2030-10-19')})
+                         nationality='UTO', issuingState='UTO', documentNumber=number, documentExpires='2030-10-19') | fields})
 
 
 def profile(doc):
@@ -49,8 +53,8 @@ class RegistryBindingTests(unittest.TestCase):
         self.queries = []
         self.registry = RegistryBindings(self.wallet, source='fixture-registry', lookup=self.lookup, allow_synthetic=True)
 
-    def enroll(self, key, number):
-        return self.wallet.enroll(self.keys[key]['publicKey'], document(number))['id']
+    def enroll(self, key, number, **fields):
+        return self.wallet.enroll(self.keys[key]['publicKey'], document(number, **fields))['id']
 
     def lookup(self, query):
         self.queries.append(query)
@@ -89,8 +93,47 @@ class RegistryBindingTests(unittest.TestCase):
         for text in [b'TEST-PERSON-ALPHA', b'fixture-registry', b'PROOF-']:
             self.assertNotIn(text, self.db.read_bytes())
         self.assertNotIn('portraitJpeg', dict(self.queries[0].passport_fields))
+        self.assertNotIn('passportPersonalNumber', dict(self.queries[0].passport_fields))
         with self.assertRaises(ValueError): self.registry.identity_attributes(self.old)
         self.assertNotIn('personalIdentityNumber', self.login(self.old, 0)['identity'])
+
+    def test_signed_person_number_reaches_adapter_without_century_guess_or_photo(self):
+        for key, number in ((2, TEST_PERSON_NUMBER), (3, TEST_PERSON_NUMBER[-10:])):
+            credential = self.enroll(key, 'TEST0000'+str(key+1), issuingState='SWE', passportPersonalNumber=number)
+            self.registry.lookup = lambda q: replace(self.lookup(q), kind='personnummer', value=TEST_PERSON_NUMBER)
+            self.registry.bind(credential)
+            fields = dict(self.queries[-1].passport_fields)
+            self.assertEqual(number, fields['passportPersonalNumber'])
+            self.assertNotIn('portraitJpeg', fields)
+            self.assertNotIn('documentNumber', fields)
+            self.assertNotIn(number, repr(self.queries[-1]))
+            self.assertEqual('PENDING_REVIEW', self.state(credential))
+        self.assertNotIn(TEST_PERSON_NUMBER.encode(), self.db.read_bytes())
+
+    def test_different_registry_person_and_synthetic_downgrade_are_rejected(self):
+        for key, number in ((2, TEST_PERSON_NUMBER), (3, TEST_PERSON_NUMBER[-10:])):
+            credential = self.enroll(key, 'TEST0000'+str(key+1), issuingState='SWE', passportPersonalNumber=number)
+            for kind, value in (('personnummer', OTHER_TEST_PERSON_NUMBER), ('synthetic', 'TEST-PERSON-ALPHA')):
+                self.registry.lookup = lambda q: replace(self.lookup(q), kind=kind, value=value)
+                with self.assertRaisesRegex(ValueError, '^registry passport identity mismatch$'):
+                    self.registry.bind(credential)
+            self.assertEqual('PENDING_REVIEW', self.state(credential))
+        with self.wallet.transaction() as db:
+            self.assertEqual(0, db.execute('SELECT count(*) FROM registry_evidence').fetchone()[0])
+            self.assertEqual(0, db.execute('SELECT count(*) FROM registry_bindings').fetchone()[0])
+
+    def test_legacy_mismatched_binding_cannot_disclose_or_replace_identity(self):
+        credential = self.enroll(2, 'TEST00003', issuingState='SWE', passportPersonalNumber=TEST_PERSON_NUMBER)
+        self.wallet.activate(credential, 'REVIEW-legacy-001')
+        self.registry.lookup = lambda q: replace(self.lookup(q), kind='personnummer', value=OTHER_TEST_PERSON_NUMBER)
+        # Simulate a stored binding created before the signed-number cross-check.
+        with patch.object(self.registry, '_match_passport_number'):
+            self.registry.bind(credential)
+        with self.assertRaisesRegex(ValueError, '^registry passport identity mismatch$'):
+            self.registry.identity_attributes(credential)
+        with self.assertRaisesRegex(ValueError, '^registry passport identity mismatch$'):
+            self.registry.activate_replacement(credential, self.new, 'REVIEW-legacy-002')
+        self.assertEqual('PENDING_REVIEW', self.state(self.new))
 
     def test_synthetic_identifiers_need_explicit_opt_in(self):
         disabled=RegistryBindings(self.wallet, source='fixture-registry', lookup=self.lookup)

@@ -102,6 +102,16 @@ class RegistryBindings:
         if type(checked) is not int or type(until) is not int or not checked <= now < until <= checked+self.MAX_AGE:
             raise ValueError('fresh registry evidence required')
 
+    @staticmethod
+    def _match_passport_number(profile, kind, value):
+        number = profile.get('passportPersonalNumber')
+        if number is None: return  # The adapter must resolve other authoritative evidence.
+        if (not isinstance(number, str) or not re.fullmatch(r'(?:[0-9]{10}|[0-9]{12})', number)
+                or kind not in ('personnummer', 'samordningsnummer')
+                or value[-len(number):] != number):
+            raise ValueError('registry passport identity mismatch')
+        # With ten signed digits only the registry can establish the century.
+
     def bind(self, credential):
         identifier(credential)
         if self.lookup is None: raise ValueError('registry provider unavailable')
@@ -110,6 +120,8 @@ class RegistryBindings:
             profile = self.wallet.vault.crypt('open', credential, p['person'], json.loads(p['sealed']))
             fields = tuple((k, profile[k]) for k in ('givenNames', 'familyName', 'birthDateMrz',
                            'issuingState', 'nationality', 'documentExpires'))
+            if profile.get('passportPersonalNumber') is not None:
+                fields += (('passportPersonalNumber', profile['passportPersonalNumber']),)
             query = RegistryQuery(secrets.token_hex(32), credential, p['version'],
                                   self._document_reference(db, p), fields)
         try:
@@ -122,6 +134,7 @@ class RegistryBindings:
         if result.outcome != 'MATCH' or result.protected is not False:
             raise ValueError('registry review required')
         self._validate_identity(result.kind, result.value)
+        self._match_passport_number(profile, result.kind, result.value)
         if not isinstance(result.evidence_reference, str) or not re.fullmatch('[A-Za-z0-9_-]{8,128}', result.evidence_reference):
             raise ValueError('registry evidence reference')
         data = dict(source=self.source, kind=result.kind, value=result.value,
@@ -155,6 +168,8 @@ class RegistryBindings:
         if row is None: raise ValueError('registry binding required')
         data = self._open(p, row['sealed'])
         self._validate_identity(data['kind'], data['value'])
+        profile = self.wallet.vault.crypt('open', credential, p['person'], json.loads(p['sealed']))
+        self._match_passport_number(profile, data['kind'], data['value'])
         self._fresh(data)
         if (data['source'] != self.source or data['profileVersion'] != p['version'] or
                 data['documentReference'] != self._document_reference(db, p) or

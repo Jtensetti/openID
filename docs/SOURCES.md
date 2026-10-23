@@ -81,3 +81,21 @@ särskilt K5.7–K5.9, K5.13 och K5.14. Ingen formell kravstatus ändras.
 [ICAO Doc 9303, del 10, åttonde upplagan med ändringar](https://www.icao.int/publications/documents/9303_p10_cons_en.pdf),
 tabell 72: DG11 kan innehålla personal number och fullständigt födelsedatum;
 fälten är valfria. Detta bevisar inte förekomst i ett visst svenskt pass.
+
+## Komplettering 2026-10-23: utgivning
+
+- D08 K2.1–K2.3 och D09 vägledning till K5.13 har lästs på nytt för
+  organisation, uthållighet, kontroll av handlingens status och oberoende
+  provning. Detta ändrar inte formell kravstatus.
+- D15: [Digg, bilaga D om biometriska uppgifter](https://www.digg.se/digitala-tjanster/e-legitimering/om-e-legitimering/tillitsnivaer-for-e-legitimering/tillitsramverk-for-svensk-e-legitimation/vagledning-for-utfardare/bilaga-d-dataskyddsforordningens-bestammelser-vid-behandling-av-biometriska-uppgifter),
+  senast uppdaterad 2025-03-19. Avsnitt 3 och 5 är underlag för alternativ
+  grundidentifiering vid samtycke respektive konsekvensbedömning.
+- P01: [Polisen, kontroll av pass/nationellt id-kort](https://polisen.se/tjanster-tillstand/pass-och-nationellt-id-kort/giltiga-svenska-resehandlingar/kontroll-av-passnationellt-id-kort/),
+  granskad 2025-02-27. Publik giltighetskontroll och CSCA-certifikat är
+  skilda funktioner. Sidan dokumenterar inte ett API-avtal för OpenID.
+- R01: [SPAR, Personsök](https://www.statenspersonadressregister.se/master/start/teknisk-info/personsoek/),
+  beskriver SOAP/XML, version 2023.1 och klientcertifikat. Ingen anslutning
+  eller behörighet följer av att dokumentationen är tillgänglig.
+- R02: [SPAR, exempelfiler för avisering](https://www.statenspersonadressregister.se/master/start/teknisk-info/filtransport/filer-foer-aviseringar/).
+  Två publicerade exempelidentifierare återanvänds enbart i lokala
+  adaptertester; inga produktionsuppslag görs.

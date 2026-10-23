@@ -11,6 +11,9 @@ Fysisk iPhone-spärr och faktisk schemalagd nattstart återstår.
 
 Privata telefonprov har bekräftat passläsning, personnummer och SAML-inloggning.
 De är funktionella prov, inte oberoende säkerhets- eller tillgänglighetsgranskning.
+För ett sammanhängande, revisionsbundet prov används
+[protokollet för fysisk acceptans](fysisk-acceptans.md). En tom mall eller
+en äldre lyckad delkontroll är inget nytt provresultat.
 
 ## Daterat verifieringsresultat
 
