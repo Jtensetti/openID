@@ -22,7 +22,8 @@ Rutter för detta flöde aktiveras inte av `phone-idp`/telefonpiloten.
   Appen visar texten och kräver en separat underskriftsåtgärd; kontotjänstens
   testkonsol skapar en PAdES-signerad PDF med certifikat från en tillfällig,
   ej betrodd test-CA i processminnet. Ingen HSM, betrodd tid eller
-  långtidsvalidering; underskrifterna har ingen rättslig verkan.
+  långtidsvalidering. Testkedjan styrker inte en kvalificerad underskrift eller
+  en verklig innehavares identitet.
 - `deployment/continuity/`: separat spärrtjänst och köad avisering för den publika
   betan. Privata ID:n är inte automatiskt migrerade. Se
   [drift och begränsningar](deployment/continuity/README.md).
