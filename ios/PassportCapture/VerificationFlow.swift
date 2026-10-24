@@ -113,6 +113,14 @@ import NFCPassportReader
                 let result = try await api.postObject("/native/finish", body: ["id": id,"payload":bytes.base64EncodedString(),"assertion":assertion.base64EncodedString()])
                 activeChip = nil
                 try Task.checkCancellation()
+                if result["checksPassed"] as? Bool == false, let remaining = result["attemptsRemaining"] as? Int, (0...5).contains(remaining) {
+                    // Only a count, never scores: the server does not reveal how close a failed attempt was.
+                    stepTitle = "Ansiktskontrollen godkändes inte"
+                    status = remaining > 0
+                        ? "Bilderna kunde inte bekräfta att det är du som syns i passet. Följ vridningarna i den ordning appen visar, i jämnt ljus och utan glasögon eller mössa. Du kan försöka \(remaining) gång\(remaining == 1 ? "" : "er") till i dag."
+                        : WalletError.attemptLimit.localizedDescription
+                    return
+                }
                 guard result["checksPassed"] as? Bool == true,
                       let registeredCredential = result["credential"] as? [String: Any],
                       registeredCredential["id"] as? String == credential.id,
@@ -121,6 +129,7 @@ import NFCPassportReader
                 status = "Registreringen väntar på aktivering."
             } catch is CancellationError { status = "Registreringen avbröts." }
             catch WalletError.cameraImageRejected(let frame) { status = WalletError.cameraImageRejected(frame).localizedDescription }
+            catch WalletError.attemptLimit { status = WalletError.attemptLimit.localizedDescription }
             catch WalletError.overloaded { status = WalletError.overloaded.localizedDescription }
             catch is URLError { status = "Anslutningen bröts. Gå till Mitt ID och uppdatera status innan du försöker igen." }
             catch let error as CaptureCamera.CaptureError { status = error.localizedDescription }

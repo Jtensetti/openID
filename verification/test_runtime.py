@@ -84,6 +84,12 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(result, {'error': 'CAMERA_IMAGE_REJECTED', 'frame': 2})
         self.assertEqual(headers['Cache-Control'], 'no-store')
 
+    def test_attempt_limit_is_a_distinct_safe_error(self):
+        from wallet import BiometricAttemptLimit
+        self.native.finish.side_effect = BiometricAttemptLimit('biometric attempt limit')
+        code, result, _ = self.request('/native/finish')
+        self.assertEqual((403, {'error': 'ATTEMPT_LIMIT'}), (code, result))
+
     def test_complete_dispatch_and_security_headers(self):
         code, result, headers = self.request()
         self.assertEqual((200, {'id': 'session'}), (code, result))

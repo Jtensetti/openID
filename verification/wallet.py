@@ -24,6 +24,9 @@ SIGN_MESSAGE_LIMIT = 400
 BIOMETRIC_ATTEMPTS = 5          # failed face/PAD/pose decisions per passport ...
 BIOMETRIC_WINDOW = 24 * 3600    # ... within this many seconds
 
+class BiometricAttemptLimit(ValueError):
+    """Too many failed biometric decisions for this passport today. Safe to tell the holder."""
+
 def sign_message(value):
     """Plain text the holder reads in full before a separate signing approval."""
     if value is None: return None
@@ -255,11 +258,16 @@ class Wallet:
             tag = self.vault.document_tag(document)
             db.execute('DELETE FROM biometric_failures WHERE time<=?', (int(self.clock())-BIOMETRIC_WINDOW,))
             if db.execute('SELECT count(*) FROM biometric_failures WHERE document_tag=?', (tag,)).fetchone()[0] >= BIOMETRIC_ATTEMPTS:
-                raise ValueError('biometric attempt limit')
+                raise BiometricAttemptLimit('biometric attempt limit')
 
     def biometric_failure(self, document):
+        """Record a failed decision; returns the attempts left in the window."""
         with self.transaction() as db:
-            db.execute('INSERT INTO biometric_failures VALUES(?,?)', (self.vault.document_tag(document), int(self.clock())))
+            tag = self.vault.document_tag(document)
+            db.execute('INSERT INTO biometric_failures VALUES(?,?)', (tag, int(self.clock())))
+            used = db.execute('SELECT count(*) FROM biometric_failures WHERE document_tag=? AND time>?',
+                (tag, int(self.clock())-BIOMETRIC_WINDOW)).fetchone()[0]
+            return max(0, BIOMETRIC_ATTEMPTS-used)
 
     def start_request(self, ident):
         # Fixed local RP: caller cannot supply a name, domain, purpose or callback.

@@ -12,7 +12,7 @@ from native import NativeSessions, POSES, check_poses, random_pose_order
 from test_chip_fixture import ChipFixture, capture_ready, pose_matcher, FIXTURE_RATIOS
 from test_identity import document
 from test_wallet import crypt
-from wallet import Wallet, BIOMETRIC_ATTEMPTS
+from wallet import Wallet, BIOMETRIC_ATTEMPTS, BiometricAttemptLimit
 
 
 def face(nose_dx=0.0, roll=0.0, scale=60.0, depth=0.5):
@@ -125,9 +125,10 @@ class CaptureTests(unittest.TestCase):
 
     def test_attempts_per_passport_are_limited_and_persist_over_restart(self):
         self.pad.score.return_value = 0.2
-        for _ in range(BIOMETRIC_ATTEMPTS): self.assertFalse(self.finish()['checksPassed'])
+        remaining = [self.finish()['attemptsRemaining'] for _ in range(BIOMETRIC_ATTEMPTS)]
+        self.assertEqual(list(range(BIOMETRIC_ATTEMPTS-1, -1, -1)), remaining)
         self.pad.score.return_value = 0.95
-        with self.assertRaises(ValueError): self.finish()
+        with self.assertRaises(BiometricAttemptLimit): self.finish()
         self.matcher.compare.reset_mock()
         restarted = Wallet(self.wallet.path, 'https://localhost:8765', clock=lambda: self.time)
         self.native.wallet = restarted

@@ -180,11 +180,12 @@ class NativeSessions:
         pose_passed=check_poses(pending['poses'],poses,self.pose_direction)
         # Experimental thresholds; calibration is pending.
         passed=min(face_scores)>=0.5 and min(pad_scores)>=0.8 and pose_passed
-        credential=None
-        if not passed and limiter is not None:self.wallet.biometric_failure(document)
+        credential=None;remaining=None
+        if not passed and limiter is not None:remaining=self.wallet.biometric_failure(document)
         if passed and pending['devicePublicKey'] is not None:
             credential=self.wallet.enroll(pending['devicePublicKey'], document)
         # No raw scores to the client: they would be an oracle for tuning a presentation or morphing attack.
         return {'checksPassed':passed,'passiveAuthentication':True,'appAttest':True,
             'chipAuthentication':'SERVER_VERIFIED_CA','poseCheck':'PASSED' if pose_passed else 'FAILED',
-            'policy':'EXPERIMENTAL_0.5_FACE_0.8_PAD_POSE_V1','issuanceEnabled':False,'credential':credential}
+            'policy':'EXPERIMENTAL_0.5_FACE_0.8_PAD_POSE_V1','issuanceEnabled':False,'credential':credential,
+            **({'attemptsRemaining':remaining} if remaining is not None else {})}

@@ -1,10 +1,11 @@
 import Foundation
 
 enum WalletError: LocalizedError {
-    case configuration, rejected, unavailable, overloaded, cancelled, keyUnavailable
+    case configuration, rejected, unavailable, overloaded, cancelled, keyUnavailable, attemptLimit
     case cameraImageRejected(Int)
     var errorDescription: String? {
         switch self {
+        case .attemptLimit: return "Ansiktskontrollen har inte godkänts för det här passet för många gånger i dag. Av säkerhetsskäl kan du försöka igen om ett dygn."
         case .cameraImageRejected(let frame): return "Servern kunde inte hitta ett enda tydligt ansikte i bild \(frame) av 3. Registreringen är inte klar. Försök igen med jämnt ljus och bara dig själv i bilden."
         case .configuration: return "Ange en HTTPS-adress och en giltig kopplingskod från din server."
         case .rejected: return "Begäran kunde inte godkännas. Uppdatera status och försök igen."

@@ -45,6 +45,11 @@ final class WalletAPI {
            let frame = error["frame"] as? Int, (1...3).contains(frame) {
             throw WalletError.cameraImageRejected(frame)
         }
+        if status == 403, path == "/native/finish",
+           let error = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           error["error"] as? String == "ATTEMPT_LIMIT" {
+            throw WalletError.attemptLimit
+        }
         guard status == 200 else { throw WalletError.rejected }
         return data
     }
