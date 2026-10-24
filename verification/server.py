@@ -103,7 +103,10 @@ def handler(matcher, command, port, native=None, origin=None, token=None, browse
                 data = self.rfile.read(length)
                 request = json.loads(data, object_pairs_hook=unique_object)
                 if wallet_route:
-                    result = wallet.challenge(request) if self.path == '/wallet/challenge' else wallet.execute(request)
+                    from wallet import SecurityCodeError
+                    try: result = wallet.challenge(request) if self.path == '/wallet/challenge' else wallet.execute(request)
+                    except SecurityCodeError as error:
+                        return self.respond(403, {'error': error.code, **({'attemptsRemaining': error.remaining} if error.remaining is not None else {})})
                     return self.respond(200, result)
                 if native_route:
                     if not isinstance(request, dict):raise ValueError('fields')

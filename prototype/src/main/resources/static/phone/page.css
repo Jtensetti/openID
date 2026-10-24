@@ -2,3 +2,4 @@
 
 [hidden]{display:none!important}#status{white-space:pre-line}#restart a{display:inline-block;padding:.8rem 1rem;border-radius:.5rem;background:#17362f;color:white;text-decoration:none}
 .kind{display:inline-block;margin:0;padding:.2rem .7rem;border-radius:999px;background:#e1e9e4;font-size:.85rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase}main[data-kind=sign] .kind{background:#f6e7c8;color:#5b3d06}.sign-message{margin:1.2rem 0;padding:1rem 1.2rem;border:2px solid #c48411;border-radius:.75rem;background:#fffaf0}.sign-message h2{margin:0 0 .4rem;font-size:1rem}#sign-message{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:1.05rem}.note{margin:.6rem 0 0;font-size:.9rem;color:#4b5f58}#return button{background:#17362f;color:white}
+.pin-required{margin:1rem 0;padding:.7rem 1rem;border-radius:.6rem;background:#e7f1fb}.pin-required strong{letter-spacing:0}

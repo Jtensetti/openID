@@ -71,20 +71,34 @@ public final class PadesSigner {
   public X509Certificate authority() { return authority; }
 
   /** A one-page synthetic agreement. The text says what it is; nothing in it is legally binding. */
-  public static byte[] demoDocument(String reference, Instant created) throws IOException {
+  public static byte[] demoDocument(String reference, Instant created) throws IOException { return demoDocument(reference, created, false); }
+  /** {@code highValue}: a larger commitment, for which the service requires the security code. */
+  public static byte[] demoDocument(String reference, Instant created, boolean highValue) throws IOException {
     try (var document = new PDDocument(); var out = new ByteArrayOutputStream()) {
       var page = new PDPage(PDRectangle.A4); document.addPage(page);
       var info = document.getDocumentInformation();
-      info.setTitle("Avtal om provtjänst " + reference); info.setAuthor("openID testmiljö"); info.setCreator("openID kontotjänst");
+      String title = highValue ? "Lånelöfte 250 000 kr" : "Avtal om provtjänst";
+      info.setTitle(title + " " + reference); info.setAuthor("openID testmiljö"); info.setCreator("openID kontotjänst");
       var created_ = GregorianCalendar.from(created.atZone(ZoneId.of("Europe/Stockholm"))); info.setCreationDate(created_);
       PDFont bold = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD), regular = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
       String date = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").format(created.atZone(ZoneId.of("Europe/Stockholm")));
       try (var c = new PDPageContentStream(document, page)) {
         float y = 780;
-        y = line(c, bold, 22, 60, y, "Avtal om provtjänst");
+        y = line(c, bold, 22, 60, y, title);
         y = line(c, regular, 11, 60, y - 6, "Dokument " + reference + " · skapat " + date);
         y -= 24;
-        String[] body = {
+        String[] body = highValue ? new String[]{
+            "1. Parter. openID testbank (”Banken”) lämnar ett lånelöfte till den person",
+            "som skriver under med openID (”Låntagaren”).",
+            "",
+            "2. Belopp. Lånelöftet avser högst 250 000 kr och gäller i 30 dagar.",
+            "",
+            "3. Säkerhet. Ett åtagande av den här storleken kräver underskrift med",
+            "säkerhetskod (6 siffror), inte bara Face ID.",
+            "",
+            "4. Giltighet. Dokumentet är ett demonstrationsdokument utan rättslig verkan.",
+            "Underskriften kommer från en test-CA som inte är betrodd.",
+        } : new String[]{
             "1. Parter. Detta avtal ingås mellan openID kontotjänst (”Tjänsten”) och den",
             "person som skriver under med openID (”Användaren”).",
             "",

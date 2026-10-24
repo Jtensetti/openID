@@ -34,6 +34,10 @@ public final class PhoneController extends AbstractAuthenticationController<Phon
     try { return SignatureRequestPolicy.signMessage(getInputToken(request).getAuthnInputToken().getAuthnRequirements()); }
     catch (se.swedenconnect.spring.authnserver.error.AuthenticationErrorException e) { throw new IllegalStateException(); }
   }
+  private String level(HttpServletRequest request) {
+    try { return SignatureRequestPolicy.level(getInputToken(request).getAuthnInputToken().getAuthnRequirements()); }
+    catch (se.swedenconnect.spring.authnserver.error.AuthenticationErrorException e) { throw new IllegalStateException(); }
+  }
   private PhoneBridge.Pending pending(HttpServletRequest request) {
     String binding = binding(request);
     Object value = request.getSession().getAttribute(PENDING);
@@ -41,18 +45,20 @@ public final class PhoneController extends AbstractAuthenticationController<Phon
     return pending;
   }
   @GetMapping("/phone") ModelAndView page(HttpServletRequest request) {
-    String binding = binding(request), message = signMessage(request);
+    String binding = binding(request), message = signMessage(request), level = level(request);
     PhoneBridge.Pending pending;
     synchronized (request.getSession()) {
       Object value = request.getSession().getAttribute(PENDING);
-      if (value instanceof PhoneBridge.Pending old && old.binding().equals(binding) && java.util.Objects.equals(old.signMessage(), message)) pending = old;
+      if (value instanceof PhoneBridge.Pending old && old.binding().equals(binding) && java.util.Objects.equals(old.signMessage(), message)
+          && java.util.Objects.equals(old.level(), level)) pending = old;
       else {
         if (value instanceof PhoneBridge.Pending old) bridge.exchange("cancel", old);
-        pending = bridge.start(binding, message); request.getSession().setAttribute(PENDING, pending);
+        pending = bridge.start(binding, message, level); request.getSession().setAttribute(PENDING, pending);
       }
     }
     var model = new java.util.HashMap<String, Object>(Map.of("restartUrl", sp+(pending.signing() ? "/sign" : "/login"), "authnId", binding, "code", pending.code(),
-        "requestId", pending.id(), "service", PhoneBridge.SERVICE, "purpose", pending.signing() ? PhoneBridge.SIGN_PURPOSE : PhoneBridge.PURPOSE, "signing", pending.signing()));
+        "requestId", pending.id(), "service", PhoneBridge.SERVICE, "purpose", pending.signing() ? PhoneBridge.SIGN_PURPOSE : PhoneBridge.PURPOSE, "signing", pending.signing(),
+        "securityCode", pending.securityCode()));
     if (pending.signing()) model.put("signMessage", pending.signMessage());
     return new ModelAndView("phone", model);
   }

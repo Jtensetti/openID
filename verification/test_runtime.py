@@ -92,6 +92,13 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(passport[-3:], ['verify-passport', '/s/csca.pem', '/s/csca.crl'])
         self.assertEqual(chip, ['java', '-Xmx128m', '-jar', '/app/lab.jar', 'authenticate-chip', '/s/csca.pem'])
 
+    def test_security_code_errors_are_distinct_and_carry_only_a_count(self):
+        from wallet import SecurityCodeError
+        self.wallet.execute.side_effect = SecurityCodeError('PIN_INCORRECT', 3)
+        self.assertEqual((403, {'error': 'PIN_INCORRECT', 'attemptsRemaining': 3}), self.request('/wallet/execute')[:2])
+        self.wallet.execute.side_effect = SecurityCodeError('PIN_WEAK')
+        self.assertEqual((403, {'error': 'PIN_WEAK'}), self.request('/wallet/execute')[:2])
+
     def test_attempt_limit_is_a_distinct_safe_error(self):
         from wallet import BiometricAttemptLimit
         self.native.finish.side_effect = BiometricAttemptLimit('biometric attempt limit')

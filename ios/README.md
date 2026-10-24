@@ -81,6 +81,15 @@ Attest, bildunikhet, ansiktsjämförelse, PAD och att huvudet är vridet enligt
 begärd ordning (landmärkesparallax), men inte ett sammanhängande rörelseförlopp.
 Oberoende prov av film och injektion återstår.
 
+### Säkerhetskod
+
+En begäran med `verification: "pin"` visar ett kodfält; **Godkänn/Skriv under**
+skickar koden tillsammans med enhetssignaturen, som fortfarande kräver Face ID
+eller enhetskod. Koden väljs eller byts under **Inställningar → Säkerhetskod**
+(byte kräver nuvarande kod). Fel kod håller begäran öppen och visar antal försök
+kvar; spärrad kod kräver ny registrering. Servern avgör, appen avvisar bara
+uppenbart svaga koder i förväg.
+
 ### Underskrift
 
 En begäran med `signMessage` visas som **Begäran om underskrift** med hela

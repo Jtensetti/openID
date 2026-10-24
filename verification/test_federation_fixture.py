@@ -13,7 +13,7 @@ from native import NativeSessions
 from test_chip_fixture import ChipFixture, capture_ready, fixture_order, pose_matcher
 from server import verify_document
 from test_wallet import crypt
-from wallet import Wallet
+from wallet import Wallet, SecurityCodeError
 
 def main():
     directory = Path(sys.argv[1])
@@ -75,7 +75,11 @@ def run(directory, resources):
                 elif op == 'stop-bridge': close_bridge(); result = {'stopped':True}
                 else:
                     challenge = wallet.challenge({'credentialId':ident, 'action':op, 'requestId':data.get('requestId')})
-                    result = wallet.execute({'challengeId':challenge['id'], 'signature':crypt(op='sign', key=key['privateKey'], payload=challenge['signingInput'])})
+                    codes = {k: data[k] for k in ('pin', 'newPin') if k in data}
+                    try:
+                        result = wallet.execute({'challengeId':challenge['id'], 'signature':crypt(op='sign', key=key['privateKey'], payload=challenge['signingInput'])} | codes)
+                    except SecurityCodeError as error:
+                        result = {'securityCodeError': error.code, 'attemptsRemaining': error.remaining}
                 print(json.dumps({'result':result}), flush=True)
             except Exception as error: print(json.dumps({'error':type(error).__name__}), flush=True)
     finally:

@@ -45,15 +45,20 @@ final class TestConsole {
   private static final String LOA3 = "http://id.elegnamnden.se/loa/1.0/loa3";
 
   enum Entity { SERVICE, SIGNATURE_SERVICE }
-  enum Request { LOGIN, NO_FORCE, PASSIVE, LOA3, SIGN, SIGN_ENCRYPTED, SIGN_HTML, SAD_ONLY, SIGN_FROM_SERVICE }
+  enum Request { LOGIN, LOGIN_PIN, NO_FORCE, PASSIVE, LOA3, SIGN, SIGN_PIN, SIGN_ENCRYPTED, SIGN_HTML, SAD_ONLY, SIGN_FROM_SERVICE }
   record Case(String id, String group, String title, String purpose, String reference, String instruction,
       Entity entity, Request request, String expectedTop, String expectedSecond) {
     boolean expectsSuccess() { return expectedTop == null; }
-    boolean signs() { return request == Request.SIGN || request == Request.SIGN_ENCRYPTED; }
+    boolean signs() { return request == Request.SIGN || request == Request.SIGN_PIN || request == Request.SIGN_ENCRYPTED; }
+    boolean securityCode() { return request == Request.LOGIN_PIN || request == Request.SIGN_PIN; }
+    /** The context the service asks for; the security-code cases accept only the code level. */
+    String context() { return request == Request.LOA3 ? LOA3 : securityCode() ? PhoneIdentity.PIN_CONTEXT : PhoneIdentity.CONTEXT; }
   }
   static final List<Case> CASES = List.of(
       new Case("login", "Legitimering", "Grundinloggning", "Signerad AuthnRequest med ForceAuthn och exakt autentiseringskontext. Svaret ska vara signerat och krypterat, bundet till begäran och innehålla alla begärda attribut men inga andra.",
           "Deployment Profile §§5.3–6.2", "Skanna QR-koden och godkänn i appen.", Entity.SERVICE, Request.LOGIN, null, null),
+      new Case("login-pin", "Legitimering", "Inloggning med säkerhetskod", "Tjänsten begär nivån med säkerhetskod, som BankID:s krav på säkerhetskod. Appen ska kräva koden utöver Face ID, och svaret ska intyga den nivån.",
+          "Egen kontext urn:openid:authn:passport-native:pin:v1; DP §5.4.4", "Skriv din säkerhetskod i appen och godkänn med Face ID.", Entity.SERVICE, Request.LOGIN_PIN, null, null),
       new Case("no-force", "Legitimering", "Ny legitimering utan ForceAuthn", "IdP:n får inte återanvända en tidigare session när policyn inte tillåter det. AuthnInstant ska vara färskare än begäran.",
           "Deployment Profile §5.4.5", "Godkänn i appen. Kör gärna direkt efter grundinloggningen.", Entity.SERVICE, Request.NO_FORCE, null, null),
       new Case("passive", "Felhantering", "Passiv begäran (IsPassive)", "Utan befintlig session ska IdP:n svara med fel utan att visa något för användaren.",
@@ -64,6 +69,8 @@ final class TestConsole {
           "Deployment Profile §6.4; Registry §3.1.4", "Välj Avbryt på sidan eller Neka i appen, och sedan Tillbaka till tjänsten.", Entity.SERVICE, Request.LOGIN, StatusCode.RESPONDER, CANCEL),
       new Case("sign", "Underskrift", "Underskrift med SignMessage och SAD", "Underskriftstjänsten skickar en text som ska visas (MustShow) och begär SAD. Svaret ska innehålla signMessageDigest för exakt texten och en SAD som är bunden till begäran. Därefter skapas en PAdES-signerad PDF.",
           "Deployment Profile §7; Signature Activation Protocol §3", "Läs texten i appen och välj Skriv under.", Entity.SIGNATURE_SERVICE, Request.SIGN, null, null),
+      new Case("sign-pin", "Underskrift", "Stort åtagande med säkerhetskod", "Ett lånelöfte på 250 000 kr. Underskriftstjänsten kräver säkerhetskod; Face ID räcker inte. Svaret, SAD och PDF:en ska alla bära kodnivån.",
+          "Deployment Profile §7; SAP §3 (SAD-loa)", "Läs texten, skriv säkerhetskoden och välj Skriv under.", Entity.SIGNATURE_SERVICE, Request.SIGN_PIN, null, null),
       new Case("sign-encrypted", "Underskrift", "Krypterat SignMessage", "Samma underskrift, men texten är krypterad till IdP:ns nyckel. Bara IdP:n kan läsa och visa den.",
           "DSS Extension §3.1.2", "Läs texten i appen och välj Skriv under.", Entity.SIGNATURE_SERVICE, Request.SIGN_ENCRYPTED, null, null),
       new Case("sign-html", "Underskrift", "Text som inte kan visas", "SignMessage i HTML med MustShow. Appen visar bara ren text, så IdP:n måste avbryta med fel i stället för att visa något annat.",
@@ -117,7 +124,7 @@ final class TestConsole {
     try {
       if (method.equals("GET") && path.equals("/console.css")) asset(x, "/static/console/console.css", "text/css");
       else if (method.equals("GET") && path.equals("/test")) console(x);
-      else if (method.equals("GET") && path.equals("/sign")) start(x, "sign");
+      else if (method.equals("GET") && path.equals("/sign")) chooser(x);
       else if (method.equals("GET") && path.startsWith("/test/run/")) start(x, path.substring("/test/run/".length()));
       else if (method.equals("POST") && (path.equals("/test/acs") || path.equals("/sign/acs"))) receive(x, path);
       else if (method.equals("GET") && path.startsWith("/test/report/")) report(x, path.substring("/test/report/".length()));
@@ -133,6 +140,18 @@ final class TestConsole {
   }
 
   // ---------------------------------------------------------------- pages
+
+  /** Two documents, two levels: like BankID, the service decides when Face ID is enough. */
+  private void chooser(HttpExchange x) throws IOException {
+    owner(x);
+    page(x, 200, "Skriv under", "<header class='hero'><p class='eyebrow'>openID kontotjänst · underskrift</p><h1>Välj vad du vill skriva under</h1>"
+        + "<p class='lead'>Tjänsten bestämmer hur säker underskriften måste vara. Små åtaganden räcker med Face ID. Stora kräver även din säkerhetskod.</p></header>"
+        + "<div class='cards'><article class='card'><div class='card-head'><h3>Avtal om provtjänst</h3><span class='badge'>Face ID</span></div>"
+        + "<p>Ett litet åtagande. Du läser texten i appen och skriver under med Face ID.</p><p class='actions'><a class='button' href='/test/run/sign'>Skriv under avtalet</a></p></article>"
+        + "<article class='card'><div class='card-head'><h3>Lånelöfte 250 000 kr</h3><span class='badge ok'>Säkerhetskod</span></div>"
+        + "<p>Ett stort åtagande. Appen kräver din sexsiffriga säkerhetskod utöver Face ID. Fem fel spärrar koden.</p><p class='actions'><a class='button' href='/test/run/sign-pin'>Skriv under lånelöftet</a></p></article></div>"
+        + "<p class='ref'><a href='/test'>Alla tester</a></p>");
+  }
 
   private void console(HttpExchange x) throws IOException {
     String owner = owner(x);
@@ -173,9 +192,10 @@ final class TestConsole {
     byte[] document = null; String message = null;
     if (c.entity() == Entity.SIGNATURE_SERVICE || c.request() == Request.SIGN_FROM_SERVICE) {
       Instant now = Instant.now();
-      document = PadesSigner.demoDocument(reference, now);
+      boolean high = c.request() == Request.SIGN_PIN;
+      document = PadesSigner.demoDocument(reference, now, high);
       String digest = PadesSigner.sha256Hex(document);
-      message = "Jag skriver under ”Avtal om provtjänst”, dokument " + reference + ".\n"
+      message = "Jag skriver under ”" + (high ? "Lånelöfte 250 000 kr" : "Avtal om provtjänst") + "”, dokument " + reference + ".\n"
           + "Kontrollsumma (SHA-256): " + digest.substring(0, 8) + " " + digest.substring(8, 16) + " … " + digest.substring(56) + "\n"
           + "Underskriften är en test utan rättslig verkan.";
     }
@@ -201,7 +221,7 @@ final class TestConsole {
     request.setForceAuthn(c.request() != Request.NO_FORCE && c.request() != Request.PASSIVE);
     request.setIsPassive(c.request() == Request.PASSIVE ? Boolean.TRUE : null);
     request.setRequestedAuthnContext(RequestedAuthnContextBuilder.builder().comparison(AuthnContextComparisonTypeEnumeration.EXACT)
-        .authnContextClassRefs(c.request() == Request.LOA3 ? LOA3 : PhoneIdentity.CONTEXT).build());
+        .authnContextClassRefs(c.context()).build());
     var extensions = (Extensions) XMLObjectSupport.buildXMLObject(Extensions.DEFAULT_ELEMENT_NAME);
     if (message != null && c.request() != Request.SAD_ONLY) {
       SignMessage signMessage = SignMessageBuilder.builder().message(message).displayEntity(idpMetadata.getEntityID()).mustShow(true)
@@ -264,7 +284,8 @@ final class TestConsole {
       checks.add(new Check("Signerat och krypterat svar validerat", true, "Sweden Connect-processorn kräver krypterad, signerad assertion, rätt mottagare, InResponseTo, RelayState och giltighetstid."));
       checks.add(new Check("Utfärdare är openID IdP", idpMetadata.getEntityID().equals(result.getIssuer()), result.getIssuer()));
       checks.add(new Check("Mottagare (Audience) är den begärande tjänsten", audience(assertion, run.request().getIssuer().getValue()), run.request().getIssuer().getValue()));
-      checks.add(new Check("Autentiseringskontext är den begärda", PhoneIdentity.CONTEXT.equals(result.getAuthnContextClassUri()), result.getAuthnContextClassUri()));
+      checks.add(new Check(run.kase().securityCode() ? "Säkerhetskoden kontrollerades (kodnivån intygas)" : "Autentiseringskontext är den begärda",
+          run.kase().context().equals(result.getAuthnContextClassUri()), result.getAuthnContextClassUri()));
       boolean fresh = result.getAuthnInstant() != null && !result.getAuthnInstant().isBefore(run.request().getIssueInstant().minusSeconds(5));
       checks.add(new Check("Ny legitimering, ingen återanvänd session", fresh, "AuthnInstant " + time(result.getAuthnInstant()) + ", begäran " + time(run.request().getIssueInstant())));
       var identityAttributes = new ArrayList<Attribute>(); Attribute digest = null, sad = null;

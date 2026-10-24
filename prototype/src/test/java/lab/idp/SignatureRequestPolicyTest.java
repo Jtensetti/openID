@@ -55,6 +55,20 @@ class SignatureRequestPolicyTest {
     assertThrows(AuthenticationErrorException.class, () -> SignatureRequestPolicy.signMessage(saml(optional, true)));
   }
 
+  @Test void serviceDecidesTheLevelAndTheLowerAcceptedLevelIsUsed() throws Exception {
+    var requirements = new SamlAuthenticationRequirements();
+    assertNull(SignatureRequestPolicy.level(requirements)); // nothing requested: Face ID level
+    requirements.setAuthnContextRequirements(List.of(lab.phone.PhoneIdentity.PIN_CONTEXT));
+    assertEquals("pin", SignatureRequestPolicy.level(requirements));
+    assertEquals(lab.phone.PhoneIdentity.PIN_CONTEXT, SignatureRequestPolicy.context("pin"));
+    requirements.setAuthnContextRequirements(List.of(lab.phone.PhoneIdentity.PIN_CONTEXT, lab.phone.PhoneIdentity.CONTEXT));
+    assertNull(SignatureRequestPolicy.level(requirements)); // both accepted: no unnecessary code
+    requirements.setAuthnContextRequirements(List.of("http://id.elegnamnden.se/loa/1.0/loa3"));
+    assertThrows(AuthenticationErrorException.class, () -> SignatureRequestPolicy.level(requirements));
+    assertTrue(new PhoneProvider(new PhoneBridge(Path.of("/nonexistent-test-only.sock"), "https://localhost:8444/sp"))
+        .getSupportedAuthnContextUris().containsAll(List.of(lab.phone.PhoneIdentity.CONTEXT, lab.phone.PhoneIdentity.PIN_CONTEXT)));
+  }
+
   @Test void phoneProviderFailsBeforeDisplayWhenTextCannotBeShown() {
     var phone = new PhoneProvider(new PhoneBridge(Path.of("/nonexistent-test-only.sock"), "https://localhost:8444/sp"));
     var html = new GenericSignMessage(List.of(LocalizedMessage.ofText(null, "<b>x</b>")), MessageMimeType.TEXT_HTML, true, null);

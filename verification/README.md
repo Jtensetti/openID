@@ -217,9 +217,36 @@ svarsprocessor och fallets förväntade status:
 | Avbryt eller neka | `Responder` + `http://id.elegnamnden.se/status/1.0/cancel` |
 | Underskrift, krypterat SignMessage | `signMessageDigest` för exakt texten, SAD validerad, PAdES-B-B-PDF |
 | HTML-text med MustShow, SAD utan text | Felsvar, ingenting visas eller signeras |
+| Inloggning och underskrift med säkerhetskod | Kodnivåns kontext i svaret och i SAD:en; fel kod räknas |
 | SignMessage från tjänst utan `sigservice` | Vanlig inloggning utan digest eller SAD |
 
-**Skriv under ett avtal** (`/sign`) kör underskriftsfallet direkt. Sidan i IdP:n
+### Säkerhetskod för stora åtaganden
+
+Som BankID:s krav på säkerhetskod avgör tjänsten nivån per transaktion med
+autentiseringskontexten:
+
+| Kontext | Användaren gör | Exempel |
+|---|---|---|
+| `urn:openid:authn:passport-native:v1` | Face ID, Touch ID eller enhetskod | Inloggning, litet avtal |
+| `urn:openid:authn:passport-native:pin:v1` | Samma, plus säkerhetskod med sex siffror | Lån, stora belopp |
+
+Begär tjänsten båda väljs den lägre nivån. Svaret och SAD:en intygar nivån som
+faktiskt kontrollerades. Koden väljs i appen efter aktivering (åtgärden `set-pin`)
+och kontrolleras av registret, inte av appen: den lagras som HMAC med den separata
+identitetsnyckeln, bunden till credential. Fel kod räknas på servern; efter fem
+fel i rad spärras koden permanent och passet måste registreras på nytt. Rätt kod
+nollställer räknaren. Svaga koder (samma siffra, följder, upprepningar, passets
+födelsedatum) avvisas. Nekande och spärr kräver aldrig kod. Felkoderna
+`PIN_REQUIRED`, `PIN_INCORRECT` (med antal kvar), `PIN_LOCKED` och `PIN_WEAK`
+returneras med HTTP 403. Klusterläget stöder ännu inte säkerhetskod.
+
+Telefonens nyckel kräver fortfarande Face ID eller enhetskod även på kodnivån.
+Säkerhetskoden skyddar därmed mot den som känner till telefonens kod. Den
+skyddar inte mot en angripare som kan köra egen kod i appen och samtidigt känner
+till säkerhetskoden.
+
+**Skriv under** (`/sign`) låter dig välja ett litet avtal (Face ID) eller ett
+lånelöfte på 250 000 kr (säkerhetskod). Sidan i IdP:n
 och appen visar samma text; appen kräver **Skriv under** och Face ID. Den
 underskrivna PDF:en öppnas i en PDF-läsare; signaturpanelen visar undertecknaren
 och att certifikatet kommer från en ej betrodd test-CA. Underskriftsbeviset

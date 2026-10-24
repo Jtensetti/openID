@@ -135,7 +135,7 @@ const https = require('node:https');
     const shots = process.env.FEDERATION_SCREENSHOT_DIR;
     const shot = async name => { if (shots) await page.screenshot({path:path.join(shots,name+'.png'),fullPage:true}); };
     await page.goto('https://localhost:8444/test');
-    assert.equal(await page.locator('article.card').count(),13); await shot('console');
+    assert.equal(await page.locator('article.card').count(),15); await shot('console');
     for (const name of ['login','no-force']) { await run(name); await command('approve',{requestId:await pending()}); await verdict(name); }
     for (const name of ['passive','loa3','sign-html','sad-only']) { await run(name); await verdict(name); }
     await run('cancel'); await pending(); await page.getByRole('button',{name:'Avbryt'}).click();
@@ -148,6 +148,26 @@ const https = require('node:https');
     assert.equal(ordinary.requests[0].signMessage,undefined); assert.match(ordinary.requests[0].purpose,/^Logga in/);
     await assert.rejects(command('sign',{requestId:id}));
     await command('approve',{requestId:id}); await verdict('sign-from-service');
+    // Security code level: the service requires it; Face ID alone is not enough, wrong codes are counted.
+    assert.equal((await command('set-pin',{newPin:'123456'})).securityCodeError,'PIN_WEAK');
+    assert.equal((await command('set-pin',{newPin:'482917'})).securityCode.set,true);
+    await run('login-pin'); id = await pending();
+    assert.equal(await page.locator('#pin-required').count(),1);
+    assert.equal((await command('inspect',{requestId:id})).requests[0].verification,'pin');
+    assert.equal((await command('approve',{requestId:id})).securityCodeError,'PIN_REQUIRED');
+    const wrong = await command('approve',{requestId:id,pin:'000001'});
+    assert.deepEqual([wrong.securityCodeError,wrong.attemptsRemaining],['PIN_INCORRECT',4]);
+    await command('approve',{requestId:id,pin:'482917'}); await verdict('login-pin');
+    assert.match(await page.locator('.checks').textContent(),/passport-native:pin:v1/);
+    await page.goto('https://localhost:8444/sign');
+    assert.equal(await page.getByRole('link',{name:'Skriv under lånelöftet'}).count(),1);
+    await run('sign-pin'); id = await pending();
+    assert.match(await page.locator('#sign-message').textContent(),/Lånelöfte 250 000 kr/);
+    assert.equal((await command('sign',{requestId:id})).securityCodeError,'PIN_REQUIRED');
+    await command('sign',{requestId:id,pin:'482917'}); await verdict('sign-pin');
+    // A Face ID level request never takes the code.
+    await run('login'); id = await pending(); await assert.rejects(command('approve',{requestId:id,pin:'482917'}));
+    await command('approve',{requestId:id}); await verdict('login after code level');
     for (const name of ['sign','sign-encrypted']) {
       await run(name); id = await pending();
       const shown = await page.locator('#sign-message').textContent(); if (name === 'sign') await shot('idp-sign');
@@ -166,7 +186,7 @@ const https = require('node:https');
       assert.equal(evidence.signMessage,shown); assert.match(evidence.sad,/^ey/);
       assert.equal((await outsider.request.get(page.url()+'/signed.pdf')).status(),404);
     }
-    console.log('PASS: test console – login, fresh authentication, IsPassive, unsupported LoA, cancel/reject status, SignMessage+SAD, encrypted SignMessage, undisplayable text, SAD without text, non-sigservice requester; PAdES document signed');
+    console.log('PASS: test console – login, security code level (weak, missing, wrong, locked counter, Face ID level refuses code), fresh authentication, IsPassive, unsupported LoA, cancel/reject status, SignMessage+SAD, encrypted SignMessage, undisplayable text, SAD without text, non-sigservice requester; PAdES document signed');
 
     id = await begin(); await approve(id); await command('new');
     assert.equal((await context.request.get('https://localhost:8444/me')).status(),401);

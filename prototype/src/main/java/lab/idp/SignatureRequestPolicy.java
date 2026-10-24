@@ -46,6 +46,19 @@ final class SignatureRequestPolicy {
     return text;
   }
 
+  /**
+   * The verification the service asked for: {@code null} = Face ID level ({@link lab.phone.PhoneIdentity#CONTEXT}),
+   * {@code "pin"} = security code as well ({@link lab.phone.PhoneIdentity#PIN_CONTEXT}). Like BankID's PIN requirement,
+   * the service decides per transaction; the lower level is used whenever the service accepts it.
+   */
+  static String level(AuthenticationRequirements requirements) throws AuthenticationErrorException {
+    var requested = requirements.getAuthnContextRequirements();
+    if (requested.isEmpty() || requested.contains(lab.phone.PhoneIdentity.CONTEXT)) return null;
+    if (requested.contains(lab.phone.PhoneIdentity.PIN_CONTEXT)) return "pin";
+    throw new AuthenticationErrorException(AuthenticationError.NO_AUTHN_CONTEXT, "Requested context not supported");
+  }
+  static String context(String level) { return "pin".equals(level) ? lab.phone.PhoneIdentity.PIN_CONTEXT : lab.phone.PhoneIdentity.CONTEXT; }
+
   /** Language tag of the displayed text, for the assertion's signMessageDigest. */
   static String language(AuthenticationRequirements requirements) {
     GenericSignMessage message = requirements.getSignMessage();

@@ -41,10 +41,8 @@ class FederationServer:
             with self.wallet.transaction() as db:
                 if db.execute('SELECT 1 FROM profiles LIMIT 1').fetchone(): self.wallet.vault.key()
             return {'state': 'READY'}
-        if operation == 'start' and set(data) == {'operation', 'audience', 'binding'}:
-            return self.wallet.federation_start(data['binding'], self.audience)
-        if operation == 'start' and set(data) == {'operation', 'audience', 'binding', 'signMessage'}:
-            return self.wallet.federation_start(data['binding'], self.audience, data['signMessage'])
+        if operation == 'start' and {'operation', 'audience', 'binding'} <= set(data) <= {'operation', 'audience', 'binding', 'signMessage', 'verification'}:
+            return self.wallet.federation_start(data['binding'], self.audience, data.get('signMessage'), data.get('verification'))
         if operation == 'check' and set(data) == {'operation', 'audience', 'credentialId', 'subject', 'version'}:
             return self.wallet.federation_check(data['credentialId'], data['subject'], data['version'], self.audience)
         if operation in ('poll', 'consume', 'cancel', 'qr') and set(data) == {'operation', 'audience', 'id', 'secret', 'binding'}:

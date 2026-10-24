@@ -49,6 +49,7 @@ def connection_options(dsn, local_test=False):
 class PostgresWallet(Wallet):
     # The shared schema has no sign-message column; federated signing is SQLite-pilot only.
     federated_signing = False
+    security_codes_supported = False
     # The shared schema has no attempt table yet; the SQLite pilot enforces the per-passport limit.
     biometric_attempt = None
 

@@ -68,6 +68,20 @@ final class WalletSecurityTests: XCTestCase {
             XCTAssertFalse(WalletRequest.validSignMessage(text), text)
         }
     }
+    func testSecurityCodeLevelIsPartOfTheSignedConsent() {
+        let high = WalletRequest(id: requestID, relyingParty: request.relyingParty, purpose: request.purpose, code: request.code, expiresAt: 1100, verification: "pin")
+        XCTAssertNoThrow(try envelope(["verification": "pin"]).validatedBytes(configuration: config, credentialID: ident, action: "approve", request: high, now: now))
+        XCTAssertThrowsError(try envelope().validatedBytes(configuration: config, credentialID: ident, action: "approve", request: high, now: now))
+        XCTAssertThrowsError(try envelope(["verification": "pin"]).validatedBytes(configuration: config, credentialID: ident, action: "approve", request: request, now: now))
+    }
+    @MainActor func testWeakAndMalformedSecurityCodesAreRefusedLocally() {
+        for code in ["000000", "123456", "654321", "121212", "123123", "112112", "12345", "abcdef", "４８２９１７"] {
+            XCTAssertTrue(SecurityCode.weak(code), code)
+        }
+        XCTAssertFalse(SecurityCode.weak("482917"))
+        XCTAssertTrue(WalletError.securityCode("PIN_INCORRECT", 2).localizedDescription.contains("2 försök kvar"))
+        XCTAssertTrue(WalletModel.failureMessage(action: "approve", error: WalletError.securityCode("PIN_LOCKED", 0)).contains("spärrad"))
+    }
     func testExpiredDisplayedRequestCannotBeSigned() {
         let expired = WalletRequest(id: requestID, relyingParty: request.relyingParty, purpose: request.purpose, code: request.code, expiresAt: 1000)
         XCTAssertThrowsError(try envelope().validatedBytes(configuration: config, credentialID: ident, action: "approve", request: expired, now: now))

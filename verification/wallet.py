@@ -24,6 +24,30 @@ SIGN_MESSAGE_LIMIT = 400
 BIOMETRIC_ATTEMPTS = 5          # failed face/PAD/pose decisions per passport ...
 BIOMETRIC_WINDOW = 24 * 3600    # ... within this many seconds
 
+SECURITY_CODE_ATTEMPTS = 5      # wrong security codes in a row before the code is locked for good
+
+class SecurityCodeError(ValueError):
+    """A security code decision that is safe to show the holder: PIN_REQUIRED, PIN_INCORRECT, PIN_LOCKED, PIN_WEAK."""
+    def __init__(self, code, remaining=None):
+        if code not in ('PIN_REQUIRED', 'PIN_INCORRECT', 'PIN_LOCKED', 'PIN_WEAK'): raise ValueError('code')
+        super().__init__(code)
+        self.code, self.remaining = code, remaining
+
+def security_code(value):
+    if not isinstance(value, str) or not re.fullmatch('[0-9]{6}', value): raise ValueError('security code format')
+    return value
+
+def weak_security_code(code, birth_mrz=None):
+    """Codes a thief tries first: one digit, runs, repeated patterns and the passport birth date."""
+    digits = [int(c) for c in code]
+    steps = {digits[i+1]-digits[i] for i in range(5)}
+    if len(set(digits)) <= 2 or steps in ({1}, {-1}): return True
+    if code[:3] == code[3:] or code[:2] == code[2:4] == code[4:]: return True
+    if birth_mrz and re.fullmatch('[0-9]{6}', birth_mrz):
+        yy, mm, dd = birth_mrz[:2], birth_mrz[2:4], birth_mrz[4:]
+        if code in (yy+mm+dd, dd+mm+yy, mm+dd+yy): return True
+    return False
+
 class BiometricAttemptLimit(ValueError):
     """Too many failed biometric decisions for this passport today. Safe to tell the holder."""
 
@@ -115,10 +139,15 @@ class Wallet:
                 CREATE INDEX IF NOT EXISTS federation_pending ON federation_requests(state,expires);
             ''')
             db.execute('CREATE TABLE IF NOT EXISTS biometric_failures (document_tag TEXT NOT NULL, time INTEGER NOT NULL)')
+            # Security code: HMAC with the separate identity key; the database alone does not reveal the 6 digits.
+            db.execute('''CREATE TABLE IF NOT EXISTS security_codes (credential TEXT PRIMARY KEY REFERENCES credentials(id),
+                hash TEXT NOT NULL, failures INTEGER NOT NULL, locked INTEGER NOT NULL, updated INTEGER NOT NULL)''')
             db.execute('CREATE INDEX IF NOT EXISTS biometric_failure_document ON biometric_failures(document_tag,time)')
             columns = {row['name'] for row in db.execute('PRAGMA table_info(federation_requests)')}
             if 'sign_message' not in columns:
                 db.execute('ALTER TABLE federation_requests ADD COLUMN sign_message TEXT')
+            if 'level' not in columns:
+                db.execute('ALTER TABLE federation_requests ADD COLUMN level TEXT')
             if self.notifications:
                 from notices import install
                 install(db)
@@ -321,11 +350,13 @@ class Wallet:
     def challenge(self, request):
         if not isinstance(request, dict) or set(request) != {'credentialId', 'action', 'requestId'}: raise ValueError('fields')
         ident, action, req = identifier(request['credentialId']), request['action'], request['requestId']
-        if action not in ('snapshot', 'inspect', 'approve', 'sign', 'reject', 'revoke'): raise ValueError('action')
+        if action not in ('snapshot', 'inspect', 'approve', 'sign', 'reject', 'revoke', 'set-pin'): raise ValueError('action')
+        if action == 'set-pin' and not getattr(self, 'security_codes_supported', True): raise ValueError('security codes unavailable')
         if action in ('inspect', 'approve', 'sign', 'reject'): identifier(req)
         elif req is not None: raise ValueError('unexpected request')
         with self.transaction() as db:
             self.credential(db, ident)
+            if action == 'set-pin': self.verified_profile(db, ident)
             target = None; federation = False
             if req is not None:
                 self.active(db, ident)
@@ -348,6 +379,8 @@ class Wallet:
                 'purpose': ((SIGN_PURPOSE if signing else FEDERATION_PURPOSE) if federation else PURPOSE) if target is not None and action != 'inspect' else None,
                 'code': target['code'] if target is not None and action != 'inspect' else None}
             if signing and action != 'inspect': payload['signMessage'] = self.federation_sign_message(target)
+            # The holder's signed consent names the verification the service asked for.
+            if federation and self.federation_level(target) == 'pin' and action != 'inspect': payload['verification'] = 'pin'
             raw = json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()
             self.store_challenge(db, challenge, raw, payload, expires, federation)
             return {'id': challenge, 'signingInput': base64.b64encode(raw).decode()}
@@ -361,8 +394,10 @@ class Wallet:
         return self.challenges.pop(challenge, None)
 
     def execute(self, request):
-        if not isinstance(request, dict) or set(request) != {'challengeId', 'signature'}: raise ValueError('fields')
+        if (not isinstance(request, dict) or not {'challengeId', 'signature'} <= set(request)
+                or set(request) - {'challengeId', 'signature', 'pin', 'newPin'}): raise ValueError('fields')
         challenge = identifier(request['challengeId'])
+        failure = None
         with self.lock:
             pending = self.take_challenge(challenge) # Consume before every failure.
             if pending is None or pending['expires'] <= self.clock(): raise ValueError('challenge unavailable')
@@ -378,20 +413,31 @@ class Wallet:
                 if action in ('approve', 'sign', 'reject'):
                     self.active(db, ident)
                     decision = 'REJECTED' if action == 'reject' else 'APPROVED'
+                    level = None
                     if pending['federation']:
                         self.verified_profile(db, ident)
                         target = db.execute('SELECT * FROM federation_requests WHERE id=?', (payload['requestId'],)).fetchone()
                         # The signed text must be the stored text; the request cannot change after display.
                         if target is None or self.federation_sign_message(target) != payload.get('signMessage'):
                             raise ValueError('request unavailable')
-                        changed = db.execute("UPDATE federation_requests SET state=?,credential=? WHERE id=? AND credential IS NULL AND state='PENDING' AND expires>?",
-                            (decision, ident, payload['requestId'], self.clock())).rowcount
-                    else:
-                        if action == 'sign': raise ValueError('action')
-                        changed = db.execute("UPDATE requests SET state=? WHERE id=? AND credential=? AND state='PENDING' AND expires>?",
-                            (decision, payload['requestId'], ident, self.clock())).rowcount
-                    if changed != 1: raise ValueError('request unavailable')
-                    self.event(db, ident, {'approve': 'APPROVED', 'sign': 'SIGNED', 'reject': 'REJECTED'}[action], payload['requestId'])
+                        level = self.federation_level(target)
+                        if (level == 'pin') != (payload.get('verification') == 'pin'): raise ValueError('verification binding')
+                    if 'newPin' in request or ('pin' in request and (level != 'pin' or decision != 'APPROVED')): raise ValueError('fields')
+                    # Rejecting never needs the code; approving a code-level request always does.
+                    if level == 'pin' and decision == 'APPROVED': failure = self.verify_security_code(db, ident, request.get('pin'))
+                    if failure is None:
+                        if pending['federation']:
+                            changed = db.execute("UPDATE federation_requests SET state=?,credential=? WHERE id=? AND credential IS NULL AND state='PENDING' AND expires>?",
+                                (decision, ident, payload['requestId'], self.clock())).rowcount
+                        else:
+                            if action == 'sign': raise ValueError('action')
+                            changed = db.execute("UPDATE requests SET state=? WHERE id=? AND credential=? AND state='PENDING' AND expires>?",
+                                (decision, payload['requestId'], ident, self.clock())).rowcount
+                        if changed != 1: raise ValueError('request unavailable')
+                        self.event(db, ident, {'approve': 'APPROVED', 'sign': 'SIGNED', 'reject': 'REJECTED'}[action], payload['requestId'])
+                elif action == 'set-pin':
+                    failure = self.set_security_code(db, ident, request.get('pin'), request.get('newPin'))
+                elif 'pin' in request or 'newPin' in request: raise ValueError('fields')
                 elif action == 'revoke': self._revoke(db, ident)
                 snapshot = self.snapshot(db, ident)
                 if action == 'inspect':
@@ -402,7 +448,41 @@ class Wallet:
                             (payload['requestId'], self.clock())).fetchone()
                         if target is None: raise ValueError('request unavailable')
                         snapshot['requests'] = [self.federation_description(target)] + snapshot['requests'][:4]
-                return snapshot
+            # Raised only after commit: a wrong code is counted even though the decision is refused.
+            if failure is not None: raise failure
+            return snapshot
+
+    def verify_security_code(self, db, ident, pin):
+        """None when correct; otherwise the error to raise after the failure count is committed."""
+        row = db.execute('SELECT * FROM security_codes WHERE credential=?', (ident,)).fetchone()
+        if row is None: return SecurityCodeError('PIN_REQUIRED')
+        if row['locked']: return SecurityCodeError('PIN_LOCKED', 0)
+        if pin is None: return SecurityCodeError('PIN_REQUIRED', SECURITY_CODE_ATTEMPTS-row['failures'])
+        expected = self.vault.reference('security-code-v1:'+ident, security_code(pin))
+        if secrets.compare_digest(row['hash'], expected):
+            if row['failures']: db.execute('UPDATE security_codes SET failures=0 WHERE credential=?', (ident,))
+            return None
+        failures = row['failures']+1; locked = failures >= SECURITY_CODE_ATTEMPTS
+        db.execute('UPDATE security_codes SET failures=?,locked=?,updated=? WHERE credential=?', (failures, int(locked), int(self.clock()), ident))
+        self.event(db, ident, 'SECURITY_CODE_LOCKED' if locked else 'SECURITY_CODE_FAILED')
+        return SecurityCodeError('PIN_LOCKED' if locked else 'PIN_INCORRECT', SECURITY_CODE_ATTEMPTS-failures)
+
+    def set_security_code(self, db, ident, current, new):
+        """Choose a code, or change it with the current one. A locked code is only replaced by re-registration."""
+        self.active(db, ident)
+        new = security_code(new)
+        row = db.execute('SELECT * FROM security_codes WHERE credential=?', (ident,)).fetchone()
+        if row is not None:
+            failure = self.verify_security_code(db, ident, current)
+            if failure is not None: return failure
+        elif current is not None: raise ValueError('fields')
+        profile = self.verified_profile(db, ident)
+        birth = self.vault.crypt('open', ident, profile['person'], json.loads(profile['sealed'])).get('birthDateMrz')
+        if weak_security_code(new, birth): raise SecurityCodeError('PIN_WEAK')
+        db.execute('INSERT INTO security_codes VALUES(?,?,0,0,?) ON CONFLICT(credential) DO UPDATE SET hash=excluded.hash,failures=0,locked=0,updated=excluded.updated',
+            (ident, self.vault.reference('security-code-v1:'+ident, new), int(self.clock())))
+        self.event(db, ident, 'SECURITY_CODE_SET')
+        return None
 
     def snapshot(self, db, ident):
         row = self.credential(db, ident); state = self.state(row)
@@ -427,9 +507,14 @@ class Wallet:
                 if not isinstance(token, str) or not re.fullmatch('[A-Za-z0-9_-]{43}', token):
                     raise ValueError('invalid revocation proof')
                 revocation_code = ident+'.'+token
+        code = None
+        if getattr(self, 'security_codes_supported', True):
+            stored = db.execute('SELECT failures,locked FROM security_codes WHERE credential=?', (ident,)).fetchone()
+            code = {'set': stored is not None, 'locked': bool(stored and stored['locked']),
+                'attemptsRemaining': SECURITY_CODE_ATTEMPTS-(stored['failures'] if stored else 0)}
         return {'credentialId': ident, 'state': state, 'createdAt': row['created'], 'expiresAt': row['expires'], 'identity': identity,
             'requests': requests, 'events': events, 'environment': 'PRIVATE_PILOT', 'legalIdentityIssued': False,
-            'revocationCode': revocation_code}
+            'revocationCode': revocation_code, 'securityCode': code}
 
     def verified_profile(self, db, ident):
         self.active(db, ident)
@@ -441,18 +526,24 @@ class Wallet:
     def federation_sign_message(row):
         return row['sign_message'] if 'sign_message' in row.keys() else None
 
+    @staticmethod
+    def federation_level(row):
+        return row['level'] if 'level' in row.keys() else None
+
     @classmethod
     def federation_description(cls, row):
         message = cls.federation_sign_message(row)
         description = {'id': row['id'], 'relyingParty': FEDERATION_RP, 'purpose': SIGN_PURPOSE if message is not None else FEDERATION_PURPOSE,
             'code': row['code'], 'expiresAt': row['expires']}
         if message is not None: description['signMessage'] = message
+        if cls.federation_level(row) == 'pin': description['verification'] = 'pin'
         return description
 
-    def federation_start(self, binding, audience, message=None):
+    def federation_start(self, binding, audience, message=None, level=None):
         if not isinstance(binding, str) or not re.fullmatch('[A-Za-z0-9_-]{1,200}', binding): raise ValueError('binding')
         message = sign_message(message)
         if message is not None and not getattr(self, 'federated_signing', True): raise ValueError('signing unavailable')
+        if level not in (None, 'pin') or (level == 'pin' and not getattr(self, 'security_codes_supported', True)): raise ValueError('verification level')
         with self.transaction() as db:
             self.lock_federation_quota(db)
             if db.execute("SELECT count(*) FROM federation_requests WHERE state='PENDING' AND expires>?", (self.clock(),)).fetchone()[0] >= 32:
@@ -461,10 +552,10 @@ class Wallet:
             expires = int(self.clock())+120
             values = (ident, hashlib.sha256(secret.encode()).hexdigest(), 'PENDING', int(self.clock()), expires,
                  f'{secrets.randbelow(1000000):06d}', binding, audience)
-            if message is None:
+            if message is None and level is None:
                 db.execute('INSERT INTO federation_requests(id,credential,secret_hash,state,created,expires,code,binding,audience) VALUES(?,NULL,?,?,?,?,?,?,?)', values)
             else:
-                db.execute('INSERT INTO federation_requests(id,credential,secret_hash,state,created,expires,code,binding,audience,sign_message) VALUES(?,NULL,?,?,?,?,?,?,?,?)', values+(message,))
+                db.execute('INSERT INTO federation_requests(id,credential,secret_hash,state,created,expires,code,binding,audience,sign_message,level) VALUES(?,NULL,?,?,?,?,?,?,?,?,?)', values+(message, level))
             row = db.execute('SELECT * FROM federation_requests WHERE id=?', (ident,)).fetchone()
             return self.federation_description(row) | {'secret': secret}
 
@@ -499,6 +590,8 @@ class Wallet:
                 'identity': {k: identity[k] for k in ('displayName', 'birthDateMrz', 'portraitJpeg')}}
             message = self.federation_sign_message(row)
             if message is not None: result['signMessageSha256'] = hashlib.sha256(message.encode()).hexdigest()
+            # Only reachable after verify_security_code accepted the code for this request.
+            if self.federation_level(row) == 'pin': result['verification'] = 'pin'
             return result
 
     def federation_subject(self, db, audience, person):

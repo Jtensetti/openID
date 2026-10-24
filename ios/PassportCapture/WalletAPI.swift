@@ -45,6 +45,12 @@ final class WalletAPI {
            let frame = error["frame"] as? Int, (1...3).contains(frame) {
             throw WalletError.cameraImageRejected(frame)
         }
+        if status == 403, path == "/wallet/execute",
+           let error = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let code = error["error"] as? String, ["PIN_REQUIRED", "PIN_INCORRECT", "PIN_LOCKED", "PIN_WEAK"].contains(code) {
+            let remaining = error["attemptsRemaining"] as? Int
+            throw WalletError.securityCode(code, remaining.flatMap { (0...SecurityCode.attempts).contains($0) ? $0 : nil })
+        }
         if status == 403, path == "/native/finish",
            let error = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
            error["error"] as? String == "ATTEMPT_LIMIT" {

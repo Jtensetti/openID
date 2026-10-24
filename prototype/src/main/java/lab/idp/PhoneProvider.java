@@ -23,7 +23,7 @@ public final class PhoneProvider extends AbstractUserRedirectAuthenticationProvi
     var repository = new SessionBasedRedirectAuthenticationRepository(); repository.setMaxAge(Duration.ofSeconds(120)); setRepository(repository);
   }
   @Override public String getName() { return "PASSPORT-DEVICE"; }
-  @Override public List<String> getSupportedAuthnContextUris() { return List.of(PhoneIdentity.CONTEXT); }
+  @Override public List<String> getSupportedAuthnContextUris() { return List.of(PhoneIdentity.CONTEXT, PhoneIdentity.PIN_CONTEXT); }
   @Override public List<String> getSupportedAttributes() { return PhoneAttributes.supported(); }
   /** Deployment Profile §2.1.3: SAD support (SCAL2) is advertised; sign messages are shown in the app. */
   @Override public List<String> getEntityCategories() {
@@ -31,6 +31,7 @@ public final class PhoneProvider extends AbstractUserRedirectAuthenticationProvi
   }
   @Override public Authentication authenticateUser(UserAuthenticationInputToken token) throws AuthenticationErrorException {
     SignatureRequestPolicy.signMessage(token.getAuthnRequirements()); // Fails before any display if it cannot be shown.
+    SignatureRequestPolicy.level(token.getAuthnRequirements());
     return super.authenticateUser(token);
   }
   @Override public boolean supportsUserAuthenticationToken(Authentication token) { return token instanceof Approval; }
@@ -41,8 +42,12 @@ public final class PhoneProvider extends AbstractUserRedirectAuthenticationProvi
       String expected = SignatureRequestPolicy.signMessage(requirements);
       // The registry request must carry exactly the text of THIS authentication request.
       if (!java.util.Objects.equals(expected, approval.pending.signMessage())) throw new IllegalStateException("Sign message binding");
+      String level = SignatureRequestPolicy.level(requirements);
+      if (!java.util.Objects.equals(level, approval.pending.level())) throw new IllegalStateException("Level binding");
       var approved = bridge.approve(approval.pending);
-      var user = new AuthenticatedUser(PhoneAttributes.values(approved.identity()), PhoneIdentity.SUBJECT, PhoneIdentity.CONTEXT, Instant.now(), "127.0.0.1");
+      // The asserted context says what was actually verified: Face ID level, or the security code as well.
+      var user = new AuthenticatedUser(PhoneAttributes.values(approved.identity()), PhoneIdentity.SUBJECT,
+          SignatureRequestPolicy.context(approved.level()), Instant.now(), "127.0.0.1");
       // Set only after the registry confirmed a separate signing approval of the SHA-256 of this exact text.
       if (expected != null && approved.signMessageSha256() != null) user.setSignMessageDisplayed(true, SignatureRequestPolicy.language(requirements));
       return new UserAuthentication(user);

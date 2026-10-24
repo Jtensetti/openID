@@ -11,6 +11,7 @@
     <p id="sign-message" th:text="${signMessage}"></p>
     <p class="note">Samma text visas i appen. Skriv bara under om texten stämmer.</p>
   </section>
+ <p th:if="${securityCode}" class="pin-required" id="pin-required">Tjänsten kräver din <strong>säkerhetskod</strong> (6 siffror) i appen, inte bara Face ID.</p>
   <img class="qr" th:src="@{/phone/qr(authnId=${authnId})}" width="256" height="256" alt="Skanna med openID-appen">
   <p id="control-code">Kontrollkod <strong id="code" th:text="${code}"></strong></p><p th:text="${purpose}"></p>
   <p id="open-app"><a th:href="@{${'openid://request/' + requestId}}">Öppna openID</a></p>

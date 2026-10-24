@@ -195,6 +195,15 @@ av passets dokumentsignerare mot CSCA:ns spärrlista (provad mot Polismyndighete
 publicerade CSCA-nycklar och `SWE.crl`). Gränserna är okalibrerade; PAD-, injektions-
 och reläprov återstår. Formell status oförändrad: OPEN.
 
+## Säkerhetskod för stora åtaganden 2026-10-24
+
+ID-07/09, K6.1 (två faktorer): tjänsten kan per transaktion kräva en servertestad
+säkerhetskod med sex siffror utöver enhetsnyckeln, via kontexten
+`urn:openid:authn:passport-native:pin:v1`. Fel kod räknas på servern, fem fel
+spärrar koden permanent, och koden lagras endast som HMAC med den separata
+identitetsnyckeln. Provas i `test_security_code`, `SignatureRequestPolicyTest`,
+testkonsolens kodfall och `WalletSecurityTests`. Formell status oförändrad: OPEN.
+
 ## Nyckelfiler och kravspårning 2026-10-22
 
 SEC-02/K4.3: lokal profilnyckel måste vara en vanlig fil med en hårdlänk,
