@@ -4,7 +4,7 @@
   "serialNumber" : "urn:uuid:d9bb8ab0-a34a-3ac5-adfd-5a0d7ff0b173",
   "version" : 1,
   "metadata" : {
-    "timestamp" : "2026-10-21T14:27:18Z",
+    "timestamp" : "2026-10-24T08:34:06Z",
     "lifecycles" : [
       {
         "phase" : "build"
@@ -8444,6 +8444,310 @@
     },
     {
       "type" : "library",
+      "bom-ref" : "pkg:maven/org.apache.pdfbox/pdfbox@3.0.8?type=jar",
+      "publisher" : "The Apache Software Foundation",
+      "group" : "org.apache.pdfbox",
+      "name" : "pdfbox",
+      "version" : "3.0.8",
+      "description" : "The Apache PDFBox library is an open source Java tool for working with PDF documents.",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "92ed0441337f2ed1f43eeaa901bd7814"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "c5d8c0b56aa156d64283f07729215a9938be2e69"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "97647cfbde61ebcfc06b4cf8c9b0ffcaaee073396eceb4a7f6836a9b9128903c"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "bd59e4918285dbed5d5a5e922368b139b2d3eed3e7b1102e726bbc69041328c82175826b92f341885f17f22c7af8438f4c5e676f25b90a8c062d42b1d7e5a57c"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "bf70e79d86149d82d3a475bf8be8bb19dedd88ebb975af4cb4e07b53c1ee70e6d53e18a83db2ce2b48918ea733014956"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "420f994bff085278cc7f2061ec10373e5c0b39809cc6dff82986b0f4ed65bdca88cb3f65fb124066c6905c02f565430a"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "f54d3f1432e99a116d703f9d17dfca9adaf4cfe9e5dc2e57d1e6e22d7b9958b1"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "e344572c8bf9a207113cb4a4f9ffc15e211d23413b791a4a8c009b4976eec9b4da39b3ef80d37b32f44a1e239c3b8c9148161f918d5452584472cf9d9a721364"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "id" : "Apache-2.0",
+            "url" : "https://www.apache.org/licenses/LICENSE-2.0"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/org.apache.pdfbox/pdfbox@3.0.8?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://www.apache.org/pdfbox-parent/pdfbox/"
+        },
+        {
+          "type" : "distribution-intake",
+          "url" : "https://repository.apache.org/service/local/staging/deploy/maven2"
+        },
+        {
+          "type" : "issue-tracker",
+          "url" : "https://issues.apache.org/jira/browse/PDFBOX"
+        },
+        {
+          "type" : "mailing-list",
+          "url" : "https://mail-archives.apache.org/mod_mbox/www-announce/"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://svn.apache.org/viewvc/pdfbox/tags/3.0.8/pdfbox"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/org.apache.pdfbox/pdfbox-io@3.0.8?type=jar",
+      "publisher" : "The Apache Software Foundation",
+      "group" : "org.apache.pdfbox",
+      "name" : "pdfbox-io",
+      "version" : "3.0.8",
+      "description" : "The Apache PDFBox library is an open source Java tool for working with PDF documents. This artefact contains IO related classes.",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "f45a2386cf4178b5955dda2807139745"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "0953f459ebc08048b75afc3e823aea2e0466a01b"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "36a0e04001010b4c764857817412b96339930b19755e728959805cc0352061b2"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "659c72ecfa9743df09321ef594cb0e948cabff17d7aed01583f78ec344e2126e6c75506abc43bc36369c0692bf09ea9e81b956ea9a3e28af29dd5c86bae9ff7b"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "6df807534a26d19789036801d0d36e7efc10e53e854160732cf5827219c58f1a9fd8c1f84e9d8a8d08afec05545b81bc"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "83692991b95310b6d0a20dd5f591153740286615856ff72939df44628f0221d9f9f02275a8707bf59af7d12ed941bb05"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "8a5620ef92655e317e1c8a9301d2a57ccd672354e6dd37fe24d5d9224867699e"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "3b56fe5e9b77d3206ba4fb342c4a7b9329f357baf625bc5686cc89cc3df6057bcad526c90707ce2168733b3ca6113733abb9a96f1ccffbf04bfb1865b8ce4cdf"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "id" : "Apache-2.0",
+            "url" : "https://www.apache.org/licenses/LICENSE-2.0"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/org.apache.pdfbox/pdfbox-io@3.0.8?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://www.apache.org/pdfbox-parent/pdfbox-io/"
+        },
+        {
+          "type" : "distribution-intake",
+          "url" : "https://repository.apache.org/service/local/staging/deploy/maven2"
+        },
+        {
+          "type" : "issue-tracker",
+          "url" : "https://issues.apache.org/jira/browse/PDFBOX"
+        },
+        {
+          "type" : "mailing-list",
+          "url" : "https://mail-archives.apache.org/mod_mbox/www-announce/"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://svn.apache.org/viewvc/pdfbox/tags/3.0.8/io"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/org.apache.pdfbox/fontbox@3.0.8?type=jar",
+      "publisher" : "The Apache Software Foundation",
+      "group" : "org.apache.pdfbox",
+      "name" : "fontbox",
+      "version" : "3.0.8",
+      "description" : "The Apache FontBox library is an open source Java tool to obtain low level information from font files. FontBox is a subproject of Apache PDFBox.",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "379e6faf6ea614ad3318eda879e4f423"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "e9f4225dc564b212ecdc31d1574f2d0c1dc3ad30"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "a1915c24e3edbe0ecec93896dfbf6d41427810b663ade97bd4e8bae86ec3fdab"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "fdc1a5bcb016280c561e20684db77cba126660872f6ad03440596b8817ed97452e80237e0c3e41f8914711dac96abb8da8d1f37014eef7a7433fff85aff953b7"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "a003c4f5a10df5885ae07dd485a4e2932bb9dfc1d858f44d582b6254e72171954e341f15b07f96f9fc745e47b2dfc6a5"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "019569e5e5043e27220becc49b14d781c9e96ad3a20156b1e24249e8c36b4a2d4a6373b64b8640dea9b2c05dca9bda8f"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "1d7995e3c97eab0405539ce436aac2b4f832a3ca7cb8628346e05955fb85c42c"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "b00c2d71f06b9a754c5dbd667efad8edf2ac10fca14f2d222dcd09d8d1f3379a6675f7eb2a003ca7ea234ca8f67dcc7dd3d6872ce0b1401d4a13f4dd3bbd7dc0"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "id" : "Apache-2.0",
+            "url" : "https://www.apache.org/licenses/LICENSE-2.0"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/org.apache.pdfbox/fontbox@3.0.8?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "http://pdfbox.apache.org/"
+        },
+        {
+          "type" : "distribution-intake",
+          "url" : "https://repository.apache.org/service/local/staging/deploy/maven2"
+        },
+        {
+          "type" : "issue-tracker",
+          "url" : "https://issues.apache.org/jira/browse/PDFBOX"
+        },
+        {
+          "type" : "mailing-list",
+          "url" : "https://mail-archives.apache.org/mod_mbox/www-announce/"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://svn.apache.org/viewvc/pdfbox/tags/3.0.8/fontbox"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/commons-logging/commons-logging@1.3.6?type=jar",
+      "publisher" : "The Apache Software Foundation",
+      "group" : "commons-logging",
+      "name" : "commons-logging",
+      "version" : "1.3.6",
+      "description" : "Apache Commons Logging is a thin adapter allowing configurable bridging to other, well-known logging systems.",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "fe0ccbe8971fed954a0ad6528fe3ef24"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "63e78ca6cd446c0ad166d14f03ed99e7efb3896d"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "f8ead8943401081dea0aa824b5b1ba40a0e4ed297a572a0f02258150a0b62357"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "5aaa082507e2f5031df7653e5feae7bda7a5fc4913e87ca5f7a202ee2d81e7b33c9f8d4419c4abe34f6dc56a0a85833340ae832f0630c23157ea6860c4273df5"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "4b1d12ca87349e1dfa72ea6781d7107c446814f796805bdf20d251b14384e281c8b325aa7c833aede577570dd1aa1cd5"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "c3397f7065b350dff865a8ac054c995237d51bfb6e46d5a05c81ebfe77c897a0826eef3c6be63b95cacbd571754c6393"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "8954c3daddea14224e55ee21ca11e8c5a3454a9e12059de6429646108416f0f1"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "f7042e83035f90c56df777d894fd15689f6aee6eeb67b024687314eb4a33c75affe6840940dda4e2c88d690ed1679303d75071462444cae3b2b80fb425ac35d0"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "id" : "Apache-2.0",
+            "url" : "https://www.apache.org/licenses/LICENSE-2.0"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/commons-logging/commons-logging@1.3.6?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://commons.apache.org/proper/commons-logging/"
+        },
+        {
+          "type" : "build-system",
+          "url" : "https://github.com/apache/commons-logging/actions"
+        },
+        {
+          "type" : "distribution-intake",
+          "url" : "https://repository.apache.org/service/local/staging/deploy/maven2"
+        },
+        {
+          "type" : "issue-tracker",
+          "url" : "https://issues.apache.org/jira/browse/LOGGING"
+        },
+        {
+          "type" : "mailing-list",
+          "url" : "https://mail-archives.apache.org/mod_mbox/commons-user/"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://gitbox.apache.org/repos/asf/commons-logging"
+        }
+      ]
+    },
+    {
+      "type" : "library",
       "bom-ref" : "pkg:maven/org.springframework.boot/spring-boot-starter-test-classic@4.1.1?type=jar",
       "publisher" : "VMware, Inc.",
       "group" : "org.springframework.boot",
@@ -9431,85 +9735,6 @@
         {
           "type" : "vcs",
           "url" : "https://github.com/spring-projects/spring-framework"
-        }
-      ]
-    },
-    {
-      "type" : "library",
-      "bom-ref" : "pkg:maven/commons-logging/commons-logging@1.3.6?type=jar",
-      "publisher" : "The Apache Software Foundation",
-      "group" : "commons-logging",
-      "name" : "commons-logging",
-      "version" : "1.3.6",
-      "description" : "Apache Commons Logging is a thin adapter allowing configurable bridging to other, well-known logging systems.",
-      "scope" : "required",
-      "hashes" : [
-        {
-          "alg" : "MD5",
-          "content" : "fe0ccbe8971fed954a0ad6528fe3ef24"
-        },
-        {
-          "alg" : "SHA-1",
-          "content" : "63e78ca6cd446c0ad166d14f03ed99e7efb3896d"
-        },
-        {
-          "alg" : "SHA-256",
-          "content" : "f8ead8943401081dea0aa824b5b1ba40a0e4ed297a572a0f02258150a0b62357"
-        },
-        {
-          "alg" : "SHA-512",
-          "content" : "5aaa082507e2f5031df7653e5feae7bda7a5fc4913e87ca5f7a202ee2d81e7b33c9f8d4419c4abe34f6dc56a0a85833340ae832f0630c23157ea6860c4273df5"
-        },
-        {
-          "alg" : "SHA-384",
-          "content" : "4b1d12ca87349e1dfa72ea6781d7107c446814f796805bdf20d251b14384e281c8b325aa7c833aede577570dd1aa1cd5"
-        },
-        {
-          "alg" : "SHA3-384",
-          "content" : "c3397f7065b350dff865a8ac054c995237d51bfb6e46d5a05c81ebfe77c897a0826eef3c6be63b95cacbd571754c6393"
-        },
-        {
-          "alg" : "SHA3-256",
-          "content" : "8954c3daddea14224e55ee21ca11e8c5a3454a9e12059de6429646108416f0f1"
-        },
-        {
-          "alg" : "SHA3-512",
-          "content" : "f7042e83035f90c56df777d894fd15689f6aee6eeb67b024687314eb4a33c75affe6840940dda4e2c88d690ed1679303d75071462444cae3b2b80fb425ac35d0"
-        }
-      ],
-      "licenses" : [
-        {
-          "license" : {
-            "id" : "Apache-2.0",
-            "url" : "https://www.apache.org/licenses/LICENSE-2.0"
-          }
-        }
-      ],
-      "purl" : "pkg:maven/commons-logging/commons-logging@1.3.6?type=jar",
-      "externalReferences" : [
-        {
-          "type" : "website",
-          "url" : "https://commons.apache.org/proper/commons-logging/"
-        },
-        {
-          "type" : "build-system",
-          "url" : "https://github.com/apache/commons-logging/actions"
-        },
-        {
-          "type" : "distribution-intake",
-          "url" : "https://repository.apache.org/service/local/staging/deploy/maven2"
-        },
-        {
-          "type" : "issue-tracker",
-          "url" : "https://issues.apache.org/jira/browse/LOGGING"
-        },
-        {
-          "type" : "mailing-list",
-          "url" : "https://mail-archives.apache.org/mod_mbox/commons-user/"
-        },
-        {
-          "type" : "vcs",
-          "url" : "https://gitbox.apache.org/repos/asf/commons-logging"
         }
       ]
     },
@@ -12734,6 +12959,7 @@
         "pkg:maven/se.swedenconnect.spring.authnserver/authn-server-saml-spring-boot-starter@1.0.3?type=jar",
         "pkg:maven/se.swedenconnect.spring.authnserver/authn-server-oidc-spring-boot-starter@1.0.3?type=jar",
         "pkg:maven/org.springframework.boot/spring-boot-starter-thymeleaf@4.1.1?type=jar",
+        "pkg:maven/org.apache.pdfbox/pdfbox@3.0.8?type=jar",
         "pkg:maven/org.springframework.boot/spring-boot-starter-test-classic@4.1.1?type=jar",
         "pkg:maven/org.jsoup/jsoup@1.23.2?type=jar",
         "pkg:maven/jakarta.servlet/jakarta.servlet-api@6.1.0?type=jar",
@@ -13798,6 +14024,27 @@
     {
       "ref" : "pkg:maven/org.unbescape/unbescape@1.1.6.RELEASE?type=jar",
       "dependsOn" : [ ]
+    },
+    {
+      "ref" : "pkg:maven/org.apache.pdfbox/pdfbox@3.0.8?type=jar",
+      "dependsOn" : [
+        "pkg:maven/org.apache.pdfbox/pdfbox-io@3.0.8?type=jar",
+        "pkg:maven/org.apache.pdfbox/fontbox@3.0.8?type=jar",
+        "pkg:maven/commons-logging/commons-logging@1.3.6?type=jar"
+      ]
+    },
+    {
+      "ref" : "pkg:maven/org.apache.pdfbox/pdfbox-io@3.0.8?type=jar",
+      "dependsOn" : [
+        "pkg:maven/commons-logging/commons-logging@1.3.6?type=jar"
+      ]
+    },
+    {
+      "ref" : "pkg:maven/org.apache.pdfbox/fontbox@3.0.8?type=jar",
+      "dependsOn" : [
+        "pkg:maven/org.apache.pdfbox/pdfbox-io@3.0.8?type=jar",
+        "pkg:maven/commons-logging/commons-logging@1.3.6?type=jar"
+      ]
     },
     {
       "ref" : "pkg:maven/org.springframework.boot/spring-boot-starter-test-classic@4.1.1?type=jar",

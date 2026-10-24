@@ -117,6 +117,57 @@ const https = require('node:https');
     await command('advance',{seconds:-121});
     console.log('PASS: signed rejection, cancellation and expired request deny login');
 
+    // Test console: Sweden Connect cases against the real IdP, registry and SP validation.
+    async function run(name) {
+      await page.goto('https://localhost:8444/test/run/'+name);
+      await page.waitForURL(/\/(phone|test\/report\/)/,{timeout:15000});
+    }
+    async function pending() {
+      await page.locator('#code').waitFor({timeout:15000});
+      return (await page.getByRole('link',{name:'Öppna openID'}).getAttribute('href')).split('/').at(-1);
+    }
+    async function verdict(name) {
+      await page.waitForURL(/\/test\/report\/[A-Za-z0-9_-]{22}$/,{timeout:20000});
+      const failed = await page.locator('.checks li.fail strong').allTextContents();
+      assert.deepEqual(failed,[],name+' failed checks: '+(await page.locator('.checks li.fail').allTextContents()).join(' | '));
+      assert.equal(await page.locator('.verdict.ok').count(),1,name+' verdict');
+    }
+    const shots = process.env.FEDERATION_SCREENSHOT_DIR;
+    const shot = async name => { if (shots) await page.screenshot({path:path.join(shots,name+'.png'),fullPage:true}); };
+    await page.goto('https://localhost:8444/test');
+    assert.equal(await page.locator('article.card').count(),13); await shot('console');
+    for (const name of ['login','no-force']) { await run(name); await command('approve',{requestId:await pending()}); await verdict(name); }
+    for (const name of ['passive','loa3','sign-html','sad-only']) { await run(name); await verdict(name); }
+    await run('cancel'); await pending(); await page.getByRole('button',{name:'Avbryt'}).click();
+    await page.getByRole('button',{name:'Tillbaka till tjänsten'}).click(); await verdict('cancel');
+    await run('cancel'); await command('reject',{requestId:await pending()});
+    await page.getByRole('button',{name:'Tillbaka till tjänsten'}).click(); await verdict('reject');
+    await run('sign-from-service'); id = await pending();
+    assert.equal(await page.locator('.sign-message').count(),0);
+    const ordinary = await command('inspect',{requestId:id});
+    assert.equal(ordinary.requests[0].signMessage,undefined); assert.match(ordinary.requests[0].purpose,/^Logga in/);
+    await assert.rejects(command('sign',{requestId:id}));
+    await command('approve',{requestId:id}); await verdict('sign-from-service');
+    for (const name of ['sign','sign-encrypted']) {
+      await run(name); id = await pending();
+      const shown = await page.locator('#sign-message').textContent(); if (name === 'sign') await shot('idp-sign');
+      assert.match(shown,/^Jag skriver under ”Avtal om provtjänst”, dokument OID-[0-9]{6}\.\nKontrollsumma \(SHA-256\): /);
+      const request = (await command('inspect',{requestId:id})).requests[0];
+      assert.equal(request.signMessage,shown); assert.match(request.purpose,/^Skriv under/);
+      // A login approval can never complete a signature, also not from an older app.
+      await assert.rejects(command('approve',{requestId:id}));
+      await command('sign',{requestId:id}); await verdict(name); if (name === 'sign') await shot('report-sign');
+      const download = await context.request.get(page.url()+'/signed.pdf');
+      assert.equal(download.status(),200);
+      const pdf = (await download.body()).toString('latin1');
+      assert.ok(pdf.startsWith('%PDF-') && pdf.includes('/ETSI.CAdES.detached') && pdf.includes('/ByteRange'));
+      if (shots && name === 'sign') fs.writeFileSync(path.join(shots,'signed.pdf'),await download.body());
+      const evidence = JSON.parse((await context.request.get(page.url()+'/evidence.json')).body ? (await (await context.request.get(page.url()+'/evidence.json')).text()) : '{}');
+      assert.equal(evidence.signMessage,shown); assert.match(evidence.sad,/^ey/);
+      assert.equal((await outsider.request.get(page.url()+'/signed.pdf')).status(),404);
+    }
+    console.log('PASS: test console – login, fresh authentication, IsPassive, unsupported LoA, cancel/reject status, SignMessage+SAD, encrypted SignMessage, undisplayable text, SAD without text, non-sigservice requester; PAdES document signed');
+
     id = await begin(); await approve(id); await command('new');
     assert.equal((await context.request.get('https://localhost:8444/me')).status(),401);
     id = await begin(); await approve(id); await command('revoke');

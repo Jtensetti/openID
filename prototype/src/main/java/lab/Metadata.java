@@ -11,6 +11,9 @@ import org.opensaml.saml.saml2.metadata.EntityDescriptor;
 public final class Metadata {
   public static final String DISPLAY_NAME = "urn:oid:2.16.840.1.113730.3.1.241";
   public static final String LAB_CONTEXT = "urn:openid:lab:simulated";
+  /** Sweden Connect entity categories (Entity Categories for the Swedish eID Framework). */
+  public static final String SIGSERVICE = "http://id.elegnamnden.se/st/1.0/sigservice";
+  public static final String SCAL2 = "http://id.elegnamnden.se/sprop/1.0/scal2";
   public static EntityDescriptor parse(String xml) throws Exception {
     return (EntityDescriptor) XMLObjectSupport.unmarshallFromInputStream(
         XMLObjectProviderRegistrySupport.getParserPool(), new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
@@ -35,8 +38,24 @@ public final class Metadata {
         <md:Extensions><mdui:UIInfo xmlns:mdui="urn:oasis:names:tc:SAML:metadata:ui"><mdui:DisplayName xml:lang="sv">%s</mdui:DisplayName></mdui:UIInfo></md:Extensions>
         """.formatted(phone ? lab.phone.PhoneBridge.SERVICE : "Lokal syntetisk testtjänst") + key(keys, "sp") + """
         <md:NameIDFormat>urn:oasis:names:tc:SAML:2.0:nameid-format:transient</md:NameIDFormat>
-        <md:AssertionConsumerService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="%s/acs" index="0" isDefault="true"/>
+        <md:AssertionConsumerService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="%s/acs" index="0" isDefault="true"/>%s
         <md:AttributeConsumingService index="0" isDefault="true"><md:ServiceName xml:lang="sv">openID</md:ServiceName>%s</md:AttributeConsumingService>
+        </md:SPSSODescriptor></md:EntityDescriptor>
+        """.formatted(base, phone ? "\n<md:AssertionConsumerService Binding=\"urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST\" Location=\"" + base + "/test/acs\" index=\"1\"/>" : "", requested);
+  }
+  /** The account service's signature service: a separate SAML entity with the sigservice entity category. */
+  public static String signService(TestKeys keys, String base) throws Exception {
+    String requested = lab.phone.PhoneIdentity.ATTRIBUTES.stream()
+        .map(name -> "<md:RequestedAttribute Name=\""+name+"\" NameFormat=\"urn:oasis:names:tc:SAML:2.0:attrname-format:uri\" isRequired=\"true\"/>")
+        .collect(java.util.stream.Collectors.joining());
+    return header(base + "/sign") + """
+        <md:Extensions><mdattr:EntityAttributes xmlns:mdattr="urn:oasis:names:tc:SAML:metadata:attribute"><saml:Attribute xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" Name="http://macedir.org/entity-category" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:uri"><saml:AttributeValue>%s</saml:AttributeValue></saml:Attribute></mdattr:EntityAttributes></md:Extensions>
+        <md:SPSSODescriptor AuthnRequestsSigned="true" WantAssertionsSigned="true" protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
+        <md:Extensions><mdui:UIInfo xmlns:mdui="urn:oasis:names:tc:SAML:metadata:ui"><mdui:DisplayName xml:lang="sv">%s</mdui:DisplayName></mdui:UIInfo></md:Extensions>
+        """.formatted(SIGSERVICE, lab.phone.PhoneBridge.SERVICE) + key(keys, "sp") + """
+        <md:NameIDFormat>urn:oasis:names:tc:SAML:2.0:nameid-format:transient</md:NameIDFormat>
+        <md:AssertionConsumerService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="%s/sign/acs" index="0" isDefault="true"/>
+        <md:AttributeConsumingService index="0" isDefault="true"><md:ServiceName xml:lang="sv">openID underskrift</md:ServiceName>%s</md:AttributeConsumingService>
         </md:SPSSODescriptor></md:EntityDescriptor>
         """.formatted(base, requested);
   }

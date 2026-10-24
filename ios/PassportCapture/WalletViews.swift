@@ -192,8 +192,8 @@ struct RequestsView: View {
                     ForEach(requests) { request in
                         Button { model.focusedRequest = request } label: {
                             VStack(alignment: .leading, spacing: 10) {
-                                Label(request.relyingParty, systemImage: "building.2").font(.headline)
-                                Text(request.purpose).font(.subheadline)
+                                Label(request.relyingParty, systemImage: request.isSigning ? "signature" : "building.2").font(.headline)
+                                Text(request.isSigning ? "Underskrift" : request.purpose).font(.subheadline)
                                 HStack { Text("Kod \(request.code)").monospaced(); Spacer(); Image(systemName: "chevron.right") }.font(.caption)
                             }.padding(20).frame(maxWidth: .infinity, alignment: .leading).background(.white, in: RoundedRectangle(cornerRadius: 20))
                         }.buttonStyle(.plain).disabled(request.expired)
@@ -237,20 +237,33 @@ struct ApprovalView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 25) {
-                Label("BEGÄRAN OM LEGITIMERING", systemImage: "arrow.down.left").font(.caption.bold()).foregroundStyle(Palette.muted)
+                Label(request.isSigning ? "BEGÄRAN OM UNDERSKRIFT" : "BEGÄRAN OM LEGITIMERING", systemImage: request.isSigning ? "signature" : "arrow.down.left")
+                    .font(.caption.bold()).foregroundStyle(Palette.muted)
                 Text(request.relyingParty).font(.largeTitle.bold())
-                Text(request.purpose).font(.title3)
+                if let text = request.signMessage {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Det här skriver du under").font(.subheadline.weight(.semibold))
+                        // Plain text only, never interpreted as markdown or links.
+                        Text(verbatim: text).font(.body).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
+                            .accessibilityIdentifier("approval.signMessage")
+                    }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
+                        .background(.white, in: RoundedRectangle(cornerRadius: 20))
+                        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Palette.ink, lineWidth: 2))
+                        .accessibilityElement(children: .combine)
+                }
+                Text(request.purpose).font(request.isSigning ? .subheadline : .title3)
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Kontrollkod").font(.subheadline)
                     ControlCodeView(code: request.code)
                     Text("Kontrollera att samma kod visas hos tjänsten.").font(.footnote)
                 }.padding(24).frame(maxWidth: .infinity, alignment: .leading).background(Palette.mint, in: RoundedRectangle(cornerRadius: 20))
-                Label("Godkänn bara en inloggning du själv startat.", systemImage: "hand.raised").font(.subheadline)
+                Label(request.isSigning ? "Skriv bara under om du själv startat underskriften och texten stämmer med dokumentet hos tjänsten." : "Godkänn bara en inloggning du själv startat.", systemImage: "hand.raised").font(.subheadline)
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     let remaining = max(0, Int(request.expiresAt - context.date.timeIntervalSince1970))
                     Text(remaining > 0 ? "Begäran går ut om \(remaining) sekunder" : "QR-koden har gått ut. Starta en ny inloggning på testsidan och skanna den nya koden.").font(.caption).foregroundStyle(Palette.muted)
-                    PrimaryButton(title: "Godkänn", symbol: "faceid") { model.decide(request, approve: true) }.disabled(remaining == 0 || model.busy)
-                    Button("Neka begäran", role: .destructive) { model.decide(request, approve: false) }.frame(maxWidth: .infinity, minHeight: 44).disabled(remaining == 0 || model.busy)
+                    PrimaryButton(title: request.isSigning ? "Skriv under" : "Godkänn", symbol: request.isSigning ? "signature" : "faceid") { model.decide(request, approve: true) }
+                        .disabled(remaining == 0 || model.busy).accessibilityIdentifier("approval.approve")
+                    Button(request.isSigning ? "Avböj underskrift" : "Neka begäran", role: .destructive) { model.decide(request, approve: false) }.frame(maxWidth: .infinity, minHeight: 44).disabled(remaining == 0 || model.busy)
                 }
                 if model.busy { ProgressView("Bekräftar…").frame(maxWidth: .infinity) }
             }.padding(24)

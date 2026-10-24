@@ -96,7 +96,7 @@ import LocalAuthentication
         if let id = pendingLink { perform("inspect", inspectID: id) }
         else { perform("snapshot") }
     }
-    func decide(_ request: WalletRequest, approve: Bool) { perform(approve ? "approve" : "reject", request: request) }
+    func decide(_ request: WalletRequest, approve: Bool) { perform(approve ? (request.isSigning ? "sign" : "approve") : "reject", request: request) }
     func revoke() {
         guard configuration?.isPublicBeta == true, let proof = revocationProof else { perform("revoke"); return }
         guard canRevoke, let credential else { return }
@@ -162,7 +162,7 @@ import LocalAuthentication
                     auth = LAContext()
                     operationContext = auth
                     guard try await auth.evaluatePolicy(.deviceOwnerAuthentication, localizedReason:
-                        action == "revoke" ? "Spärra ditt ID permanent" : "Bekräfta ditt val för \(request?.relyingParty ?? "openID")") else { throw WalletError.cancelled }
+                        action == "revoke" ? "Spärra ditt ID permanent" : action == "sign" ? "Skriv under för \(request?.relyingParty ?? "openID")" : "Bekräfta ditt val för \(request?.relyingParty ?? "openID")") else { throw WalletError.cancelled }
                 }
                 defer { if !["snapshot", "inspect"].contains(action) { auth.invalidate() } }
                 try Task.checkCancellation(); guard generation == epoch else { return }
@@ -179,7 +179,8 @@ import LocalAuthentication
                 }
                 snapshot = result; focusedRequest = nil
                 if action == "approve" { decisionMessage = "Ditt godkännande har skickats. Gå tillbaka till testsidan för att se om inloggningen är klar." }
-                if action == "reject" { decisionMessage = "Du nekade legitimeringen. Vill du försöka igen, starta en ny inloggning på testsidan." }
+                if action == "sign" { decisionMessage = "Din underskrift har skickats. Gå tillbaka till tjänsten för att se att dokumentet är underskrivet." }
+                if action == "reject" { decisionMessage = request?.isSigning == true ? "Du avböjde underskriften. Ingenting har skrivits under." : "Du nekade legitimeringen. Vill du försöka igen, starta en ny inloggning på testsidan." }
                 if let link = inspectID {
                     focusedRequest = result.requests.first { $0.id == link }
                     if pendingLink == link { pendingLink = nil }
@@ -210,7 +211,7 @@ import LocalAuthentication
         if action == "inspect", let value = error as? WalletError, case .rejected = value {
             return "Begäran kunde inte öppnas. Den kan ha gått ut eller avslutats, eller ditt ID kan vara inaktivt. Hämta status under Mitt ID. Om ditt ID är aktivt, starta en ny inloggning på testsidan."
         }
-        if ["approve", "reject", "revoke"].contains(action) {
+        if ["approve", "sign", "reject", "revoke"].contains(action) {
             return "Vi kunde inte bekräfta att ditt val registrerades. Hämta status under Mitt ID och kontrollera Aktivitet innan du försöker igen."
         }
         return "Kunde inte nå tjänsten. Kontrollera internetanslutningen och försök sedan igen."

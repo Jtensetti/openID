@@ -43,6 +43,8 @@ class FederationServer:
             return {'state': 'READY'}
         if operation == 'start' and set(data) == {'operation', 'audience', 'binding'}:
             return self.wallet.federation_start(data['binding'], self.audience)
+        if operation == 'start' and set(data) == {'operation', 'audience', 'binding', 'signMessage'}:
+            return self.wallet.federation_start(data['binding'], self.audience, data['signMessage'])
         if operation == 'check' and set(data) == {'operation', 'audience', 'credentialId', 'subject', 'version'}:
             return self.wallet.federation_check(data['credentialId'], data['subject'], data['version'], self.audience)
         if operation in ('poll', 'consume', 'cancel', 'qr') and set(data) == {'operation', 'audience', 'id', 'secret', 'binding'}:

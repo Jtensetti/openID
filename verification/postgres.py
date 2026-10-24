@@ -47,6 +47,9 @@ def connection_options(dsn, local_test=False):
 
 
 class PostgresWallet(Wallet):
+    # The shared schema has no sign-message column; federated signing is SQLite-pilot only.
+    federated_signing = False
+
     def __init__(self, dsn, origin, vault, crypto=device_crypto, *, local_test=False, pool_size=8):
         if type(pool_size) is not int or not 1 <= pool_size <= 16: raise ValueError('pool size')
         self.origin, self.vault, self.crypto = origin, vault, crypto

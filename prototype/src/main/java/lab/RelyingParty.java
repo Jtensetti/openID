@@ -43,6 +43,7 @@ public final class RelyingParty implements AutoCloseable {
   private final PhoneBridge phone;
   private final String base, idpBase;
   private final PilotOidcClient oidc;
+  private final TestConsole console;
 
   public RelyingParty(TestKeys keys, String idpBase, String base, SyntheticRegistry registry) throws Exception {
     this(keys, idpBase, base, registry, null);
@@ -63,6 +64,7 @@ public final class RelyingParty implements AutoCloseable {
       @Override protected EntityDescriptor getIdpMetadata(String entity) { return idpMetadata.getEntityID().equals(entity) ? idpMetadata : null; }
     };
     generator.initialize();
+    console = phone != null ? new TestConsole(keys, base, idpBase, idpMetadata, resolver, processor, phone) : null;
     server = HttpsServer.create(new InetSocketAddress("127.0.0.1", listenPort), 20);
     server.setHttpsConfigurator(new HttpsConfigurator(keys.sslContext()));
     server.setExecutor(executor); server.createContext("/", this::handle); server.start();
@@ -90,13 +92,14 @@ public final class RelyingParty implements AutoCloseable {
         send(x, 403, "Fel lokal motpart"); return;
       }
       if (oidc != null && oidc.handle(x)) return;
+      if (console != null && console.handle(x)) return;
       String path = x.getRequestURI().getPath(), method = x.getRequestMethod();
       if (path.equals("/health/ready") && method.equals("GET")) {
         boolean ready = phone == null ? registry.ready() : phone.ready();
         send(x, ready ? 200 : 503, ready ? (phone == null ? "SYNTHETIC_ONLY: READY" : "READY") : "STORAGE_UNAVAILABLE");
       } else if (path.equals("/") && method.equals("GET")) {
         send(x, 200, phone == null ? "<h1>Lokal testtjänst</h1><p>Identitetskontrollen är simulerad.</p><p><a href='/login'>Starta testinloggning</a></p><p><a href='/me'>Visa min testsession</a></p><p><a href='" + idpBase + "'>Spärra testidentitet</a></p>" :
-            "<p class='brand'>openID kontotjänst</p><h1>Ditt konto</h1><p><a href='/login'>Logga in med openID</a></p><p><a href='/me'>Visa min session</a></p>");
+            "<p class='brand'>openID kontotjänst</p><h1>Ditt konto</h1><p><a href='/login'>Logga in med openID</a></p><p><a href='/sign'>Skriv under ett avtal</a></p><p><a href='/test'>Testkonsol för Sweden Connect-krav</a></p><p><a href='/me'>Visa min session</a></p>");
       } else if (path.equals("/login") && method.equals("GET")) {
         if (x.getRequestURI().getRawQuery() != null) { send(x, 403, "<h1>Tillitsnivån stöds inte</h1><p>Betan intygar endast privat pilotstatus. LoA 1–4 kan inte utfärdas. Ingen inloggning startades.</p><a href='/'>Till testsidan</a>"); return; }
         String sid = UUID.randomUUID().toString(), relay = UUID.randomUUID().toString();
@@ -195,7 +198,7 @@ public final class RelyingParty implements AutoCloseable {
     }
     return s;
   }
-  private static Map<String, String> form(HttpExchange x) throws IOException {
+  static Map<String, String> form(HttpExchange x) throws IOException {
     String type = x.getRequestHeaders().getFirst("Content-Type");
     if (type == null || !type.startsWith("application/x-www-form-urlencoded")) throw new IllegalArgumentException("Form required");
     byte[] bytes = x.getRequestBody().readNBytes(131073);
@@ -208,17 +211,18 @@ public final class RelyingParty implements AutoCloseable {
     }
     return map;
   }
-  private static String cookie(HttpExchange x) {
+  private static String cookie(HttpExchange x) { return cookie(x, COOKIE); }
+  static String cookie(HttpExchange x, String name) {
     String raw = x.getRequestHeaders().getFirst("Cookie");
     if (raw == null) return "";
-    for (String part : raw.split(";")) { String[] kv = part.trim().split("=", 2); if (kv.length == 2 && kv[0].equals(COOKIE)) return kv[1]; }
+    for (String part : raw.split(";")) { String[] kv = part.trim().split("=", 2); if (kv.length == 2 && kv[0].equals(name)) return kv[1]; }
     return "";
   }
   private static void setCookie(HttpExchange x, String sid) { x.getResponseHeaders().add("Set-Cookie", COOKIE + "=" + sid + "; Path=/; Secure; HttpOnly; SameSite=Strict"); }
-  private static void redirect(HttpExchange x, String uri) throws IOException {
+  static void redirect(HttpExchange x, String uri) throws IOException {
     x.getResponseHeaders().set("Location", uri); headers(x); x.sendResponseHeaders(303, -1);
   }
-  private static void headers(HttpExchange x) {
+  static void headers(HttpExchange x) {
     x.getResponseHeaders().set("Cache-Control", "no-store"); x.getResponseHeaders().set("Referrer-Policy", "strict-origin");
     x.getResponseHeaders().set("X-Content-Type-Options", "nosniff");
     x.getResponseHeaders().set("Content-Security-Policy", "default-src 'none'; img-src 'self'; style-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");

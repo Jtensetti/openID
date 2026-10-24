@@ -11,7 +11,7 @@ import numpy as np
 from identity import VerifiedDocument
 from federation import FederationServer
 from test_wallet import crypt
-from wallet import Wallet, FEDERATION_PURPOSE
+from wallet import Wallet, FEDERATION_PURPOSE, SIGN_PURPOSE
 
 AUDIENCE = 'https://localhost:8444/sp'
 # Reserved SPAR test identity: testfall-foer-personsoekning-i-kundtestmiljoen_v8.pdf §3.1.
@@ -106,6 +106,39 @@ class IdentityTests(unittest.TestCase):
         data['purpose'] = 'Different consent'
         forged = crypt(op='sign', key=self.keys[0]['privateKey'], payload=base64.b64encode(json.dumps(data).encode()).decode())
         with self.assertRaises(ValueError): self.wallet.execute({'challengeId':challenge['id'], 'signature':forged})
+        self.assertEqual('PENDING', self.result(request, 'poll')['state'])
+    def test_signing_needs_separate_action_and_binds_exact_text(self):
+        text = 'Jag skriver under ”Avtal om provtjänst”, dokument OID-123456.\nKontrollsumma: 0123abcd'
+        request = self.wallet.federation_start('_signed_saml_flow', AUDIENCE, text)
+        self.assertEqual(SIGN_PURPOSE, request['purpose']); self.assertEqual(text, request['signMessage'])
+        shown = self.execute('inspect', request['id'])['requests'][0]
+        self.assertEqual(text, shown['signMessage']); self.assertEqual(SIGN_PURPOSE, shown['purpose'])
+        # An app that only knows login approval cannot complete a signature; a signing action cannot approve a login.
+        with self.assertRaises(ValueError): self.sign('approve', request['id'])
+        with self.assertRaises(ValueError): self.sign('sign', self.start()['id'])
+        challenge = self.wallet.challenge({'credentialId':self.ident, 'action':'sign', 'requestId':request['id']})
+        data = json.loads(base64.b64decode(challenge['signingInput']))
+        self.assertEqual(text, data['signMessage']); self.assertEqual(SIGN_PURPOSE, data['purpose'])
+        data['signMessage'] = text.replace('OID-123456', 'OID-999999')
+        forged = crypt(op='sign', key=self.keys[0]['privateKey'], payload=base64.b64encode(json.dumps(data).encode()).decode())
+        with self.assertRaises(ValueError): self.wallet.execute({'challengeId':challenge['id'], 'signature':forged})
+        self.assertEqual('PENDING', self.result(request, 'poll')['state'])
+        self.execute('sign', request['id'])
+        result = self.result(request)
+        import hashlib
+        self.assertEqual(hashlib.sha256(text.encode()).hexdigest(), result['signMessageSha256'])
+        self.assertIn('SIGNED', [e['kind'] for e in self.execute()['events']])
+        login = self.login()
+        self.assertNotIn('signMessageSha256', login)
+    def test_sign_message_must_be_bounded_plain_text(self):
+        for text in ('', ' padded', 'x'*401, 'a\x07b', 'a\u202eb', 'a\u2066b', 'a\rb', '\n'.join('x'*14), 42):
+            with self.subTest(text=text), self.assertRaises(ValueError):
+                self.wallet.federation_start('_signed_saml_flow', AUDIENCE, text)
+        self.assertEqual('x'*400, self.wallet.federation_start('_signed_saml_flow', AUDIENCE, 'x'*400)['signMessage'])
+    def test_older_database_gains_sign_message_column_without_changing_logins(self):
+        request = self.start()
+        again = Wallet(self.db, 'https://localhost:8765', clock=lambda:self.time)
+        self.assertNotIn('signMessage', again.federation_start('_signed_saml_flow', AUDIENCE))
         self.assertEqual('PENDING', self.result(request, 'poll')['state'])
     def test_binding_secret_audience_and_one_time_consumption(self):
         request = self.start(); self.execute('approve', request['id'])

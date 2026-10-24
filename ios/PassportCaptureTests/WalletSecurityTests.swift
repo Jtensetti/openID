@@ -45,6 +45,29 @@ final class WalletSecurityTests: XCTestCase {
             XCTAssertThrowsError(try envelope(["expiresAt":expiry]).validatedBytes(configuration: config, credentialID: ident, action: "approve", request: request, now: now))
         }
     }
+    var signing: WalletRequest { WalletRequest(id: requestID, relyingParty: "openID kontotjänst", purpose: "Skriv under och dela namn", code: "123456", expiresAt: 1100,
+        signMessage: "Jag skriver under ”Avtal om provtjänst”, dokument OID-123456.\nKontrollsumma: 0123abcd") }
+    func signingEnvelope(_ changes: [String: Any] = [:]) -> DeviceChallenge {
+        let base: [String: Any] = ["action": "sign", "relyingParty": signing.relyingParty, "purpose": signing.purpose, "signMessage": signing.signMessage!]
+        return envelope(base.merging(changes) { _, value in value })
+    }
+    func testSignatureNeedsSeparateActionAndExactText() throws {
+        XCTAssertNoThrow(try signingEnvelope().validatedBytes(configuration: config, credentialID: ident, action: "sign", request: signing, now: now))
+        XCTAssertThrowsError(try signingEnvelope(["signMessage": "Jag skriver under något annat"]).validatedBytes(configuration: config, credentialID: ident, action: "sign", request: signing, now: now))
+        XCTAssertThrowsError(try signingEnvelope(["signMessage": NSNull()]).validatedBytes(configuration: config, credentialID: ident, action: "sign", request: signing, now: now))
+        // A signature request cannot be approved as a login, and a login cannot be signed.
+        XCTAssertThrowsError(try signingEnvelope(["action": "approve"]).validatedBytes(configuration: config, credentialID: ident, action: "approve", request: signing, now: now))
+        XCTAssertThrowsError(try envelope(["action": "sign"]).validatedBytes(configuration: config, credentialID: ident, action: "sign", request: request, now: now))
+        // An old-style login envelope with smuggled text is rejected.
+        XCTAssertThrowsError(try envelope(["signMessage": "dold text"]).validatedBytes(configuration: config, credentialID: ident, action: "approve", request: request, now: now))
+        XCTAssertNoThrow(try signingEnvelope(["action": "reject"]).validatedBytes(configuration: config, credentialID: ident, action: "reject", request: signing, now: now))
+    }
+    func testSignMessageIsBoundedPlainText() {
+        XCTAssertTrue(WalletRequest.validSignMessage(signing.signMessage!))
+        for text in ["", " padded", String(repeating: "x", count: 401), "a\u{07}b", "a\u{202E}b", "a\u{2066}b", "a\rb"] {
+            XCTAssertFalse(WalletRequest.validSignMessage(text), text)
+        }
+    }
     func testExpiredDisplayedRequestCannotBeSigned() {
         let expired = WalletRequest(id: requestID, relyingParty: request.relyingParty, purpose: request.purpose, code: request.code, expiresAt: 1000)
         XCTAssertThrowsError(try envelope().validatedBytes(configuration: config, credentialID: ident, action: "approve", request: expired, now: now))

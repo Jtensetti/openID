@@ -46,6 +46,8 @@
     <dependency><groupId>se.swedenconnect.spring.authnserver</groupId><artifactId>authn-server-saml-spring-boot-starter</artifactId><version>1.0.3</version></dependency>
     <dependency><groupId>se.swedenconnect.spring.authnserver</groupId><artifactId>authn-server-oidc-spring-boot-starter</artifactId><version>1.0.3</version></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-thymeleaf</artifactId><version>4.1.1</version></dependency>
+    <!-- PAdES-B-B document signatures in the account service's signature test. Apache-2.0. -->
+    <dependency><groupId>org.apache.pdfbox</groupId><artifactId>pdfbox</artifactId><version>3.0.8</version></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test-classic</artifactId><version>4.1.1</version><scope>test</scope></dependency>
     <dependency><groupId>org.jsoup</groupId><artifactId>jsoup</artifactId><version>1.23.2</version><scope>test</scope></dependency>
   </dependencies>

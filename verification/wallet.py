@@ -19,6 +19,18 @@ RP_NAME = 'openID lokal testtjänst'
 PURPOSE = 'Logga in i den lokala testtjänsten'
 FEDERATION_RP = 'openID kontotjänst'
 FEDERATION_PURPOSE = 'Logga in och dela namn, födelsedatum enligt passet och passfoto'
+SIGN_PURPOSE = 'Skriv under och dela namn, födelsedatum enligt passet och passfoto'
+SIGN_MESSAGE_LIMIT = 400
+
+def sign_message(value):
+    """Plain text the holder reads in full before a separate signing approval."""
+    if value is None: return None
+    if not isinstance(value, str) or value != value.strip() or not 1 <= len(value) <= SIGN_MESSAGE_LIMIT:
+        raise ValueError('sign message')
+    if any(ord(c) < 32 and c != '\n' or 127 <= ord(c) < 160 or c in '\u2028\u2029\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069\ufeff' for c in value):
+        raise ValueError('sign message characters')
+    if value.count('\n') > 12: raise ValueError('sign message lines')
+    return value
 
 def device_crypto(operation, **data):
     result = subprocess.run(['node', str(ROOT/'device-signature.mjs')],
@@ -97,6 +109,9 @@ class Wallet:
                 CREATE INDEX IF NOT EXISTS profile_person ON profiles(person);
                 CREATE INDEX IF NOT EXISTS federation_pending ON federation_requests(state,expires);
             ''')
+            columns = {row['name'] for row in db.execute('PRAGMA table_info(federation_requests)')}
+            if 'sign_message' not in columns:
+                db.execute('ALTER TABLE federation_requests ADD COLUMN sign_message TEXT')
             if self.notifications:
                 from notices import install
                 install(db)
@@ -280,8 +295,8 @@ class Wallet:
     def challenge(self, request):
         if not isinstance(request, dict) or set(request) != {'credentialId', 'action', 'requestId'}: raise ValueError('fields')
         ident, action, req = identifier(request['credentialId']), request['action'], request['requestId']
-        if action not in ('snapshot', 'inspect', 'approve', 'reject', 'revoke'): raise ValueError('action')
-        if action in ('inspect', 'approve', 'reject'): identifier(req)
+        if action not in ('snapshot', 'inspect', 'approve', 'sign', 'reject', 'revoke'): raise ValueError('action')
+        if action in ('inspect', 'approve', 'sign', 'reject'): identifier(req)
         elif req is not None: raise ValueError('unexpected request')
         with self.transaction() as db:
             self.credential(db, ident)
@@ -296,13 +311,17 @@ class Wallet:
                         (req, self.clock())).fetchone()
                     federation = True
                 if target is None: raise ValueError('request unavailable')
+            signing = federation and self.federation_sign_message(target) is not None
+            # A signing request needs the separate signing action; login approval cannot sign.
+            if (action == 'approve' and signing) or (action == 'sign' and not signing): raise ValueError('action')
             challenge = secrets.token_hex(32)
             expires = int(self.clock())+60
             payload = {'version': 1, 'origin': self.origin, 'credentialId': ident, 'action': action,
                 'requestId': req, 'challengeId': challenge, 'expiresAt': expires,
                 'relyingParty': (FEDERATION_RP if federation else RP_NAME) if target is not None and action != 'inspect' else None,
-                'purpose': (FEDERATION_PURPOSE if federation else PURPOSE) if target is not None and action != 'inspect' else None,
+                'purpose': ((SIGN_PURPOSE if signing else FEDERATION_PURPOSE) if federation else PURPOSE) if target is not None and action != 'inspect' else None,
                 'code': target['code'] if target is not None and action != 'inspect' else None}
+            if signing and action != 'inspect': payload['signMessage'] = self.federation_sign_message(target)
             raw = json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()
             self.store_challenge(db, challenge, raw, payload, expires, federation)
             return {'id': challenge, 'signingInput': base64.b64encode(raw).decode()}
@@ -330,17 +349,23 @@ class Wallet:
                 row = self.credential(db, ident)
                 if pending['expires'] <= self.clock(): raise ValueError('challenge unavailable')
                 self.crypto('verify', publicKey=row['public_key'], payload=base64.b64encode(pending['payload']).decode(), signature=signature)
-                if action in ('approve', 'reject'):
+                if action in ('approve', 'sign', 'reject'):
                     self.active(db, ident)
+                    decision = 'REJECTED' if action == 'reject' else 'APPROVED'
                     if pending['federation']:
                         self.verified_profile(db, ident)
+                        target = db.execute('SELECT * FROM federation_requests WHERE id=?', (payload['requestId'],)).fetchone()
+                        # The signed text must be the stored text; the request cannot change after display.
+                        if target is None or self.federation_sign_message(target) != payload.get('signMessage'):
+                            raise ValueError('request unavailable')
                         changed = db.execute("UPDATE federation_requests SET state=?,credential=? WHERE id=? AND credential IS NULL AND state='PENDING' AND expires>?",
-                            ('APPROVED' if action == 'approve' else 'REJECTED', ident, payload['requestId'], self.clock())).rowcount
+                            (decision, ident, payload['requestId'], self.clock())).rowcount
                     else:
+                        if action == 'sign': raise ValueError('action')
                         changed = db.execute("UPDATE requests SET state=? WHERE id=? AND credential=? AND state='PENDING' AND expires>?",
-                            ('APPROVED' if action == 'approve' else 'REJECTED', payload['requestId'], ident, self.clock())).rowcount
+                            (decision, payload['requestId'], ident, self.clock())).rowcount
                     if changed != 1: raise ValueError('request unavailable')
-                    self.event(db, ident, 'APPROVED' if action == 'approve' else 'REJECTED', payload['requestId'])
+                    self.event(db, ident, {'approve': 'APPROVED', 'sign': 'SIGNED', 'reject': 'REJECTED'}[action], payload['requestId'])
                 elif action == 'revoke': self._revoke(db, ident)
                 snapshot = self.snapshot(db, ident)
                 if action == 'inspect':
@@ -387,21 +412,33 @@ class Wallet:
         return profile
 
     @staticmethod
-    def federation_description(row):
-        return {'id': row['id'], 'relyingParty': FEDERATION_RP, 'purpose': FEDERATION_PURPOSE,
-            'code': row['code'], 'expiresAt': row['expires']}
+    def federation_sign_message(row):
+        return row['sign_message'] if 'sign_message' in row.keys() else None
 
-    def federation_start(self, binding, audience):
+    @classmethod
+    def federation_description(cls, row):
+        message = cls.federation_sign_message(row)
+        description = {'id': row['id'], 'relyingParty': FEDERATION_RP, 'purpose': SIGN_PURPOSE if message is not None else FEDERATION_PURPOSE,
+            'code': row['code'], 'expiresAt': row['expires']}
+        if message is not None: description['signMessage'] = message
+        return description
+
+    def federation_start(self, binding, audience, message=None):
         if not isinstance(binding, str) or not re.fullmatch('[A-Za-z0-9_-]{1,200}', binding): raise ValueError('binding')
+        message = sign_message(message)
+        if message is not None and not getattr(self, 'federated_signing', True): raise ValueError('signing unavailable')
         with self.transaction() as db:
             self.lock_federation_quota(db)
             if db.execute("SELECT count(*) FROM federation_requests WHERE state='PENDING' AND expires>?", (self.clock(),)).fetchone()[0] >= 32:
                 raise ValueError('too many requests')
             ident, secret = secrets.token_hex(32), secrets.token_urlsafe(32)
             expires = int(self.clock())+120
-            db.execute('INSERT INTO federation_requests VALUES(?,NULL,?,?,?,?,?,?,?)',
-                (ident, hashlib.sha256(secret.encode()).hexdigest(), 'PENDING', int(self.clock()), expires,
-                 f'{secrets.randbelow(1000000):06d}', binding, audience))
+            values = (ident, hashlib.sha256(secret.encode()).hexdigest(), 'PENDING', int(self.clock()), expires,
+                 f'{secrets.randbelow(1000000):06d}', binding, audience)
+            if message is None:
+                db.execute('INSERT INTO federation_requests(id,credential,secret_hash,state,created,expires,code,binding,audience) VALUES(?,NULL,?,?,?,?,?,?,?)', values)
+            else:
+                db.execute('INSERT INTO federation_requests(id,credential,secret_hash,state,created,expires,code,binding,audience,sign_message) VALUES(?,NULL,?,?,?,?,?,?,?,?)', values+(message,))
             row = db.execute('SELECT * FROM federation_requests WHERE id=?', (ident,)).fetchone()
             return self.federation_description(row) | {'secret': secret}
 
@@ -431,9 +468,12 @@ class Wallet:
             if db.execute("UPDATE federation_requests SET state='CONSUMED' WHERE id=? AND state='APPROVED'", (request,)).rowcount != 1:
                 raise ValueError('no unconsumed approval')
             self.event(db, row['credential'], 'AUTHENTICATED', request)
-            return {'state': 'AUTHENTICATED', 'credentialId': row['credential'], 'version': profile['version'],
+            result = {'state': 'AUTHENTICATED', 'credentialId': row['credential'], 'version': profile['version'],
                 'subject': self.federation_subject(db, audience, profile['person']),
                 'identity': {k: identity[k] for k in ('displayName', 'birthDateMrz', 'portraitJpeg')}}
+            message = self.federation_sign_message(row)
+            if message is not None: result['signMessageSha256'] = hashlib.sha256(message.encode()).hexdigest()
+            return result
 
     def federation_subject(self, db, audience, person):
         return self.vault.reference('subject-v1:'+audience, person)

@@ -1,14 +1,22 @@
 <!doctype html>
 <html lang="sv" xmlns:th="http://www.thymeleaf.org"><head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Logga in · openID</title><link rel="stylesheet" href="/phone/page.css"><script src="/phone/page.js" defer></script>
-</head><body><main>
-  <p class="brand">openID</p><h1 id="heading">Godkänn i appen</h1><p th:text="${service}"></p>
+  <title th:text="${signing} ? 'Skriv under · openID' : 'Logga in · openID'">Logga in · openID</title><link rel="stylesheet" href="/phone/page.css"><script src="/phone/page.js" defer></script>
+</head><body><main th:attr="data-kind=${signing} ? 'sign' : 'login'">
+  <p class="brand">openID</p>
+  <p class="kind" th:text="${signing} ? 'Underskrift' : 'Legitimering'">Legitimering</p>
+  <h1 id="heading" th:text="${signing} ? 'Skriv under i appen' : 'Godkänn i appen'">Godkänn i appen</h1><p th:text="${service}"></p>
+  <section th:if="${signing}" class="sign-message" aria-labelledby="sign-label">
+    <h2 id="sign-label">Det här skriver du under</h2>
+    <p id="sign-message" th:text="${signMessage}"></p>
+    <p class="note">Samma text visas i appen. Skriv bara under om texten stämmer.</p>
+  </section>
   <img class="qr" th:src="@{/phone/qr(authnId=${authnId})}" width="256" height="256" alt="Skanna med openID-appen">
   <p id="control-code">Kontrollkod <strong id="code" th:text="${code}"></strong></p><p th:text="${purpose}"></p>
   <p id="open-app"><a th:href="@{${'openid://request/' + requestId}}">Öppna openID</a></p>
   <p id="status" role="status">Väntar på ditt godkännande.</p>
   <form id="complete" method="post" th:action="@{/phone/complete}"><input type="hidden" name="authnId" th:value="${authnId}"><noscript><button>Jag har godkänt</button></noscript></form>
   <form id="cancel" method="post" th:action="@{/phone/cancel}"><input type="hidden" name="authnId" th:value="${authnId}"><button>Avbryt</button></form>
-<p id="restart" hidden><a th:href="${restartUrl}">Starta en ny inloggning</a></p>
+  <form id="return" method="post" th:action="@{/phone/return}" hidden><input type="hidden" name="authnId" th:value="${authnId}"><button>Tillbaka till tjänsten</button></form>
+<p id="restart" hidden><a th:href="${restartUrl}" th:text="${signing} ? 'Starta en ny underskrift' : 'Starta en ny inloggning'">Starta en ny inloggning</a></p>
 </main></body></html>

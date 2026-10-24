@@ -65,7 +65,17 @@ struct WalletRequest: Codable, Identifiable, Equatable {
     let purpose: String
     let code: String
     let expiresAt: TimeInterval
+    /// Exact plain text the holder signs. Present only for a signature; approved with the separate "sign" action.
+    var signMessage: String? = nil
     var expired: Bool { expiresAt <= Date().timeIntervalSince1970 }
+    var isSigning: Bool { signMessage != nil }
+    /// Same rules as the server: bounded plain text, no control or bidirectional override characters.
+    static func validSignMessage(_ text: String) -> Bool {
+        let forbidden: Set<UInt32> = [0x2028, 0x2029, 0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067, 0x2068, 0x2069, 0xfeff]
+        return !text.isEmpty && text.unicodeScalars.count <= 400 && text == text.trimmingCharacters(in: .whitespacesAndNewlines)
+            && text.filter({ $0 == "\n" }).count <= 12
+            && !text.unicodeScalars.contains { ($0.value < 32 && $0.value != 10) || (127..<160).contains($0.value) || forbidden.contains($0.value) }
+    }
 }
 struct WalletEvent: Codable, Identifiable {
     let id: String
@@ -77,6 +87,7 @@ struct WalletEvent: Codable, Identifiable {
         case "ACTIVATED": return "ID aktiverat"
         case "REQUESTED": return "Ny begäran om legitimering"
         case "APPROVED": return "Begäran godkänd"
+        case "SIGNED": return "Underskrift godkänd"
         case "REJECTED": return "Begäran nekad"
         case "AUTHENTICATED": return "Inloggning genomförd"
         case "REVOKED": return "ID spärrat permanent"
@@ -106,7 +117,8 @@ struct WalletSnapshot: Decodable {
             guard request.id.range(of: "^[a-f0-9]{64}\\z", options: .regularExpression) != nil,
                   !request.relyingParty.isEmpty, request.relyingParty.count <= 100,
                   !request.purpose.isEmpty, request.purpose.count <= 200,
-                  request.code.range(of: "^[0-9]{6}\\z", options: .regularExpression) != nil else { throw WalletError.rejected }
+                  request.code.range(of: "^[0-9]{6}\\z", options: .regularExpression) != nil,
+                  request.signMessage.map({ WalletRequest.validSignMessage($0) && request.purpose.hasPrefix("Skriv under") }) ?? true else { throw WalletError.rejected }
         }
     }
 }
@@ -149,10 +161,13 @@ struct DeviceChallenge: Decodable {
               value.action == action, value.challengeId == id, value.requestId == (request?.id ?? inspectID),
               value.expiresAt > now, value.expiresAt <= now + 90,
               value.relyingParty == request?.relyingParty, value.purpose == request?.purpose,
-              value.code == request?.code, ["snapshot", "inspect", "approve", "reject", "revoke"].contains(action),
+              value.code == request?.code, value.signMessage == request?.signMessage,
+              ["snapshot", "inspect", "approve", "sign", "reject", "revoke"].contains(action),
               (action == "inspect") == (inspectID != nil),
               inspectID == nil || inspectID!.range(of: "^[a-f0-9]{64}\\z", options: .regularExpression) != nil,
-              (action == "approve" || action == "reject") == (request != nil),
+              (action == "approve" || action == "sign" || action == "reject") == (request != nil),
+              // A signature is never approved as a login, and a login never as a signature.
+              action != "approve" || request?.signMessage == nil, action != "sign" || request?.signMessage != nil,
               request == nil || request!.expiresAt > now else { throw WalletError.rejected }
         return bytes
     }
@@ -168,6 +183,7 @@ private struct SigningEnvelope: Decodable {
     let relyingParty: String?
     let purpose: String?
     let code: String?
+    let signMessage: String?
 }
 enum RequestLink {
     static func identifier(_ url: URL) -> String? {
