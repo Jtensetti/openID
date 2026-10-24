@@ -27,6 +27,10 @@ Klienten kräver Stockholm, rätt bucketägare, versionslagring och COMPLIANCE-
 standard. Alla filer skickas med SHA-256, villkorad skapning, explicit
 kryptering och bevarande. Exakt VersionId, innehåll, kryptering och skydd
 läses tillbaka. Endpointöverskrivningar från AWS-profil/miljö ignoreras.
+Publikblockering och BucketOwnerEnforced kontrolleras mot AWS före varje
+operation. Vid mottagning och läsbarhetsprov måste den faktiska bucketpolicyn
+dessutom innehålla mallens uttryckliga Deny för kvittensskrivning under
+andra roller. Policyändring som tar bort detta skydd nekar verifieringen.
 
 Bevarandet räknas från det senaste av leverans och giltighet/händelse/beslut
 i uttaget. Fristen är 1827–3650 dagar med avrundningsmarginal för mottagning.

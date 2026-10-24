@@ -34,11 +34,24 @@ class S3:
     def __init__(self):
         self.objects={};self.calls=[];self.bodies=[];self.mode='COMPLIANCE';self.versioning='Enabled'
         self.transform=lambda response:response
+        self.public_block=True;self.receipt_guard=True
     def metadata(self,kwargs):
         assert kwargs['ExpectedBucketOwner']==CFG['owner']
         assert kwargs['Bucket']==CFG['bucket']
     def get_bucket_location(self,**kwargs):self.metadata(kwargs);return {'LocationConstraint':'eu-north-1'}
     def get_bucket_versioning(self,**kwargs):self.metadata(kwargs);return {'Status':self.versioning}
+    def get_public_access_block(self,**kwargs):
+        self.metadata(kwargs)
+        return {'PublicAccessBlockConfiguration':{k:self.public_block for k in
+            ('BlockPublicAcls','IgnorePublicAcls','BlockPublicPolicy','RestrictPublicBuckets')}}
+    def get_bucket_ownership_controls(self,**kwargs):
+        self.metadata(kwargs);return {'OwnershipControls':{'Rules':[{'ObjectOwnership':'BucketOwnerEnforced'}]}}
+    def get_bucket_policy(self,**kwargs):
+        self.metadata(kwargs)
+        statement={'Effect':'Deny','Principal':'*','Action':['s3:PutObject','s3:PutObjectRetention'],
+            'Resource':'arn:aws:s3:::'+CFG['bucket']+'/'+CFG['prefix']+'/receipts/*',
+            'Condition':{'ArnNotEquals':{'aws:PrincipalArn':CFG['custodianRole']}}}
+        return {'Policy':store.archive.encoded({'Statement':[statement] if self.receipt_guard else []}).decode()}
     def get_object_lock_configuration(self,**kwargs):
         self.metadata(kwargs)
         return {'ObjectLockConfiguration':{'ObjectLockEnabled':'Enabled','Rule':{'DefaultRetention':{'Mode':self.mode,'Days':1827}}}}
@@ -104,6 +117,18 @@ class StoreTests(unittest.TestCase):
             self.s3.versioning=versioning;self.s3.mode=mode
             with self.assertRaises(ValueError):self.deliver()
         self.assertEqual([],self.s3.calls)
+
+    def test_public_storage_is_rejected_before_any_upload(self):
+        self.s3.public_block=False
+        with self.assertRaises(ValueError):self.deliver()
+        self.assertEqual([],self.s3.calls)
+
+    def test_live_policy_drift_prevents_confirmation_and_later_check(self):
+        delivery=self.deliver();self.s3.receipt_guard=False
+        with self.assertRaises(ValueError):self.confirm(delivery)
+        self.assertFalse(any('/receipts/' in k for k in self.s3.calls))
+        self.s3.receipt_guard=True;location=self.confirm(delivery);self.s3.receipt_guard=False
+        with self.assertRaises(ValueError):store.check(location,self.digest,CFG,self.s3,STS(True),now=NOW)
 
     def test_failed_readback_never_publishes_receipt_and_always_closes_stream(self):
         delivery=self.deliver()

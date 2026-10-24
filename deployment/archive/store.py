@@ -57,17 +57,37 @@ def identity(sts, cfg, custodian):
     return who['Arn']
 
 
-def bucket_checks(s3, cfg):
+def bucket_checks(s3, cfg, custodian=False):
     args = {'Bucket':cfg['bucket'], 'ExpectedBucketOwner':cfg['owner']}
     if s3.get_bucket_location(**args).get('LocationConstraint') != cfg['region']:
         raise ValueError('archive region mismatch')
     if s3.get_bucket_versioning(**args).get('Status') != 'Enabled':
         raise ValueError('versioning required')
+    public = s3.get_public_access_block(**args)['PublicAccessBlockConfiguration']
+    if any(public.get(k) is not True for k in ('BlockPublicAcls','IgnorePublicAcls','BlockPublicPolicy','RestrictPublicBuckets')):
+        raise ValueError('public access must be blocked')
+    if s3.get_bucket_ownership_controls(**args).get('OwnershipControls',{}).get('Rules') != [{'ObjectOwnership':'BucketOwnerEnforced'}]:
+        raise ValueError('archive account must control object ownership')
     lock = s3.get_object_lock_configuration(**args)['ObjectLockConfiguration']
     retention = lock.get('Rule',{}).get('DefaultRetention',{})
     if (lock.get('ObjectLockEnabled') != 'Enabled' or retention.get('Mode') != 'COMPLIANCE'
             or type(retention.get('Days')) is not int or retention['Days'] < cfg['days']):
         raise ValueError('COMPLIANCE default retention required')
+    if custodian:
+        # GetBucketPolicy requires the bucket owner's account. Check the live
+        # denial, not just the local template, before trusting receipt provenance.
+        policy = archive.decode(s3.get_bucket_policy(**args)['Policy'])
+        expected = {'ArnNotEquals':{'aws:PrincipalArn':cfg['custodianRole']}}
+        resource = 'arn:aws:s3:::'+cfg['bucket']+'/'+cfg['prefix']+'/receipts/*'
+        def guards(statement):
+            actions=statement.get('Action',[]);resources=statement.get('Resource',[])
+            if isinstance(actions,str):actions=[actions]
+            if isinstance(resources,str):resources=[resources]
+            return (statement.get('Effect')=='Deny' and statement.get('Principal')=='*'
+                and statement.get('Condition')==expected and resource in resources
+                and {'s3:PutObject','s3:PutObjectRetention'} <= set(actions))
+        if not any(guards(s) for s in policy.get('Statement',[])):
+            raise ValueError('live custodian-only receipt policy required')
 
 
 def read_private(path, maximum=65536):
@@ -205,7 +225,7 @@ def readback(delivery, manifest_sha, cfg, s3, *, confirm_at=None):
 
 def confirm(delivery, manifest_sha, cfg, s3, sts, *, now=None):
     cfg = config(cfg); now = now or datetime.now(UTC)
-    actor = identity(sts,cfg,True); bucket_checks(s3,cfg)
+    actor = identity(sts,cfg,True); bucket_checks(s3,cfg,True)
     result = readback(delivery,manifest_sha,cfg,s3,confirm_at=now)
     receipt = {'format':1,'kind':'CUSTODIAN_RECEIPT','confirmedAt':now.isoformat(),
                'custodian':actor,'delivery':delivery,'rows':result['rows']}
@@ -220,7 +240,7 @@ def confirm(delivery, manifest_sha, cfg, s3, sts, *, now=None):
 
 def check(location, manifest_sha, cfg, s3, sts, *, now=None):
     cfg = config(cfg); now = now or datetime.now(UTC)
-    identity(sts,cfg,True); bucket_checks(s3,cfg); digest(manifest_sha)
+    identity(sts,cfg,True); bucket_checks(s3,cfg,True); digest(manifest_sha)
     if (type(location) is not dict or set(location) != {'format','kind','key','version','sha256','bytes','retainUntil','manifestSha256'}
             or type(location['format']) is not int or location['format'] != 1
             or location['kind'] != 'RECEIPT_LOCATION' or location['manifestSha256'] != manifest_sha

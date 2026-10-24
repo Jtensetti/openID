@@ -13,11 +13,12 @@ def template():
         result = {'Sid':sid,'Effect':effect,'Principal':principal,'Action':actions,'Resource':resources}
         if condition: result['Condition']=condition
         return result
-    metadata = ['s3:GetBucketLocation','s3:GetBucketVersioning','s3:GetBucketObjectLockConfiguration']
+    metadata = ['s3:GetBucketLocation','s3:GetBucketVersioning','s3:GetBucketObjectLockConfiguration',
+                's3:GetBucketPublicAccessBlock','s3:GetBucketOwnershipControls']
     writing = ['s3:PutObject','s3:PutObjectRetention']
     policy = [
         statement('UploaderMetadata',{'AWS':issuer},metadata,bucket),
-        statement('CustodianMetadata',{'AWS':custodian},metadata,bucket),
+        statement('CustodianMetadata',{'AWS':custodian},metadata+['s3:GetBucketPolicy'],bucket),
         statement('UploaderTransfer',{'AWS':issuer},writing+['s3:GetObjectVersion','s3:GetObjectRetention'],transfers),
         statement('CustodianRead',{'AWS':custodian},['s3:GetObjectVersion','s3:GetObjectRetention'],[transfers,receipts]),
         statement('CustodianReceipt',{'AWS':custodian},writing,receipts),
