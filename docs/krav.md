@@ -177,6 +177,24 @@ TestFlight-inbjudan är distributionskontroll, inte identitetsbevis.
 `RuntimeTests` provar åtkomstgränserna, och `WalletSecurityTests` provar
 standardanslutning och bevarad privat serverbindning.
 
+## Underskrift, testkonsol, biometri och spärrlista 2026-10-24
+
+SIG-01/02, FED-01 (D03 §8.4; T02 §7; SAP): telefonprovidern visar SignMessage i
+appen och intygar `signMessageDigest` samt SAD (`scal2`). Registret binder texten
+till en separat `sign`-åtgärd och IdP:n kontrollerar textens SHA-256 vid
+konsumtion. Text som inte kan visas, SAD utan text och underskrift från en
+tjänst utan `sigservice` hanteras enligt DP 1.9 §7. Avbryt och neka ger status
+`cancel` till tjänsten (§6.4). Kontotjänstens testkonsol kör tio SAML-fall mot
+verklig IdP och registret; underskriftsfallet ger en PAdES-B-B-PDF från en ej
+betrodd test-CA. Formell status oförändrad: OPEN.
+
+ID-05 (D08 K5.13): serverstyrd ordning för huvudvridning och kontroll av
+landmärkesparallax på servern, beständig gräns på fem underkända biometriska
+beslut per pass och dygn, och inga råa poäng till klienten. Valfri spärrkontroll
+av passets dokumentsignerare mot CSCA:ns spärrlista (provad mot Polismyndighetens
+publicerade CSCA-nycklar och `SWE.crl`). Gränserna är okalibrerade; PAD-, injektions-
+och reläprov återstår. Formell status oförändrad: OPEN.
+
 ## Nyckelfiler och kravspårning 2026-10-22
 
 SEC-02/K4.3: lokal profilnyckel måste vara en vanlig fil med en hårdlänk,

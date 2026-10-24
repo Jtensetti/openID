@@ -41,5 +41,6 @@ interoperabilitet, tillitsgodkännande och oberoende säkerhetsgranskning
 
 Versionsbunden profilmappning och CI-artefakter finns i
 [prövningsunderlaget](provningsunderlag.md). Federerade underskriftsbegäranden
-med SignMessage/SAD får inte använda den vanliga inloggningsbekräftelsen;
-providerna avvisar dessa tills en särskild integration finns.
+med SignMessage/SAD använder aldrig den vanliga inloggningsbekräftelsen: appen
+visar texten och kräver en separat underskriftsåtgärd. SAML-flödet provas i
+kontotjänstens testkonsol; OIDC Signature Extension (signRequest) är inte provad.

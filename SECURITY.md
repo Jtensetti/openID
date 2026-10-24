@@ -18,14 +18,19 @@ separat WebAuthn-godkännande och tillfällig test-CA. Ingen verklig handling
 kan laddas upp. Signeringsnycklarna ligger i JVM-minnet, inte i HSM, och
 labben erbjuder varken kvalificerad underskrift eller långtidsvalidering.
 Rutter för detta flöde aktiveras inte av `phone-idp`/telefonpiloten.
-Federerade SignMessage-/SAD-begäranden avvisas av inloggningsproviderna.
+- `phone-idp`/`phone-sp`: federerad underskrift med SignMessage och SAD.
+  Appen visar texten och kräver en separat underskriftsåtgärd; kontotjänstens
+  testkonsol skapar en PAdES-signerad PDF med certifikat från en tillfällig,
+  ej betrodd test-CA i processminnet. Ingen HSM, betrodd tid eller
+  långtidsvalidering; underskrifterna har ingen rättslig verkan.
 - `deployment/continuity/`: separat spärrtjänst och köad avisering för den publika
   betan. Privata ID:n är inte automatiskt migrerade. Se
   [drift och begränsningar](deployment/continuity/README.md).
 - `ops/`: driftcontainer i Render, utan e-id-funktioner.
 
 Privata telefonprov har bekräftat passläsning och SAML-inloggning. Bredare
-enhetsprov, modellernas felgrader, bildinjektion och certifikatspärr återstår. Se [verifierarens begränsningar](verification/README.md#begränsningar)
+enhetsprov, modellernas felgrader och bildinjektion återstår. Spärrkontroll av
+passets dokumentsignerare kräver att operatören konfigurerar CSCA:ns spärrlista. Se [verifierarens begränsningar](verification/README.md#begränsningar)
 och [testöversikten](docs/testning.md).
 De lokala labblägena ska inte exponeras via tunnel eller proxy. Den publika
 betan har separat ingress och konfiguration; labbkommandon öppnar inte en

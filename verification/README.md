@@ -203,6 +203,33 @@ De genererade servernycklarna är testnycklar med 30 dagars giltighet.
 Ingen extern tjänst eller federation ansluts av dessa kommandon. Den
 simulerade `/lab`-providern är avstängd i `phone-idp`.
 
+## Testkonsol och underskrift
+
+Kontotjänsten (`phone-sp`) har en testkonsol på **https://localhost:8444/test**
+(betan: `https://openid.tensetti.io/test`). Varje fall skickar en signerad
+AuthnRequest till IdP:n och kontrollerar svaret med Sweden Connects
+svarsprocessor och fallets förväntade status:
+
+| Fall | Förväntat |
+|---|---|
+| Grundinloggning, ny legitimering utan ForceAuthn | Lyckat, färsk AuthnInstant, alla begärda attribut, återspelning avvisas |
+| IsPassive, LoA3 | `Requester/NoPassive`, `Requester/NoAuthnContext`, ingen assertion |
+| Avbryt eller neka | `Responder` + `http://id.elegnamnden.se/status/1.0/cancel` |
+| Underskrift, krypterat SignMessage | `signMessageDigest` för exakt texten, SAD validerad, PAdES-B-B-PDF |
+| HTML-text med MustShow, SAD utan text | Felsvar, ingenting visas eller signeras |
+| SignMessage från tjänst utan `sigservice` | Vanlig inloggning utan digest eller SAD |
+
+**Skriv under ett avtal** (`/sign`) kör underskriftsfallet direkt. Sidan i IdP:n
+och appen visar samma text; appen kräver **Skriv under** och Face ID. Den
+underskrivna PDF:en öppnas i en PDF-läsare; signaturpanelen visar undertecknaren
+och att certifikatet kommer från en ej betrodd test-CA. Underskriftsbeviset
+(JSON) innehåller SAD, signMessageDigest och certifikat. Resultat finns i
+30 minuter i webbläsaren som körde testet och försvinner vid omstart.
+
+Underskriftsentiteten `…/sign` har en egen metadata med kategorin
+`sigservice`; IdP:n annonserar `scal2`. `phone-idp` skriver den till
+nyckelkatalogen vid start. Klusterläget stöder ännu inte underskrift.
+
 ## Logga in i testtjänsten via webbläsaren
 
 Kör i en andra terminal på samma dator och operativsystemskonto som
@@ -290,6 +317,32 @@ saknar externt spärrankare. Inga adminfunktioner exponeras via HTTP.
 | Chip | Servern kör JMRTD PACE/CA och kontrollerar en färsk MAC-skyddad DG14-läsning genom CoreNFC. |
 
 Native-flödet kräver ansiktslikhet ≥0,5 och PAD ≥0,8 för alla tre bilder.
+Servern väljer efter chipkontrollen en slumpad ordning för de tre bilderna
+(framåt, höger, vänster) och kontrollerar själv vridningen: näsans förskjutning
+längs ögonlinjen i YuNets landmärken (`face.pose_ratio`). En verklig
+huvudvridning ger parallax; ett foto eller en skärm som vinklas gör det inte.
+Bilden framåt ska vara frontal och de två andra tydligt vridna åt olika håll
+(`native.check_poses`). Riktningen höger/vänster kontrolleras först när
+`pose_direction` slås på efter fysisk kalibrering. Gränserna är experimentella.
+
+Högst fem underkända biometriska beslut per pass och dygn (HMAC-tagg i
+`biometric_failures`, även över omstart). Råa poäng skickas inte till appen.
+Klusterläget saknar ännu tabellen och begränsar därför inte antalet försök.
+
+### Spärrade dokumentsignerare
+
+Med `cscaCrl` i runtime-konfigurationen (eller `--csca-crl`) kontrolleras
+dokumentsignerarens certifikat mot CSCA:ns spärrlista, till exempel
+Polismyndighetens `http://cert.polisen.se/CSCA/SWE.crl`. Spärrlistan måste vara
+signerad av en betrodd CSCA och gälla nu. Spärrad eller okontrollerbar
+signerare stoppas (fail closed). En lista från en nyare CSCA-nyckel med samma
+namn täcker signerare från äldre nycklar (ICAO 9303-12). Hämta en ny lista före
+`nextUpdate`, annars stoppas alla registreringar:
+
+```sh
+curl -fsS -o /privat/csca.crl http://cert.polisen.se/CSCA/SWE.crl
+openssl crl -inform DER -in /privat/csca.crl -noout -issuer -nextupdate
+```
 Passiva passkontroller, ansiktsjämförelse och liveness avgör inte utgivning;
 `issuanceEnabled` är alltid false.
 
@@ -299,8 +352,11 @@ Passiva passkontroller, ansiktsjämförelse och liveness avgör inte utgivning;
   Motståndskraft mot masker, injektion och relä behöver utvärderas.
 - App Attest styrker appinstans och signerade data, inte kamerans fysiska
   ursprung. NFC-transporten förhindrar inte relä till ett annat fysiskt chip.
-- Certifikatspärr/CRL, länkcertifikat, äldre algoritmer och historiskt giltiga
-  men nu utgångna DSC stöds inte.
+- Spärrlistan hämtas manuellt; automatisk uppdatering, länkcertifikat, äldre
+  algoritmer och historiskt giltiga men nu utgångna DSC stöds inte.
+- Poskontrollen bevisar 3D-struktur i tre bilder, inte ett sammanhängande
+  rörelseförlopp. Film på skärm och injicerad video kräver PAD-, injektions-
+  och reläprov (ISO/IEC 30107-3, CEN/TS 18099).
 - Statisk QR ger inget närhetsbevis. Apple-kvoter och återanvändning av
   App Attest-nycklar behöver hanteras inför bredare drift.
 - Operatören kontrollerar databasen. Rollseparation, swap/kraschdumpar,

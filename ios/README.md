@@ -75,8 +75,18 @@ Aktuella trösklar finns i `PassportCapture/CaptureGuide.swift` och provas i
 Registreringen visar riktningsoval, bildnummer och en aktuell instruktion.
 **Inställningar → Prova ansiktskameran** visar även diagnostikindikatorer och
 kastar bilderna efter det lokala provet. Inget serveranrop eller registrering sker.
-Servern kontrollerar App Attest, bildunikhet, ansiktsjämförelse och PAD men
-verifierar inte rörelseförloppet. Oberoende prov av film och injektion återstår.
+Ordningen för de tre bilderna kommer från servern efter chipkontrollen
+(`poses` i svaret, `CapturePose.sequence(server:)`). Servern kontrollerar App
+Attest, bildunikhet, ansiktsjämförelse, PAD och att huvudet är vridet enligt
+begärd ordning (landmärkesparallax), men inte ett sammanhängande rörelseförlopp.
+Oberoende prov av film och injektion återstår.
+
+### Underskrift
+
+En begäran med `signMessage` visas som **Begäran om underskrift** med hela
+texten som ren text (`Text(verbatim:)`). Knappen **Skriv under** skickar
+åtgärden `sign`; den vanliga godkännandeåtgärden avvisas för underskrifter,
+även av servern, så en äldre app kan inte skriva under utan att visa texten.
 
 ## Nycklar och avbrott
 

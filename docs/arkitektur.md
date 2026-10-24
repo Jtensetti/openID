@@ -47,8 +47,10 @@ inte en distribuerad tjänst. [Start och drift](../deployment/README.md).
    Godkända kontroller skapar `PENDING_REVIEW`; operatören aktiverar separat.
 
 Ringen vägleder fotograferingen lokalt på telefonen. Ingen klientrapporterad färg, vinkel
-eller liveness-flagga används i serverns beslut. Servern analyserar de tre
-bilderna men verifierar inte rörelseförloppet mellan dem.
+eller liveness-flagga används i serverns beslut. Servern bestämmer ordningen för de
+tre bilderna efter chipkontrollen och verifierar själv huvudvridningen i varje bild
+med landmärkesparallax, men inte ett sammanhängande rörelseförlopp. Underkända
+beslut räknas per pass; efter fem inom ett dygn görs ingen ny analys.
 
 Face ID/Touch ID bekräftar senare nyckelanvändning på telefonen. Jämförelsen
 med passfotot sker på servern. App Attest styrker appinstans och signerade
@@ -157,7 +159,13 @@ Bredare fysiska enhetsprov, biometrisk/PAD-kalibrering, injektion och relä,
 certifikatspärr, registerkontroll, HSM, operativ befogenhetsseparation och återställning med
 beständig spärrstatus behöver fortsatt operativ verifiering. Den separata
 spärrtjänsten har provats med syntetiskt ID medan betans server var stoppad.
-Dokumentunderskrift finns i den separata syntetiska `start-web`-labben:
+Federerad underskrift: `PhoneProvider` visar SignMessage i appen via registret,
+som kräver en separat `sign`-åtgärd över exakt text. IdP:n intygar
+`signMessageDigest` och utfärdar SAD (Sweden Connect DP 1.9 §7, SAP). Kontotjänstens
+underskriftsentitet (`/sign`, kategori `sigservice`) kontrollerar digest och SAD och
+skapar en PAdES-B-B-signatur med en ej betrodd test-CA (`TestConsole`, `PadesSigner`).
+Klusterläget stöder ännu inte underskriftsbegäranden.
+Dokumentunderskrift finns även i den separata syntetiska `start-web`-labben:
 `SigningController` binder visad text och uttrycklig avsikt till en ny
 WebAuthn-ceremoni; `SigningCeremony` kontrollerar spärr och engångsbruk;
 `TestDocumentSigner` skapar CMS med en separat tillfällig testnyckel.

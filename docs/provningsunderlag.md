@@ -34,7 +34,11 @@ Indexet T01 länkar samtidigt till den samlade decemberutgåvan 2024.
 | SIG-01 | Exakt dokument och separat uttrycklig avsikt | `SigningFlowTest`, Chromium USB/plattform | Fast syntetiskt UTF-8-dokument, ingen uppladdning eller PDF-konvertering. |
 | SIG-01, ID-10 | Fel signerare, byte av dokument, avbrott, spärr, utgång och samtidighet | `SigningCeremonyTest`, `SigningFlowTest` | Inloggningens WebAuthn-svar kan inte användas för underskrift. |
 | SIG-02 | Dokumentets CMS-signatur och certifikatbindning | `DocumentSignatureTest`, SIG-OPENSSL-01–06 | Två kryptografiska implementationer; inte oberoende organisatorisk granskning. |
-| SIG-01, FED-01/03 | T02 §7, T03 §2.4: underskrift får inte bli vanlig inloggning | `SignatureRequestPolicyTest` | Federerade SignMessage/SAD-begäranden avvisas tills en full integration finns. |
+| SIG-01, FED-01/03 | T02 §7, T03 §2.4: underskrift får inte bli vanlig inloggning | `SignatureRequestPolicyTest`, `test_identity`, `WalletSecurityTests` | Underskrift kräver separat `sign`-åtgärd över exakt text; inloggningsgodkännande avvisas. |
+| SIG-01, FED-01 | DP 1.9 §7.1: SignMessage visas (MustShow), signMessageDigest, text som inte kan visas ger fel | Testkonsolen: `sign`, `sign-encrypted`, `sign-html`, `sign-from-service` i `federation-browser-test.cjs` | Endast ren text, högst 400 tecken. Egen underskriftstjänst, inte Sweden Connects SignService. |
+| SIG-01 | SAP §3: SAD signerad av IdP, bunden till SADRequest, SignRequestID och dokumentantal | Testkonsolen `sign`, `sad-only`; validering med `SADParser.SADValidator` | IdP annonserar `scal2`. Ingen extern signeringstjänst har provat SAD:en. |
+| SIG-02 | PAdES-B-B: hela filen täcks, DER-kodad CMS, signingCertificateV2, ingen signing-time | `PadesSignerTest` inklusive OpenSSL `cms -verify` | Test-CA i processminnet; ingen betrodd tid, LTV eller extern valideringsrapport. |
+| FED-01 | DP 1.9 §§5.3, 5.4.4–5.4.5, 6.4: IsPassive, ej stödd kontext, ny legitimering, cancel-status | Testkonsolen `passive`, `loa3`, `no-force`, `cancel` | IdP:n har ingen SSO; en ny legitimering krävs alltid. |
 
 ## Underskriftslabb
 
@@ -106,7 +110,7 @@ innan retentionen löper ut om de ska användas i en senare granskning.
 |---|---|---|
 | Full OIDC-profil: metadata, språk, public/pairwise-subjekt över omstart/nyckelbyte, attributminimering, request objects och federativ tillit | Bygga eller verifiera per profilpunkt | Tester mot oberoende OP/RP och versionsbunden metadata; bibliotekets stöd räcker inte som bevis. |
 | SAML: godkänd metadata, attributprofil, rollover, tillitsankare och samtliga tillämpliga bindningar | Bygga/verifiera + operatörsanslutning | Validerade metadata och extern interoperabilitetsrapport. |
-| Authentication for Signature i SAML/OIDC och DSS SignService-integration | Bygga | SignMessage/signRequest, rätt signerare, dokumentbindning, separat avsikt och korrekt svar verifierade mellan olika implementationer. |
+| Authentication for Signature: OIDC signRequest och extern DSS SignService | Bygga/verifiera | SAML SignMessage/SAD finns i telefonflödet. Kvar: OIDC Signature Extension, PrincipalSelection och prov mot Sweden Connects referens-SignService i sandlådan. |
 | Produktionsunderskrift: vald dokumentprofil, CA/HSM, certifikatpolicy, tid och långtidsbevis | Beslut + bygga/ansluta | Extern valideringsrapport för vald profil och fastställd bevarandepolicy. |
 | OpenID Foundation OP- och RP-prövning | Extern svit, därefter separat certifieringsansökan | Testplan-ID, svitrevision, profil, konfiguration och exporterade resultat. Alla erforderliga tester avslutade. |
 | Diggs tillitsprövning och Sweden Connect-anslutning | Formell granskning och avtal | Beslut från behörig part; teknikresultaten är bilagor. |
