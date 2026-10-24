@@ -19,7 +19,7 @@ final class CaptureCamera: NSObject, ObservableObject, AVCaptureVideoDataOutputS
     private var videoOutput: AVCaptureVideoDataOutput?
     private var observers = [NSObjectProtocol]()
 
-    func capture() async throws -> [Data] {
+    func capture(sequence: [CapturePose] = CapturePose.allCases) async throws -> [Data] {
         let run = CaptureRun()
         guard lock.withLock({
             guard activeRun == nil else { return false }
@@ -34,7 +34,7 @@ final class CaptureCamera: NSObject, ObservableObject, AVCaptureVideoDataOutputS
                 queue.async {
                     guard !run.cancelled else { continuation.resume(throwing: CancellationError()); return }
                     self.queueRun = run; self.continuation = continuation
-                    self.guide = CaptureGuide(); self.frames = []; self.lastAnalysis = -Double.infinity
+                    self.guide = CaptureGuide(sequence: sequence); self.frames = []; self.lastAnalysis = -Double.infinity
                     self.publish(run)
                     do {
                         try self.configure()

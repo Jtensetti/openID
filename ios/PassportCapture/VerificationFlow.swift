@@ -91,7 +91,8 @@ import NFCPassportReader
                 stepTitle = "Säkerhetskontroll av chipet"
                 status = "Första läsningen är klar. Håll telefonen mot samma pass igen. Behåll kontakten tills säkerhetskontrollen är klar."
                 let chipResult = try await chipRelay.authenticate(api: api, initial: chipStart)
-                guard let captureNonce = chipResult["nonce"] as? String else { throw FlowError.rejected }
+                guard let captureNonce = chipResult["nonce"] as? String,
+                      let poses = CapturePose.sequence(server: chipResult["poses"] as? [String]) else { throw FlowError.rejected }
                 status = ""
                 phase = 2
                 stepTitle = "Ansiktskontroll"
@@ -99,7 +100,7 @@ import NFCPassportReader
                 try await waitForCameraStart()
                 status = "Följ ovalen och instruktionerna för tre bilder."
                 cameraVisible = true
-                let frames = try await camera.capture()
+                let frames = try await camera.capture(sequence: poses)
                 cameraVisible = false
                 try Task.checkCancellation()
                 let payload: [String: Any] = ["id": id, "nonce": captureNonce,

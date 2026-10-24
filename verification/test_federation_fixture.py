@@ -10,7 +10,7 @@ from contextlib import ExitStack
 from unittest.mock import Mock
 from federation import FederationServer
 from native import NativeSessions
-from test_chip_fixture import ChipFixture, capture_ready
+from test_chip_fixture import ChipFixture, capture_ready, fixture_order, pose_matcher
 from server import verify_document
 from test_wallet import crypt
 from wallet import Wallet
@@ -45,9 +45,9 @@ def run(directory, resources):
     jar = Path(__file__).resolve().parent.parent/'prototype/target/isolated-eid-lab.jar'
     command = [os.environ['PROOFING_JAVA'], '-jar', str(jar), 'verify-passport', str(fixture/'csca.der')]
     attest = Mock(); attest.check.side_effect = lambda op,**kw: {'publicKey':'test double'} if op == 'attestation' else {'signCount':kw['signCount']+1}
-    matcher = Mock(); matcher.compare.return_value = 0.95; matcher.decode_face.return_value = ('image','face')
+    matcher = pose_matcher(Mock()); matcher.compare.return_value = 0.95
     pad = Mock(); pad.score.return_value = 0.95
-    native = NativeSessions(attest, lambda data:verify_document(command, data), matcher, pad, wallet=enroller, chip_factory=ChipFixture)
+    native = NativeSessions(attest, lambda data:verify_document(command, data), matcher, pad, wallet=enroller, chip_factory=ChipFixture, pose_order=fixture_order)
     resources.callback(native.close)
     key = ident = None
     print(json.dumps({'ready':True}), flush=True)

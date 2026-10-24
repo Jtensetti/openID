@@ -18,6 +18,24 @@ MODELS = {
 class FaceRejected(ValueError):
     pass
 
+def pose_ratio(face):
+    """Signed horizontal nose offset from the eye midpoint, along the eye line, in inter-eye distances.
+
+    A real head turn moves the protruding nose tip relative to the eyes (parallax). A photo or screen that is
+    turned or tilted keeps the nose between the eyes, because all five landmarks lie in one plane.
+    In an unmirrored front-camera image a turn to the subject's right gives a negative value.
+    YuNet landmark order: subject's right eye, left eye, nose tip, right and left mouth corner.
+    """
+    values = np.asarray(face, dtype=np.float64)
+    if values.shape != (15,) or not np.isfinite(values).all(): raise FaceRejected('FACE_QUALITY_REJECTED')
+    right_eye, left_eye, nose = values[4:6], values[6:8], values[8:10]
+    axis = left_eye - right_eye
+    distance = float(np.hypot(*axis))
+    if distance < 8: raise FaceRejected('FACE_QUALITY_REJECTED')
+    ratio = float(np.dot(nose - (right_eye + left_eye) / 2, axis / distance) / distance)
+    if not math.isfinite(ratio) or abs(ratio) > 2: raise FaceRejected('FACE_QUALITY_REJECTED')
+    return ratio
+
 class FaceMatcher:
     def __init__(self, directory):
         directory = Path(directory)
@@ -68,6 +86,10 @@ class FaceMatcher:
             return image, candidates[0]
         except cv2.error:
             raise FaceRejected('IMAGE_REJECTED') from None
+
+    @staticmethod
+    def pose_ratio(face):
+        return pose_ratio(face)
 
     def feature(self, encoded):
         image, face = self.decode_face(encoded)

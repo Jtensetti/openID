@@ -32,13 +32,14 @@ def score_capture(matcher, pad, portrait, frames):
     if len(frames) != 3: raise ValueError('frames')
     image, face = run_stage('PORTRAIT_FACE', lambda: matcher.decode_face(portrait))
     reference = run_stage('FACE_MATCH', lambda: matcher.feature_from_face(image, face))
-    face_scores, pad_scores = [], []
+    face_scores, pad_scores, poses = [], [], []
     for index, frame in enumerate(frames):
         image, face = run_stage(f'CAMERA_FACE_{index + 1}', lambda: matcher.decode_face(frame))
         candidate = run_stage('FACE_MATCH', lambda: matcher.feature_from_face(image, face))
         face_scores.append(run_stage('FACE_MATCH', lambda: matcher.compare_features(reference, candidate)))
         pad_scores.append(run_stage('PAD', lambda: pad.score(image, face)))
-    return {'face': face_scores, 'pad': pad_scores}
+        poses.append(run_stage(f'CAMERA_FACE_{index + 1}', lambda: matcher.pose_ratio(face)))
+    return {'face': face_scores, 'pad': pad_scores, 'pose': poses}
 
 
 def main():

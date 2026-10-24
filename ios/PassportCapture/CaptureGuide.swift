@@ -18,6 +18,22 @@ enum CapturePose: Int, CaseIterable {
         case .opposite: return "Vänster"
         }
     }
+    /// Server names: "right" is a turn to the user's own right (.side), "left" to the left (.opposite).
+    init?(server: String) {
+        switch server {
+        case "front": self = .front
+        case "right": self = .side
+        case "left": self = .opposite
+        default: return nil
+        }
+    }
+    /// The server's random order after the chip check; each pose exactly once. Older servers send none.
+    static func sequence(server: [String]?) -> [CapturePose]? {
+        guard let server else { return CapturePose.allCases }
+        let poses = server.compactMap(CapturePose.init(server:))
+        guard poses.count == 3, Set(poses).count == 3, server.count == 3 else { return nil }
+        return poses
+    }
 }
 
 struct CaptureFace {
@@ -50,6 +66,14 @@ struct CaptureGuidance: Equatable {
 // Capture guidance only. These thresholds do not measure identity or liveness.
 struct CaptureGuide {
     private(set) var guidance = CaptureGuidance()
+    /// Order requested by the server for this session; the server checks the head turns in the frames.
+    private let sequence: [CapturePose]
+    init(sequence: [CapturePose] = CapturePose.allCases) {
+        precondition(sequence.count == 3 && Set(sequence).count == 3, "Each pose exactly once")
+        self.sequence = sequence
+        guidance.pose = sequence[0]
+        guidance.hint = sequence[0] == .front ? "Placera ansiktet i ovalen" : sequence[0].title
+    }
     private var confirmationUntil = -Double.infinity
     private var heldDuration = 0.0
     private var lastAcceptedTime: Double?
@@ -140,7 +164,7 @@ struct CaptureGuide {
         guard guidance.holdProgress >= 1, samples >= 4 else { return false }
         let capturedPose = guidance.pose
         guidance.completed += 1
-        if guidance.completed < 3 { guidance.pose = CapturePose(rawValue: guidance.completed)! }
+        if guidance.completed < 3 { guidance.pose = sequence[guidance.completed] }
         resetHold(guidance.completed == 3 ? "Bilderna är tagna" : guidance.pose.title)
         guidance.confirmedPose = capturedPose
         guidance.hint = "Bilden är tagen"

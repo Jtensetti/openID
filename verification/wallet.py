@@ -21,6 +21,8 @@ FEDERATION_RP = 'openID kontotjänst'
 FEDERATION_PURPOSE = 'Logga in och dela namn, födelsedatum enligt passet och passfoto'
 SIGN_PURPOSE = 'Skriv under och dela namn, födelsedatum enligt passet och passfoto'
 SIGN_MESSAGE_LIMIT = 400
+BIOMETRIC_ATTEMPTS = 5          # failed face/PAD/pose decisions per passport ...
+BIOMETRIC_WINDOW = 24 * 3600    # ... within this many seconds
 
 def sign_message(value):
     """Plain text the holder reads in full before a separate signing approval."""
@@ -109,6 +111,8 @@ class Wallet:
                 CREATE INDEX IF NOT EXISTS profile_person ON profiles(person);
                 CREATE INDEX IF NOT EXISTS federation_pending ON federation_requests(state,expires);
             ''')
+            db.execute('CREATE TABLE IF NOT EXISTS biometric_failures (document_tag TEXT NOT NULL, time INTEGER NOT NULL)')
+            db.execute('CREATE INDEX IF NOT EXISTS biometric_failure_document ON biometric_failures(document_tag,time)')
             columns = {row['name'] for row in db.execute('PRAGMA table_info(federation_requests)')}
             if 'sign_message' not in columns:
                 db.execute('ALTER TABLE federation_requests ADD COLUMN sign_message TEXT')
@@ -242,6 +246,20 @@ class Wallet:
             db.execute("UPDATE requests SET state='CANCELLED' WHERE credential=? AND state IN ('PENDING','APPROVED')", (ident,))
             db.execute("UPDATE federation_requests SET state='CANCELLED' WHERE credential=? AND state IN ('PENDING','APPROVED')", (ident,))
             self.event(db, ident, 'REVOKED')
+
+    def biometric_attempt(self, document):
+        """Refuse analysis after too many failed biometric decisions for the same passport (HMAC tag only)."""
+        if not isinstance(document, VerifiedDocument): raise ValueError('verified document required')
+        with self.transaction() as db:
+            self.vault.key(create=not db.execute('SELECT 1 FROM profiles LIMIT 1').fetchone())
+            tag = self.vault.document_tag(document)
+            db.execute('DELETE FROM biometric_failures WHERE time<=?', (int(self.clock())-BIOMETRIC_WINDOW,))
+            if db.execute('SELECT count(*) FROM biometric_failures WHERE document_tag=?', (tag,)).fetchone()[0] >= BIOMETRIC_ATTEMPTS:
+                raise ValueError('biometric attempt limit')
+
+    def biometric_failure(self, document):
+        with self.transaction() as db:
+            db.execute('INSERT INTO biometric_failures VALUES(?,?)', (self.vault.document_tag(document), int(self.clock())))
 
     def start_request(self, ident):
         # Fixed local RP: caller cannot supply a name, domain, purpose or callback.

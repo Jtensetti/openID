@@ -56,7 +56,7 @@ def score_frames(portrait, frames):
         if stage in {'MODEL_LOAD', 'WORKER'}: raise OSError('biometric worker unavailable')
         raise ValueError('biometric analysis rejected')
     data = json.loads(result.stdout)
-    return data['face'], data['pad']
+    return data['face'], data['pad'], data['pose']
 
 
 def load_config(path):
