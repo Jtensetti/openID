@@ -189,6 +189,13 @@ fastställd lagringspolicy och rättslig grund behöver etableras i driften.
 
 ### Uppgradering till schema 2
 
+För ett läsbart journaluttag med separat kontrollsumma, använd
+[privat arkivexport](../../docs/arkivexport.md). `archive-access.sql` ger
+befintliga `openid_auditor` kolumnbegränsad läsrätt utan profilchiffertext,
+PIN-verifierare, sessionshemligheter eller ändringsrätt. Det är ett separat,
+valfritt behörighetssteg, även efter återställning; schema och backupformat
+ändras inte. Exportören behöver ingen OpenBao-token.
+
 Schema 2 innehåller även SignMessage, verifieringsnivå, säkerhetskod och
 en beständig registreringsspärr efter återläsning.
 Signering kräver den separata `sign`-åtgärden med exakt textbindning. PIN-

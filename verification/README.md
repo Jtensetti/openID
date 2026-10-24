@@ -343,6 +343,12 @@ saknar externt spärrankare. Inga adminfunktioner exponeras via HTTP.
 
 ## Kontroller
 
+För ett separat, privat uttag av befintliga registerjournaler används
+[`audit_archive.py`](../docs/arkivexport.md). Det stöder SQLite och PostgreSQL,
+fungerar utan profilnycklar och kan verifieras offline mot en separat
+bevarad manifestkontrollsumma. Det ersätter inte återställningsbackup eller
+fullständigt utgivningsbevis.
+
 | Del | Kontroll |
 |---|---|
 | Pass | Bouncy Castle CMS, JCA PKIX direkt DSC→CSCA, aktuella certifikatdatum, SHA-256/384/512 och DG1/DG2-hashar. Appflödet kräver även signerad DG14. |
