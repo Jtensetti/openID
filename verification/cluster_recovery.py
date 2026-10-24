@@ -22,7 +22,7 @@ from transit import TransitVault
 SCHEMA = Path(__file__).parents[1] / 'deployment/cluster/schema.sql'
 TABLES = ('credentials', 'persons', 'profiles', 'requests', 'federation_requests',
           'events', 'challenges', 'pairwise_subjects', 'activation_proposals',
-          'operator_events', 'maintenance_runs', 'biometric_attempts', 'security_codes')
+          'operator_events', 'maintenance_runs', 'biometric_attempts', 'security_codes', 'enrollment_quarantine')
 MAX_BYTES = 10 * 1024 ** 3
 DEADLINE = 1800
 

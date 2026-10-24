@@ -105,6 +105,13 @@ class RuntimeTests(unittest.TestCase):
         code, result, _ = self.request('/native/finish')
         self.assertEqual((403, {'error': 'ATTEMPT_LIMIT'}), (code, result))
 
+    def test_restore_pause_is_a_safe_service_error_at_start_and_finish(self):
+        from wallet import EnrollmentQuarantine
+        for path,operation in (('/native/start','start'),('/native/finish','finish')):
+            getattr(self.native,operation).side_effect=EnrollmentQuarantine('private internal state')
+            code,result,_=self.request(path)
+            self.assertEqual((503,{'error':'REGISTRATION_PAUSED'}),(code,result))
+
     def test_complete_dispatch_and_security_headers(self):
         code, result, headers = self.request()
         self.assertEqual((200, {'id': 'session'}), (code, result))

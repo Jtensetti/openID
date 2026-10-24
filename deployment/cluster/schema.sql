@@ -58,6 +58,7 @@ CREATE TABLE biometric_attempts(document_tag text PRIMARY KEY, times bigint[] NO
 CREATE TABLE security_codes(credential text PRIMARY KEY REFERENCES credentials, hash text NOT NULL CHECK(length(hash)<=256),
  failures integer NOT NULL CHECK(failures BETWEEN 0 AND 5), locked integer NOT NULL CHECK(locked IN (0,1)),
  updated bigint NOT NULL, CHECK((locked=1)=(failures=5)));
+CREATE TABLE enrollment_quarantine(id integer PRIMARY KEY CHECK(id=1), until_epoch bigint NOT NULL CHECK(until_epoch>=0));
 CREATE INDEX request_pending ON requests(credential,state,expires);
 CREATE INDEX event_recent ON events(credential,id DESC);
 CREATE INDEX profile_person ON profiles(person);
@@ -76,6 +77,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $
 DECLARE recent bigint[]; now_epoch bigint:=floor(extract(epoch FROM clock_timestamp()))::bigint;
 BEGIN
  IF tag IS NULL OR length(tag) NOT BETWEEN 32 AND 256 OR tag !~ '^[A-Za-z0-9_:/+=-]+$' THEN RAISE EXCEPTION 'document tag required'; END IF;
+ IF EXISTS(SELECT 1 FROM enrollment_quarantine WHERE until_epoch>now_epoch) THEN RETURN -2; END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended(tag,7833));
  SELECT coalesce(array_agg(t ORDER BY t),'{}'::bigint[]) INTO recent
   FROM biometric_attempts b CROSS JOIN LATERAL unnest(b.times) t
@@ -137,9 +139,11 @@ BEGIN
  RETURN QUERY SELECT NULL::text,5;
 END $$;
 
-CREATE FUNCTION guard_credential() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE FUNCTION guard_credential() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,openid,pg_temp AS $$
 BEGIN
  IF TG_OP='INSERT' THEN
+  IF EXISTS(SELECT 1 FROM enrollment_quarantine WHERE until_epoch>extract(epoch FROM clock_timestamp())) THEN
+   RAISE EXCEPTION 'enrollment paused after restore'; END IF;
   IF NEW.state!='PENDING_REVIEW' OR NEW.expires IS NOT NULL OR NEW.decision IS NOT NULL
    OR abs(NEW.created-extract(epoch FROM clock_timestamp()))>60 THEN
    RAISE EXCEPTION 'pending credential required';
@@ -215,6 +219,8 @@ CREATE FUNCTION revoke_all_after_restore() RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $$
 BEGIN
  LOCK TABLE credentials,requests,federation_requests,challenges IN ACCESS EXCLUSIVE MODE;
+ INSERT INTO enrollment_quarantine VALUES(1,floor(extract(epoch FROM clock_timestamp()))::bigint+86400)
+  ON CONFLICT(id) DO UPDATE SET until_epoch=greatest(enrollment_quarantine.until_epoch,excluded.until_epoch);
  UPDATE credentials SET state='REVOKED';
  UPDATE requests SET state='CANCELLED' WHERE state IN ('PENDING','APPROVED');
  UPDATE federation_requests SET state='CANCELLED' WHERE state IN ('PENDING','APPROVED');
@@ -266,6 +272,7 @@ REVOKE ALL ON ALL FUNCTIONS IN SCHEMA openid FROM PUBLIC;
 GRANT USAGE ON SCHEMA openid TO openid_enroller,openid_wallet,openid_requester,openid_approver,openid_revoker,openid_maintenance,openid_auditor;
 GRANT SELECT ON schema_version TO openid_enroller,openid_wallet,openid_maintenance;
 GRANT SELECT ON credentials,profiles,persons TO openid_enroller,openid_wallet,openid_maintenance;
+GRANT SELECT ON enrollment_quarantine TO openid_enroller;
 GRANT INSERT ON credentials,profiles,persons,events TO openid_enroller;
 GRANT SELECT,INSERT,DELETE ON challenges TO openid_wallet;
 GRANT SELECT,INSERT ON requests,federation_requests,pairwise_subjects TO openid_wallet;

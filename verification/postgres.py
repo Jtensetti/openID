@@ -9,7 +9,7 @@ import psycopg
 from psycopg.conninfo import conninfo_to_dict
 from psycopg_pool import ConnectionPool, PoolTimeout, TooManyRequests
 from wallet import (Wallet, device_crypto, identifier, BiometricAttemptLimit,
-    SecurityCodeError, security_code, weak_security_code)
+    SecurityCodeError, security_code, weak_security_code, EnrollmentQuarantine)
 from identity import VerifiedDocument
 
 
@@ -103,6 +103,7 @@ class PostgresWallet(Wallet):
         # The database function serializes the tag across every enrollment replica.
         with self.transaction() as db:
             remaining = db.execute('SELECT reserve_biometric_attempt(?)', (tag,)).fetchone()[0]
+        if remaining == -2: raise EnrollmentQuarantine('enrollment paused after restore')
         if remaining < 0: raise BiometricAttemptLimit('biometric attempt limit')
         return remaining
 

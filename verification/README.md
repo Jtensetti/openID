@@ -331,7 +331,11 @@ behålls efter spärr men lämnas inte ut till appen eller tjänsten. Automatisk
 gallring och nyckelrotation saknas; operatören måste fastställa lagringstid
 och radera pilotens data och nyckel efter provet.
 **Återläsning av gamla databasfiler stöds inte**: den kan återställa en spärrad
-nyckel. Använd `recovery.py restore`, som spärrar återställda nycklar.
+nyckel. Använd `recovery.py restore`, som spärrar återställda nycklar och
+blockerar ny registrering och biometrisk analys i minst 24 timmar. Spärren
+lagras i databasen och överlever omstart. Den skyddar mot att en äldre
+backup saknar senare biometriförsök. Identitetsnyckeln måste bevaras separat
+även när det bara finns försökshistorik och inga profiler.
 Den publika betan kontrollerar dessutom den separata aktuella spärrtabellen;
 dess konfiguration och migrationsmarkör måste bevaras. Återställ aldrig
 en äldre programversion som saknar denna kontroll. Det privata grundläget
@@ -367,7 +371,10 @@ Högst fem biometriska analyser per pass och rullande 24 timmar (HMAC-tagg i
 Parallella registreringar och nya processer kan inte återställa budgeten.
 PostgreSQL använder samma fem analyser per verifierad handling och rullande
 24 timmar, med Transit-HMAC, databasens klocka och en separat transaktion.
-Råa poäng skickas inte till appen.
+Efter stödd återläsning spärras ny registrering automatiskt i 24 timmar i
+båda lagringslägena. Appen får `503 REGISTRATION_PAUSED` före fångsten;
+även pågående sessioners analys och direkt registrering stoppas. Råa poäng
+skickas inte till appen.
 
 ### Spärrade dokumentsignerare
 

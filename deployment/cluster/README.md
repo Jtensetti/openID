@@ -189,7 +189,8 @@ fastställd lagringspolicy och rättslig grund behöver etableras i driften.
 
 ### Uppgradering till schema 2
 
-Schema 2 innehåller även SignMessage, verifieringsnivå och säkerhetskod.
+Schema 2 innehåller även SignMessage, verifieringsnivå, säkerhetskod och
+en beständig registreringsspärr efter återläsning.
 Signering kräver den separata `sign`-åtgärden med exakt textbindning. PIN-
 verifierare lagras som credentialbundna Transit-HMAC, aldrig som sex siffror.
 Tjänstekontot kan bara läsa kodstatus och anropa begränsade kontroll- och
@@ -203,11 +204,18 @@ med databasens kontrollerade ägarkonto. Migreringen är transaktionell och
 nekar annan startversion. Starta därefter den nya revisionen och verifiera
 readiness, rollgränser och försöksspärren innan trafik öppnas.
 
-Den nya backupen omfattar även biometribudgeten. Äldre backuper återläses
-med sin tidigare kodrevision i en stängd miljö, spärras och migreras innan
-ny kod får ansluta. Återställning av en äldre backup kan förlora senare
-försök; håll därför ny identitetskontroll stängd i minst 24 timmar efter
-återläsning, även när alla återställda credentials redan har spärrats.
+Den nya backupen omfattar även biometribudgeten och registreringsspärren.
+Äldre backuper återläses med sin tidigare kodrevision i en stängd miljö,
+spärras och migreras innan ny kod får ansluta. Kör därefter
+`revoke_all_after_restore()` innan applikationskonton får tillgång.
+
+Återställning kan förlora försök som gjorts efter backupen. Det stödda
+återställningsflödet blockerar därför automatiskt all ny registrering och
+biometrisk analys i minst 24 timmar, även efter omstart och återöppnad
+databas. Tjänster och operatörer kan inte förkorta spärren, inte heller
+genom egen sökväg eller temporär skuggtabell. Ny återläsning förlänger den.
+HTTP svarar `503 REGISTRATION_PAUSED` redan före fångsten. Tiden måste
+ingå i registreringens återställningsmål; det finns ingen API-/CLI-genväg.
 
 Varje körning omkrypterar högst 100 profiler och gallrar högst 100 rader per
 tabell. Ett avbrott rullar tillbaka den pågående transaktionen. Profiler kan
@@ -288,7 +296,9 @@ Resultatet `QUARANTINED` betyder att databasen fortfarande är stängd:
 avbrott lämnar applikationskontona utan anslutningsrätt. Administratören
 behöver därefter kontrollera spärrstatus, återställa separata operatörskonton,
 rotera serviceuppgifter och uttryckligen öppna anslutning samt ge CONNECT till
-avsedda logins. Ny registrering och tvåpersonersaktivering krävs för användarna.
+avsedda logins. Den separata 24-timmarsspärren för ny registrering kvarstår
+även när databasanslutning öppnas. Därefter krävs ny registrering och
+tvåpersonersaktivering för användarna.
 Administratörer kan kringgå dessa rutiner; deras åtkomst måste skyddas separat.
 
 CI återläser ett faktiskt register och OpenBao-snapshots samt stoppar ledaren

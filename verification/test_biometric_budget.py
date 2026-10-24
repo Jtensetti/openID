@@ -5,7 +5,7 @@ import tempfile
 import unittest
 
 from test_identity import document
-from wallet import Wallet, BiometricAttemptLimit, BIOMETRIC_ATTEMPTS, BIOMETRIC_WINDOW
+from wallet import Wallet, BiometricAttemptLimit, EnrollmentQuarantine, BIOMETRIC_ATTEMPTS, BIOMETRIC_WINDOW
 
 
 class BiometricBudgetTests(unittest.TestCase):
@@ -38,6 +38,33 @@ class BiometricBudgetTests(unittest.TestCase):
 
     def test_unverified_document_cannot_spend_a_budget(self):
         with self.assertRaises(ValueError): self.wallets[0].biometric_attempt({})
+
+    def test_old_backup_pauses_enrollment_for_a_full_window_and_keeps_index_key(self):
+        from unittest.mock import patch,Mock
+        from recovery import backup,restore
+        from native import NativeSessions
+        from test_wallet import crypt
+        import json
+        wallet=self.wallets[0]
+        wallet.biometric_attempt(document())
+        saved=backup(wallet,Path(self.tmp.name)/'saved')
+        for _ in range(BIOMETRIC_ATTEMPTS-1):wallet.biometric_attempt(document())
+        with patch('recovery.time.time',return_value=self.time):
+            target=restore(saved,Path(self.tmp.name)/'restored',wallet.vault.path)
+        recovered=Wallet(target,wallet.origin,clock=lambda:self.time)
+        self.assertEqual(wallet.vault.key(),recovered.vault.key())  # no profile existed at backup time
+        key=json.loads(crypt(op='new'))['publicKey']
+        for operation in (recovered.enrollment_available,lambda:recovered.biometric_attempt(document()),lambda:recovered.enroll(key)):
+            with self.assertRaises(EnrollmentQuarantine):operation()
+        restarted=Wallet(target,wallet.origin,clock=lambda:self.time)
+        native=NativeSessions(Mock(),Mock(),Mock(),Mock(),wallet=restarted);self.addCleanup(native.close)
+        with self.assertRaises(EnrollmentQuarantine):native.start()
+        self.assertEqual({},native.pending)
+        self.time+=BIOMETRIC_WINDOW-1
+        with self.assertRaises(EnrollmentQuarantine):restarted.biometric_attempt(document())
+        self.time+=1
+        self.assertEqual(4,restarted.biometric_attempt(document()))
+        self.assertEqual('PENDING_REVIEW',restarted.enroll(key)['state'])
 
 
 if __name__ == '__main__': unittest.main()

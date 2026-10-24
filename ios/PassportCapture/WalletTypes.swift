@@ -1,7 +1,7 @@
 import Foundation
 
 enum WalletError: LocalizedError {
-    case configuration, rejected, unavailable, overloaded, cancelled, keyUnavailable, attemptLimit
+    case configuration, rejected, unavailable, overloaded, cancelled, keyUnavailable, attemptLimit, registrationPaused
     case cameraImageRejected(Int)
     /// Server decision about the security code: PIN_REQUIRED, PIN_INCORRECT, PIN_LOCKED or PIN_WEAK.
     case securityCode(String, Int?)
@@ -16,7 +16,8 @@ enum WalletError: LocalizedError {
             case "PIN_WEAK": return "Koden är för lätt att gissa. Undvik samma siffra, följder som 123456, upprepningar och ditt födelsedatum."
             default: return "Tjänsten kräver en säkerhetskod. Välj en säkerhetskod under Inställningar och försök igen."
             }
-        case .attemptLimit: return "Ansiktskontrollen har inte godkänts för det här passet för många gånger i dag. Av säkerhetsskäl kan du försöka igen om ett dygn."
+        case .attemptLimit: return "Försöksgränsen för ansiktskontroll är nådd för det här passet. Du kan försöka igen när den rullande 24-timmarsgränsen har passerat."
+        case .registrationPaused: return "Ny registrering är tillfälligt pausad av säkerhetsskäl. Försök igen senare."
         case .cameraImageRejected(let frame): return "Servern kunde inte hitta ett enda tydligt ansikte i bild \(frame) av 3. Registreringen är inte klar. Försök igen med jämnt ljus och bara dig själv i bilden."
         case .configuration: return "Ange en HTTPS-adress och en giltig kopplingskod från din server."
         case .rejected: return "Begäran kunde inte godkännas. Uppdatera status och försök igen."

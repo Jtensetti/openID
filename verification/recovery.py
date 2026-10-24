@@ -46,6 +46,10 @@ def restore(source, destination, identity_key=None):
             if db.execute('PRAGMA integrity_check').fetchone()[0] != 'ok': raise ValueError('Integrity check')
             db.execute('PRAGMA synchronous=FULL')
             db.execute('BEGIN IMMEDIATE')
+            # This also upgrades older backups which predate the attempt ledger.
+            db.execute('CREATE TABLE IF NOT EXISTS enrollment_quarantine (id INTEGER PRIMARY KEY CHECK(id=1), until_epoch INTEGER NOT NULL CHECK(until_epoch>=0))')
+            db.execute('INSERT INTO enrollment_quarantine VALUES(1,?) ON CONFLICT(id) DO UPDATE SET until_epoch=max(enrollment_quarantine.until_epoch,excluded.until_epoch)',
+                (int(time.time())+86400,))
             db.execute("INSERT INTO events(credential,kind,time,request) SELECT id,'REVOKED',?,NULL FROM credentials WHERE state!='REVOKED'", (int(time.time()),))
             db.execute("UPDATE credentials SET state='REVOKED'")
             db.execute("UPDATE requests SET state='CANCELLED' WHERE state IN ('PENDING','APPROVED')")
@@ -54,8 +58,12 @@ def restore(source, destination, identity_key=None):
                 # A backup cannot establish that a registry check is still current.
                 db.execute('DELETE FROM registry_bindings')
             has_profiles = bool(db.execute('SELECT 1 FROM profiles LIMIT 1').fetchone())
+            key_history = has_profiles
+            for table in ('persons','document_links','retired_documents','biometric_failures','security_codes'):
+                if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)).fetchone():
+                    key_history = key_history or bool(db.execute('SELECT 1 FROM '+table+' LIMIT 1').fetchone())
             db.commit()
-        if has_profiles:
+        if key_history:
             if identity_key is None: raise ValueError('Separate identity key required')
             from identity import IdentityVault
             key = IdentityVault(identity_key).key()

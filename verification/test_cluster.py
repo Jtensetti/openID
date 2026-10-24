@@ -81,7 +81,7 @@ class ClusterTests(unittest.TestCase):
 
     def setUp(self):
         with self.psycopg.connect(DSN, autocommit=True) as db:
-            db.execute('TRUNCATE openid.credentials,openid.persons,openid.operator_events,openid.maintenance_runs,openid.biometric_attempts RESTART IDENTITY CASCADE')
+            db.execute('TRUNCATE openid.credentials,openid.persons,openid.operator_events,openid.maintenance_runs,openid.biometric_attempts,openid.enrollment_quarantine RESTART IDENTITY CASCADE')
         self.enroller=self.store('enroller')
         self.a=self.store('wallet'); self.b=self.store('wallet')
         self.ident=self.enroller.enroll(self.keys[0]['publicKey'], document())['id']
@@ -176,6 +176,11 @@ class ClusterTests(unittest.TestCase):
         with migrated.transaction() as db:
             self.assertEqual(self.ident,db.execute('SELECT credential FROM profiles').fetchone()[0])
             self.assertEqual('PENDING_REVIEW',db.execute('SELECT state FROM credentials').fetchone()[0])
+        with self.psycopg.connect(dsn('revoker')) as revoker:revoker.execute('SELECT openid.revoke_all_after_restore()')
+        from wallet import EnrollmentQuarantine
+        for operation in (migrated.enrollment_available,lambda:migrated.biometric_attempt(document()),
+                          lambda:migrated.enroll(self.keys[2]['publicKey'],document())):
+            with self.assertRaises(EnrollmentQuarantine):operation()
 
     def test_same_login_cannot_approve_even_with_both_roles(self):
         proposal=self.sql('carol','SELECT request_activation(%s,%s,%s)',(self.ident,'REVIEW-test-002',24))[0][0]
@@ -448,6 +453,15 @@ class ClusterTests(unittest.TestCase):
         self.assertEqual('REVOKED',restored.execute(self.signed(store=restored))['state'])
         enroller=PostgresWallet(dsn('enroller'),self.a.origin,self.enroller.vault,local_test=True)
         self.addCleanup(enroller.close)
+        from wallet import EnrollmentQuarantine
+        for operation in (enroller.enrollment_available,lambda:enroller.biometric_attempt(document()),
+                          lambda:enroller.enroll(self.keys[2]['publicKey'],document())):
+            with self.assertRaises(EnrollmentQuarantine):operation()
+        with self.psycopg.connect(admin_dsn) as admin:
+            self.assertEqual(2,admin.execute('SELECT cardinality(times) FROM openid.biometric_attempts').fetchone()[0])
+            self.assertGreaterEqual(admin.execute('SELECT until_epoch-extract(epoch FROM clock_timestamp()) FROM openid.enrollment_quarantine').fetchone()[0],86390)
+            # Test-only boundary simulation. No service role has this update permission.
+            admin.execute('UPDATE openid.enrollment_quarantine SET until_epoch=0')
         self.assertEqual(2,enroller.biometric_attempt(document()))  # spent attempts survive COPY/restore
         with self.assertRaises(ValueError):enroller.enroll(self.keys[0]['publicKey'],document())
         ident=enroller.enroll(self.keys[2]['publicKey'],document())['id']
@@ -455,10 +469,27 @@ class ClusterTests(unittest.TestCase):
             fresh=operator.execute('SELECT openid.request_activation(%s,%s,%s)',(ident,'REVIEW-after-restore',24)).fetchone()[0]
         with self.psycopg.connect(dsn('bob')) as operator:operator.execute('SELECT openid.approve_activation(%s)',(fresh,))
         self.assertEqual('ACTIVE',restored.execute(self.signed(key=2,store=restored))['state'])
+
         with self.psycopg.connect(admin_dsn) as admin:
             self.assertEqual(1,admin.execute("SELECT count(*) FROM openid.operator_events WHERE kind='RESTORE_REVOKED_ALL'").fetchone()[0])
         with self.assertRaises(self.psycopg.Error):restore(DSN,destination,target,self.a.vault,local_test=True)
         self.assertEqual('ACTIVE',restored.execute(self.signed(key=2,store=restored))['state'])
+
+    def test_restore_hold_cannot_be_reset_or_shadowed_by_a_service(self):
+        from wallet import EnrollmentQuarantine
+        self.sql('revoker','SELECT revoke_all_after_restore()')
+        with self.assertRaises(EnrollmentQuarantine):self.enroller.enrollment_available()
+        with self.assertRaises(EnrollmentQuarantine):self.enroller.biometric_attempt(document())
+        for role in self.dsns:
+            for statement in ('UPDATE enrollment_quarantine SET until_epoch=0','DELETE FROM enrollment_quarantine'):
+                with self.subTest(role=role,statement=statement),self.assertRaises(self.psycopg.Error):self.sql(role,statement)
+        with self.psycopg.connect(self.dsns['enroller']) as attacker:
+            attacker.execute('CREATE TEMP TABLE enrollment_quarantine(id integer,until_epoch bigint)')
+            attacker.execute('SET LOCAL search_path=pg_temp,openid,pg_catalog')
+            key=self.keys[2]['publicKey'];ident=hashlib.sha256(base64.b64decode(key)).hexdigest()
+            with self.assertRaises(self.psycopg.Error):
+                attacker.execute('INSERT INTO openid.credentials VALUES(%s,%s,%s,%s,NULL,NULL,%s)',
+                    (ident,key,'PENDING_REVIEW',int(time.time()),secrets.token_hex(32)))
 
     def test_corrupt_unbounded_or_foreign_backup_is_rejected_before_creation(self):
         from cluster_recovery import backup,restore

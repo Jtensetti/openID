@@ -32,13 +32,19 @@ final class WalletAPI {
         // Check size while streaming; data(for:) would buffer the entire response.
         let (stream, response) = try await session.bytes(for: request)
         guard let status = (response as? HTTPURLResponse)?.statusCode else { throw WalletError.unavailable }
-        if status == 429 || status == 503 { throw WalletError.overloaded }
+        if status == 429 { throw WalletError.overloaded }
         var data = Data()
         for try await byte in stream {
             guard data.count < 262144 else { throw WalletError.rejected }
             data.append(byte)
         }
         try Task.checkCancellation()
+        if status == 503 {
+            if path.hasPrefix("/native/"),
+               let error = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               error["error"] as? String == "REGISTRATION_PAUSED" { throw WalletError.registrationPaused }
+            throw WalletError.overloaded
+        }
         if status == 422, path == "/native/finish",
            let error = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
            error["error"] as? String == "CAMERA_IMAGE_REJECTED",

@@ -51,6 +51,9 @@ def weak_security_code(code, birth_mrz=None):
 class BiometricAttemptLimit(ValueError):
     """The persistent analysis budget is exhausted. Safe to tell the holder."""
 
+class EnrollmentQuarantine(ValueError):
+    """A restore can lose later attempts. Enrollment stays closed for one full window."""
+
 def sign_message(value):
     """Plain text the holder reads in full before a separate signing approval."""
     if value is None: return None
@@ -139,6 +142,7 @@ class Wallet:
                 CREATE INDEX IF NOT EXISTS federation_pending ON federation_requests(state,expires);
             ''')
             db.execute('CREATE TABLE IF NOT EXISTS biometric_failures (document_tag TEXT NOT NULL, time INTEGER NOT NULL)')
+            db.execute('CREATE TABLE IF NOT EXISTS enrollment_quarantine (id INTEGER PRIMARY KEY CHECK(id=1), until_epoch INTEGER NOT NULL CHECK(until_epoch>=0))')
             # Security code: HMAC with the separate identity key; the database alone does not reveal the 6 digits.
             db.execute('''CREATE TABLE IF NOT EXISTS security_codes (credential TEXT PRIMARY KEY REFERENCES credentials(id),
                 hash TEXT NOT NULL, failures INTEGER NOT NULL, locked INTEGER NOT NULL, updated INTEGER NOT NULL)''')
@@ -205,6 +209,7 @@ class Wallet:
         self.crypto('validate', publicKey=public_key)
         ident = hashlib.sha256(der).hexdigest()
         with self.transaction() as db:
+            self.enrollment_open(db)
             if db.execute('SELECT 1 FROM credentials WHERE id=?', (ident,)).fetchone():
                 raise ValueError('key already enrolled')
             db.execute('INSERT INTO credentials VALUES(?,?,?,?,?,?,?)',
@@ -291,6 +296,7 @@ class Wallet:
         """
         if not isinstance(document, VerifiedDocument): raise ValueError('verified document required')
         with self.transaction() as db:
+            self.enrollment_open(db)
             self.vault.key(create=not (db.execute('SELECT 1 FROM profiles LIMIT 1').fetchone()
                 or db.execute('SELECT 1 FROM biometric_failures LIMIT 1').fetchone()))
             tag = self.vault.document_tag(document)
@@ -300,6 +306,14 @@ class Wallet:
                 raise BiometricAttemptLimit('biometric attempt limit')
             db.execute('INSERT INTO biometric_failures VALUES(?,?)', (tag, int(self.clock())))
         return BIOMETRIC_ATTEMPTS-used-1
+
+    def enrollment_open(self, db):
+        row = db.execute('SELECT until_epoch FROM enrollment_quarantine WHERE id=1').fetchone()
+        if row is not None and row['until_epoch'] > self.clock():
+            raise EnrollmentQuarantine('enrollment paused after restore')
+
+    def enrollment_available(self):
+        with self.transaction() as db: self.enrollment_open(db)
 
     def start_request(self, ident):
         # Fixed local RP: caller cannot supply a name, domain, purpose or callback.

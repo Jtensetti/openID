@@ -14,7 +14,7 @@ from urllib.parse import urlsplit
 
 from native import unique_object
 from biometric_worker import CameraImageRejected
-from wallet import BiometricAttemptLimit, SecurityCodeError
+from wallet import BiometricAttemptLimit, SecurityCodeError, EnrollmentQuarantine
 
 NATIVE_ROUTES = {
     '/native/start': ('start', 1024),
@@ -191,6 +191,8 @@ class Runtime:
             return 200, getattr(target, operation)(request) if operation != 'start' else target.start()
         except CameraImageRejected as error:
             return 422, {'error': 'CAMERA_IMAGE_REJECTED', 'frame': error.frame}
+        except EnrollmentQuarantine:
+            return 503, {'error': 'REGISTRATION_PAUSED'}
         except BiometricAttemptLimit:
             return 403, {'error': 'ATTEMPT_LIMIT'}
         except SecurityCodeError as error:

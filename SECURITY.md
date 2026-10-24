@@ -59,7 +59,10 @@ Pilotregistret sparar passets personprofil och förminskade foto krypterat.
 Databas och nyckelfil måste skyddas separat från repot. Samma serverkonto
 kan läsa nyckeln och aktivera credentials. Använd endast
 `recovery.py restore` för återläsning av pilotdatabasen: den spärrar alla
-återställda nycklar och kräver ny registrering. Manuell återläsning som
+återställda nycklar och spärrar ny registrering och biometrisk analys i
+minst 24 timmar. Samma beständiga spärr finns i PostgreSQL-återställningen,
+så att en äldre backup inte återöppnar en förbrukad försöksbudget. Därefter
+krävs ny registrering. Manuell återläsning som
 bevarar aktiva nycklar kan förlora senare spärrar och stöds inte.
 SAML-/OIDC-tjänsterna nekar åtkomst om spärrkontrollen inte kan nås. Se
 [lagring och nycklar](verification/README.md#spärr-och-lagring).

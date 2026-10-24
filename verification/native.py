@@ -59,6 +59,8 @@ class NativeSessions:
         self.chip_factory=chip_factory
         self.pending={}
     def start(self):
+        guard=getattr(self.wallet,'enrollment_available',None) if self.wallet is not None else None
+        if guard is not None:guard()
         for ident in list(self.pending):
             if self.pending[ident]['expires']<=self.clock(): self.discard(ident)
         if len(self.pending)>=16:raise ValueError('too many sessions')
