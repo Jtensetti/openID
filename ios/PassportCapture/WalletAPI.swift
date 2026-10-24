@@ -32,18 +32,35 @@ final class WalletAPI {
         // Check size while streaming; data(for:) would buffer the entire response.
         let (stream, response) = try await session.bytes(for: request)
         guard let status = (response as? HTTPURLResponse)?.statusCode else { throw WalletError.unavailable }
-        if status == 429 || status == 503 { throw WalletError.overloaded }
+        if status == 429 { throw WalletError.overloaded }
         var data = Data()
         for try await byte in stream {
             guard data.count < 262144 else { throw WalletError.rejected }
             data.append(byte)
         }
         try Task.checkCancellation()
+        if status == 503 {
+            if path.hasPrefix("/native/"),
+               let error = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               error["error"] as? String == "REGISTRATION_PAUSED" { throw WalletError.registrationPaused }
+            throw WalletError.overloaded
+        }
         if status == 422, path == "/native/finish",
            let error = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
            error["error"] as? String == "CAMERA_IMAGE_REJECTED",
            let frame = error["frame"] as? Int, (1...3).contains(frame) {
             throw WalletError.cameraImageRejected(frame)
+        }
+        if status == 403, path == "/wallet/execute",
+           let error = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let code = error["error"] as? String, ["PIN_REQUIRED", "PIN_INCORRECT", "PIN_LOCKED", "PIN_WEAK"].contains(code) {
+            let remaining = error["attemptsRemaining"] as? Int
+            throw WalletError.securityCode(code, remaining.flatMap { (0...SecurityCode.attempts).contains($0) ? $0 : nil })
+        }
+        if status == 403, path == "/native/finish",
+           let error = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           error["error"] as? String == "ATTEMPT_LIMIT" {
+            throw WalletError.attemptLimit
         }
         guard status == 200 else { throw WalletError.rejected }
         return data

@@ -14,32 +14,75 @@ import java.util.*;
 public final class PhoneBridge {
   public static final String SERVICE = "openID kontotjänst";
   public static final String PURPOSE = "Logga in och dela namn, födelsedatum enligt passet och passfoto";
-  public record Pending(String id, String secret, String binding, long expiresAt, String code) {
+  public static final String SIGN_PURPOSE = "Skriv under och dela namn, födelsedatum enligt passet och passfoto";
+  public static final int SIGN_MESSAGE_LIMIT = 400;
+  /** {@code signMessage} is the exact plain text shown in the app, or {@code null} for a login. */
+  /** {@code level}: {@code "pin"} when the service requires the security code, {@code null} for Face ID level. */
+  public record Pending(String id, String secret, String binding, long expiresAt, String code, String signMessage, String level) {
+    public Pending(String id, String secret, String binding, long expiresAt, String code) { this(id, secret, binding, expiresAt, code, null, null); }
+    public Pending { if (level != null && !level.equals("pin")) throw new IllegalArgumentException("level"); }
+    public boolean signing() { return signMessage != null; }
+    public boolean securityCode() { return "pin".equals(level); }
     @Override public String toString() { return "Phone approval"; }
+  }
+  /** A consumed approval. A signing approval names the SHA-256 of the exact text the holder signed. */
+  public record Approved(PhoneIdentity identity, String signMessageSha256, String level) {
+    @Override public String toString() { return "Phone approval result"; }
   }
   private static final ObjectMapper JSON = new ObjectMapper().enable(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION);
   private final Path socket;
   private final String audience;
   public PhoneBridge(Path socket, String audience) { this.socket = socket.toAbsolutePath(); this.audience = audience; }
 
-  public Pending start(String binding) {
-    var result = call(Map.of("operation", "start", "binding", binding));
+  public Pending start(String binding) { return start(binding, null, null); }
+  public Pending start(String binding, String signMessage) { return start(binding, signMessage, null); }
+  public Pending start(String binding, String signMessage, String level) {
+    if (signMessage != null) requireSignMessage(signMessage);
+    if (level != null && !level.equals("pin")) throw new IllegalArgumentException("level");
+    var request = new HashMap<String, String>(Map.of("operation", "start", "binding", binding));
+    if (signMessage != null) request.put("signMessage", signMessage);
+    if (level != null) request.put("verification", level);
+    var result = call(request);
     String id = text(result, "id"), secret = text(result, "secret"), code = text(result, "code");
     long expires = result.path("expiresAt").asLong();
     if (!id.matches("[a-f0-9]{64}") || !secret.matches("[A-Za-z0-9_-]{43}") || !code.matches("[0-9]{6}") ||
-        !SERVICE.equals(text(result, "relyingParty")) || !PURPOSE.equals(text(result, "purpose")) ||
+        !SERVICE.equals(text(result, "relyingParty")) || !(signMessage == null ? PURPOSE : SIGN_PURPOSE).equals(text(result, "purpose")) ||
+        (signMessage == null ? result.has("signMessage") : !signMessage.equals(text(result, "signMessage"))) ||
+        (level == null ? result.has("verification") : !level.equals(text(result, "verification"))) ||
         expires <= Instant.now().getEpochSecond() || expires > Instant.now().getEpochSecond()+120) throw rejected();
-    return new Pending(id, secret, binding, expires, code);
+    return new Pending(id, secret, binding, expires, code, signMessage, level);
+  }
+  /** Same rules as the registry: bounded plain text without control or bidirectional override characters. */
+  public static String requireSignMessage(String value) {
+    if (value == null || value.isEmpty() || !value.equals(value.strip()) || value.codePointCount(0, value.length()) > SIGN_MESSAGE_LIMIT
+        || value.chars().filter(c -> c == '\n').count() > 12
+        || value.codePoints().anyMatch(c -> (c < 32 && c != '\n') || (c >= 127 && c < 160) || c == 0x2028 || c == 0x2029
+            || (c >= 0x202a && c <= 0x202e) || (c >= 0x2066 && c <= 0x2069) || c == 0xfeff))
+      throw new IllegalArgumentException("Sign message cannot be displayed");
+    return value;
+  }
+  public static String sha256(String value) {
+    try { return HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8))); }
+    catch (java.security.NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
   }
   public JsonNode exchange(String operation, Pending pending) {
     return call(Map.of("operation", operation, "id", pending.id(), "secret", pending.secret(), "binding", pending.binding()));
   }
-  public PhoneIdentity consume(Pending pending) {
+  public PhoneIdentity consume(Pending pending) { return approve(pending).identity(); }
+  public Approved approve(Pending pending) {
     var result = exchange("consume", pending);
     if (!"AUTHENTICATED".equals(text(result, "state"))) throw rejected();
     var identity = result.path("identity");
-    return new PhoneIdentity(text(result, "subject"), text(result, "credentialId"), text(result, "version"),
-        text(identity, "displayName"), text(identity, "birthDateMrz"), text(identity, "portraitJpeg"));
+    String digest = null;
+    if (pending.signing()) {
+      digest = text(result, "signMessageSha256");
+      if (!java.security.MessageDigest.isEqual(digest.getBytes(StandardCharsets.US_ASCII), sha256(pending.signMessage()).getBytes(StandardCharsets.US_ASCII)))
+        throw rejected();
+    } else if (result.has("signMessageSha256")) throw rejected();
+    // The registry reports the code level only after it verified the code for this request.
+    if (pending.securityCode() ? !"pin".equals(text(result, "verification")) : result.has("verification")) throw rejected();
+    return new Approved(new PhoneIdentity(text(result, "subject"), text(result, "credentialId"), text(result, "version"),
+        text(identity, "displayName"), text(identity, "birthDateMrz"), text(identity, "portraitJpeg")), digest, pending.level());
   }
   public boolean active(PhoneIdentity identity) {
     try {
@@ -52,6 +95,7 @@ public final class PhoneBridge {
     catch (IllegalStateException e) { return false; }
   }
   private JsonNode call(Map<String, String> parameters) {
+    parameters = Map.copyOf(parameters);
     try (var channel = SocketChannel.open(StandardProtocolFamily.UNIX); var selector = Selector.open()) {
       channel.configureBlocking(false);
       channel.connect(UnixDomainSocketAddress.of(socket));

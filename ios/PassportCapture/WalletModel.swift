@@ -13,6 +13,8 @@ import LocalAuthentication
     @Published private(set) var decisionMessage: String?
     @Published var selectedTab = 0
     @Published var focusedRequest: WalletRequest?
+    /// Shown beside the code field; a wrong code keeps the request open so the holder can try again.
+    @Published private(set) var securityCodeMessage: String?
     @Published var registrationPresented = false
     @Published var settingsPresented = false
     private let vault = SecureVault()
@@ -96,7 +98,23 @@ import LocalAuthentication
         if let id = pendingLink { perform("inspect", inspectID: id) }
         else { perform("snapshot") }
     }
-    func decide(_ request: WalletRequest, approve: Bool) { perform(approve ? "approve" : "reject", request: request) }
+    func decide(_ request: WalletRequest, approve: Bool, securityCode: String? = nil) {
+        // The code travels only with an approval the service asked to protect with it; rejecting never needs it.
+        let code = approve && request.needsSecurityCode ? securityCode : nil
+        if approve && request.needsSecurityCode && !(code.map(SecurityCode.valid) ?? false) {
+            securityCodeMessage = "Skriv din säkerhetskod med sex siffror."; return
+        }
+        perform(approve ? (request.isSigning ? "sign" : "approve") : "reject", request: request, extra: code.map { ["pin": $0] } ?? [:])
+    }
+    /// Choose a code, or change it: the current code is then required and counted like any other attempt.
+    func setSecurityCode(current: String?, new: String) {
+        guard SecurityCode.valid(new), current.map(SecurityCode.valid) ?? true else { securityCodeMessage = "Koden ska vara sex siffror."; return }
+        guard !SecurityCode.weak(new) else { securityCodeMessage = WalletError.securityCode("PIN_WEAK", nil).localizedDescription; return }
+        var extra = ["newPin": new]
+        if let current { extra["pin"] = current }
+        perform("set-pin", extra: extra)
+    }
+    func clearSecurityCodeMessage() { securityCodeMessage = nil }
     func revoke() {
         guard configuration?.isPublicBeta == true, let proof = revocationProof else { perform("revoke"); return }
         guard canRevoke, let credential else { return }
@@ -134,14 +152,14 @@ import LocalAuthentication
             }
         }
     }
-    private func perform(_ action: String, request: WalletRequest? = nil, inspectID: String? = nil) {
+    private func perform(_ action: String, request: WalletRequest? = nil, inspectID: String? = nil, extra: [String: String] = [:]) {
         guard unlocked, !busy, let configuration, let credential else { return }
         if let request, request.expired {
             focusedRequest = nil
             error = "QR-koden har gått ut. Starta en ny inloggning på testsidan och skanna den nya koden."
             return
         }
-        busy = true; activeAction = action; error = nil; statusMessage = nil; decisionMessage = nil
+        busy = true; activeAction = action; error = nil; statusMessage = nil; decisionMessage = nil; securityCodeMessage = nil
         let epoch = generation
         task = Task {
             defer {
@@ -162,13 +180,15 @@ import LocalAuthentication
                     auth = LAContext()
                     operationContext = auth
                     guard try await auth.evaluatePolicy(.deviceOwnerAuthentication, localizedReason:
-                        action == "revoke" ? "Spärra ditt ID permanent" : "Bekräfta ditt val för \(request?.relyingParty ?? "openID")") else { throw WalletError.cancelled }
+                        action == "revoke" ? "Spärra ditt ID permanent" : action == "set-pin" ? "Spara säkerhetskoden för openID"
+                        : action == "sign" ? "Skriv under för \(request?.relyingParty ?? "openID")" : "Bekräfta ditt val för \(request?.relyingParty ?? "openID")") else { throw WalletError.cancelled }
                 }
                 defer { if !["snapshot", "inspect"].contains(action) { auth.invalidate() } }
                 try Task.checkCancellation(); guard generation == epoch else { return }
                 let signature = try vault.sign(bytes, credential: credential, context: auth)
-                let result = try await api.post("/wallet/execute", body: ["challengeId": challenge.id,
-                    "signature": signature.base64EncodedString()], as: WalletSnapshot.self)
+                var body: [String: Any] = ["challengeId": challenge.id, "signature": signature.base64EncodedString()]
+                for (key, value) in extra { body[key] = value }
+                let result = try await api.post("/wallet/execute", body: body, as: WalletSnapshot.self)
                 try result.validate(for: credential.id)
                 try Task.checkCancellation(); guard generation == epoch else { return }
                 if configuration.isPublicBeta, let code = result.revocationCode {
@@ -177,15 +197,24 @@ import LocalAuthentication
                     try vault.save(proof, account: "revocation-" + credential.id)
                     revocationProof = proof
                 }
-                snapshot = result; focusedRequest = nil
+                // Choosing a code from inside an open request returns to that request.
+                snapshot = result; if action != "set-pin" { focusedRequest = nil }
                 if action == "approve" { decisionMessage = "Ditt godkännande har skickats. Gå tillbaka till testsidan för att se om inloggningen är klar." }
-                if action == "reject" { decisionMessage = "Du nekade legitimeringen. Vill du försöka igen, starta en ny inloggning på testsidan." }
+                if action == "sign" { decisionMessage = "Din underskrift har skickats. Gå tillbaka till tjänsten för att se att dokumentet är underskrivet." }
+                if action == "set-pin" { statusMessage = "Din säkerhetskod är sparad. Tjänster kan nu kräva den för stora åtaganden." }
+                if action == "reject" { decisionMessage = request?.isSigning == true ? "Du avböjde underskriften. Ingenting har skrivits under." : "Du nekade legitimeringen. Vill du försöka igen, starta en ny inloggning på testsidan." }
                 if let link = inspectID {
                     focusedRequest = result.requests.first { $0.id == link }
                     if pendingLink == link { pendingLink = nil }
                     if focusedRequest == nil { self.error = "Begäran är inte längre tillgänglig. Starta en ny inloggning på testsidan och skanna den nya QR-koden." }
                 }
             } catch {
+                if generation == epoch, let walletError = error as? WalletError, case .securityCode(let code, _) = walletError {
+                    // The server counted the attempt and returned how many remain; the request stays open for a retry.
+                    securityCodeMessage = error.localizedDescription
+                    if code == "PIN_LOCKED" { focusedRequest = nil; self.error = error.localizedDescription; refreshAfterBusy() }
+                    return
+                }
                 if generation == epoch {
                     if pendingLink == inspectID { pendingLink = nil }
                     if Self.wasCancelled(error) { return }
@@ -195,6 +224,13 @@ import LocalAuthentication
                     else { self.error = message }
                 }
             }
+        }
+    }
+    /// A locked code changes the holder's status; fetch it once the failed operation has finished.
+    private func refreshAfterBusy() {
+        Task { [weak self] in
+            while self?.busy == true { try? await Task.sleep(nanoseconds: 50_000_000) }
+            self?.perform("snapshot")
         }
     }
     static func wasCancelled(_ error: Error) -> Bool {
@@ -210,7 +246,8 @@ import LocalAuthentication
         if action == "inspect", let value = error as? WalletError, case .rejected = value {
             return "Begäran kunde inte öppnas. Den kan ha gått ut eller avslutats, eller ditt ID kan vara inaktivt. Hämta status under Mitt ID. Om ditt ID är aktivt, starta en ny inloggning på testsidan."
         }
-        if ["approve", "reject", "revoke"].contains(action) {
+        if let value = error as? WalletError, case .securityCode = value { return value.localizedDescription }
+        if ["approve", "sign", "reject", "revoke", "set-pin"].contains(action) {
             return "Vi kunde inte bekräfta att ditt val registrerades. Hämta status under Mitt ID och kontrollera Aktivitet innan du försöker igen."
         }
         return "Kunde inte nå tjänsten. Kontrollera internetanslutningen och försök sedan igen."

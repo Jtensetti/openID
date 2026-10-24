@@ -1,10 +1,7 @@
 name: Private pilot runtime
 on:
-  push:
-    branches: [main, 'feat/**']
-    paths: ['deployment/**', 'verification/**', 'prototype/**', '.github/workflows/pilot-runtime.yml']
-  pull_request:
-    paths: ['deployment/**', 'verification/**', 'prototype/**', '.github/workflows/pilot-runtime.yml']
+  workflow_call:
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:

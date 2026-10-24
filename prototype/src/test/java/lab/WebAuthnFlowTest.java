@@ -102,5 +102,10 @@ class WebAuthnFlowTest {
     assertEquals(400, b.post(lab.idpBase + "/lab/webauthn/finish", pending, lab.idpBase).statusCode());
     assertEquals(401, a.get(lab.spBase + "/me").statusCode());
     assertEquals(401, b.get(lab.spBase + "/me").statusCode());
+    var fresh = new Browser(lab);
+    var revoked = Browser.hidden(fresh.start().body());
+    revoked.put("credential", "TEST-CREDENTIAL-alice");
+    var denied = fresh.post(lab.idpBase + "/lab/webauthn/options", revoked, lab.idpBase);
+    assertEquals(400, denied.statusCode(), denied.body());
   }
 }

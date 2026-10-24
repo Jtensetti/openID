@@ -48,7 +48,7 @@ och respektive komponent. Klusterfunktioner i CI räknas inte som driftsatta i S
 | K5.7 | D | Utveckling | Nationell identitetsbeteckning | Signerat passfält implementerat och privat prov bekräftat; besluta hantering av saknat nummer utan automatisk aktivering. |
 | K5.8 | S | Registeransvarig | Registerjämförelse | SPAR är kandidat; verklig åtkomst, adapter och avvikelseprov saknas. Ingen beställning gjord. |
 | K5.9 | S | Registeransvarig | Skyddade uppgifter | Fastställ likvärdig kontroll och begränsad manuell handläggning; syntetiska avvisningsprov räcker inte. |
-| K5.13 | D | Utveckling/granskare | Passbaserad distanskontroll | Chip och biometriflöde finns; kalibrera PAD/biometri och pröva injektion, relä och certifikatspärr oberoende. |
+| K5.13 | D | Utveckling/granskare | Passbaserad distanskontroll | Chip, spärrlista för dokumentsignerare, serverstyrd vridning och försöksgräns finns; kalibrera PAD/biometri och pröva injektion och relä oberoende. |
 | K5.14 | D | Registeransvarig | Innehavarregister | Krypterat register finns; inför aktualisering, registeravstämning och dokumenterad avvikelsehantering. |
 | K6.1 | T | Utveckling | Två faktorer | Enhetsnyckel och lokal användarverifiering finns; styrk bindning och beteende på stödda fysiska enheter. |
 | K6.2 | D | Utveckling | Aktiveringsskydd | Verifiera hårdvarubindning, kloningsmotstånd och spärr vid förändrade lokala skydd. |

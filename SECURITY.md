@@ -18,14 +18,20 @@ separat WebAuthn-godkännande och tillfällig test-CA. Ingen verklig handling
 kan laddas upp. Signeringsnycklarna ligger i JVM-minnet, inte i HSM, och
 labben erbjuder varken kvalificerad underskrift eller långtidsvalidering.
 Rutter för detta flöde aktiveras inte av `phone-idp`/telefonpiloten.
-Federerade SignMessage-/SAD-begäranden avvisas av inloggningsproviderna.
+- `phone-idp`/`phone-sp`: federerad underskrift med SignMessage och SAD.
+  Appen visar texten och kräver en separat underskriftsåtgärd; kontotjänstens
+  testkonsol skapar en PAdES-signerad PDF med certifikat från en tillfällig,
+  ej betrodd test-CA i processminnet. Ingen HSM, betrodd tid eller
+  långtidsvalidering. Testkedjan styrker inte en kvalificerad underskrift eller
+  en verklig innehavares identitet.
 - `deployment/continuity/`: separat spärrtjänst och köad avisering för den publika
   betan. Privata ID:n är inte automatiskt migrerade. Se
   [drift och begränsningar](deployment/continuity/README.md).
 - `ops/`: driftcontainer i Render, utan e-id-funktioner.
 
 Privata telefonprov har bekräftat passläsning och SAML-inloggning. Bredare
-enhetsprov, modellernas felgrader, bildinjektion och certifikatspärr återstår. Se [verifierarens begränsningar](verification/README.md#begränsningar)
+enhetsprov, modellernas felgrader och bildinjektion återstår. Spärrkontroll av
+passets dokumentsignerare kräver att operatören konfigurerar CSCA:ns spärrlista. Se [verifierarens begränsningar](verification/README.md#begränsningar)
 och [testöversikten](docs/testning.md).
 De lokala labblägena ska inte exponeras via tunnel eller proxy. Den publika
 betan har separat ingress och konfiguration; labbkommandon öppnar inte en
@@ -53,7 +59,10 @@ Pilotregistret sparar passets personprofil och förminskade foto krypterat.
 Databas och nyckelfil måste skyddas separat från repot. Samma serverkonto
 kan läsa nyckeln och aktivera credentials. Använd endast
 `recovery.py restore` för återläsning av pilotdatabasen: den spärrar alla
-återställda nycklar och kräver ny registrering. Manuell återläsning som
+återställda nycklar och spärrar ny registrering och biometrisk analys i
+minst 24 timmar. Samma beständiga spärr finns i PostgreSQL-återställningen,
+så att en äldre backup inte återöppnar en förbrukad försöksbudget. Därefter
+krävs ny registrering. Manuell återläsning som
 bevarar aktiva nycklar kan förlora senare spärrar och stöds inte.
 SAML-/OIDC-tjänsterna nekar åtkomst om spärrkontrollen inte kan nås. Se
 [lagring och nycklar](verification/README.md#spärr-och-lagring).

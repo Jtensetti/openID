@@ -52,10 +52,10 @@ class DiagnosticTests(unittest.TestCase):
         self.assertEqual(json.loads(log.getvalue())['reason'], 'TIMEOUT')
 
     def test_success_returns_scores_without_diagnostics(self):
-        output = b'{"face":[0.9,0.9,0.9],"pad":[0.95,0.95,0.95]}'
+        output = b'{"face":[0.9,0.9,0.9],"pad":[0.95,0.95,0.95],"pose":[0.0,-0.25,0.25]}'
         log = io.StringIO()
         with patch('serve.subprocess.run', return_value=subprocess.CompletedProcess([], 0, output)), contextlib.redirect_stderr(log):
-            self.assertEqual(score_frames(b'p', [b'a', b'b', b'c']), ([.9]*3, [.95]*3))
+            self.assertEqual(score_frames(b'p', [b'a', b'b', b'c']), ([.9]*3, [.95]*3, [0.0, -0.25, 0.25]))
         self.assertEqual(log.getvalue(), '')
 
     def test_camera_frame_error_is_bounded_and_typed(self):

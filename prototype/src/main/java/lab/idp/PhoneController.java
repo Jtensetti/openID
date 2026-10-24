@@ -26,8 +26,17 @@ public final class PhoneController extends AbstractAuthenticationController<Phon
   @GetMapping("/") ModelAndView home() { return new ModelAndView("redirect:"+sp); }
   private String binding(HttpServletRequest request) {
     var token = getInputToken(request);
-    if (!(sp+"/sp").equals(token.getAuthnInputToken().getRequester().identifier())) throw new IllegalArgumentException();
+    // The account service and its signature service are the only configured requesters.
+    if (!java.util.Set.of(sp+"/sp", sp+"/sign").contains(token.getAuthnInputToken().getRequester().identifier())) throw new IllegalArgumentException();
     return token.getAuthnId();
+  }
+  private String signMessage(HttpServletRequest request) {
+    try { return SignatureRequestPolicy.signMessage(getInputToken(request).getAuthnInputToken().getAuthnRequirements()); }
+    catch (se.swedenconnect.spring.authnserver.error.AuthenticationErrorException e) { throw new IllegalStateException(); }
+  }
+  private String level(HttpServletRequest request) {
+    try { return SignatureRequestPolicy.level(getInputToken(request).getAuthnInputToken().getAuthnRequirements()); }
+    catch (se.swedenconnect.spring.authnserver.error.AuthenticationErrorException e) { throw new IllegalStateException(); }
   }
   private PhoneBridge.Pending pending(HttpServletRequest request) {
     String binding = binding(request);
@@ -36,17 +45,22 @@ public final class PhoneController extends AbstractAuthenticationController<Phon
     return pending;
   }
   @GetMapping("/phone") ModelAndView page(HttpServletRequest request) {
-    String binding = binding(request);
+    String binding = binding(request), message = signMessage(request), level = level(request);
     PhoneBridge.Pending pending;
     synchronized (request.getSession()) {
       Object value = request.getSession().getAttribute(PENDING);
-      if (value instanceof PhoneBridge.Pending old && old.binding().equals(binding)) pending = old;
+      if (value instanceof PhoneBridge.Pending old && old.binding().equals(binding) && java.util.Objects.equals(old.signMessage(), message)
+          && java.util.Objects.equals(old.level(), level)) pending = old;
       else {
         if (value instanceof PhoneBridge.Pending old) bridge.exchange("cancel", old);
-        pending = bridge.start(binding); request.getSession().setAttribute(PENDING, pending);
+        pending = bridge.start(binding, message, level); request.getSession().setAttribute(PENDING, pending);
       }
     }
-    return new ModelAndView("phone", Map.of("restartUrl", sp+"/login", "authnId", binding, "code", pending.code(), "requestId", pending.id(), "service", PhoneBridge.SERVICE, "purpose", PhoneBridge.PURPOSE));
+    var model = new java.util.HashMap<String, Object>(Map.of("restartUrl", sp+(pending.signing() ? "/sign" : "/login"), "authnId", binding, "code", pending.code(),
+        "requestId", pending.id(), "service", PhoneBridge.SERVICE, "purpose", pending.signing() ? PhoneBridge.SIGN_PURPOSE : PhoneBridge.PURPOSE, "signing", pending.signing(),
+        "securityCode", pending.securityCode()));
+    if (pending.signing()) model.put("signMessage", pending.signMessage());
+    return new ModelAndView("phone", model);
   }
   @GetMapping(value="/phone/qr", produces="image/svg+xml") @ResponseBody String qr(HttpServletRequest request) {
     return PhoneBridge.text(bridge.exchange("qr", pending(request)), "svg");
@@ -59,9 +73,20 @@ public final class PhoneController extends AbstractAuthenticationController<Phon
     request.getSession().removeAttribute(PENDING);
     return complete(request, new PhoneProvider.Approval(pending));
   }
-  @PostMapping("/phone/cancel") ModelAndView stop(HttpServletRequest request) {
+  /** Ends the registry request. The page then offers to return to the service with SAML status cancel. */
+  @PostMapping("/phone/cancel") org.springframework.http.ResponseEntity<Void> stop(HttpServletRequest request) {
     var pending = pending(request); bridge.exchange("cancel", pending);
-    request.getSession().removeAttribute(PENDING); return cancel(request);
+    request.getSession().removeAttribute(PENDING); return org.springframework.http.ResponseEntity.noContent().build();
+  }
+  /** Deployment Profile §6.4: the requester learns that the user cancelled (status .../status/1.0/cancel). */
+  @PostMapping("/phone/return") ModelAndView back(HttpServletRequest request) {
+    String binding = binding(request);
+    synchronized (request.getSession()) {
+      if (request.getSession().getAttribute(PENDING) instanceof PhoneBridge.Pending old && old.binding().equals(binding)) {
+        bridge.exchange("cancel", old); request.getSession().removeAttribute(PENDING);
+      }
+    }
+    return cancel(request);
   }
   @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class, UnrecoverableErrorException.class})
   @ResponseStatus(HttpStatus.BAD_REQUEST) ModelAndView rejected() {

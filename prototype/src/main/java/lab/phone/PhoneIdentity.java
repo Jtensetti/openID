@@ -7,6 +7,8 @@ import se.swedenconnect.opensaml.saml2.attribute.AttributeUtils;
 
 public record PhoneIdentity(String subject, String credential, String version, String displayName, String birthDateMrz, String portrait) {
   public static final String CONTEXT = "urn:openid:authn:passport-native:v1";
+  /** Same credential, plus the holder's 6-digit security code verified and counted by the registry. */
+  public static final String PIN_CONTEXT = "urn:openid:authn:passport-native:pin:v1";
   public static final String SUBJECT = "urn:openid:attribute:subject";
   public static final String CREDENTIAL = "urn:openid:attribute:credential";
   public static final String VERSION = "urn:openid:attribute:profile-version";

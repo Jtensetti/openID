@@ -1,0 +1,198 @@
+-- Run once as the database administrator in a new, dedicated database.
+BEGIN;
+DO $$
+DECLARE name text; existing record;
+BEGIN
+ FOREACH name IN ARRAY ARRAY['openid_owner','openid_enroller','openid_wallet','openid_requester',
+  'openid_approver','openid_revoker','openid_maintenance','openid_auditor','openid_backup'] LOOP
+  SELECT * INTO existing FROM pg_roles WHERE rolname=name;
+  IF NOT FOUND THEN EXECUTE format('CREATE ROLE %I NOLOGIN',name);
+  ELSIF existing.rolcanlogin OR existing.rolsuper OR existing.rolcreatedb OR existing.rolcreaterole
+    OR existing.rolreplication OR existing.rolbypassrls THEN RAISE EXCEPTION 'unsafe existing group role';
+  END IF;
+ END LOOP;
+END $$;
+-- CREATEROLE alone does not allow SET ROLE or inherited ownership on PostgreSQL 16+.
+GRANT openid_owner TO CURRENT_USER WITH INHERIT TRUE, SET TRUE;
+CREATE SCHEMA openid AUTHORIZATION openid_owner;
+REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+SET ROLE openid_owner;
+SET search_path=openid,pg_catalog;
+ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
+CREATE TABLE schema_version(version integer PRIMARY KEY CHECK(version=1));
+INSERT INTO schema_version VALUES(1);
+CREATE TABLE credentials (
+ id text PRIMARY KEY CHECK(id ~ '^[a-f0-9]{64}$'), public_key text UNIQUE NOT NULL,
+ state text NOT NULL CHECK(state IN ('PENDING_REVIEW','ACTIVE','REVOKED')), created bigint NOT NULL,
+ expires bigint, decision text, subject text UNIQUE NOT NULL,
+ CHECK(state!='ACTIVE' OR (expires IS NOT NULL AND decision IS NOT NULL)));
+CREATE TABLE persons(id text PRIMARY KEY, document_tag text UNIQUE NOT NULL);
+CREATE TABLE profiles (
+ credential text PRIMARY KEY REFERENCES credentials, person text NOT NULL REFERENCES persons,
+ version text UNIQUE NOT NULL, sealed text NOT NULL CHECK(length(sealed)<=65536),
+ verified bigint NOT NULL, document_expires bigint NOT NULL);
+CREATE TABLE requests (
+ id text PRIMARY KEY, credential text NOT NULL REFERENCES credentials, secret_hash text NOT NULL,
+ state text NOT NULL CHECK(state IN ('PENDING','APPROVED','REJECTED','CANCELLED','CONSUMED')),
+ created bigint NOT NULL, expires bigint NOT NULL, code text NOT NULL);
+CREATE TABLE federation_requests (
+ id text PRIMARY KEY, credential text REFERENCES credentials, secret_hash text NOT NULL,
+ state text NOT NULL CHECK(state IN ('PENDING','APPROVED','REJECTED','CANCELLED','CONSUMED')),
+ created bigint NOT NULL, expires bigint NOT NULL, code text NOT NULL, binding text NOT NULL, audience text NOT NULL);
+CREATE TABLE events(id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, credential text NOT NULL REFERENCES credentials,
+ kind text NOT NULL, time bigint NOT NULL, request text);
+CREATE TABLE challenges(id text PRIMARY KEY, credential text NOT NULL REFERENCES credentials,
+ payload text NOT NULL CHECK(length(payload)<=4096), expires bigint NOT NULL, federation boolean NOT NULL);
+CREATE TABLE pairwise_subjects(person text REFERENCES persons, audience text, subject text UNIQUE NOT NULL,
+ PRIMARY KEY(person,audience));
+CREATE TABLE activation_proposals(id text PRIMARY KEY, credential text REFERENCES credentials, profile_version text NOT NULL,
+ requester name NOT NULL, decision text NOT NULL, hours integer NOT NULL CHECK(hours BETWEEN 1 AND 72),
+ created bigint NOT NULL, expires bigint NOT NULL, approved_by name, approved_at bigint);
+CREATE TABLE operator_events(id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, actor name NOT NULL,
+ kind text NOT NULL, credential text, proposal text, time timestamptz NOT NULL DEFAULT clock_timestamp());
+CREATE TABLE maintenance_runs(id integer PRIMARY KEY CHECK(id=1), completed_at timestamptz NOT NULL, removed bigint NOT NULL);
+CREATE INDEX request_pending ON requests(credential,state,expires);
+CREATE INDEX event_recent ON events(credential,id DESC);
+CREATE INDEX profile_person ON profiles(person);
+CREATE INDEX federation_pending ON federation_requests(state,expires);
+CREATE INDEX challenge_expiry ON challenges(expires);
+CREATE INDEX challenge_credential ON challenges(credential);
+CREATE INDEX request_expiry ON requests(expires);
+CREATE INDEX federation_expiry ON federation_requests(expires);
+CREATE INDEX event_expiry ON events(time);
+CREATE INDEX proposal_expiry ON activation_proposals(expires);
+
+CREATE FUNCTION guard_credential() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+ IF TG_OP='INSERT' THEN
+  IF NEW.state!='PENDING_REVIEW' OR NEW.expires IS NOT NULL OR NEW.decision IS NOT NULL
+   OR abs(NEW.created-extract(epoch FROM clock_timestamp()))>60 THEN
+   RAISE EXCEPTION 'pending credential required';
+  END IF;
+ ELSIF current_user!='openid_owner' AND NEW.state!='REVOKED' THEN
+  RAISE EXCEPTION 'activation requires approval';
+ ELSIF OLD.state='REVOKED' AND NEW.state!='REVOKED' THEN
+  RAISE EXCEPTION 'revocation is permanent';
+ END IF;
+ RETURN NEW;
+END $$;
+CREATE TRIGGER credential_guard BEFORE INSERT OR UPDATE ON credentials FOR EACH ROW EXECUTE FUNCTION guard_credential();
+
+CREATE FUNCTION request_activation(target text, reference text, validity integer) RETURNS text
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $$
+DECLARE c credentials; p profiles; proposal text; now_epoch bigint:=extract(epoch FROM clock_timestamp())::bigint;
+BEGIN
+ IF reference !~ '^[A-Za-z0-9_-]{8,80}$' OR validity NOT BETWEEN 1 AND 72 OR validity IS NULL THEN
+  RAISE EXCEPTION 'invalid decision';
+ END IF;
+ SELECT * INTO c FROM credentials WHERE id=target FOR UPDATE;
+ SELECT * INTO p FROM profiles WHERE credential=target;
+ IF c.id IS NULL OR p.credential IS NULL OR c.state!='PENDING_REVIEW' OR c.created<now_epoch-86400
+  OR p.document_expires<=now_epoch THEN RAISE EXCEPTION 'new proofing required'; END IF;
+ IF EXISTS(SELECT 1 FROM activation_proposals WHERE credential=target AND expires>now_epoch AND approved_at IS NULL) THEN
+  RAISE EXCEPTION 'proposal already pending'; END IF;
+ proposal:=replace(gen_random_uuid()::text||gen_random_uuid()::text,'-','');
+ INSERT INTO activation_proposals VALUES(proposal,target,p.version,session_user,reference,validity,now_epoch,now_epoch+3600,NULL,NULL);
+ INSERT INTO operator_events(actor,kind,credential,proposal) VALUES(session_user,'ACTIVATION_REQUESTED',target,proposal);
+ RETURN proposal;
+END $$;
+
+CREATE FUNCTION revoke_credential(target text) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $$
+BEGIN
+ PERFORM 1 FROM credentials WHERE id=target FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'credential unavailable'; END IF;
+ UPDATE credentials SET state='REVOKED' WHERE id=target AND state!='REVOKED';
+ UPDATE requests SET state='CANCELLED' WHERE credential=target AND state IN ('PENDING','APPROVED');
+ UPDATE federation_requests SET state='CANCELLED' WHERE credential=target AND state IN ('PENDING','APPROVED');
+ DELETE FROM challenges WHERE credential=target;
+ INSERT INTO events(credential,kind,time) VALUES(target,'REVOKED',extract(epoch FROM clock_timestamp())::bigint);
+ INSERT INTO operator_events(actor,kind,credential) VALUES(session_user,'REVOKED',target);
+END $$;
+
+CREATE FUNCTION approve_activation(proposal_id text) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $$
+DECLARE proposal activation_proposals; c credentials; p profiles; old_id text;
+ now_epoch bigint:=extract(epoch FROM clock_timestamp())::bigint;
+BEGIN
+ SELECT * INTO proposal FROM activation_proposals WHERE id=proposal_id FOR UPDATE;
+ IF proposal.id IS NULL OR proposal.requester=session_user OR proposal.approved_at IS NOT NULL OR proposal.expires<=now_epoch THEN
+  RAISE EXCEPTION 'independent unused approval required'; END IF;
+ SELECT * INTO p FROM profiles WHERE credential=proposal.credential;
+ IF p.credential IS NULL OR p.version!=proposal.profile_version OR p.document_expires<=now_epoch THEN
+  RAISE EXCEPTION 'profile unavailable'; END IF;
+ -- All replacements for one person use this order: person, then sorted credentials.
+ PERFORM 1 FROM persons WHERE id=p.person FOR UPDATE;
+ PERFORM 1 FROM credentials WHERE id IN (SELECT credential FROM profiles WHERE person=p.person) ORDER BY id FOR UPDATE;
+ SELECT * INTO c FROM credentials WHERE id=proposal.credential;
+ IF c.state!='PENDING_REVIEW' OR c.created<now_epoch-86400 THEN RAISE EXCEPTION 'new proofing required'; END IF;
+ FOR old_id IN SELECT credential FROM profiles WHERE person=p.person AND credential!=c.id ORDER BY credential LOOP
+  PERFORM revoke_credential(old_id);
+ END LOOP;
+ UPDATE credentials SET state='ACTIVE',expires=least(now_epoch+proposal.hours*3600,p.document_expires),decision=proposal.decision WHERE id=c.id;
+ UPDATE activation_proposals SET approved_by=session_user,approved_at=now_epoch WHERE id=proposal_id;
+ INSERT INTO events(credential,kind,time) VALUES(c.id,'ACTIVATED',now_epoch);
+ INSERT INTO operator_events(actor,kind,credential,proposal) VALUES(session_user,'ACTIVATED',c.id,proposal_id);
+END $$;
+
+-- Deliberate fail-closed restore: run before any service receives access to a restored registry.
+CREATE FUNCTION revoke_all_after_restore() RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $$
+BEGIN
+ LOCK TABLE credentials,requests,federation_requests,challenges IN ACCESS EXCLUSIVE MODE;
+ UPDATE credentials SET state='REVOKED';
+ UPDATE requests SET state='CANCELLED' WHERE state IN ('PENDING','APPROVED');
+ UPDATE federation_requests SET state='CANCELLED' WHERE state IN ('PENDING','APPROVED');
+ DELETE FROM challenges;
+ UPDATE activation_proposals SET expires=0 WHERE approved_at IS NULL;
+ INSERT INTO operator_events(actor,kind) VALUES(session_user,'RESTORE_REVOKED_ALL');
+END $$;
+
+CREATE FUNCTION purge_expired(profile_days integer,event_days integer,max_batch integer) RETURNS bigint
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $$
+DECLARE removed bigint:=0; n bigint; item record; now_epoch bigint:=extract(epoch FROM clock_timestamp())::bigint;
+BEGIN
+ IF profile_days IS NULL OR event_days IS NULL OR max_batch IS NULL OR profile_days NOT BETWEEN 1 AND 3650
+  OR event_days NOT BETWEEN 1 AND 3650 OR max_batch NOT BETWEEN 1 AND 1000 THEN RAISE EXCEPTION 'retention policy required'; END IF;
+ DELETE FROM profiles WHERE credential IN (SELECT p.credential FROM profiles p JOIN credentials c ON c.id=p.credential
+  WHERE coalesce(c.expires,c.created+86400)<now_epoch-profile_days*86400
+  ORDER BY p.credential LIMIT max_batch FOR UPDATE OF p SKIP LOCKED);
+ GET DIAGNOSTICS n=ROW_COUNT; removed:=removed+n;
+ FOR item IN SELECT * FROM (VALUES
+  ('challenges','expires',now_epoch),('requests','expires',now_epoch-3600),
+  ('federation_requests','expires',now_epoch-3600),('events','time',now_epoch-event_days*86400),
+  ('activation_proposals','expires',now_epoch-event_days*86400)) AS t(table_name,column_name,cutoff)
+ LOOP
+  EXECUTE format('DELETE FROM %I WHERE id IN (SELECT id FROM %I WHERE %I<$1 ORDER BY id LIMIT $2 FOR UPDATE SKIP LOCKED)',
+   item.table_name,item.table_name,item.column_name) USING item.cutoff,max_batch;
+  GET DIAGNOSTICS n=ROW_COUNT; removed:=removed+n;
+ END LOOP;
+ INSERT INTO maintenance_runs VALUES(1,clock_timestamp(),removed)
+  ON CONFLICT(id) DO UPDATE SET completed_at=excluded.completed_at,removed=excluded.removed;
+ RETURN removed;
+END $$;
+
+REVOKE ALL ON ALL FUNCTIONS IN SCHEMA openid FROM PUBLIC;
+
+GRANT USAGE ON SCHEMA openid TO openid_enroller,openid_wallet,openid_requester,openid_approver,openid_revoker,openid_maintenance,openid_auditor;
+GRANT SELECT ON schema_version TO openid_enroller,openid_wallet,openid_maintenance;
+GRANT SELECT ON credentials,profiles,persons TO openid_enroller,openid_wallet,openid_maintenance;
+GRANT INSERT ON credentials,profiles,persons,events TO openid_enroller;
+GRANT SELECT,INSERT,DELETE ON challenges TO openid_wallet;
+GRANT SELECT,INSERT,UPDATE ON requests,federation_requests,pairwise_subjects TO openid_wallet;
+GRANT SELECT,INSERT ON events TO openid_wallet;
+GRANT UPDATE(state) ON credentials TO openid_wallet;
+GRANT USAGE ON SEQUENCE events_id_seq TO openid_enroller,openid_wallet;
+GRANT SELECT ON operator_events TO openid_auditor;
+GRANT SELECT ON activation_proposals TO openid_requester,openid_approver,openid_auditor;
+GRANT EXECUTE ON FUNCTION request_activation(text,text,integer) TO openid_requester;
+GRANT EXECUTE ON FUNCTION approve_activation(text) TO openid_approver;
+GRANT EXECUTE ON FUNCTION revoke_credential(text),revoke_all_after_restore() TO openid_revoker;
+GRANT SELECT ON requests,federation_requests,challenges,events,activation_proposals TO openid_maintenance;
+GRANT UPDATE(sealed) ON profiles TO openid_maintenance;
+GRANT EXECUTE ON FUNCTION purge_expired(integer,integer,integer) TO openid_maintenance;
+GRANT SELECT ON maintenance_runs TO openid_maintenance;
+GRANT USAGE ON SCHEMA openid TO openid_backup;
+GRANT SELECT ON ALL TABLES IN SCHEMA openid TO openid_backup;
+RESET ROLE;
+COMMIT;

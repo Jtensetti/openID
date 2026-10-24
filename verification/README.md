@@ -203,6 +203,65 @@ De genererade servernycklarna är testnycklar med 30 dagars giltighet.
 Ingen extern tjänst eller federation ansluts av dessa kommandon. Den
 simulerade `/lab`-providern är avstängd i `phone-idp`.
 
+## Testkonsol och underskrift
+
+Kontotjänsten (`phone-sp`) har en testkonsol på **https://localhost:8444/test**
+(betan: `https://openid.tensetti.io/test`). Varje fall skickar en signerad
+AuthnRequest till IdP:n och kontrollerar svaret med Sweden Connects
+svarsprocessor och fallets förväntade status:
+
+| Fall | Förväntat |
+|---|---|
+| Grundinloggning, ny legitimering utan ForceAuthn | Lyckat, färsk AuthnInstant, alla begärda attribut, återspelning avvisas |
+| IsPassive, LoA3 | `Requester/NoPassive`, `Requester/NoAuthnContext`, ingen assertion |
+| Avbryt eller neka | `Responder` + `http://id.elegnamnden.se/status/1.0/cancel` |
+| Underskrift, krypterat SignMessage | `signMessageDigest` för exakt texten, SAD validerad, PAdES-B-B-PDF |
+| HTML-text med MustShow, SAD utan text | Felsvar, ingenting visas eller signeras |
+| Inloggning och underskrift med säkerhetskod | Kodnivåns kontext i svaret och i SAD:en; fel kod räknas |
+| SignMessage från tjänst utan `sigservice` | Vanlig inloggning utan digest eller SAD |
+
+### Säkerhetskod för stora åtaganden
+
+Som BankID:s krav på säkerhetskod avgör tjänsten nivån per transaktion med
+autentiseringskontexten:
+
+| Kontext | Användaren gör | Exempel |
+|---|---|---|
+| `urn:openid:authn:passport-native:v1` | Face ID, Touch ID eller enhetskod | Inloggning, litet avtal |
+| `urn:openid:authn:passport-native:pin:v1` | Samma, plus säkerhetskod med sex siffror | Lån, stora belopp |
+
+Begär tjänsten båda väljs den lägre nivån. Svaret och SAD:en intygar nivån som
+faktiskt kontrollerades. Koden väljs i appen efter aktivering (åtgärden `set-pin`)
+och kontrolleras av registret, inte av appen: den lagras som HMAC med den separata
+identitetsnyckeln, bunden till credential. Fel kod räknas på servern; efter fem
+fel i rad spärras koden permanent och passet måste registreras på nytt. Rätt kod
+nollställer räknaren. Svaga koder (samma siffra, följder, upprepningar, passets
+födelsedatum) avvisas. Nekande och spärr kräver aldrig kod. Felkoderna
+`PIN_REQUIRED`, `PIN_INCORRECT` (med antal kvar), `PIN_LOCKED` och `PIN_WEAK`
+returneras med HTTP 403. Båda registerlägena stöder säkerhetskod och
+SignMessage. PostgreSQL bevarar text och verifieringsnivå i begäran och
+nekar tjänsterollen att ändra dem efter skapandet. Kodens HMAC beräknas av
+OpenBao Transit med separat ändamål och credentialbindning. Tjänsterollen
+kan varken läsa verifieraren eller ändra försök/låsning direkt; databasens
+begränsade funktioner räknar fel även över repliker och omstarter.
+
+Telefonens nyckel kräver fortfarande Face ID eller enhetskod även på kodnivån.
+Säkerhetskoden skyddar därmed mot den som känner till telefonens kod. Den
+skyddar inte mot en angripare som kan köra egen kod i appen och samtidigt känner
+till säkerhetskoden.
+
+**Skriv under** (`/sign`) låter dig välja ett litet avtal (Face ID) eller ett
+lånelöfte på 250 000 kr (säkerhetskod). Sidan i IdP:n
+och appen visar samma text; appen kräver **Skriv under** och Face ID. Den
+underskrivna PDF:en öppnas i en PDF-läsare; signaturpanelen visar undertecknaren
+och att certifikatet kommer från en ej betrodd test-CA. Underskriftsbeviset
+(JSON) innehåller SAD, signMessageDigest och certifikat. Resultat finns i
+30 minuter i webbläsaren som körde testet och försvinner vid omstart.
+
+Underskriftsentiteten `…/sign` har en egen metadata med kategorin
+`sigservice`; IdP:n annonserar `scal2`. `phone-idp` skriver den till
+nyckelkatalogen vid start. Klusterläget stöder ännu inte underskrift.
+
 ## Logga in i testtjänsten via webbläsaren
 
 Kör i en andra terminal på samma dator och operativsystemskonto som
@@ -272,7 +331,11 @@ behålls efter spärr men lämnas inte ut till appen eller tjänsten. Automatisk
 gallring och nyckelrotation saknas; operatören måste fastställa lagringstid
 och radera pilotens data och nyckel efter provet.
 **Återläsning av gamla databasfiler stöds inte**: den kan återställa en spärrad
-nyckel. Använd `recovery.py restore`, som spärrar återställda nycklar.
+nyckel. Använd `recovery.py restore`, som spärrar återställda nycklar och
+blockerar ny registrering och biometrisk analys i minst 24 timmar. Spärren
+lagras i databasen och överlever omstart. Den skyddar mot att en äldre
+backup saknar senare biometriförsök. Identitetsnyckeln måste bevaras separat
+även när det bara finns försökshistorik och inga profiler.
 Den publika betan kontrollerar dessutom den separata aktuella spärrtabellen;
 dess konfiguration och migrationsmarkör måste bevaras. Återställ aldrig
 en äldre programversion som saknar denna kontroll. Det privata grundläget
@@ -290,6 +353,43 @@ saknar externt spärrankare. Inga adminfunktioner exponeras via HTTP.
 | Chip | Servern kör JMRTD PACE/CA och kontrollerar en färsk MAC-skyddad DG14-läsning genom CoreNFC. |
 
 Native-flödet kräver ansiktslikhet ≥0,5 och PAD ≥0,8 för alla tre bilder.
+Servern väljer efter chipkontrollen en slumpad ordning för de tre bilderna
+(framåt, höger, vänster) och kontrollerar själv vridningen: näsans förskjutning
+längs ögonlinjen i YuNets landmärken (`face.pose_ratio`). En verklig
+huvudvridning ger parallax; ett foto eller en skärm som vinklas gör det inte.
+Bilden framåt ska vara frontal och de två andra tydligt vridna åt olika håll
+(`native.check_poses`). Riktningen höger/vänster kontrolleras först när
+`pose_direction` slås på efter fysisk kalibrering. Gränserna är experimentella.
+
+`"poseCheck": "log"` i runtime-konfigurationen loggar enbart utfallet
+(`PASSED`/`FAILED`) utan att stoppa registreringen. Använd det bara medan
+gränserna mäts på fysiska enheter; standard är `enforce`.
+
+Högst fem biometriska analyser per pass och rullande 24 timmar (HMAC-tagg i
+`biometric_failures`, även över omstart). Budgeten omfattar nu alla analyser,
+även godkända försök och modellfel, och debiteras atomärt före analysen.
+Parallella registreringar och nya processer kan inte återställa budgeten.
+PostgreSQL använder samma fem analyser per verifierad handling och rullande
+24 timmar, med Transit-HMAC, databasens klocka och en separat transaktion.
+Efter stödd återläsning spärras ny registrering automatiskt i 24 timmar i
+båda lagringslägena. Appen får `503 REGISTRATION_PAUSED` före fångsten;
+även pågående sessioners analys och direkt registrering stoppas. Råa poäng
+skickas inte till appen.
+
+### Spärrade dokumentsignerare
+
+Med `cscaCrl` i runtime-konfigurationen (eller `--csca-crl`) kontrolleras
+dokumentsignerarens certifikat mot CSCA:ns spärrlista, till exempel
+Polismyndighetens `http://cert.polisen.se/CSCA/SWE.crl`. Spärrlistan måste vara
+signerad av en betrodd CSCA och gälla nu. Spärrad eller okontrollerbar
+signerare stoppas (fail closed). En lista från en nyare CSCA-nyckel med samma
+namn täcker signerare från äldre nycklar (ICAO 9303-12). Hämta en ny lista före
+`nextUpdate`, annars stoppas alla registreringar:
+
+```sh
+curl -fsS -o /privat/csca.crl http://cert.polisen.se/CSCA/SWE.crl
+openssl crl -inform DER -in /privat/csca.crl -noout -issuer -nextupdate
+```
 Passiva passkontroller, ansiktsjämförelse och liveness avgör inte utgivning;
 `issuanceEnabled` är alltid false.
 
@@ -299,8 +399,11 @@ Passiva passkontroller, ansiktsjämförelse och liveness avgör inte utgivning;
   Motståndskraft mot masker, injektion och relä behöver utvärderas.
 - App Attest styrker appinstans och signerade data, inte kamerans fysiska
   ursprung. NFC-transporten förhindrar inte relä till ett annat fysiskt chip.
-- Certifikatspärr/CRL, länkcertifikat, äldre algoritmer och historiskt giltiga
-  men nu utgångna DSC stöds inte.
+- Spärrlistan hämtas manuellt; automatisk uppdatering, länkcertifikat, äldre
+  algoritmer och historiskt giltiga men nu utgångna DSC stöds inte.
+- Poskontrollen bevisar 3D-struktur i tre bilder, inte ett sammanhängande
+  rörelseförlopp. Film på skärm och injicerad video kräver PAD-, injektions-
+  och reläprov (ISO/IEC 30107-3, CEN/TS 18099).
 - Statisk QR ger inget närhetsbevis. Apple-kvoter och återanvändning av
   App Attest-nycklar behöver hanteras inför bredare drift.
 - Operatören kontrollerar databasen. Rollseparation, swap/kraschdumpar,

@@ -13,6 +13,20 @@ class ChipFixture:
     def close(self): self.closed = True
 
 
+# Fixture frames are b'a', b'b', b'c' (see capture_ready). A double for the landmark pose check:
+# frontal, turned to the subject's right, turned to the left (unmirrored convention).
+FIXTURE_ORDER = ['front', 'right', 'left']
+FIXTURE_RATIOS = {b'a': 0.0, b'b': -0.25, b'c': 0.25}
+
+def fixture_order():
+    return list(FIXTURE_ORDER)
+
+def pose_matcher(matcher):
+    matcher.decode_face.side_effect = lambda frame: ('image', frame)
+    matcher.pose_ratio.side_effect = lambda face: FIXTURE_RATIOS[face]
+    return matcher
+
+
 def signed(ident, payload):
     return {'id':ident, 'payload':base64.b64encode(json.dumps(payload).encode()).decode(), 'assertion':'test'}
 

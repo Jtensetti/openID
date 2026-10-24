@@ -81,7 +81,7 @@ class ClusterTests(unittest.TestCase):
 
     def setUp(self):
         with self.psycopg.connect(DSN, autocommit=True) as db:
-            db.execute('TRUNCATE openid.credentials,openid.persons,openid.operator_events,openid.maintenance_runs RESTART IDENTITY CASCADE')
+            db.execute('TRUNCATE openid.credentials,openid.persons,openid.operator_events,openid.maintenance_runs,openid.biometric_attempts,openid.enrollment_quarantine RESTART IDENTITY CASCADE')
         self.enroller=self.store('enroller')
         self.a=self.store('wallet'); self.b=self.store('wallet')
         self.ident=self.enroller.enroll(self.keys[0]['publicKey'], document())['id']
@@ -114,6 +114,74 @@ class ClusterTests(unittest.TestCase):
         with self.assertRaises(self.psycopg.Error):self.sql('bob','SELECT approve_activation(%s)',(proposal,))
         self.assertEqual(2,len(self.sql('auditor','SELECT * FROM operator_events')))
 
+    def test_biometric_budget_is_atomic_across_replicas_and_cannot_be_reset_by_services(self):
+        from wallet import BiometricAttemptLimit
+        second=self.store('enroller')
+        def attempt(i):
+            try:return (self.enroller if i%2 else second).biometric_attempt(document())
+            except BiometricAttemptLimit:return None
+        with ThreadPoolExecutor(max_workers=12) as pool:
+            results=list(pool.map(attempt,range(24)))
+        self.assertEqual(list(range(5)),sorted(r for r in results if r is not None))
+        self.enroller.close();self.enroller=self.store('enroller')
+        with self.assertRaises(BiometricAttemptLimit):self.enroller.biometric_attempt(document())
+        self.assertEqual(4,self.enroller.biometric_attempt(document(documentNumber='TEST00009')))
+        for role in self.dsns:
+            with self.subTest(role=role),self.assertRaises(self.psycopg.Error):
+                self.sql(role,'DELETE FROM biometric_attempts')
+        with self.psycopg.connect(DSN) as db:
+            db.execute('UPDATE openid.biometric_attempts SET times=ARRAY[%s::bigint]',(int(time.time())-86401,))
+        self.assertEqual(4,self.enroller.biometric_attempt(document()))
+
+    def test_short_audit_retention_is_refused_even_when_bypassing_the_cli(self):
+        from maintenance import maintain
+        maintenance=self.store('maintenance')
+        for days in (0,1,30,1826):
+            with self.subTest(days=days),self.assertRaises(ValueError):
+                maintain(maintenance,profile_days=7,event_days=days)
+            with self.assertRaises(self.psycopg.Error):
+                self.sql('maintenance','SELECT purge_expired(7,%s,100)',(days,))
+        self.activate()
+        self.sql('maintenance','SELECT purge_expired(7,1827,100)')
+        self.assertEqual(1,len(self.sql('auditor','SELECT * FROM activation_proposals')))
+
+    def test_schema_one_migration_preserves_enrollment_and_enforces_new_boundaries(self):
+        from postgres import PostgresWallet,RegistryUnavailable
+        from psycopg.conninfo import conninfo_to_dict,make_conninfo
+        target=self.restore_target()
+        from psycopg import sql
+        with self.psycopg.connect(DSN,autocommit=True) as admin:
+            admin.execute(sql.SQL('CREATE DATABASE {} TEMPLATE template0').format(sql.Identifier(target)))
+        admin_dsn=make_conninfo(**(conninfo_to_dict(DSN)|{'dbname':target}))
+        def dsn(role):return make_conninfo(**(conninfo_to_dict(self.dsns[role])|{'dbname':target}))
+        with self.psycopg.connect(admin_dsn,autocommit=True) as db:
+            # This fixture is the exact version-1 schema from c91102b, not generated from version 2.
+            db.execute((Path(__file__).parent/'fixtures/schema-v1.sql').read_text(),prepare=False)
+            with self.psycopg.connect(DSN) as source:
+                for table in ('credentials','persons','profiles'):
+                    rows=source.execute('SELECT * FROM openid.'+table).fetchall()
+                    for row in rows:
+                        db.execute('INSERT INTO openid.'+table+' VALUES('+','.join(['%s']*len(row))+')',row)
+            with self.assertRaises(RegistryUnavailable):
+                PostgresWallet(dsn('enroller'),self.a.origin,self.enroller.vault,local_test=True)
+            migration=(Path(__file__).parents[1]/'deployment/cluster/migrate-1-to-2.sql').read_text()
+            db.execute(migration,prepare=False)
+            self.assertEqual([(2,)],db.execute('SELECT version FROM openid.schema_version').fetchall())
+            with self.assertRaises(self.psycopg.Error):db.execute(migration,prepare=False)
+            db.execute('ROLLBACK')
+            self.assertEqual([(2,)],db.execute('SELECT version FROM openid.schema_version').fetchall())
+        migrated=PostgresWallet(dsn('enroller'),self.a.origin,self.enroller.vault,local_test=True)
+        self.addCleanup(migrated.close)
+        self.assertEqual(4,migrated.biometric_attempt(document()))
+        with migrated.transaction() as db:
+            self.assertEqual(self.ident,db.execute('SELECT credential FROM profiles').fetchone()[0])
+            self.assertEqual('PENDING_REVIEW',db.execute('SELECT state FROM credentials').fetchone()[0])
+        with self.psycopg.connect(dsn('revoker')) as revoker:revoker.execute('SELECT openid.revoke_all_after_restore()')
+        from wallet import EnrollmentQuarantine
+        for operation in (migrated.enrollment_available,lambda:migrated.biometric_attempt(document()),
+                          lambda:migrated.enroll(self.keys[2]['publicKey'],document())):
+            with self.assertRaises(EnrollmentQuarantine):operation()
+
     def test_same_login_cannot_approve_even_with_both_roles(self):
         proposal=self.sql('carol','SELECT request_activation(%s,%s,%s)',(self.ident,'REVIEW-test-002',24))[0][0]
         with self.assertRaises(self.psycopg.Error):self.sql('carol','SELECT approve_activation(%s)',(proposal,))
@@ -132,12 +200,56 @@ class ClusterTests(unittest.TestCase):
     def test_function_privileges_match_actual_roles(self):
         allowed={'request_activation(text,text,integer)':{'alice','carol'},'approve_activation(text)':{'bob','carol'},
             'revoke_credential(text)':{'revoker'},'revoke_all_after_restore()':{'revoker'},
-            'purge_expired(integer,integer,integer)':{'maintenance'}}
+            'purge_expired(integer,integer,integer)':{'maintenance'},
+            'reserve_biometric_attempt(text)':{'enroller'},'security_code_status(text)':{'wallet'},
+            'check_security_code(text,text)':{'wallet'},'set_security_code(text,text,text)':{'wallet'}}
         for function,users in allowed.items():
             for role in self.dsns:
                 with self.subTest(function=function,role=role):
                     self.assertEqual(role in users,self.sql(role,'SELECT has_function_privilege(current_user,%s,%s)',
                         ('openid.'+function,'EXECUTE'))[0][0])
+
+    def test_signed_text_code_level_and_federation_binding_are_shared_and_immutable(self):
+        from wallet import SecurityCodeError
+        self.activate()
+        with self.assertRaises(SecurityCodeError) as weak:
+            self.a.execute(self.signed('set-pin')|{'newPin':'123456'})
+        self.assertEqual('PIN_WEAK',weak.exception.code)
+        self.a.execute(self.signed('set-pin')|{'newPin':'482917'})
+        r=self.a.federation_start('_shared_signing','https://rp.example.test','SYNTHETIC document 42','pin')
+        inspected=self.b.execute(self.signed('inspect',r['id'],store=self.b))['requests'][0]
+        self.assertEqual(('SYNTHETIC document 42','pin'),(inspected['signMessage'],inspected['verification']))
+        with self.assertRaises(ValueError):self.a.challenge({'credentialId':self.ident,'action':'approve','requestId':r['id']})
+        for field,value in (('sign_message','different text'),('level',None),('binding','other'),('audience','https://other.invalid')):
+            with self.subTest(field=field),self.assertRaises(self.psycopg.Error):
+                self.sql('wallet','UPDATE federation_requests SET '+field+'=%s WHERE id=%s',(value,r['id']))
+        with self.assertRaises(SecurityCodeError) as wrong:
+            self.b.execute(self.signed('sign',r['id'],store=self.b)|{'pin':'482918'})
+        self.assertEqual(('PIN_INCORRECT',4),(wrong.exception.code,wrong.exception.remaining))
+        self.a.execute(self.signed('sign',r['id'])|{'pin':'482917'})
+        result=self.b.federation_result('consume',r['id'],r['secret'],'_shared_signing','https://rp.example.test')
+        self.assertEqual('pin',result['verification'])
+        self.assertEqual(hashlib.sha256(b'SYNTHETIC document 42').hexdigest(),result['signMessageSha256'])
+        with self.assertRaises(ValueError):self.a.federation_result('consume',r['id'],r['secret'],'_shared_signing','https://rp.example.test')
+
+    def test_parallel_wrong_codes_lock_once_and_service_role_cannot_read_or_reset_verifiers(self):
+        from wallet import SecurityCodeError
+        self.activate();self.a.execute(self.signed('set-pin')|{'newPin':'482917'})
+        r=self.a.federation_start('_pin_lock','https://rp.example.test',level='pin')
+        attempts=[self.signed('approve',r['id'])|{'pin':'482918'} for _ in range(10)]
+        def wrong(attempt):
+            try:self.b.execute(attempt);return 'unexpected approval'
+            except SecurityCodeError as e:return e.code
+        with ThreadPoolExecutor(max_workers=6) as pool:results=list(pool.map(wrong,attempts))
+        self.assertEqual(4,results.count('PIN_INCORRECT'));self.assertEqual(6,results.count('PIN_LOCKED'))
+        self.a.close();self.a=self.store('wallet')
+        with self.assertRaises(SecurityCodeError) as locked:
+            self.a.execute(self.signed('set-pin')|{'pin':'482917','newPin':'739154'})
+        self.assertEqual('PIN_LOCKED',locked.exception.code)
+        for role in ('wallet','enroller','maintenance','auditor'):
+            for statement in ('SELECT hash FROM security_codes','UPDATE security_codes SET failures=0,locked=0','DELETE FROM security_codes'):
+                with self.subTest(role=role,statement=statement),self.assertRaises(self.psycopg.Error):self.sql(role,statement)
+        self.assertEqual(0,self.a.execute(self.signed())['securityCode']['attemptsRemaining'])
 
     def test_database_tls_rejects_wrong_ca_and_hostname(self):
         import socket
@@ -311,6 +423,8 @@ class ClusterTests(unittest.TestCase):
         from psycopg.conninfo import conninfo_to_dict,make_conninfo
         from postgres import PostgresWallet
         self.activate()
+        self.enroller.biometric_attempt(document())
+        self.enroller.biometric_attempt(document())
         request=self.a.start_request(self.ident)
         self.a.execute(self.signed('approve',request['id']))
         signed=self.signed()
@@ -339,16 +453,43 @@ class ClusterTests(unittest.TestCase):
         self.assertEqual('REVOKED',restored.execute(self.signed(store=restored))['state'])
         enroller=PostgresWallet(dsn('enroller'),self.a.origin,self.enroller.vault,local_test=True)
         self.addCleanup(enroller.close)
+        from wallet import EnrollmentQuarantine
+        for operation in (enroller.enrollment_available,lambda:enroller.biometric_attempt(document()),
+                          lambda:enroller.enroll(self.keys[2]['publicKey'],document())):
+            with self.assertRaises(EnrollmentQuarantine):operation()
+        with self.psycopg.connect(admin_dsn) as admin:
+            self.assertEqual(2,admin.execute('SELECT cardinality(times) FROM openid.biometric_attempts').fetchone()[0])
+            self.assertGreaterEqual(admin.execute('SELECT until_epoch-extract(epoch FROM clock_timestamp()) FROM openid.enrollment_quarantine').fetchone()[0],86390)
+            # Test-only boundary simulation. No service role has this update permission.
+            admin.execute('UPDATE openid.enrollment_quarantine SET until_epoch=0')
+        self.assertEqual(2,enroller.biometric_attempt(document()))  # spent attempts survive COPY/restore
         with self.assertRaises(ValueError):enroller.enroll(self.keys[0]['publicKey'],document())
         ident=enroller.enroll(self.keys[2]['publicKey'],document())['id']
         with self.psycopg.connect(dsn('alice')) as operator:
             fresh=operator.execute('SELECT openid.request_activation(%s,%s,%s)',(ident,'REVIEW-after-restore',24)).fetchone()[0]
         with self.psycopg.connect(dsn('bob')) as operator:operator.execute('SELECT openid.approve_activation(%s)',(fresh,))
         self.assertEqual('ACTIVE',restored.execute(self.signed(key=2,store=restored))['state'])
+
         with self.psycopg.connect(admin_dsn) as admin:
             self.assertEqual(1,admin.execute("SELECT count(*) FROM openid.operator_events WHERE kind='RESTORE_REVOKED_ALL'").fetchone()[0])
         with self.assertRaises(self.psycopg.Error):restore(DSN,destination,target,self.a.vault,local_test=True)
         self.assertEqual('ACTIVE',restored.execute(self.signed(key=2,store=restored))['state'])
+
+    def test_restore_hold_cannot_be_reset_or_shadowed_by_a_service(self):
+        from wallet import EnrollmentQuarantine
+        self.sql('revoker','SELECT revoke_all_after_restore()')
+        with self.assertRaises(EnrollmentQuarantine):self.enroller.enrollment_available()
+        with self.assertRaises(EnrollmentQuarantine):self.enroller.biometric_attempt(document())
+        for role in self.dsns:
+            for statement in ('UPDATE enrollment_quarantine SET until_epoch=0','DELETE FROM enrollment_quarantine'):
+                with self.subTest(role=role,statement=statement),self.assertRaises(self.psycopg.Error):self.sql(role,statement)
+        with self.psycopg.connect(self.dsns['enroller']) as attacker:
+            attacker.execute('CREATE TEMP TABLE enrollment_quarantine(id integer,until_epoch bigint)')
+            attacker.execute('SET LOCAL search_path=pg_temp,openid,pg_catalog')
+            key=self.keys[2]['publicKey'];ident=hashlib.sha256(base64.b64decode(key)).hexdigest()
+            with self.assertRaises(self.psycopg.Error):
+                attacker.execute('INSERT INTO openid.credentials VALUES(%s,%s,%s,%s,NULL,NULL,%s)',
+                    (ident,key,'PENDING_REVIEW',int(time.time()),secrets.token_hex(32)))
 
     def test_corrupt_unbounded_or_foreign_backup_is_rejected_before_creation(self):
         from cluster_recovery import backup,restore
@@ -396,7 +537,7 @@ class ClusterTests(unittest.TestCase):
         obsolete_snapshot=cluster.call(source,'sys/storage/raft/snapshot',token=token,raw=True)
         cluster.call(source,'transit/keys/openid-profile/rotate',{},token)
         with self.psycopg.connect(DSN,autocommit=True) as admin:
-            admin.execute('TRUNCATE openid.credentials,openid.persons,openid.operator_events,openid.maintenance_runs RESTART IDENTITY CASCADE')
+            admin.execute('TRUNCATE openid.credentials,openid.persons,openid.operator_events,openid.maintenance_runs,openid.biometric_attempts RESTART IDENTITY CASCADE')
         self.enroller.vault=TransitVault(source['address'],tokens['enroller'],str(cluster.cert))
         self.ident=self.enroller.enroll(self.keys[0]['publicKey'],document())['id'];self.activate()
         destination=self.root/('paired-'+secrets.token_hex(8))
@@ -422,14 +563,14 @@ class ClusterTests(unittest.TestCase):
         from maintenance import maintain
         maintenance=self.store('maintenance')
         self.bao_request('transit/keys/openid-profile/rotate',{})
-        result=maintain(maintenance,profile_days=7,event_days=30,batch=1)
+        result=maintain(maintenance,profile_days=7,event_days=1827,batch=1)
         self.assertEqual(1,result['rewrapped'])
-        self.assertEqual(0,maintain(maintenance,profile_days=7,event_days=30)['rewrapped'])
+        self.assertEqual(0,maintain(maintenance,profile_days=7,event_days=1827)['rewrapped'])
         self.activate()
         with self.psycopg.connect(DSN) as db:
             db.execute('SET LOCAL ROLE openid_owner')
             db.execute('UPDATE openid.credentials SET expires=%s',(int(time.time())-8*86400,))
-        maintain(maintenance,profile_days=7,event_days=30)
+        maintain(maintenance,profile_days=7,event_days=1827)
         with self.a.transaction() as db:
             self.assertEqual(0,db.execute('SELECT count(*) FROM profiles').fetchone()[0])
             self.assertEqual(1,db.execute('SELECT count(*) FROM credentials').fetchone()[0])

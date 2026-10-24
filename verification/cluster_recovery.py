@@ -22,7 +22,7 @@ from transit import TransitVault
 SCHEMA = Path(__file__).parents[1] / 'deployment/cluster/schema.sql'
 TABLES = ('credentials', 'persons', 'profiles', 'requests', 'federation_requests',
           'events', 'challenges', 'pairwise_subjects', 'activation_proposals',
-          'operator_events', 'maintenance_runs')
+          'operator_events', 'maintenance_runs', 'biometric_attempts', 'security_codes', 'enrollment_quarantine')
 MAX_BYTES = 10 * 1024 ** 3
 DEADLINE = 1800
 
@@ -77,7 +77,7 @@ def backup(dsn, destination, *, local_test=False, max_bytes=MAX_BYTES):
     try:
         with psycopg.connect(**options(dsn, local_test)) as db:
             db.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
-            if db.info.server_version // 10000 != 18 or db.execute('SELECT version FROM openid.schema_version').fetchall() != [(1,)]:
+            if db.info.server_version // 10000 != 18 or db.execute('SELECT version FROM openid.schema_version').fetchall() != [(2,)]:
                 raise ValueError('unsupported register version')
             for table in TABLES:
                 digest = hashlib.sha256()

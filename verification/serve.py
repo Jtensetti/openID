@@ -56,15 +56,24 @@ def score_frames(portrait, frames):
         if stage in {'MODEL_LOAD', 'WORKER'}: raise OSError('biometric worker unavailable')
         raise ValueError('biometric analysis rejected')
     data = json.loads(result.stdout)
-    return data['face'], data['pad']
+    return data['face'], data['pad'], data['pose']
+
+
+def proofing_commands(config):
+    """Passport and chip commands. With cscaCrl, document signer revocation fails closed."""
+    base = ['java', '-Xmx128m', '-jar', config['jar']]
+    passport = [*base, 'verify-passport', config['csca'], *([config['cscaCrl']] if 'cscaCrl' in config else [])]
+    return passport, [*base, 'authenticate-chip', config['csca']]
 
 
 def load_config(path):
     value = json.loads(Path(path).read_text())
     required = {'bind', 'origin', 'team', 'bundle', 'developmentAttestation', 'tlsCert', 'tlsKey', 'csca', 'database', 'pairingFile'}
-    if not required <= set(value) or set(value) - required - {'listenPort', 'publicEnrollment'}:
+    if not required <= set(value) or set(value) - required - {'listenPort', 'publicEnrollment', 'cscaCrl', 'poseCheck'}:
         raise ValueError('Configuration fields do not match the example')
     if type(value.get('publicEnrollment', False)) is not bool: raise ValueError('Public enrollment flag')
+    # 'log' keeps registration open while the uncalibrated pose limits are measured on real devices.
+    if value.get('poseCheck', 'enforce') not in ('enforce', 'log'): raise ValueError('Pose check mode')
     if value.get('publicEnrollment', False) and (value['developmentAttestation'] is not False or value['origin'] != 'https://api.openid.tensetti.io'):
         raise ValueError('Public beta requires production App Attest and the canonical origin')
     origin = validate_origin(value['origin'])
@@ -75,10 +84,10 @@ def load_config(path):
     if not re.fullmatch('[A-Z0-9]{10}', value['team']): raise ValueError('Apple Team ID')
     if not re.fullmatch('[A-Za-z0-9.-]{3,128}', value['bundle']): raise ValueError('Bundle ID')
     if type(value['developmentAttestation']) is not bool: raise ValueError('Attestation environment')
-    for key in ('tlsCert', 'tlsKey', 'csca', 'database', 'pairingFile'):
-        if not Path(value[key]).is_absolute(): raise ValueError('Absolute paths required')
-    for key in ('tlsCert', 'csca'):
-        if not Path(value[key]).is_file(): raise ValueError('Certificate file missing')
+    for key in ('tlsCert', 'tlsKey', 'csca', 'database', 'pairingFile', 'cscaCrl'):
+        if key in value and not Path(value[key]).is_absolute(): raise ValueError('Absolute paths required')
+    for key in ('tlsCert', 'csca', 'cscaCrl'):
+        if key in value and not Path(value[key]).is_file(): raise ValueError('Certificate file missing')
     private_file(value['tlsKey'])
     token = private_file(value['pairingFile']).decode('ascii').strip()
     if not re.fullmatch('[A-Za-z0-9_-]{43,128}', token): raise ValueError('Pairing file format')
@@ -204,11 +213,11 @@ def main():
             from native import NativeSessions, AppAttest
             from chip import ChipProcess
             from server import verify_document
-            command = ['java', '-Xmx128m', '-jar', config['jar'], 'verify-passport', config['csca']]
+            command, chip_command = proofing_commands(config)
             native = NativeSessions(AppAttest(config['team'], config['bundle'], config['developmentAttestation']),
                 lambda data: verify_document(command, data), None, None, wallet=wallet,
-                chip_factory=lambda data: ChipProcess([*command[:-2], 'authenticate-chip', command[-1]], data),
-                biometrics=score_frames)
+                chip_factory=lambda data: ChipProcess(chip_command, data),
+                biometrics=score_frames, pose_enforced=config.get('poseCheck', 'enforce') == 'enforce')
             app = Runtime(native, wallet, config['origin'], config['pairing'], public_enrollment=config.get('publicEnrollment', False))
             app.crypto = crypto
             return app

@@ -39,6 +39,8 @@ public final class Lab implements AutoCloseable {
     OpenSAMLInitializer.getInstance().initialize(new OpenSAMLSecurityDefaultsConfig(new LabSecurityConfiguration()), new OpenSAMLSecurityExtensionConfig());
     Path metadata = keys.directory().resolve("sp-metadata.xml");
     Files.writeString(metadata, Metadata.sp(keys, spBase, phone != null));
+    Path signMetadata = keys.directory().resolve("sign-metadata.xml");
+    if (phone != null) Files.writeString(signMetadata, Metadata.signService(keys, spBase));
     Map<String, Object> p = new HashMap<>();
     p.put("spring.config.location", "classpath:/application.properties");
     p.put("spring.main.banner-mode", "off");
@@ -58,6 +60,7 @@ public final class Lab implements AutoCloseable {
     p.put("authn-server.saml.max-message-age", "60s"); p.put("authn-server.saml.clock-skew", "0s");
     p.put("authn-server.saml.assertions.encrypt", true); p.put("authn-server.saml.assertions.not-after", "30s");
     p.put("authn-server.saml.metadata-providers[0].location", metadata.toUri().toString());
+    if (phone != null) p.put("authn-server.saml.metadata-providers[1].location", signMetadata.toUri().toString());
     p.put("authn-server.saml.credentials.default-credential.bundle", "lab-idp");
     p.put("credential.bundles.jks.lab-idp.key.alias", "idp");
     p.put("credential.bundles.jks.lab-idp.key.key-password", TestKeys.PASSWORD);
@@ -87,7 +90,7 @@ public final class Lab implements AutoCloseable {
     finally { try { registry.close(); } catch (Exception e) { throw new IllegalStateException("Could not close persistent registry"); } }
   }
   public static void main(String[] args) throws Exception {
-    if (args.length == 2 && args[0].equals("verify-passport")) { lab.proofing.PassportCommand.run(args[1]); return; }
+    if ((args.length == 2 || args.length == 3) && args[0].equals("verify-passport")) { lab.proofing.PassportCommand.run(args[1], args.length == 3 ? args[2] : null); return; }
     if (args.length == 2 && args[0].equals("authenticate-chip")) { lab.proofing.ChipCommand.run(args[1]); return; }
     if (args.length == 2 && args[0].equals("phone-init")) { TestKeys.initialize(Path.of(args[1])); return; }
     if ((args.length == 3 || args.length == 4) && Set.of("phone-idp", "phone-sp").contains(args[0])) {

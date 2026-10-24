@@ -82,6 +82,11 @@ struct HomeView: View {
                     } else if model.snapshot?.state == .active {
                         PrimaryButton(title: "Legitimera mig", symbol: "qrcode.viewfinder") { model.selectedTab = 1 }
                             .accessibilityIdentifier("home.identify").disabled(model.busy)
+                        if model.snapshot?.securityCode?.set == false {
+                            NavigationLink { SecurityCodeView() } label: {
+                                Label("Välj säkerhetskod för stora åtaganden", systemImage: "lock.shield").frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                            }.accessibilityIdentifier("home.securityCode")
+                        }
                         Button("Hämta status") { model.refresh() }.frame(minHeight: 44).disabled(model.busy)
                     } else {
                         PrimaryButton(title: "Hämta status", symbol: "arrow.clockwise") { model.refresh() }.disabled(model.busy)
@@ -192,8 +197,8 @@ struct RequestsView: View {
                     ForEach(requests) { request in
                         Button { model.focusedRequest = request } label: {
                             VStack(alignment: .leading, spacing: 10) {
-                                Label(request.relyingParty, systemImage: "building.2").font(.headline)
-                                Text(request.purpose).font(.subheadline)
+                                Label(request.relyingParty, systemImage: request.isSigning ? "signature" : "building.2").font(.headline)
+                                Text(request.isSigning ? "Underskrift" : request.purpose).font(.subheadline)
                                 HStack { Text("Kod \(request.code)").monospaced(); Spacer(); Image(systemName: "chevron.right") }.font(.caption)
                             }.padding(20).frame(maxWidth: .infinity, alignment: .leading).background(.white, in: RoundedRectangle(cornerRadius: 20))
                         }.buttonStyle(.plain).disabled(request.expired)
@@ -230,31 +235,124 @@ struct ControlCodeView: View {
             .accessibilityIdentifier("approval.code")
     }
 }
+/// Six digits, masked; only digits are kept and at most six.
+struct SecurityCodeField: View {
+    let title: String
+    @Binding var code: String
+    var body: some View {
+        SecureField(title, text: $code)
+            .keyboardType(.numberPad).font(.title2.monospacedDigit())
+            .onChange(of: code) { value in
+                let digits = String(value.unicodeScalars.filter { (48...57).contains($0.value) }.map(Character.init).prefix(6))
+                if digits != value { code = digits }
+            }
+            .accessibilityLabel(title)
+    }
+}
+struct SecurityCodeView: View {
+    @EnvironmentObject var model: WalletModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var current = ""
+    @State private var new = ""
+    @State private var repeated = ""
+    private var status: SecurityCodeStatus? { model.snapshot?.securityCode }
+    var body: some View {
+        Form {
+            if status?.locked == true {
+                Section("Spärrad") {
+                    Text(WalletError.securityCode("PIN_LOCKED", 0).localizedDescription)
+                }
+            } else {
+                Section {
+                    Text("Tjänster kan kräva säkerhetskoden för stora åtaganden, till exempel lån eller avtal med höga belopp. Face ID räcker för det vardagliga.")
+                    Text("Koden kontrolleras av openID-servern. Fem fel i rad spärrar den; då måste du registrera ditt ID på nytt med passet.").font(.footnote).foregroundStyle(.secondary)
+                }
+                if status?.set == true {
+                    Section("Nuvarande kod") { SecurityCodeField(title: "Nuvarande säkerhetskod", code: $current) }
+                }
+                Section(status?.set == true ? "Ny kod" : "Välj kod") {
+                    SecurityCodeField(title: "Sex siffror", code: $new)
+                    SecurityCodeField(title: "Upprepa koden", code: $repeated)
+                    Text("Använd inte telefonens kod, ditt födelsedatum eller följder som 123456.").font(.footnote).foregroundStyle(.secondary)
+                }
+                if let message = model.securityCodeMessage {
+                    Text(message).font(.callout).foregroundStyle(.red).accessibilityIdentifier("securityCode.message")
+                }
+                Section {
+                    Button(status?.set == true ? "Byt säkerhetskod" : "Spara säkerhetskod") {
+                        model.setSecurityCode(current: status?.set == true ? current : nil, new: new)
+                    }.disabled(model.busy || !SecurityCode.valid(new) || new != repeated || (status?.set == true && !SecurityCode.valid(current)))
+                    if !repeated.isEmpty && repeated.count == 6 && new != repeated { Text("Koderna är inte lika.").font(.footnote).foregroundStyle(.red) }
+                    if model.busy { ProgressView() }
+                }
+            }
+        }.navigationTitle("Säkerhetskod").navigationBarTitleDisplayMode(.inline)
+            .onAppear { model.clearSecurityCodeMessage() }
+            .onChange(of: model.statusMessage) { message in
+                if message != nil && model.snapshot?.securityCode?.set == true && model.securityCodeMessage == nil { dismiss() }
+            }
+    }
+}
 struct ApprovalView: View {
     @EnvironmentObject var model: WalletModel
     @Environment(\.dismiss) private var dismiss
+    @State private var securityCode = ""
     let request: WalletRequest
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 25) {
-                Label("BEGÄRAN OM LEGITIMERING", systemImage: "arrow.down.left").font(.caption.bold()).foregroundStyle(Palette.muted)
+                Label(request.isSigning ? "BEGÄRAN OM UNDERSKRIFT" : "BEGÄRAN OM LEGITIMERING", systemImage: request.isSigning ? "signature" : "arrow.down.left")
+                    .font(.caption.bold()).foregroundStyle(Palette.muted)
                 Text(request.relyingParty).font(.largeTitle.bold())
-                Text(request.purpose).font(.title3)
+                if let text = request.signMessage {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Det här skriver du under").font(.subheadline.weight(.semibold))
+                        // Plain text only, never interpreted as markdown or links.
+                        Text(verbatim: text).font(.body).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
+                            .accessibilityIdentifier("approval.signMessage")
+                    }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
+                        .background(.white, in: RoundedRectangle(cornerRadius: 20))
+                        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Palette.ink, lineWidth: 2))
+                        .accessibilityElement(children: .combine)
+                }
+                Text(request.purpose).font(request.isSigning ? .subheadline : .title3)
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Kontrollkod").font(.subheadline)
                     ControlCodeView(code: request.code)
                     Text("Kontrollera att samma kod visas hos tjänsten.").font(.footnote)
                 }.padding(24).frame(maxWidth: .infinity, alignment: .leading).background(Palette.mint, in: RoundedRectangle(cornerRadius: 20))
-                Label("Godkänn bara en inloggning du själv startat.", systemImage: "hand.raised").font(.subheadline)
+                Label(request.isSigning ? "Skriv bara under om du själv startat underskriften och texten stämmer med dokumentet hos tjänsten." : "Godkänn bara en inloggning du själv startat.", systemImage: "hand.raised").font(.subheadline)
+                if request.needsSecurityCode {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Label("Tjänsten kräver din säkerhetskod", systemImage: "lock.shield").font(.headline)
+                        if model.snapshot?.securityCode?.set == false {
+                            Text("Du har ingen säkerhetskod ännu. Välj en först; begäran gäller i två minuter.").font(.subheadline)
+                            NavigationLink("Välj säkerhetskod") { SecurityCodeView() }
+                        } else {
+                            SecurityCodeField(title: "Säkerhetskod, 6 siffror", code: $securityCode).accessibilityIdentifier("approval.securityCode")
+                            Text("Utöver Face ID. Fem fel i rad spärrar koden.").font(.footnote).foregroundStyle(Palette.muted)
+                        }
+                        if let message = model.securityCodeMessage {
+                            Text(message).font(.callout).foregroundStyle(.red).accessibilityIdentifier("approval.securityCodeMessage")
+                        }
+                    }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
+                        .background(.white, in: RoundedRectangle(cornerRadius: 20))
+                }
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     let remaining = max(0, Int(request.expiresAt - context.date.timeIntervalSince1970))
                     Text(remaining > 0 ? "Begäran går ut om \(remaining) sekunder" : "QR-koden har gått ut. Starta en ny inloggning på testsidan och skanna den nya koden.").font(.caption).foregroundStyle(Palette.muted)
-                    PrimaryButton(title: "Godkänn", symbol: "faceid") { model.decide(request, approve: true) }.disabled(remaining == 0 || model.busy)
-                    Button("Neka begäran", role: .destructive) { model.decide(request, approve: false) }.frame(maxWidth: .infinity, minHeight: 44).disabled(remaining == 0 || model.busy)
+                    PrimaryButton(title: request.isSigning ? "Skriv under" : "Godkänn", symbol: request.isSigning ? "signature" : "faceid") {
+                        model.decide(request, approve: true, securityCode: request.needsSecurityCode ? securityCode : nil)
+                        securityCode = ""
+                    }
+                        .disabled(remaining == 0 || model.busy || (request.needsSecurityCode && !SecurityCode.valid(securityCode)))
+                        .accessibilityIdentifier("approval.approve")
+                    Button(request.isSigning ? "Avböj underskrift" : "Neka begäran", role: .destructive) { model.decide(request, approve: false) }.frame(maxWidth: .infinity, minHeight: 44).disabled(remaining == 0 || model.busy)
                 }
                 if model.busy { ProgressView("Bekräftar…").frame(maxWidth: .infinity) }
             }.padding(24)
         }.background(Palette.paper).navigationTitle("Kontrollera begäran").navigationBarTitleDisplayMode(.inline)
+            .onAppear { model.clearSecurityCodeMessage() }
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Stäng") { dismiss() }.disabled(model.busy) } }
             .interactiveDismissDisabled(model.busy)
     }
@@ -305,6 +403,14 @@ struct SettingsView: View {
                         }
                     }
                     Button { model.lock() } label: { Label("Lås appen", systemImage: "lock") }
+                }
+            }
+            if model.unlocked && model.credential != nil && model.snapshot?.state == .active, let code = model.snapshot?.securityCode {
+                Section("Säkerhetskod") {
+                    NavigationLink(code.locked ? "Säkerhetskoden är spärrad" : code.set ? "Byt säkerhetskod" : "Välj säkerhetskod") { SecurityCodeView() }
+                    if code.set && !code.locked && code.attemptsRemaining < SecurityCode.attempts {
+                        Text("\(code.attemptsRemaining) försök kvar innan koden spärras.").font(.caption).foregroundStyle(.secondary)
+                    }
                 }
             }
             if model.unlocked && model.credential != nil {
@@ -499,7 +605,7 @@ struct PrivacyView: View {
             Section("På telefonen") { Text("Serveradress, eventuell kopplingskod och din separata spärrkod lagras i nyckelringen. ID-nyckeln skyddas av telefonen. Appen sparar inte passuppgifter eller bilder.") }
             Section("På servern") { Text("Chipdata och kamerabilder behandlas i minnet. Registret sparar namn, födelsedatum, nationalitet, passets utfärdarland, giltighet, foto och eventuellt personnummer från chipet krypterat samt publik nyckel, status och händelser. Operatören ansvarar för lagringstiderna och kan aktivera eller spärra ditt ID.") }
             Section("När du legitimerar dig") { Text("Appen visar vilken tjänst du loggar in hos och vilka uppgifter du delar. En spärrad nyckel kan inte användas igen.") }
-            Section("Godkännande") { Text("Du bekräftar med Face ID, Touch ID eller enhetskod. Appen låses när du lämnar den.") }
+            Section("Godkännande") { Text("Du bekräftar med Face ID, Touch ID eller enhetskod. När en tjänst kräver det anger du även din säkerhetskod. Den kontrolleras av openID-servern och sparas där bara som en kontrollsumma, aldrig i klartext. Spärr kräver aldrig kod. Appen låses när du lämnar den.") }
         }.navigationTitle("Integritet").navigationBarTitleDisplayMode(.inline)
     }
 }

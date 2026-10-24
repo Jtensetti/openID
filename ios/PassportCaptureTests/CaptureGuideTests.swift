@@ -215,4 +215,22 @@ final class CaptureGuideTests: XCTestCase {
         XCTAssertEqual(guide.guidance.hint, CapturePose.side.title)
     }
 
+    func testServerOrderIsFollowedAndOtherOrdersRejected() {
+        XCTAssertEqual(CapturePose.sequence(server: ["left", "front", "right"]), [.opposite, .front, .side])
+        XCTAssertEqual(CapturePose.sequence(server: nil), CapturePose.allCases)
+        for invalid in [["front", "front", "left"], ["front", "right"], ["front", "right", "left", "front"], ["front", "up", "left"]] {
+            XCTAssertNil(CapturePose.sequence(server: invalid))
+        }
+        var guide = CaptureGuide(sequence: [.opposite, .front, .side]); var time = 0.0
+        XCTAssertEqual(guide.guidance.pose, .opposite)
+        XCTAssertEqual(guide.guidance.hint, CapturePose.opposite.title)
+        // A frontal face cannot complete a requested turn.
+        XCTAssertEqual(hold(face(), guide: &guide, time: &time, samples: 40), 0)
+        XCTAssertEqual(hold(face(yaw: 0.4), guide: &guide, time: &time), 1)
+        XCTAssertEqual(guide.guidance.pose, .front)
+        XCTAssertEqual(hold(face(), guide: &guide, time: &time), 1)
+        XCTAssertEqual(guide.guidance.pose, .side)
+        XCTAssertEqual(hold(face(yaw: -0.4), guide: &guide, time: &time), 1)
+        XCTAssertEqual(guide.guidance.completed, 3)
+    }
 }

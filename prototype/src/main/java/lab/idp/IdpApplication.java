@@ -34,8 +34,15 @@ public class IdpApplication {
       if (oidc) configurer.protocol(se.swedenconnect.spring.authnserver.oidc.config.OidcProviderConfigurer.class,
           op -> op.attributeMapping(lab.phone.PhoneAttributes.oidcMapping()).requirePkce(true));
       configurer.authnFlowMaxAge(java.time.Duration.ofSeconds(phone ? 120 : 60));
-      if (phone) configurer.protocol(se.swedenconnect.spring.authnserver.saml.config.Saml2IdpConfigurer.class,
-          saml -> saml.attributeMapping(lab.phone.PhoneAttributes.mapping()));
+      if (phone) {
+        var mapping = lab.phone.PhoneAttributes.mapping();
+        // The SAD names the subject attribute through the producer's own mapping; it must be the same mapping
+        // as the assertion's, or the SAD would point at an attribute that the assertion does not contain.
+        configurer.protocol(se.swedenconnect.spring.authnserver.saml.config.Saml2IdpConfigurer.class,
+            saml -> saml.attributeMapping(mapping).attributeProducers(producers -> producers.forEach(producer -> {
+              if (producer instanceof se.swedenconnect.spring.authnserver.saml.attributes.release.SwedenConnectAttributeProducer sc) sc.setAttributeMapping(mapping);
+            })));
+      }
     };
   }
   @Bean @Order(2)

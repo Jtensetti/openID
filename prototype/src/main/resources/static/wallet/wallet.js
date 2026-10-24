@@ -30,9 +30,10 @@ async function post(url, form) {
 function bind(id, action) {
   const form = document.querySelector(id);
   if (!form) return;
+  const button = form.querySelector('button');
   form.addEventListener('submit', async event => {
     event.preventDefault();
-    const button = form.querySelector('button');
+    if (button.disabled) return;
     button.disabled = true;
     try {
       if (!window.PublicKeyCredential || !navigator.credentials || !window.isSecureContext)
@@ -43,6 +44,9 @@ function bind(id, action) {
       tell(error.name === 'NotAllowedError' ? 'Avbrutet eller tidsgränsen passerad. Börja om.' : error.message);
     } finally { button.disabled = false; }
   });
+  // Server-rendered buttons stay disabled until the handler exists. A fast click must
+  // never submit an empty assertion while this deferred script is still downloading.
+  button.disabled = false;
 }
 bind('#registration', async form => {
   const fields = new URLSearchParams(new FormData(form));

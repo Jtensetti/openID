@@ -3,6 +3,28 @@
 Kontrollerat 2026-10-19. Befintliga Sweden Connect-, Yubico- och BC-beroenden
 redovisas i repots [THIRD_PARTY.md](../THIRD_PARTY.md).
 
+Säkerhetsuppdatering kontrollerad 2026-10-24: de transitiva Pythonpaketen
+`filelock` **4.2.1** (upstream `60331bb89f325020b48bc51bde904c6446384e4a`)
+och `setuptools` **84.1.0** (upstream `77b7ace0aaf660beeb9b3f9da4aabf21cbcf3fa9`)
+ersätter 3.32.3 respektive 83.0.0. De rättar publicerade advisories
+GHSA-567q-5qvw-pf92, GHSA-9vhv-jxww-xfm5, GHSA-v4x8-3wr5-3wq8
+respektive GHSA-xmj3-9gf7-h52w. Valda hjul hämtades från PyPI och deras
+bytes kontrollerades mot SHA-256 i PyPI:s versionsmetadata. Ursprung och
+hjulhashar finns i `python-package-sources.json`, hashkrav i
+`requirements.lock` och inventering i `python-sbom.cdx.json`.
+MIT-licenser och setuptools inbäddade licensfiler bevaras under `licenses/`.
+Filelock kräver Python 3.11 eller senare och har inga obligatoriska nya
+paketberoenden; projektets verifierare använder Python 3.12.
+Repoförvaltaren ansvarar för uppdatering och granskning av följdändringar.
+
+Primärkällor för uppdateringen:
+
+- https://github.com/tox-dev/filelock/releases/tag/4.2.1
+- https://github.com/pypa/setuptools/security/advisories/GHSA-xmj3-9gf7-h52w
+- https://setuptools.pypa.io/en/stable/history.html#v84-1-0
+- https://pypi.org/pypi/filelock/4.2.1/json
+- https://pypi.org/pypi/setuptools/84.1.0/json
+
 | Komponent | Låsning och faktisk användning | Licens/underhåll |
 |---|---|---|
 | JMRTD | 0.8.9 från Maven Central; LDS-parsning, serverstyrd PACE/CA och Secure Messaging. JAR SHA-256 `89959d0c8cb8cf7b93699b18d135675a7b8760489bddd924ee3174c447fa5409` | Källhuvud LGPL-2.1-or-later; release i Maven-metadata 2026-10-03. Fullständig passkontroll och trust management ingår inte i bibliotekets löfte. |

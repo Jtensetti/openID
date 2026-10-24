@@ -6,6 +6,8 @@ simulerar även användarens godkännande.
 
 Appens passbaserade flöde använder samma SAML-bibliotek med en separat
 provider. Se [phone-idp och phone-sp](../verification/README.md#saml-inloggning-med-passets-identitet).
+`phone-sp` har en testkonsol på `/test` med Sweden Connect-fall och en
+underskriftstjänst på `/sign` (SignMessage, SAD och PAdES-signerad PDF).
 
 ## Kör webbklienten
 

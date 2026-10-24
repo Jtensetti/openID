@@ -7,16 +7,16 @@ import numpy as np
 from native import NativeSessions, AppAttest
 from identity import VerifiedDocument
 from pad import PresentationAttackDetector
-from test_chip_fixture import ChipFixture, capture_ready
+from test_chip_fixture import ChipFixture, capture_ready, fixture_order, pose_matcher
 
 class NativeTests(unittest.TestCase):
     def setUp(self):
         self.time=100
         self.attest=Mock();self.attest.check.side_effect=lambda op,**kw: {'publicKey':'key'} if op=='attestation' else {'signCount':kw['signCount']+1}
         self.passport=Mock(return_value=VerifiedDocument(b'authenticated portrait', {}))
-        self.matcher=Mock();self.matcher.compare.return_value=0.95;self.matcher.decode_face.return_value=('image','face')
+        self.matcher=pose_matcher(Mock());self.matcher.compare.return_value=0.95
         self.pad=Mock();self.pad.score.return_value=0.95
-        self.sessions=NativeSessions(self.attest,self.passport,self.matcher,self.pad,lambda:self.time,chip_factory=ChipFixture)
+        self.sessions=NativeSessions(self.attest,self.passport,self.matcher,self.pad,lambda:self.time,chip_factory=ChipFixture,pose_order=fixture_order)
         self.addCleanup(self.sessions.close)
     def capture(self):
         started=self.sessions.start();registered=self.sessions.register({'id':started['id'],'keyId':'key','attestation':'data'})
@@ -150,9 +150,9 @@ class NativeHTTPTests(unittest.TestCase):
         from http.server import HTTPServer
         from server import handler
         self.attest=Mock();self.attest.check.side_effect=lambda op,**kw: {'publicKey':'key'} if op=='attestation' else {'signCount':kw['signCount']+1}
-        matcher=Mock();matcher.compare.return_value=0.95;matcher.decode_face.return_value=('image','face')
+        matcher=pose_matcher(Mock());matcher.compare.return_value=0.95
         pad=Mock();pad.score.return_value=0.95
-        self.native=NativeSessions(self.attest,lambda _:VerifiedDocument(b'portrait',{}),matcher,pad,chip_factory=ChipFixture)
+        self.native=NativeSessions(self.attest,lambda _:VerifiedDocument(b'portrait',{}),matcher,pad,chip_factory=ChipFixture,pose_order=fixture_order)
         self.http=HTTPServer(('127.0.0.1',0),handler(matcher,[],0))
         self.origin=f'http://localhost:{self.http.server_port}';self.token='x'*43
         self.http.RequestHandlerClass=handler(matcher,[],self.http.server_port,native=self.native,origin=self.origin,token=self.token,browser_enabled=False)

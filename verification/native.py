@@ -4,7 +4,33 @@ import math
 from pathlib import Path
 import secrets
 import subprocess
+import sys
 import time
+
+POSES=('front','right','left')
+# Experimental pose limits in inter-eye distances (face.pose_ratio); calibration is pending like the score limits.
+POSE_FRONT_MAX=0.12
+POSE_SIDE_MIN=0.07
+POSE_SPREAD_MIN=0.20
+
+def random_pose_order():
+    return secrets.SystemRandom().sample(POSES,3)
+
+def check_poses(order,ratios,direction=False):
+    """Server-side check of the requested head turns from landmark parallax, independent of the app's guide.
+
+    The frontal frame must be frontal; the two turned frames must be turned clearly and to opposite sides.
+    A flat photo or screen cannot produce this parallax. With direction=True the turn direction is also checked
+    against the unmirrored-camera convention (right turn = negative ratio); enable after physical calibration.
+    """
+    if sorted(order)!=sorted(POSES) or len(ratios)!=3:return False
+    if any(isinstance(r,bool) or not isinstance(r,(int,float)) or not math.isfinite(r) or abs(r)>2 for r in ratios):return False
+    pose=dict(zip(order,ratios));front,right,left=pose['front'],pose['right'],pose['left']
+    if abs(front)>POSE_FRONT_MAX:return False
+    for side in (right,left):
+        if abs(side)<max(POSE_SIDE_MIN,abs(front)+0.05):return False
+    if right*left>=0 or abs(right-left)<POSE_SPREAD_MIN:return False
+    return not direction or (right<0<left)
 
 def unique_object(pairs):
     result={}
@@ -24,13 +50,17 @@ class AppAttest:
         return json.loads(result.stdout)
 
 class NativeSessions:
-    def __init__(self,attest,passport,matcher,pad,clock=time.monotonic,wallet=None,chip_factory=None,biometrics=None):
+    def __init__(self,attest,passport,matcher,pad,clock=time.monotonic,wallet=None,chip_factory=None,biometrics=None,
+                 pose_order=random_pose_order,pose_direction=False,pose_enforced=True):
         self.attest,self.passport,self.matcher,self.pad,self.clock=attest,passport,matcher,pad,clock
         self.wallet=wallet
+        self.pose_order,self.pose_direction,self.pose_enforced=pose_order,pose_direction,pose_enforced
         self.biometrics=biometrics
         self.chip_factory=chip_factory
         self.pending={}
     def start(self):
+        guard=getattr(self.wallet,'enrollment_available',None) if self.wallet is not None else None
+        if guard is not None:guard()
         for ident in list(self.pending):
             if self.pending[ident]['expires']<=self.clock(): self.discard(ident)
         if len(self.pending)>=16:raise ValueError('too many sessions')
@@ -103,8 +133,12 @@ class NativeSessions:
             result=pending['chip'].next(request['response'],request['sequence'])
             if result.get('type')=='verified':
                 pending.pop('chip').close()
-                pending.update(phase='capture',nonce=secrets.token_urlsafe(32))
-                return {'type':'verified','id':ident,'nonce':pending['nonce'],'frameCount':3}
+                # The app learns the head-turn order only now, after the chip check: frames prepared earlier
+                # must match an order chosen by the server for this session.
+                order=list(self.pose_order())
+                if sorted(order)!=sorted(POSES):raise ValueError('pose order')
+                pending.update(phase='capture',nonce=secrets.token_urlsafe(32),poses=order)
+                return {'type':'verified','id':ident,'nonce':pending['nonce'],'frameCount':3,'poses':order}
             pending['sequence']=result['sequence']
             return result
         except BaseException:
@@ -128,22 +162,35 @@ class NativeSessions:
         if len(set(frames))!=3:raise ValueError('duplicate frames')
         document=pending['document']
         portrait=document.portrait
-        face_scores=[];pad_scores=[]
+        # Persistent per-document limit: a stolen passport cannot be used to tune attacks against the thresholds.
+        limiter=getattr(self.wallet,'biometric_attempt',None) if self.wallet is not None else None
+        remaining=limiter(document) if limiter is not None else None
+        face_scores=[];pad_scores=[];poses=[]
         if self.biometrics is not None:
-            face_scores,pad_scores=self.biometrics(portrait,frames)
-            if len(face_scores)!=3 or len(pad_scores)!=3:raise ValueError('model result count')
+            result=self.biometrics(portrait,frames)
+            if len(result)!=3:raise ValueError('model result count')
+            face_scores,pad_scores,poses=result
+            if len(face_scores)!=3 or len(pad_scores)!=3 or len(poses)!=3:raise ValueError('model result count')
         else:
             for frame in frames:
                 face_scores.append(self.matcher.compare(portrait,frame))
                 image,face=self.matcher.decode_face(frame)
                 pad_scores.append(self.pad.score(image,face))
+                poses.append(self.matcher.pose_ratio(face))
         if any(not math.isfinite(score) or not -1 <= score <= 1 for score in face_scores) or any(
             not math.isfinite(score) or not 0 <= score <= 1 for score in pad_scores): raise ValueError('invalid model score')
+        if any(isinstance(r,bool) or not isinstance(r,(int,float)) or not math.isfinite(r) for r in poses):raise ValueError('invalid pose')
+        pose_passed=check_poses(pending['poses'],poses,self.pose_direction)
+        if not self.pose_enforced:
+            # Calibration mode: only the outcome is logged, never ratios, scores or images.
+            print(json.dumps({'event':'pose_check','result':'PASSED' if pose_passed else 'FAILED'}),file=sys.stderr,flush=True)
         # Experimental thresholds; calibration is pending.
-        passed=min(face_scores)>=0.5 and min(pad_scores)>=0.8
+        passed=min(face_scores)>=0.5 and min(pad_scores)>=0.8 and (pose_passed or not self.pose_enforced)
         credential=None
         if passed and pending['devicePublicKey'] is not None:
             credential=self.wallet.enroll(pending['devicePublicKey'], document)
+        # No raw scores to the client: they would be an oracle for tuning a presentation or morphing attack.
         return {'checksPassed':passed,'passiveAuthentication':True,'appAttest':True,
-            'chipAuthentication':'SERVER_VERIFIED_CA','faceScores':face_scores,'padLiveScores':pad_scores,
-            'policy':'EXPERIMENTAL_0.5_FACE_0.8_PAD','issuanceEnabled':False,'credential':credential}
+            'chipAuthentication':'SERVER_VERIFIED_CA','poseCheck':'PASSED' if pose_passed else 'FAILED',
+            'policy':'EXPERIMENTAL_0.5_FACE_0.8_PAD_POSE_V1','issuanceEnabled':False,'credential':credential,
+            **({'attemptsRemaining':remaining} if remaining is not None else {})}

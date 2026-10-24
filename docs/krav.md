@@ -12,13 +12,13 @@ Aktuell originaltext behöver kontrolleras inför en formell bedömning.
 | ID-01 | Utgivningspolicy, D08 K5.1–K5.3 | Privat registrering med separat operatörsaktivering. | Fastställd utgivningspolicy och användarvillkor. |
 | ID-02 | Identitets-/registerkontroll, D08 K5.7–K5.9 | Autentiserade uppgifter ur passets DG1. SQLite-adapterkontraktet vidarebefordrar ett befintligt personnummer utan sekelgissning och nekar avvikande registeridentitet även vid läsning av äldre bindningar. | Verklig registeradapter/åtkomst, avvikelser och skyddade identiteter. Testadapter är inte registerbevis. |
 | ID-03/04 | Utgivningsmetod, D08 K5.10–K5.13; D09 | Passbaserat appflöde. | Bedömning av metoden. Nyutgivning via befintlig e-id saknas. |
-| ID-05 | Fjärrkontroll, D08 K5.13; D09 | Serverstyrd JMRTD PACE/CA med signerad DG14 och färsk MAC-kontrollerad läsning. `ChipAuthenticationTest` provar även kopierade data utan privat chipnyckel, replay och ändrad MAC. Lokal Vision-guide provas i `CaptureGuideTests`. Biometriarbetaren återanvänder detektioner och passets featurevektor inom samma försök; regressionstest jämför med parvis inferens. | Sammanhängande fysisk provning, passets spärrstatus hos utgivaren, certifikatspärr, kalibrerad biometri/PAD, beständigt försöksantal per handling samt oberoende injektions-/reläprov. Kameraguiden är inget verifierat liveness-bevis. |
+| ID-05 | Fjärrkontroll, D08 K5.13; D09 | Serverstyrd JMRTD PACE/CA med signerad DG14 och färsk MAC-kontrollerad läsning. `ChipAuthenticationTest` provar även kopierade data utan privat chipnyckel, replay och ändrad MAC. Lokal Vision-guide provas i `CaptureGuideTests`. Biometriarbetaren återanvänder detektioner och passets featurevektor inom samma försök; regressionstest jämför med parvis inferens. SQLite och PostgreSQL debiterar högst fem analyser per verifierad handling och rullande 24 timmar atomärt före inferens, även vid modellfel. Parallella instanser, omstart, saknad HMAC-nyckel och COPY-återläsning provas. Stödd återläsning spärrar automatiskt ny registrering och analys i 24 timmar. | Sammanhängande fysisk provning, passets spärrstatus hos utgivaren, drift av certifikatspärr, kalibrerad biometri/PAD samt oberoende injektions-/reläprov. Kameraguiden är inget verifierat liveness-bevis. |
 | ID-06 | Innehavarregister, D08 K5.14 | `test_identity` och `test_cluster`: krypterad personprofil, dokumentreferens, enhetsbindning och atomisk ersättning. | Registeravstämning och oberoende utgivningskontroll. |
 | ID-07 | Faktorer/nyckelskydd, D08 K6.1–K6.2 | Secure Enclave/Keychain i iOS-koden; CryptoKit/server-interoperabilitet testad. | Fysiskt enhetstest och verifierad hårdvarubindning på servern. WebAuthn-labben använder attestering `none`. |
-| ID-08 | Återställning, D08 K6.3 | Nyregistrering för samma pass ersätter nyckeln; spärrad nyckel kan inte aktiveras igen. | Förlorad telefon utan självbetjäning, nytt pass och skydd mot gammal databasåterläsning. |
+| ID-08 | Återställning, D08 K6.3 | Nyregistrering för samma pass ersätter nyckeln; spärrad nyckel kan inte aktiveras igen. Stödd återläsning spärrar gamla nycklar, annullerar väntande anrop och pausar registrering i 24 timmar. | Förlorad telefon utan självbetjäning, nytt pass, separat aktuellt spärrankare och operativ återställningsövning. |
 | ID-09 | Bindning/giltighet, D08 K6.4–K6.7 | Signerade engångsoperationer, utgång och samtidiga beslut testas i Python och XCTest. | Oberoende avisering och komplett utgivningsprocess. |
 | ID-10 | Spärr, D03 §8.6 | App, operatörs-CLI och separat spärrtjänst i den publika betan; aktuell status kontrolleras vid godkännande, konsumtion och skyddad SP-läsning. | Sammanhängande telefonprov, schemalagd återstart, bemanning och oberoende granskning. |
-| ID-11 | Bevarande/avveckling, D08 K2.7–K2.8, K5.5 | Råunderlag lagras inte; PostgreSQL-läget har begränsad gallring och Transit-omkryptering. | Fastställda lagringstider, avveckling och gallring av administrativa loggar/personlänkar. |
+| ID-11 | Bevarande/avveckling, D08 K2.7–K2.8, K5.5 | Råunderlag lagras inte; PostgreSQL-läget har begränsad gallring, Transit-omkryptering och ett bevarandegolv på 1827 dagar för händelser och aktiveringsbeslut. | Fastställda lagringstider, avveckling och gallring av administrativa loggar/personlänkar. |
 
 ## Protokoll och säkerhet
 
@@ -26,11 +26,11 @@ Aktuell originaltext behöver kontrolleras inför en formell bedömning.
 |---|---|---|---|
 | SEC-01 | Kanaler, D08 K4.2; T01–T03 | HTTPS, fasta motparter, signaturer, CSRF/Origin och sessionsbindning. Negativa Java-/browserprov. | Extern interoperabilitet och driftgränser. |
 | SEC-02 | Servernycklar, D08 K4.3 | Lokala testnycklar samt separat OpenBao Transit med profilrotation och avgränsade tjänstekonton. | HSM, operativ flerpersonskontroll, indexnyckelbyte och övad nyckelåterställning. |
-| SEC-03 | Beroenden, D08 K4.4 | Versions-/hashlås, SBOM och daterade advisorykontroller. | Löpande bevakning, full byggkedja/OS och oberoende revision. |
+| SEC-03 | Beroenden, D08 K4.4 | Versions-/hashlås, SBOM, daglig OSV-kontroll och samma kontroll i PR-grinden. Ofullständiga svar, fel och oavslutad paginering nekar kontrollen. Filelock och setuptools är uppdaterade med licensunderlag. Dependabot föreslår uppdateringar. | Aktivering på main, ansvarig larmmottagare, hela byggkedjan/OS och oberoende revision. |
 | GOV-07 | Befogenheter, D08 K3.4 | PostgreSQL-funktioner kräver två olika operatörsinloggningar; tjänstekonton saknar aktiveringsrätt. Schemainstallation och återställning stöder administratör utan superuser. Negativa tester nekar tjänste- och operatörskonton ägarmedlemskap och rollbyte. | Verklig personseparation, kontroll av ägar-/administratörsåtkomst och oberoende granskning. |
 | FED-01 | Federationsprofil, D03 §8.4; T01–T03 | Sweden Connect SAML med lokal metadata och egen autentiseringskontext. | Full profilmappning och accepterad extern anslutning. |
 | FED-02 | Mottagare/avsikt, D03 §§8.2–8.3 | Appen visar och signerar tjänst, syfte och kod. `test_identity`, XCTest och federationsprovet testar byte av bindningar och replay. | Närhets-/reläskydd och externa motparter. |
-| SIG-01/02 | Dokumentunderskrift, T01, T05–T08 | Syntetisk WebAuthn-labb visar exakt text och kräver separat underskriftsavsikt. CMS-signering och certifikatbindning provas med Bouncy Castle och OpenSSL. Byte, fel signerare, avbrott, replay och spärr provas. | Federerad underskriftsintegration, vald produktionsprofil, verklig identitet, CA/HSM, betrodd tid, långtidsbevis och extern granskning. Se [prövningsunderlaget](provningsunderlag.md). |
+| SIG-01/02 | Dokumentunderskrift, T01, T05–T08 | Syntetisk WebAuthn-labb visar exakt text och kräver separat underskriftsavsikt. CMS-signering och certifikatbindning provas med Bouncy Castle och OpenSSL. SignMessage, SAD, separat underskriftsåtgärd och PAdES-testkedja körs mot både SQLite och PostgreSQL. Kodnivå, textbindning, avbrott, replay och spärr provas. PostgreSQL nekar tjänsten att ändra fasta bindningar eller direkt läsa/återställa PIN-verifierare. | Vald produktionsprofil, verklig identitet, CA/HSM, betrodd tid, långtidsbevis och extern granskning. Se [prövningsunderlaget](provningsunderlag.md). |
 | TEST-01 | Testmiljö, D03 §8.9 | Genererade pass/nycklar, lokala motparter och automatiserad CI. | Extern acceptanstestmiljö och fysiska enheter. |
 
 ## Drift och rapportering
@@ -40,7 +40,7 @@ Aktuell originaltext behöver kontrolleras inför en formell bedömning.
 | OPS-01/02 | Gunicorn/TLS med hälsokontroller, kapacitetsgränser, isolerad bildanalys, resursbegränsad container och lokala belastningsprov. PostgreSQL-läge med flera TLS-workers, instansbortfallsprov och separata mät-/larmfunktioner. Separat stängd Render-container. | Tillgänglighets-/svarstidsmål enligt D03 §8.5.1 är inte verifierade. Redundans och mätning på avsedd produktionsmiljö saknas. |
 | OPS-03/04/05 | Ingen operativ support-, incident- eller ändringsprocess. | Kontaktvägar, bemanning, incidentövning och kompatibel uppgradering enligt D03 §§8.7, 8.12–8.14. |
 | OPS-06 | Begränsade sessioner, meddelandestorlekar och engångsvärden. | Driftanpassad missbruksdetektion och granskad utredningsprocess. |
-| OPS-07 | Java-/SQLite-återläsning samt PostgreSQL-registerbackup, sluten återställning och spärr av alla gamla nycklar. CI provar återläst OpenBao-snapshot, gamla/saknade profilnycklar, Raft-ledarbortfall och nyregistrering efter återläsning. | Övning på vald driftplattform, extern backupförvaring, återställningstider och operativ nyckelceremoni. |
+| OPS-07 | Java-/SQLite-återläsning samt PostgreSQL-registerbackup, sluten återställning och spärr av alla gamla nycklar. CI provar återläst OpenBao-snapshot, gamla/saknade profilnycklar, Raft-ledarbortfall och nyregistrering efter återläsning. En beständig 24-timmarsspärr skyddar försöksbudgeten; tjänster kan inte nollställa eller skugga den. | Övning på vald driftplattform, extern backupförvaring, återställningstider och operativ nyckelceremoni. |
 | FIN-01/02/03/04 | `OfflineReportTest` provar klassificering och deduplicering i Java-labben. Ersättningsgrundande antal är alltid noll och ingen rapport skickas. | Produktionsrapportering är inte implementerad; format, avtal, kvittenser och rättelser behöver verifieras mot D03–D05. |
 
 ## Projektregler
@@ -176,6 +176,33 @@ App Attest, chip-/pass-/bildkontroll och manuell aktivering kvarstår.
 TestFlight-inbjudan är distributionskontroll, inte identitetsbevis.
 `RuntimeTests` provar åtkomstgränserna, och `WalletSecurityTests` provar
 standardanslutning och bevarad privat serverbindning.
+
+## Underskrift, testkonsol, biometri och spärrlista 2026-10-24
+
+SIG-01/02, FED-01 (D03 §8.4; T02 §7; SAP): telefonprovidern visar SignMessage i
+appen och intygar `signMessageDigest` samt SAD (`scal2`). Registret binder texten
+till en separat `sign`-åtgärd och IdP:n kontrollerar textens SHA-256 vid
+konsumtion. Text som inte kan visas, SAD utan text och underskrift från en
+tjänst utan `sigservice` hanteras enligt DP 1.9 §7. Avbryt och neka ger status
+`cancel` till tjänsten (§6.4). Kontotjänstens testkonsol kör tio SAML-fall mot
+verklig IdP och registret; underskriftsfallet ger en PAdES-B-B-PDF från en ej
+betrodd test-CA. Formell status oförändrad: OPEN.
+
+ID-05 (D08 K5.13): serverstyrd ordning för huvudvridning och kontroll av
+landmärkesparallax på servern, beständig gräns på fem underkända biometriska
+beslut per pass och dygn, och inga råa poäng till klienten. Valfri spärrkontroll
+av passets dokumentsignerare mot CSCA:ns spärrlista (provad mot Polismyndighetens
+publicerade CSCA-nycklar och `SWE.crl`). Gränserna är okalibrerade; PAD-, injektions-
+och reläprov återstår. Formell status oförändrad: OPEN.
+
+## Säkerhetskod för stora åtaganden 2026-10-24
+
+ID-07/09, K6.1 (två faktorer): tjänsten kan per transaktion kräva en servertestad
+säkerhetskod med sex siffror utöver enhetsnyckeln, via kontexten
+`urn:openid:authn:passport-native:pin:v1`. Fel kod räknas på servern, fem fel
+spärrar koden permanent, och koden lagras endast som HMAC med den separata
+identitetsnyckeln. Provas i `test_security_code`, `SignatureRequestPolicyTest`,
+testkonsolens kodfall och `WalletSecurityTests`. Formell status oförändrad: OPEN.
 
 ## Nyckelfiler och kravspårning 2026-10-22
 

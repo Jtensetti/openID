@@ -1,105 +1,183 @@
 {
-  "date": "2026-10-19",
-  "queries": [
+  "date": "2026-10-24T14:12:56.815721+00:00",
+  "manifests": {
+    "verification/requirements.lock": "d0a1724190c07e36d790c6598db3019745d128c77ee95f100c1d26894773d2ad"
+  },
+  "results": [
     {
-      "package": {
-        "name": "filelock",
-        "ecosystem": "PyPI"
+      "query": {
+        "package": {
+          "ecosystem": "PyPI",
+          "name": "filelock"
+        },
+        "version": "4.2.1"
       },
-      "version": "3.32.3"
+      "sources": [
+        "verification/requirements.lock"
+      ],
+      "vulnerabilities": []
     },
     {
-      "package": {
-        "name": "fsspec",
-        "ecosystem": "PyPI"
+      "query": {
+        "package": {
+          "ecosystem": "PyPI",
+          "name": "fsspec"
+        },
+        "version": "2026.7.0"
       },
-      "version": "2026.7.0"
+      "sources": [
+        "verification/requirements.lock"
+      ],
+      "vulnerabilities": []
     },
     {
-      "package": {
-        "name": "jinja2",
-        "ecosystem": "PyPI"
+      "query": {
+        "package": {
+          "ecosystem": "PyPI",
+          "name": "jinja2"
+        },
+        "version": "3.1.6"
       },
-      "version": "3.1.6"
+      "sources": [
+        "verification/requirements.lock"
+      ],
+      "vulnerabilities": []
     },
     {
-      "package": {
-        "name": "markupsafe",
-        "ecosystem": "PyPI"
+      "query": {
+        "package": {
+          "ecosystem": "PyPI",
+          "name": "markupsafe"
+        },
+        "version": "3.0.3"
       },
-      "version": "3.0.3"
+      "sources": [
+        "verification/requirements.lock"
+      ],
+      "vulnerabilities": []
     },
     {
-      "package": {
-        "name": "mpmath",
-        "ecosystem": "PyPI"
+      "query": {
+        "package": {
+          "ecosystem": "PyPI",
+          "name": "mpmath"
+        },
+        "version": "1.3.0"
       },
-      "version": "1.3.0"
+      "sources": [
+        "verification/requirements.lock"
+      ],
+      "vulnerabilities": []
     },
     {
-      "package": {
-        "name": "networkx",
-        "ecosystem": "PyPI"
+      "query": {
+        "package": {
+          "ecosystem": "PyPI",
+          "name": "networkx"
+        },
+        "version": "3.6.1"
       },
-      "version": "3.6.1"
+      "sources": [
+        "verification/requirements.lock"
+      ],
+      "vulnerabilities": []
     },
     {
-      "package": {
-        "name": "numpy",
-        "ecosystem": "PyPI"
+      "query": {
+        "package": {
+          "ecosystem": "PyPI",
+          "name": "numpy"
+        },
+        "version": "2.2.6"
       },
-      "version": "2.2.6"
+      "sources": [
+        "verification/requirements.lock"
+      ],
+      "vulnerabilities": []
     },
     {
-      "package": {
-        "name": "opencv-python-headless",
-        "ecosystem": "PyPI"
+      "query": {
+        "package": {
+          "ecosystem": "PyPI",
+          "name": "opencv-python-headless"
+        },
+        "version": "4.13.0.92"
       },
-      "version": "4.13.0.92"
+      "sources": [
+        "verification/requirements.lock"
+      ],
+      "vulnerabilities": []
     },
     {
-      "package": {
-        "name": "setuptools",
-        "ecosystem": "PyPI"
+      "query": {
+        "package": {
+          "ecosystem": "PyPI",
+          "name": "setuptools"
+        },
+        "version": "84.1.0"
       },
-      "version": "83.0.0"
+      "sources": [
+        "verification/requirements.lock"
+      ],
+      "vulnerabilities": []
     },
     {
-      "package": {
-        "name": "sympy",
-        "ecosystem": "PyPI"
+      "query": {
+        "package": {
+          "ecosystem": "PyPI",
+          "name": "sympy"
+        },
+        "version": "1.14.0"
       },
-      "version": "1.14.0"
+      "sources": [
+        "verification/requirements.lock"
+      ],
+      "vulnerabilities": []
     },
     {
-      "package": {
-        "name": "torch",
-        "ecosystem": "PyPI"
+      "query": {
+        "package": {
+          "ecosystem": "PyPI",
+          "name": "torch"
+        },
+        "version": "2.13.0"
       },
-      "version": "2.13.0"
+      "sources": [
+        "verification/requirements.lock"
+      ],
+      "vulnerabilities": []
     },
     {
-      "package": {
-        "name": "typing-extensions",
-        "ecosystem": "PyPI"
+      "query": {
+        "package": {
+          "ecosystem": "PyPI",
+          "name": "torch"
+        },
+        "version": "2.13.0+cpu"
       },
-      "version": "4.16.0"
+      "sources": [
+        "verification/requirements.lock"
+      ],
+      "vulnerabilities": []
+    },
+    {
+      "query": {
+        "package": {
+          "ecosystem": "PyPI",
+          "name": "typing-extensions"
+        },
+        "version": "4.16.0"
+      },
+      "sources": [
+        "verification/cluster-requirements.lock",
+        "verification/requirements.lock"
+      ],
+      "vulnerabilities": []
     }
   ],
-  "response": {
-    "results": [
-      {},
-      {},
-      {},
-      {},
-      {},
-      {},
-      {},
-      {},
-      {},
-      {},
-      {},
-      {}
-    ]
-  }
+  "complete": true,
+  "limits": [
+    "OSV has incomplete advisory coverage, including source-commit mappings.",
+    "Base images, OS packages, JDK, Node, OpenBao, PostgreSQL, models and deployed configuration require separate monitoring."
+  ]
 }

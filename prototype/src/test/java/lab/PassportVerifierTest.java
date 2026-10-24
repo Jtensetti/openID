@@ -122,6 +122,48 @@ class PassportVerifierTest {
   @Test void rejectsWeakDigest() throws Exception {
     sod=sign("SHA-1","SHA1withECDSA"); assertThrows(PassportVerifier.Rejected.class,()->verifier.verify(sod,dg1,dg2));
   }
+  java.security.cert.X509CRL crl(KeyPair issuer, String issuerName, Instant thisUpdate, Instant nextUpdate, X509Certificate... revoked) throws Exception {
+    var builder = new org.bouncycastle.cert.X509v2CRLBuilder(new X500Name(issuerName), Date.from(thisUpdate));
+    builder.setNextUpdate(Date.from(nextUpdate));
+    for (var certificate : revoked) builder.addCRLEntry(certificate.getSerialNumber(), Date.from(thisUpdate), CRLReason.keyCompromise);
+    return new org.bouncycastle.cert.jcajce.JcaX509CRLConverter().getCRL(builder.build(new JcaContentSignerBuilder("SHA256withECDSA").build(issuer.getPrivate())));
+  }
+  @Test void currentCscaCrlIsCheckedAndReported() throws Exception {
+    var current = crl(caKey, "CN=SYNTHETIC-CSCA", NOW.minusSeconds(3600), NOW.plusSeconds(86400 * 90));
+    assertEquals("CHECKED_CRL", new PassportVerifier(Set.of(ca), List.of(current), CLOCK).verify(sod, dg1, dg2).revocation());
+    assertEquals("NOT_CHECKED", verifier.verify(sod, dg1, dg2).revocation());
+  }
+  @Test void revokedDocumentSignerIsRejectedEvenWithValidSignature() throws Exception {
+    var revoked = crl(caKey, "CN=SYNTHETIC-CSCA", NOW.minusSeconds(3600), NOW.plusSeconds(86400), signer);
+    assertEquals("REVOKED", assertThrows(PassportVerifier.Rejected.class,
+        () -> new PassportVerifier(Set.of(ca), List.of(revoked), CLOCK).verify(sod, dg1, dg2)).stage());
+  }
+  @Test void staleOrMissingRevocationStatusFailsClosed() throws Exception {
+    var stale = crl(caKey, "CN=SYNTHETIC-CSCA", NOW.minusSeconds(86400 * 100), NOW.minusSeconds(60));
+    var future = crl(caKey, "CN=SYNTHETIC-CSCA", NOW.plusSeconds(3600), NOW.plusSeconds(86400));
+    for (var crl : List.of(stale, future))
+      assertEquals("REVOCATION_STATUS", assertThrows(PassportVerifier.Rejected.class,
+          () -> new PassportVerifier(Set.of(ca), List.of(crl), CLOCK).verify(sod, dg1, dg2)).stage());
+    // A second trusted CSCA with a CRL does not cover a document signer of the first.
+    var otherKey = key(); var other = certificate(otherKey, "CN=OTHER-CSCA", otherKey, "CN=OTHER-CSCA", true);
+    var otherCrl = crl(otherKey, "CN=OTHER-CSCA", NOW.minusSeconds(60), NOW.plusSeconds(86400));
+    assertEquals("REVOCATION_STATUS", assertThrows(PassportVerifier.Rejected.class,
+        () -> new PassportVerifier(Set.of(ca, other), List.of(otherCrl), CLOCK).verify(sod, dg1, dg2)).stage());
+  }
+  @Test void crlFromRolledOverCscaKeyCoversSignersOfTheEarlierKey() throws Exception {
+    // Same CSCA name, new key (as Polismyndigheten's v2 keys): the current key signs the CRL for all signers.
+    var newKey = key(); var renewed = certificate(newKey, "CN=SYNTHETIC-CSCA", newKey, "CN=SYNTHETIC-CSCA", true);
+    var current = crl(newKey, "CN=SYNTHETIC-CSCA", NOW.minusSeconds(60), NOW.plusSeconds(86400));
+    assertEquals("CHECKED_CRL", new PassportVerifier(Set.of(ca, renewed), List.of(current), CLOCK).verify(sod, dg1, dg2).revocation());
+    var revoked = crl(newKey, "CN=SYNTHETIC-CSCA", NOW.minusSeconds(60), NOW.plusSeconds(86400), signer);
+    assertEquals("REVOKED", assertThrows(PassportVerifier.Rejected.class,
+        () -> new PassportVerifier(Set.of(ca, renewed), List.of(revoked), CLOCK).verify(sod, dg1, dg2)).stage());
+  }
+  @Test void crlNotSignedByProvisionedCscaIsAConfigurationError() throws Exception {
+    var otherKey = key();
+    var forged = crl(otherKey, "CN=SYNTHETIC-CSCA", NOW.minusSeconds(60), NOW.plusSeconds(86400));
+    assertThrows(IllegalArgumentException.class, () -> new PassportVerifier(Set.of(ca), List.of(forged), CLOCK));
+  }
   @Test void rejectsEmptyTrustOrDscAsTrustAnchor() {
     assertThrows(IllegalArgumentException.class,()->new PassportVerifier(Set.of(),CLOCK));
     assertThrows(IllegalArgumentException.class,()->new PassportVerifier(Set.of(signer),CLOCK));

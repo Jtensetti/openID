@@ -64,6 +64,18 @@ class RuntimeTests(unittest.TestCase):
             path.write_text(json.dumps(fields))
             with self.assertRaisesRegex(ValueError, 'canonical origin'): load_config(path)
 
+    def test_csca_crl_is_optional_but_must_be_an_absolute_existing_file(self):
+        from serve import load_config
+        fields = dict(bind='127.0.0.1', origin='https://localhost:8765', team='A'*10, bundle='se.openid.PassportCapture',
+            developmentAttestation=True, tlsCert='/missing', tlsKey='/missing', csca='/missing', database='/missing', pairingFile='/missing')
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)/'config.json'
+            for crl, message in (('relative.crl', 'Absolute paths'), ('/missing.crl', 'Absolute paths|missing'), ):
+                path.write_text(json.dumps(fields | {'cscaCrl': crl}))
+                with self.assertRaisesRegex(ValueError, message): load_config(path)
+            path.write_text(json.dumps(fields | {'unknownCrl': '/x'}))
+            with self.assertRaisesRegex(ValueError, 'do not match'): load_config(path)
+
     def test_camera_rejection_returns_only_safe_frame_code(self):
         from biometric_worker import CameraImageRejected
         self.native.finish.side_effect = CameraImageRejected(2)
@@ -71,6 +83,34 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(code, 422)
         self.assertEqual(result, {'error': 'CAMERA_IMAGE_REJECTED', 'frame': 2})
         self.assertEqual(headers['Cache-Control'], 'no-store')
+
+    def test_chip_command_is_independent_of_the_optional_crl(self):
+        from serve import proofing_commands
+        config = {'jar': '/app/lab.jar', 'csca': '/s/csca.pem'}
+        self.assertEqual(proofing_commands(config)[1], ['java', '-Xmx128m', '-jar', '/app/lab.jar', 'authenticate-chip', '/s/csca.pem'])
+        passport, chip = proofing_commands(config | {'cscaCrl': '/s/csca.crl'})
+        self.assertEqual(passport[-3:], ['verify-passport', '/s/csca.pem', '/s/csca.crl'])
+        self.assertEqual(chip, ['java', '-Xmx128m', '-jar', '/app/lab.jar', 'authenticate-chip', '/s/csca.pem'])
+
+    def test_security_code_errors_are_distinct_and_carry_only_a_count(self):
+        from wallet import SecurityCodeError
+        self.wallet.execute.side_effect = SecurityCodeError('PIN_INCORRECT', 3)
+        self.assertEqual((403, {'error': 'PIN_INCORRECT', 'attemptsRemaining': 3}), self.request('/wallet/execute')[:2])
+        self.wallet.execute.side_effect = SecurityCodeError('PIN_WEAK')
+        self.assertEqual((403, {'error': 'PIN_WEAK'}), self.request('/wallet/execute')[:2])
+
+    def test_attempt_limit_is_a_distinct_safe_error(self):
+        from wallet import BiometricAttemptLimit
+        self.native.finish.side_effect = BiometricAttemptLimit('biometric attempt limit')
+        code, result, _ = self.request('/native/finish')
+        self.assertEqual((403, {'error': 'ATTEMPT_LIMIT'}), (code, result))
+
+    def test_restore_pause_is_a_safe_service_error_at_start_and_finish(self):
+        from wallet import EnrollmentQuarantine
+        for path,operation in (('/native/start','start'),('/native/finish','finish')):
+            getattr(self.native,operation).side_effect=EnrollmentQuarantine('private internal state')
+            code,result,_=self.request(path)
+            self.assertEqual((503,{'error':'REGISTRATION_PAUSED'}),(code,result))
 
     def test_complete_dispatch_and_security_headers(self):
         code, result, headers = self.request()

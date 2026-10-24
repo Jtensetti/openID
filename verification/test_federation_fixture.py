@@ -10,10 +10,10 @@ from contextlib import ExitStack
 from unittest.mock import Mock
 from federation import FederationServer
 from native import NativeSessions
-from test_chip_fixture import ChipFixture, capture_ready
+from test_chip_fixture import ChipFixture, capture_ready, fixture_order, pose_matcher
 from server import verify_document
 from test_wallet import crypt
-from wallet import Wallet
+from wallet import Wallet, SecurityCodeError
 
 def main():
     directory = Path(sys.argv[1])
@@ -45,9 +45,9 @@ def run(directory, resources):
     jar = Path(__file__).resolve().parent.parent/'prototype/target/isolated-eid-lab.jar'
     command = [os.environ['PROOFING_JAVA'], '-jar', str(jar), 'verify-passport', str(fixture/'csca.der')]
     attest = Mock(); attest.check.side_effect = lambda op,**kw: {'publicKey':'test double'} if op == 'attestation' else {'signCount':kw['signCount']+1}
-    matcher = Mock(); matcher.compare.return_value = 0.95; matcher.decode_face.return_value = ('image','face')
+    matcher = pose_matcher(Mock()); matcher.compare.return_value = 0.95
     pad = Mock(); pad.score.return_value = 0.95
-    native = NativeSessions(attest, lambda data:verify_document(command, data), matcher, pad, wallet=enroller, chip_factory=ChipFixture)
+    native = NativeSessions(attest, lambda data:verify_document(command, data), matcher, pad, wallet=enroller, chip_factory=ChipFixture, pose_order=fixture_order)
     resources.callback(native.close)
     key = ident = None
     print(json.dumps({'ready':True}), flush=True)
@@ -75,7 +75,11 @@ def run(directory, resources):
                 elif op == 'stop-bridge': close_bridge(); result = {'stopped':True}
                 else:
                     challenge = wallet.challenge({'credentialId':ident, 'action':op, 'requestId':data.get('requestId')})
-                    result = wallet.execute({'challengeId':challenge['id'], 'signature':crypt(op='sign', key=key['privateKey'], payload=challenge['signingInput'])})
+                    codes = {k: data[k] for k in ('pin', 'newPin') if k in data}
+                    try:
+                        result = wallet.execute({'challengeId':challenge['id'], 'signature':crypt(op='sign', key=key['privateKey'], payload=challenge['signingInput'])} | codes)
+                    except SecurityCodeError as error:
+                        result = {'securityCodeError': error.code, 'attemptsRemaining': error.remaining}
                 print(json.dumps({'result':result}), flush=True)
             except Exception as error: print(json.dumps({'error':type(error).__name__}), flush=True)
     finally:

@@ -177,8 +177,45 @@ Kör `maintenance.py` schemalagt med ett separat underhållskonto. Välj
 lagringstider efter fastställd policy; följande värden är endast ett körningsexempel:
 
 ```sh
-python maintenance.py --config /srv/openid/maintenance.json --profile-days 7 --event-days 30
+python maintenance.py --config /srv/openid/maintenance.json --profile-days 7 --event-days 1827
 ```
+
+Händelser och aktiveringsbeslut får inte gallras tidigare än 1827 dagar
+efter det senaste av händelsen/beslutet och credentialens sista giltighet.
+Kontrollen finns även i databasfunktionen. Råa biometriska underlag ingår
+inte i detta bevarande; profilernas gallring styrs separat. Administrativa
+loggar har ingen automatisk gallring. Oberoende arkiv, läsbarhetsprov,
+fastställd lagringspolicy och rättslig grund behöver etableras i driften.
+
+### Uppgradering till schema 2
+
+Schema 2 innehåller även SignMessage, verifieringsnivå, säkerhetskod och
+en beständig registreringsspärr efter återläsning.
+Signering kräver den separata `sign`-åtgärden med exakt textbindning. PIN-
+verifierare lagras som credentialbundna Transit-HMAC, aldrig som sex siffror.
+Tjänstekontot kan bara läsa kodstatus och anropa begränsade kontroll- och
+bytesfunktioner; det kan inte läsa verifierarna, återställa en låst kod
+eller ändra begärans text, nivå, motpart eller sessionsbindning.
+
+Nya installationer använder `schema.sql`, version 2. Version 1 nekas av den
+nya applikationen. Stoppa applikationer och underhåll, ta och verifiera en
+backup med den tidigare, låsta kodrevisionen och kör `migrate-1-to-2.sql`
+med databasens kontrollerade ägarkonto. Migreringen är transaktionell och
+nekar annan startversion. Starta därefter den nya revisionen och verifiera
+readiness, rollgränser och försöksspärren innan trafik öppnas.
+
+Den nya backupen omfattar även biometribudgeten och registreringsspärren.
+Äldre backuper återläses med sin tidigare kodrevision i en stängd miljö,
+spärras och migreras innan ny kod får ansluta. Kör därefter
+`revoke_all_after_restore()` innan applikationskonton får tillgång.
+
+Återställning kan förlora försök som gjorts efter backupen. Det stödda
+återställningsflödet blockerar därför automatiskt all ny registrering och
+biometrisk analys i minst 24 timmar, även efter omstart och återöppnad
+databas. Tjänster och operatörer kan inte förkorta spärren, inte heller
+genom egen sökväg eller temporär skuggtabell. Ny återläsning förlänger den.
+HTTP svarar `503 REGISTRATION_PAUSED` redan före fångsten. Tiden måste
+ingå i registreringens återställningsmål; det finns ingen API-/CLI-genväg.
 
 Varje körning omkrypterar högst 100 profiler och gallrar högst 100 rader per
 tabell. Ett avbrott rullar tillbaka den pågående transaktionen. Profiler kan
@@ -259,7 +296,9 @@ Resultatet `QUARANTINED` betyder att databasen fortfarande är stängd:
 avbrott lämnar applikationskontona utan anslutningsrätt. Administratören
 behöver därefter kontrollera spärrstatus, återställa separata operatörskonton,
 rotera serviceuppgifter och uttryckligen öppna anslutning samt ge CONNECT till
-avsedda logins. Ny registrering och tvåpersonersaktivering krävs för användarna.
+avsedda logins. Den separata 24-timmarsspärren för ny registrering kvarstår
+även när databasanslutning öppnas. Därefter krävs ny registrering och
+tvåpersonersaktivering för användarna.
 Administratörer kan kringgå dessa rutiner; deras åtkomst måste skyddas separat.
 
 CI återläser ett faktiskt register och OpenBao-snapshots samt stoppar ledaren

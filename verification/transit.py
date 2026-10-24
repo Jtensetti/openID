@@ -57,6 +57,15 @@ class TransitVault:
         return self.request('transit/hmac/openid-index/sha2-256',
             {'input': base64.b64encode(data.encode()).decode(), 'key_version': 1})['hmac']
 
+    def reference(self, domain, value):
+        # Domain-separated, per-credential PIN verifier. The low-entropy code is
+        # never stored in PostgreSQL and the HMAC key never leaves Transit.
+        if not re.fullmatch('security-code-v1:[a-f0-9]{64}', domain) or not re.fullmatch('[0-9]{6}', value):
+            raise ValueError('security code reference')
+        data = (domain+'\0'+value).encode()
+        return self.request('transit/hmac/openid-index/sha2-256',
+            {'input': base64.b64encode(data).decode(), 'key_version': 1})['hmac']
+
     def crypt(self, operation, credential, person, value):
         context = self.context(credential, person)
         if operation == 'seal':

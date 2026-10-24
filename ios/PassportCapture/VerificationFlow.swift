@@ -91,7 +91,8 @@ import NFCPassportReader
                 stepTitle = "Säkerhetskontroll av chipet"
                 status = "Första läsningen är klar. Håll telefonen mot samma pass igen. Behåll kontakten tills säkerhetskontrollen är klar."
                 let chipResult = try await chipRelay.authenticate(api: api, initial: chipStart)
-                guard let captureNonce = chipResult["nonce"] as? String else { throw FlowError.rejected }
+                guard let captureNonce = chipResult["nonce"] as? String,
+                      let poses = CapturePose.sequence(server: chipResult["poses"] as? [String]) else { throw FlowError.rejected }
                 status = ""
                 phase = 2
                 stepTitle = "Ansiktskontroll"
@@ -99,7 +100,7 @@ import NFCPassportReader
                 try await waitForCameraStart()
                 status = "Följ ovalen och instruktionerna för tre bilder."
                 cameraVisible = true
-                let frames = try await camera.capture()
+                let frames = try await camera.capture(sequence: poses)
                 cameraVisible = false
                 try Task.checkCancellation()
                 let payload: [String: Any] = ["id": id, "nonce": captureNonce,
@@ -112,6 +113,14 @@ import NFCPassportReader
                 let result = try await api.postObject("/native/finish", body: ["id": id,"payload":bytes.base64EncodedString(),"assertion":assertion.base64EncodedString()])
                 activeChip = nil
                 try Task.checkCancellation()
+                if result["checksPassed"] as? Bool == false, let remaining = result["attemptsRemaining"] as? Int, (0...5).contains(remaining) {
+                    // Only a count, never scores: the server does not reveal how close a failed attempt was.
+                    stepTitle = "Ansiktskontrollen godkändes inte"
+                    status = remaining > 0
+                        ? "Bilderna kunde inte bekräfta att det är du som syns i passet. Följ vridningarna i den ordning appen visar, i jämnt ljus och utan glasögon eller mössa. Du har \(remaining) försök kvar just nu."
+                        : WalletError.attemptLimit.localizedDescription
+                    return
+                }
                 guard result["checksPassed"] as? Bool == true,
                       let registeredCredential = result["credential"] as? [String: Any],
                       registeredCredential["id"] as? String == credential.id,
@@ -120,6 +129,8 @@ import NFCPassportReader
                 status = "Registreringen väntar på aktivering."
             } catch is CancellationError { status = "Registreringen avbröts." }
             catch WalletError.cameraImageRejected(let frame) { status = WalletError.cameraImageRejected(frame).localizedDescription }
+            catch WalletError.attemptLimit { status = WalletError.attemptLimit.localizedDescription }
+            catch WalletError.registrationPaused { status = WalletError.registrationPaused.localizedDescription }
             catch WalletError.overloaded { status = WalletError.overloaded.localizedDescription }
             catch is URLError { status = "Anslutningen bröts. Gå till Mitt ID och uppdatera status innan du försöker igen." }
             catch let error as CaptureCamera.CaptureError { status = error.localizedDescription }

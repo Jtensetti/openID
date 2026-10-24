@@ -267,6 +267,21 @@
       "sha256": "b68e8b47342dbc9b35644a14fe2efc0b7bf18da703910cd05ad5501ffe07bba1"
     },
     {
+      "coordinate": "org.apache.pdfbox:fontbox:jar:3.0.8",
+      "scope": "compile",
+      "sha256": "a1915c24e3edbe0ecec93896dfbf6d41427810b663ade97bd4e8bae86ec3fdab"
+    },
+    {
+      "coordinate": "org.apache.pdfbox:pdfbox-io:jar:3.0.8",
+      "scope": "compile",
+      "sha256": "36a0e04001010b4c764857817412b96339930b19755e728959805cc0352061b2"
+    },
+    {
+      "coordinate": "org.apache.pdfbox:pdfbox:jar:3.0.8",
+      "scope": "compile",
+      "sha256": "97647cfbde61ebcfc06b4cf8c9b0ffcaaee073396eceb4a7f6836a9b9128903c"
+    },
+    {
       "coordinate": "org.apache.santuario:xmlsec:jar:3.0.6",
       "scope": "compile",
       "sha256": "395eccc3496063ac7b1d6af2422a11670ee5ded807f51542818eccd5fbb5e20c"

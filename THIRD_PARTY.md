@@ -6,7 +6,7 @@ Underhålls- och sårbarhetsuppgifter nedan avser dessa kontrolltillfällen.
 
 ## Lås och licensfiler
 
-Maven-grafen innehåller **189 JAR-artefakter**, låsta med version och SHA-256 i
+Maven-grafen innehåller **192 JAR-artefakter**, låsta med version och SHA-256 i
 [dependencies.lock.json](prototype/dependencies.lock.json).
 [CycloneDX-SBOM](prototype/evidence/bom.json) innehåller paket och deklarerade
 licenser; [OSV-resultatet](prototype/evidence/osv.json) innehåller den daterade
@@ -28,6 +28,7 @@ Inga SDK-versioner eller transitiva beroenden ändras genom denna återanvändni
 | [SQLite JDBC](https://github.com/xerial/sqlite-jdbc) | 3.53.4.0 / `cab7981c19ce04d691f0675f0b2586afc2bbf803` | Java-labbens register. Apache-2.0 och Zentus BSD-2-Clause; SQLite 3.53.4 är public domain. |
 | [Yubico Java WebAuthn Server](https://github.com/Yubico/java-webauthn-server) | 2.10.1 / `6c1b6cc19beae08cd6a310a40db1acee3673b98d` | `webauthn-server-core` och `yubico-util`. BSD-2-Clause samt Google-kod under BSD-3-Clause. |
 | [Maven Wrapper](https://github.com/apache/maven-wrapper) | 3.3.4 / `524486aff97d0748926a977665d5befb3251ff17` | Officiella only-script-filer. Apache-2.0. Maven 3.9.11 har fast distributions-SHA-256. |
+| [Apache PDFBox](https://pdfbox.apache.org/) | 3.0.8 (pdfbox, pdfbox-io, fontbox), Maven Central 2026-07-08 | Demodokument och PAdES-B-B-signatur i kontotjänstens underskriftstest. Apache-2.0; NOTICE och bundna tredjepartslicenser (Adobe AFM/glyflistor, Unicode, TwelveMonkeys) i [licenses/PDFBox-3.0.8-NOTICE.txt](prototype/licenses/PDFBox-3.0.8-NOTICE.txt) och [-LICENSE.txt](prototype/licenses/PDFBox-3.0.8-LICENSE.txt). |
 | [Playwright](https://github.com/microsoft/playwright) | 1.62.1, inklusive playwright-core | Webbläsartester, Apache-2.0. Valfritt macOS-beroende fsevents 2.3.2 är MIT. |
 
 Delade SAML-funktioner kommer från Sweden Connect `opensaml-addons` 2.2.1,
