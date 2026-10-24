@@ -151,7 +151,7 @@ def postgres_snapshot(dsn, *, local_test=False):
         db.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
         version, read_at = db.execute('SELECT version, transaction_timestamp() FROM openid.schema_version').fetchone()
         if version != 2: raise ValueError('archive requires schema 2')
-        yield db, {'database_schema': version, 'read_at': read_at.isoformat()}
+        yield db, {'database_schema': version, 'read_at': read_at.astimezone(timezone.utc).isoformat()}
 
 
 def private_open(name, directory):

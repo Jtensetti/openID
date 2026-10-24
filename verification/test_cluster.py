@@ -189,6 +189,11 @@ class ClusterTests(unittest.TestCase):
         import audit_archive
         self.activate()
         target=self.root/('audit-'+secrets.token_hex(8))
+        with self.psycopg.connect(DSN) as admin:
+            admin.execute("ALTER ROLE test_auditor SET timezone='Europe/Stockholm'")
+        def reset_timezone():
+            with self.psycopg.connect(DSN) as admin:admin.execute('ALTER ROLE test_auditor RESET timezone')
+        self.addCleanup(reset_timezone)
         def revoke_after_credentials(*args):
             result=write_table(*args)
             if args[2]=='credentials':self.sql('revoker','SELECT revoke_credential(%s)',(self.ident,))
