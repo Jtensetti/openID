@@ -96,7 +96,7 @@ jobs:
           export PROOFING_PYTHON="$PWD/.venv/bin/python"
           node federation-browser-test.cjs
       - name: Save runtime capacity measurement
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: runtime-capacity
           path: ${{ runner.temp }}/runtime-load.json
@@ -108,7 +108,7 @@ jobs:
         run: python3 scripts/collect-evidence.py --kind java --output "$RUNNER_TEMP/assurance-evidence" --job-status '${{ job.status }}'
       - name: Save SAML and signature evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: saml-signature-evidence
           path: '${{ runner.temp }}/assurance-evidence'
