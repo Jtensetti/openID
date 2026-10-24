@@ -85,6 +85,8 @@ def write_table(db, backend, name, path, available, end):
             os.chmod(path, 0o600)
             for row in cursor:
                 deadline(end)
+                if any(v is not None and type(v) not in (int, str) for v in row):
+                    raise ValueError('unsupported database value; no partial export')
                 data = encoded(list(row))
                 count += 1; size += len(data)
                 if count > MAX_ROWS or len(data) > MAX_LINE or size > available:

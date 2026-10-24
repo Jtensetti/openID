@@ -101,6 +101,11 @@ class ArchiveTests(unittest.TestCase):
         with self.assertRaises(sqlite3.Error):self.export()
         self.assertFalse(self.destination.exists())
 
+    def test_invalid_database_types_do_not_publish_an_unverifiable_archive(self):
+        with sqlite3.connect(self.db) as db:db.execute('UPDATE credentials SET created=1.25')
+        with self.assertRaises(ValueError):self.export()
+        self.assertFalse(self.destination.exists())
+
     def test_missing_database_is_not_created_and_invalid_revision_is_rejected(self):
         self.db.unlink()
         with self.assertRaises(ValueError):self.export()
