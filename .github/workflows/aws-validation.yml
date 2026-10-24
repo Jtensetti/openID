@@ -17,6 +17,7 @@ jobs:
           python3.12 -m venv "$RUNNER_TEMP/aws-venv"
           "$RUNNER_TEMP/aws-venv/bin/pip" install --require-hashes --only-binary=:all: -r deployment/aws/requirements.lock
           "$RUNNER_TEMP/aws-venv/bin/python" -m unittest discover -s deployment/aws -v
+          "$RUNNER_TEMP/aws-venv/bin/python" -m unittest discover -s deployment/archive -v
       - name: Check resource security rules
         run: |
           curl --fail --location --retry 3 https://github.com/aws-cloudformation/cloudformation-guard/releases/download/3.2.1/cfn-guard-v3-x86_64-ubuntu-latest.tar.gz --output "$RUNNER_TEMP/guard.tar.gz"
@@ -25,3 +26,5 @@ jobs:
           tar -xzf "$RUNNER_TEMP/guard.tar.gz" -C "$RUNNER_TEMP/guard"
           python3 deployment/aws/template.py --ami ami-0123456789abcdef0 > "$RUNNER_TEMP/template.json"
           "$RUNNER_TEMP/guard/cfn-guard-v3-x86_64-ubuntu-latest/cfn-guard" validate --rules deployment/aws/security.guard --data "$RUNNER_TEMP/template.json"
+          python3 deployment/archive/template.py > "$RUNNER_TEMP/archive-template.json"
+          "$RUNNER_TEMP/guard/cfn-guard-v3-x86_64-ubuntu-latest/cfn-guard" validate --rules deployment/archive/security.guard --data "$RUNNER_TEMP/archive-template.json" --output-format json

@@ -5,6 +5,10 @@ av befintliga registerjournaler. Format 1 är JSON Lines med fasta kolumner,
 radantal, byteantal och SHA-256 per fil i ett manifest. Verktyget skriver
 aldrig tillbaka till registret och anropar ingen nyckeltjänst.
 
+För versionslåst lagring i ett annat AWS-konto, separat mottagarkvittens och
+senare läsbarhetsprov finns [arkivklienten och infrastrukturen](../deployment/archive/README.md).
+Leverans och mottagning är separata steg under olika konton/roller.
+
 ## Population och åtkomst
 
 | Körläge | Innehåll |

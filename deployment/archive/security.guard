@@ -1,0 +1,14 @@
+let buckets = Resources.*[ Type == 'AWS::S3::Bucket' ]
+rule private_worm_archive {
+  %buckets.DeletionPolicy == 'Retain'
+  %buckets.UpdateReplacePolicy == 'Retain'
+  %buckets.Properties.ObjectLockEnabled == true
+  %buckets.Properties.ObjectLockConfiguration.ObjectLockEnabled == 'Enabled'
+  %buckets.Properties.ObjectLockConfiguration.Rule.DefaultRetention.Mode == 'COMPLIANCE'
+  %buckets.Properties.VersioningConfiguration.Status == 'Enabled'
+  %buckets.Properties.PublicAccessBlockConfiguration.BlockPublicAcls == true
+  %buckets.Properties.PublicAccessBlockConfiguration.IgnorePublicAcls == true
+  %buckets.Properties.PublicAccessBlockConfiguration.BlockPublicPolicy == true
+  %buckets.Properties.PublicAccessBlockConfiguration.RestrictPublicBuckets == true
+  %buckets.Properties.BucketEncryption.ServerSideEncryptionConfiguration.*.ServerSideEncryptionByDefault.SSEAlgorithm == 'AES256'
+}

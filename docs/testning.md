@@ -12,6 +12,13 @@ PIN-verifierare, sessionshemligheter och skrivning. Containerbygget provar
 exportörens paketerade CLI. Detta är syntetiska utvecklingsprov; extern
 arkivmottagning och fullständiga utgivningsbevis ingår inte.
 
+`deployment/archive/test_store.py` provar leverans, separat mottagarroll och
+senare återläsning med versionsbunden kvittens. Felaktig data, fel konto,
+fel roll, ändrade versioner, bristande bevarande och kryptering nekar
+bekräftelse. Stubber kontrollerar S3-API-kontrakt; CI kontrollerar även den
+genererade CloudFormation-mallens säkerhetsregler. Ingen riktig AWS-stack
+eller faktisk extern mottagning används i dessa prov.
+
 Aktuella körningar och deras exakta revisioner finns i
 [GitHub Actions](https://github.com/Jtensetti/openID/actions).
 [Prövningsunderlaget för OIDC, SAML och underskrift](provningsunderlag.md)
