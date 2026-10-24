@@ -8,7 +8,8 @@ import time
 import psycopg
 from psycopg.conninfo import conninfo_to_dict
 from psycopg_pool import ConnectionPool, PoolTimeout, TooManyRequests
-from wallet import Wallet, device_crypto, identifier, BiometricAttemptLimit
+from wallet import (Wallet, device_crypto, identifier, BiometricAttemptLimit,
+    SecurityCodeError, security_code, weak_security_code)
 from identity import VerifiedDocument
 
 
@@ -48,9 +49,6 @@ def connection_options(dsn, local_test=False):
 
 
 class PostgresWallet(Wallet):
-    # The shared schema has no sign-message column; federated signing is SQLite-pilot only.
-    federated_signing = False
-    security_codes_supported = False
 
     def __init__(self, dsn, origin, vault, crypto=device_crypto, *, local_test=False, pool_size=8):
         if type(pool_size) is not int or not 1 <= pool_size <= 16: raise ValueError('pool size')
@@ -115,6 +113,25 @@ class PostgresWallet(Wallet):
 
     def activate(self, *args, **kwargs):
         raise ValueError('activation requires two separate operator accounts')
+
+    def security_code_status(self, db, ident):
+        return db.execute('SELECT * FROM security_code_status(?)', (ident,)).fetchone()
+
+    def verify_security_code(self, db, ident, pin):
+        candidate = None if pin is None else self.vault.reference('security-code-v1:'+ident, security_code(pin))
+        result = db.execute('SELECT * FROM check_security_code(?,?)', (ident, candidate)).fetchone()
+        return SecurityCodeError(result['code'], result['remaining']) if result['code'] else None
+
+    def set_security_code(self, db, ident, current, new):
+        self.active(db, ident)
+        new = security_code(new)
+        profile = self.verified_profile(db, ident)
+        birth = self.vault.crypt('open', ident, profile['person'], json.loads(profile['sealed'])).get('birthDateMrz')
+        if weak_security_code(new, birth): raise SecurityCodeError('PIN_WEAK')
+        old = None if current is None else self.vault.reference('security-code-v1:'+ident, security_code(current))
+        candidate = self.vault.reference('security-code-v1:'+ident, new)
+        result = db.execute('SELECT * FROM set_security_code(?,?,?)', (ident, old, candidate)).fetchone()
+        return SecurityCodeError(result['code'], result['remaining']) if result['code'] else None
 
     def store_challenge(self, db, challenge, raw, payload, expires, federation):
         ident = payload['credentialId']

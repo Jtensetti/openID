@@ -189,6 +189,13 @@ fastställd lagringspolicy och rättslig grund behöver etableras i driften.
 
 ### Uppgradering till schema 2
 
+Schema 2 innehåller även SignMessage, verifieringsnivå och säkerhetskod.
+Signering kräver den separata `sign`-åtgärden med exakt textbindning. PIN-
+verifierare lagras som credentialbundna Transit-HMAC, aldrig som sex siffror.
+Tjänstekontot kan bara läsa kodstatus och anropa begränsade kontroll- och
+bytesfunktioner; det kan inte läsa verifierarna, återställa en låst kod
+eller ändra begärans text, nivå, motpart eller sessionsbindning.
+
 Nya installationer använder `schema.sql`, version 2. Version 1 nekas av den
 nya applikationen. Stoppa applikationer och underhåll, ta och verifiera en
 backup med den tidigare, låsta kodrevisionen och kör `migrate-1-to-2.sql`

@@ -442,7 +442,9 @@ class Wallet:
                     failure = self.set_security_code(db, ident, request.get('pin'), request.get('newPin'))
                 elif 'pin' in request or 'newPin' in request: raise ValueError('fields')
                 elif action == 'revoke': self._revoke(db, ident)
-                snapshot = self.snapshot(db, ident)
+                # Commit a refused code without another key-service call: an outage
+                # while opening the snapshot must not roll back a counted failure.
+                snapshot = self.snapshot(db, ident) if failure is None else None
                 if action == 'inspect':
                     self.active(db, ident)
                     if pending['federation']:
@@ -512,12 +514,15 @@ class Wallet:
                 revocation_code = ident+'.'+token
         code = None
         if getattr(self, 'security_codes_supported', True):
-            stored = db.execute('SELECT failures,locked FROM security_codes WHERE credential=?', (ident,)).fetchone()
+            stored = self.security_code_status(db, ident)
             code = {'set': stored is not None, 'locked': bool(stored and stored['locked']),
                 'attemptsRemaining': SECURITY_CODE_ATTEMPTS-(stored['failures'] if stored else 0)}
         return {'credentialId': ident, 'state': state, 'createdAt': row['created'], 'expiresAt': row['expires'], 'identity': identity,
             'requests': requests, 'events': events, 'environment': 'PRIVATE_PILOT', 'legalIdentityIssued': False,
             'revocationCode': revocation_code, 'securityCode': code}
+
+    def security_code_status(self, db, ident):
+        return db.execute('SELECT failures,locked FROM security_codes WHERE credential=?', (ident,)).fetchone()
 
     def verified_profile(self, db, ident):
         self.active(db, ident)

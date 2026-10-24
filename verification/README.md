@@ -238,7 +238,12 @@ fel i rad spärras koden permanent och passet måste registreras på nytt. Rätt
 nollställer räknaren. Svaga koder (samma siffra, följder, upprepningar, passets
 födelsedatum) avvisas. Nekande och spärr kräver aldrig kod. Felkoderna
 `PIN_REQUIRED`, `PIN_INCORRECT` (med antal kvar), `PIN_LOCKED` och `PIN_WEAK`
-returneras med HTTP 403. Klusterläget stöder ännu inte säkerhetskod.
+returneras med HTTP 403. Båda registerlägena stöder säkerhetskod och
+SignMessage. PostgreSQL bevarar text och verifieringsnivå i begäran och
+nekar tjänsterollen att ändra dem efter skapandet. Kodens HMAC beräknas av
+OpenBao Transit med separat ändamål och credentialbindning. Tjänsterollen
+kan varken läsa verifieraren eller ändra försök/låsning direkt; databasens
+begränsade funktioner räknar fel även över repliker och omstarter.
 
 Telefonens nyckel kräver fortfarande Face ID eller enhetskod även på kodnivån.
 Säkerhetskoden skyddar därmed mot den som känner till telefonens kod. Den

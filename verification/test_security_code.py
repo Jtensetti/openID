@@ -104,6 +104,15 @@ class SecurityCodeTests(unittest.TestCase):
         self.assertEqual('PIN_INCORRECT', self.error('approve', request['id'], pin='482917')[0])
         self.run_action('approve', request['id'], pin='739154')
 
+    def test_profile_open_failure_cannot_refund_a_wrong_code(self):
+        from unittest.mock import patch
+        self.run_action('set-pin', newPin='482917')
+        request = self.start()
+        with patch.object(self.wallet.vault, 'crypt', side_effect=RuntimeError('synthetic decrypt outage')) as crypt:
+            self.assertEqual(('PIN_INCORRECT', 4), self.error('approve', request['id'], pin='482918'))
+            crypt.assert_not_called()
+        self.assertEqual(4,self.execute()['securityCode']['attemptsRemaining'])
+
     def test_code_is_not_stored_readably(self):
         self.run_action('set-pin', newPin='482917')
         self.assertNotIn(b'482917', self.db.read_bytes())

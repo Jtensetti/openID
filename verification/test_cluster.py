@@ -196,12 +196,55 @@ class ClusterTests(unittest.TestCase):
         allowed={'request_activation(text,text,integer)':{'alice','carol'},'approve_activation(text)':{'bob','carol'},
             'revoke_credential(text)':{'revoker'},'revoke_all_after_restore()':{'revoker'},
             'purge_expired(integer,integer,integer)':{'maintenance'},
-            'reserve_biometric_attempt(text)':{'enroller'}}
+            'reserve_biometric_attempt(text)':{'enroller'},'security_code_status(text)':{'wallet'},
+            'check_security_code(text,text)':{'wallet'},'set_security_code(text,text,text)':{'wallet'}}
         for function,users in allowed.items():
             for role in self.dsns:
                 with self.subTest(function=function,role=role):
                     self.assertEqual(role in users,self.sql(role,'SELECT has_function_privilege(current_user,%s,%s)',
                         ('openid.'+function,'EXECUTE'))[0][0])
+
+    def test_signed_text_code_level_and_federation_binding_are_shared_and_immutable(self):
+        from wallet import SecurityCodeError
+        self.activate()
+        with self.assertRaises(SecurityCodeError) as weak:
+            self.a.execute(self.signed('set-pin')|{'newPin':'123456'})
+        self.assertEqual('PIN_WEAK',weak.exception.code)
+        self.a.execute(self.signed('set-pin')|{'newPin':'482917'})
+        r=self.a.federation_start('_shared_signing','https://rp.example.test','SYNTHETIC document 42','pin')
+        inspected=self.b.execute(self.signed('inspect',r['id'],store=self.b))['requests'][0]
+        self.assertEqual(('SYNTHETIC document 42','pin'),(inspected['signMessage'],inspected['verification']))
+        with self.assertRaises(ValueError):self.a.challenge({'credentialId':self.ident,'action':'approve','requestId':r['id']})
+        for field,value in (('sign_message','different text'),('level',None),('binding','other'),('audience','https://other.invalid')):
+            with self.subTest(field=field),self.assertRaises(self.psycopg.Error):
+                self.sql('wallet','UPDATE federation_requests SET '+field+'=%s WHERE id=%s',(value,r['id']))
+        with self.assertRaises(SecurityCodeError) as wrong:
+            self.b.execute(self.signed('sign',r['id'],store=self.b)|{'pin':'482918'})
+        self.assertEqual(('PIN_INCORRECT',4),(wrong.exception.code,wrong.exception.remaining))
+        self.a.execute(self.signed('sign',r['id'])|{'pin':'482917'})
+        result=self.b.federation_result('consume',r['id'],r['secret'],'_shared_signing','https://rp.example.test')
+        self.assertEqual('pin',result['verification'])
+        self.assertEqual(hashlib.sha256(b'SYNTHETIC document 42').hexdigest(),result['signMessageSha256'])
+        with self.assertRaises(ValueError):self.a.federation_result('consume',r['id'],r['secret'],'_shared_signing','https://rp.example.test')
+
+    def test_parallel_wrong_codes_lock_once_and_service_role_cannot_read_or_reset_verifiers(self):
+        from wallet import SecurityCodeError
+        self.activate();self.a.execute(self.signed('set-pin')|{'newPin':'482917'})
+        r=self.a.federation_start('_pin_lock','https://rp.example.test',level='pin')
+        attempts=[self.signed('approve',r['id'])|{'pin':'482918'} for _ in range(10)]
+        def wrong(attempt):
+            try:self.b.execute(attempt);return 'unexpected approval'
+            except SecurityCodeError as e:return e.code
+        with ThreadPoolExecutor(max_workers=6) as pool:results=list(pool.map(wrong,attempts))
+        self.assertEqual(4,results.count('PIN_INCORRECT'));self.assertEqual(6,results.count('PIN_LOCKED'))
+        self.a.close();self.a=self.store('wallet')
+        with self.assertRaises(SecurityCodeError) as locked:
+            self.a.execute(self.signed('set-pin')|{'pin':'482917','newPin':'739154'})
+        self.assertEqual('PIN_LOCKED',locked.exception.code)
+        for role in ('wallet','enroller','maintenance','auditor'):
+            for statement in ('SELECT hash FROM security_codes','UPDATE security_codes SET failures=0,locked=0','DELETE FROM security_codes'):
+                with self.subTest(role=role,statement=statement),self.assertRaises(self.psycopg.Error):self.sql(role,statement)
+        self.assertEqual(0,self.a.execute(self.signed())['securityCode']['attemptsRemaining'])
 
     def test_database_tls_rejects_wrong_ca_and_hostname(self):
         import socket
