@@ -1,10 +1,7 @@
 name: Server and authentication tests
 on:
-  push:
-    branches: [main, 'feat/**']
-    paths: ['prototype/**', 'ops/**', 'verification/**', 'deployment/cluster/**', 'deployment/continuity/**', '.github/workflows/prototype.yml', '.github/scripts/postgres-tls.sh']
-  pull_request:
-    paths: ['prototype/**', 'ops/**', 'verification/**', 'deployment/cluster/**', 'deployment/continuity/**', '.github/workflows/prototype.yml', '.github/scripts/postgres-tls.sh']
+  workflow_call:
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:

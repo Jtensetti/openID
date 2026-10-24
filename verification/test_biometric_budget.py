@@ -33,6 +33,7 @@ class BiometricBudgetTests(unittest.TestCase):
         self.wallets[0].biometric_attempt(document())
         self.wallets[0].vault.path.unlink()
         with self.assertRaises(FileNotFoundError): self.wallets[1].biometric_attempt(document())
+        with self.assertRaises(FileNotFoundError): self.wallets[1].health()
         self.assertFalse(self.wallets[1].vault.path.exists())
 
     def test_unverified_document_cannot_spend_a_budget(self):

@@ -1,10 +1,7 @@
 name: Shared registry and key service
 on:
-  push:
-    branches: [main, 'feat/**']
-    paths: ['verification/**', 'deployment/cluster/**', '.github/workflows/cluster.yml', '.github/scripts/postgres-tls.sh']
-  pull_request:
-    paths: ['verification/**', 'deployment/cluster/**', '.github/workflows/cluster.yml', '.github/scripts/postgres-tls.sh']
+  workflow_call:
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:

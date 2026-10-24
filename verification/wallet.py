@@ -173,7 +173,8 @@ class Wallet:
         # Readiness must not wait behind a writer or create a missing database.
         if not self.path.is_file() or self.path.is_symlink(): raise ValueError('database unavailable')
         with sqlite3.connect(self.path.as_uri()+'?mode=ro', uri=True, timeout=0.1) as db:
-            if db.execute('SELECT 1 FROM profiles LIMIT 1').fetchone(): self.vault.key()
+            if (db.execute('SELECT 1 FROM profiles LIMIT 1').fetchone()
+                    or db.execute('SELECT 1 FROM biometric_failures LIMIT 1').fetchone()): self.vault.key()
             db.execute('SELECT 1 FROM credentials LIMIT 1').fetchone()
 
     def event(self, db, credential, kind, request=None):
@@ -213,7 +214,10 @@ class Wallet:
                 expiry = int(datetime.combine(date.fromisoformat(document.identity['documentExpires']) + timedelta(days=1),
                     datetime.min.time(), timezone.utc).timestamp())
                 if expiry <= self.clock(): raise ValueError('expired document')
-                self.vault.key(create=not db.execute('SELECT 1 FROM profiles LIMIT 1').fetchone())
+                history = db.execute('SELECT 1 FROM profiles LIMIT 1').fetchone()
+                if getattr(self, 'document_links_enabled', False):
+                    history = history or db.execute('SELECT 1 FROM biometric_failures LIMIT 1').fetchone()
+                self.vault.key(create=not history)
                 tag = self.vault.document_tag(document)
                 if getattr(self, 'document_links_enabled', False) and db.execute(
                         'SELECT 1 FROM retired_documents WHERE document_tag=?', (tag,)).fetchone():

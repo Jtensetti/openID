@@ -1,0 +1,46 @@
+name: Assurance checks
+on:
+  pull_request:
+  push:
+    branches: [main, 'feat/**']
+  merge_group:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: assurance-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  server:
+    uses: ./.github/workflows/prototype.yml
+  registry:
+    uses: ./.github/workflows/cluster.yml
+  pilot:
+    uses: ./.github/workflows/pilot-runtime.yml
+  iphone:
+    uses: ./.github/workflows/ios.yml
+  deployment:
+    uses: ./.github/workflows/operations.yml
+  infrastructure:
+    uses: ./.github/workflows/aws-validation.yml
+  dependencies:
+    uses: ./.github/workflows/dependencies.yml
+  gate:
+    name: assurance-gate
+    if: always()
+    needs: [server, registry, pilot, iphone, deployment, infrastructure, dependencies]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Require every component to pass for this revision
+        env:
+          RESULTS: '${{ toJSON(needs) }}'
+        run: |
+          python3 - <<'PY'
+          import json, os
+          results = json.loads(os.environ['RESULTS'])
+          required = {'server','registry','pilot','iphone','deployment','infrastructure','dependencies'}
+          if set(results) != required or any(item['result'] != 'success' for item in results.values()):
+              raise SystemExit('Assurance gate refused: a required component failed, was cancelled or was skipped.')
+          print('All required components passed for this revision.')
+          PY

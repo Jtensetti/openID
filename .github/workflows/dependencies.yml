@@ -1,0 +1,29 @@
+name: Dependency advisory monitoring
+on:
+  workflow_call:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 5 * * *'
+permissions:
+  contents: read
+jobs:
+  audit:
+    name: dependency-advisories
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Test pagination, partial results, outage and lock coverage
+        run: python3 .github/scripts/test_audit_dependencies.py -v
+      - name: Query current advisories for the exact locked dependencies
+        run: python3 .github/scripts/audit_dependencies.py --output "$RUNNER_TEMP/dependency-advisories.json"
+      - name: Preserve dated results, input hashes and coverage limits
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: dependency-advisories
+          path: '${{ runner.temp }}/dependency-advisories.json'
+          if-no-files-found: error
+          retention-days: 90

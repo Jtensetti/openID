@@ -16,7 +16,7 @@ CREATE OR REPLACE FUNCTION reserve_biometric_attempt(tag text) RETURNS integer
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $$
 DECLARE recent bigint[]; now_epoch bigint:=floor(extract(epoch FROM clock_timestamp()))::bigint;
 BEGIN
- IF tag IS NULL OR tag !~ '^[A-Za-z0-9_:/+=-]{32,256}$' THEN RAISE EXCEPTION 'document tag required'; END IF;
+ IF tag IS NULL OR length(tag) NOT BETWEEN 32 AND 256 OR tag !~ '^[A-Za-z0-9_:/+=-]+$' THEN RAISE EXCEPTION 'document tag required'; END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended(tag,7833));
  SELECT coalesce(array_agg(t ORDER BY t),'{}'::bigint[]) INTO recent
   FROM biometric_attempts b CROSS JOIN LATERAL unnest(b.times) t

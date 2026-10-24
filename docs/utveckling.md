@@ -47,3 +47,53 @@ Produktionsöppning kräver oberoende säkerhetsgranskning och ett behörigt
 mänskligt beslut om utgivning, dataskydd, drift och nyckelhantering.
 Digg-godkännande och anslutningsavtal är separata beslut för sådan användning.
 Kodändringar eller passerad CI ändrar inte dessa tillstånd. Se [SECURITY.md](../SECURITY.md).
+
+## Obligatoriska kontroller och repoägarskap
+
+`Assurance checks` kör alla komponenter för varje PR och för `main`, utan
+sökvägsfilter. Den återanvänder komponenternas workflows från samma revision.
+`assurance-gate` blir grön först när server/protokoll, delat register,
+pilotcontainer, iPhone, driftcontainer, infrastrukturprov och aktuell
+beroendekontroll har passerat. Fel, avbrott och överhoppade jobb nekar grinden.
+Komponentprov kan även startas manuellt. Inga produktionshemligheter skickas
+till dessa jobb; jobben har enbart läsbehörighet till koden.
+
+Repoägaren behöver aktivera `.github/branch-protection.json` för `main` och
+verifiera inställningen i GitHub. Den binder kontrollen till GitHub Actions,
+kräver aktuell branch, en granskare och godkännande efter senaste push,
+avfärdar gamla godkännanden, omfattar administratörer och förbjuder force-push
+och borttagning. CODEOWNERS anger ansvarig förvaltare; det utgör inte en
+oberoende säkerhetsgranskning. En sådan granskare måste utses och ges en
+beslutad roll. Kodägargodkännande är inte aktiverat i förslaget eftersom en
+ensam ägare inte kan godkänna sin egen PR.
+
+Med repoägarens befintliga GitHub CLI-session kan förslaget granskas och
+tillämpas med:
+
+```sh
+python3 .github/scripts/configure_repository.py
+python3 .github/scripts/configure_repository.py --apply
+```
+
+Skriptet ersätter inte ett befintligt branchskydd. Det kontrollerar svaret
+efter ändringen och aktiverar därefter GitHubs privata sårbarhetsrapportering.
+Filen och skriptet innebär inte att dessa inställningar redan är aktiverade.
+Lägg inte en administratörstoken i CI för att köra detta.
+
+## Säkerhetsbevakning
+
+Den dagliga `Dependency advisory monitoring` kontrollerar Maven-, Python-
+och npm-låsen samt Swift- och actionrevisioner mot OSV. Samma kontroll ingår
+i PR-grinden. Paginerade svar följs per fråga; ofullständiga svar, fel och
+otillgänglig tjänst ger felstatus. Rapporten innehåller datum, kodrevision,
+manifesthashar och täckningsgränser. Fynd kräver bedömning och rättning innan
+grinden passerar. Det finns inga automatiska undantag.
+
+Dependabot föreslår varje vecka uppdateringar för actions, Maven, npm och
+Docker. Förslag behöver licens-/advisorygranskning, nya lås och passerad CI.
+OSV:s register är inte heltäckande; särskilt OS-lager, JDK/Node, PostgreSQL,
+OpenBao, modeller och driftkonfiguration behöver separat bevakning av
+driftägaren. Swift-commitfrågor ersätter inte bevakning av inbäddade OpenSSL.
+Verifiera dagliga körningar och en mottagare för fel efter aktivering på
+`main`. GitHub-artefakterna med 90 dagars retention är inte långtidsarkiv
+för utgivningsbevis.

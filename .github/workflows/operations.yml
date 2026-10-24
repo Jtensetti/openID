@@ -1,10 +1,7 @@
 name: Deployment container
 on:
-  push:
-    branches: [main, 'feat/**']
-    paths: ['ops/**', 'render.yaml', '.github/workflows/operations.yml']
-  pull_request:
-    paths: ['ops/**', 'render.yaml', '.github/workflows/operations.yml']
+  workflow_call:
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:

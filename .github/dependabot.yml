@@ -1,0 +1,22 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+  - package-ecosystem: maven
+    directory: /prototype
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+  - package-ecosystem: npm
+    directories: [/prototype, /verification]
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+  - package-ecosystem: docker
+    directories: [/deployment, /deployment/cluster, /deployment/continuity, /ops]
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

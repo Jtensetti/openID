@@ -127,7 +127,6 @@ class ClusterTests(unittest.TestCase):
         with self.assertRaises(BiometricAttemptLimit):self.enroller.biometric_attempt(document())
         self.assertEqual(4,self.enroller.biometric_attempt(document(documentNumber='TEST00009')))
         for role in self.dsns:
-            if role=='backup':continue
             with self.subTest(role=role),self.assertRaises(self.psycopg.Error):
                 self.sql(role,'DELETE FROM biometric_attempts')
         with self.psycopg.connect(DSN) as db:
@@ -145,6 +144,38 @@ class ClusterTests(unittest.TestCase):
         self.activate()
         self.sql('maintenance','SELECT purge_expired(7,1827,100)')
         self.assertEqual(1,len(self.sql('auditor','SELECT * FROM activation_proposals')))
+
+    def test_schema_one_migration_preserves_enrollment_and_enforces_new_boundaries(self):
+        from postgres import PostgresWallet,RegistryUnavailable
+        from psycopg.conninfo import conninfo_to_dict,make_conninfo
+        target=self.restore_target()
+        from psycopg import sql
+        with self.psycopg.connect(DSN,autocommit=True) as admin:
+            admin.execute(sql.SQL('CREATE DATABASE {} TEMPLATE template0').format(sql.Identifier(target)))
+        admin_dsn=make_conninfo(**(conninfo_to_dict(DSN)|{'dbname':target}))
+        def dsn(role):return make_conninfo(**(conninfo_to_dict(self.dsns[role])|{'dbname':target}))
+        with self.psycopg.connect(admin_dsn,autocommit=True) as db:
+            # This fixture is the exact version-1 schema from c91102b, not generated from version 2.
+            db.execute((Path(__file__).parent/'fixtures/schema-v1.sql').read_text(),prepare=False)
+            with self.psycopg.connect(DSN) as source:
+                for table in ('credentials','persons','profiles'):
+                    rows=source.execute('SELECT * FROM openid.'+table).fetchall()
+                    for row in rows:
+                        db.execute('INSERT INTO openid.'+table+' VALUES('+','.join(['%s']*len(row))+')',row)
+            with self.assertRaises(RegistryUnavailable):
+                PostgresWallet(dsn('enroller'),self.a.origin,self.enroller.vault,local_test=True)
+            migration=(Path(__file__).parents[1]/'deployment/cluster/migrate-1-to-2.sql').read_text()
+            db.execute(migration,prepare=False)
+            self.assertEqual([(2,)],db.execute('SELECT version FROM openid.schema_version').fetchall())
+            with self.assertRaises(self.psycopg.Error):db.execute(migration,prepare=False)
+            db.execute('ROLLBACK')
+            self.assertEqual([(2,)],db.execute('SELECT version FROM openid.schema_version').fetchall())
+        migrated=PostgresWallet(dsn('enroller'),self.a.origin,self.enroller.vault,local_test=True)
+        self.addCleanup(migrated.close)
+        self.assertEqual(4,migrated.biometric_attempt(document()))
+        with migrated.transaction() as db:
+            self.assertEqual(self.ident,db.execute('SELECT credential FROM profiles').fetchone()[0])
+            self.assertEqual('PENDING_REVIEW',db.execute('SELECT state FROM credentials').fetchone()[0])
 
     def test_same_login_cannot_approve_even_with_both_roles(self):
         proposal=self.sql('carol','SELECT request_activation(%s,%s,%s)',(self.ident,'REVIEW-test-002',24))[0][0]
@@ -344,6 +375,8 @@ class ClusterTests(unittest.TestCase):
         from psycopg.conninfo import conninfo_to_dict,make_conninfo
         from postgres import PostgresWallet
         self.activate()
+        self.enroller.biometric_attempt(document())
+        self.enroller.biometric_attempt(document())
         request=self.a.start_request(self.ident)
         self.a.execute(self.signed('approve',request['id']))
         signed=self.signed()
@@ -372,6 +405,7 @@ class ClusterTests(unittest.TestCase):
         self.assertEqual('REVOKED',restored.execute(self.signed(store=restored))['state'])
         enroller=PostgresWallet(dsn('enroller'),self.a.origin,self.enroller.vault,local_test=True)
         self.addCleanup(enroller.close)
+        self.assertEqual(2,enroller.biometric_attempt(document()))  # spent attempts survive COPY/restore
         with self.assertRaises(ValueError):enroller.enroll(self.keys[0]['publicKey'],document())
         ident=enroller.enroll(self.keys[2]['publicKey'],document())['id']
         with self.psycopg.connect(dsn('alice')) as operator:
