@@ -2,7 +2,7 @@ FROM python:3.12.15-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9
 RUN python -c "import urllib.request,hashlib,zipfile,io; data=urllib.request.urlopen('https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.9.11/apache-maven-3.9.11-bin.zip').read(); assert hashlib.sha256(data).hexdigest()=='0d7125e8c91097b36edb990ea5934e6c68b4440eef4ea96510a0f6815e7eeadb'; zipfile.ZipFile(io.BytesIO(data)).extractall('/opt')"
 RUN chmod +x /opt/apache-maven-3.9.11/bin/mvn
 
-FROM eclipse-temurin:21.0.12.1_1-jdk-noble@sha256:107215954359f1ab0be058a247d7c64ed6e69c71c1682d471d38ef751ec8e964 AS java-build
+FROM eclipse-temurin:24.0.2_12-jdk-noble@sha256:dacac8e9a0df0d2bd24e702b4431132875c249930b70555ebd7ca285b5bee684 AS java-build
 COPY --from=maven-tool /opt/apache-maven-3.9.11 /opt/maven
 WORKDIR /build/prototype
 COPY prototype/pom.xml prototype/mvnw ./
@@ -22,7 +22,7 @@ WORKDIR /app/verification
 COPY verification/package.json verification/package-lock.json ./
 RUN npm ci --ignore-scripts --omit=dev
 
-FROM eclipse-temurin:21.0.12.1_1-jre-noble@sha256:35501d3f93173b420ac9001658eb68157e813316b865087e345c187fca422c4c AS java-runtime
+FROM eclipse-temurin:24.0.2_12-jre-noble@sha256:b416d02335e702b0403ff280de9475a3348e29382285969c9d4e17862ce632e7 AS java-runtime
 FROM python:3.12.15-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258
 LABEL org.opencontainers.image.source="https://github.com/Jtensetti/openID"
 LABEL org.opencontainers.image.description="Private iPhone verification pilot"
