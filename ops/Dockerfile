@@ -1,10 +1,10 @@
 # Official Temurin images, verified 2026-10-19. Digests lock the complete multiarch image index.
-FROM eclipse-temurin:21.0.12.1_1-jdk-noble@sha256:107215954359f1ab0be058a247d7c64ed6e69c71c1682d471d38ef751ec8e964 AS compile
+FROM eclipse-temurin:24.0.2_12-jdk-noble@sha256:dacac8e9a0df0d2bd24e702b4431132875c249930b70555ebd7ca285b5bee684 AS compile
 WORKDIR /build
 COPY src/SealedEnvironment.java .
 RUN javac --release 21 -d /classes SealedEnvironment.java
 
-FROM eclipse-temurin:21.0.12.1_1-jre-noble@sha256:35501d3f93173b420ac9001658eb68157e813316b865087e345c187fca422c4c
+FROM eclipse-temurin:24.0.2_12-jre-noble@sha256:b416d02335e702b0403ff280de9475a3348e29382285969c9d4e17862ce632e7
 LABEL org.opencontainers.image.source="https://github.com/Jtensetti/openID"
 LABEL org.opencontainers.image.description="Sealed infrastructure; no e-id issuance, lab identities or test keys"
 WORKDIR /app
