@@ -3,11 +3,28 @@ import io
 import json
 import subprocess
 import unittest
-from unittest.mock import patch
-from biometric_worker import run_stage
+from unittest.mock import Mock, patch
+from biometric_worker import run_stage, score_capture
 from serve import score_frames
 
 class DiagnosticTests(unittest.TestCase):
+    def test_capture_rejects_each_invalid_image_before_returning_scores(self):
+        for index, stage in enumerate(('PORTRAIT_FACE', 'CAMERA_FACE_1', 'CAMERA_FACE_2', 'CAMERA_FACE_3')):
+            matcher, pad = Mock(), Mock()
+            matcher.decode_face.side_effect = [(object(), object())] * index + [ValueError('EXACTLY_ONE_FACE_REQUIRED')]
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output), self.assertRaises(SystemExit):
+                score_capture(matcher, pad, b'p', [b'a', b'b', b'c'])
+            self.assertEqual({'stage': stage, 'reason': 'EXACTLY_ONE_FACE_REQUIRED'}, json.loads(output.getvalue()))
+            self.assertEqual(max(0, index-1), pad.score.call_count)
+
+    def test_capture_requires_exactly_three_frames_before_analysis(self):
+        matcher, pad = Mock(), Mock()
+        for frames in ([], [b'a'], [b'a']*4):
+            with self.assertRaises(ValueError): score_capture(matcher, pad, b'p', frames)
+        matcher.decode_face.assert_not_called()
+        pad.score.assert_not_called()
+
     def test_worker_never_reports_arbitrary_exception_text(self):
         output = io.StringIO()
         with contextlib.redirect_stdout(output), self.assertRaises(SystemExit):

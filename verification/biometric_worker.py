@@ -28,6 +28,19 @@ def run_stage(stage, operation):
         raise SystemExit(2) from None
 
 
+def score_capture(matcher, pad, portrait, frames):
+    if len(frames) != 3: raise ValueError('frames')
+    image, face = run_stage('PORTRAIT_FACE', lambda: matcher.decode_face(portrait))
+    reference = run_stage('FACE_MATCH', lambda: matcher.feature_from_face(image, face))
+    face_scores, pad_scores = [], []
+    for index, frame in enumerate(frames):
+        image, face = run_stage(f'CAMERA_FACE_{index + 1}', lambda: matcher.decode_face(frame))
+        candidate = run_stage('FACE_MATCH', lambda: matcher.feature_from_face(image, face))
+        face_scores.append(run_stage('FACE_MATCH', lambda: matcher.compare_features(reference, candidate)))
+        pad_scores.append(run_stage('PAD', lambda: pad.score(image, face)))
+    return {'face': face_scores, 'pad': pad_scores}
+
+
 def main():
     from face import FaceMatcher
     from pad import PresentationAttackDetector
@@ -41,14 +54,7 @@ def main():
     data = json.loads(raw)
     portrait = base64.b64decode(data['portrait'], validate=True)
     frames = [base64.b64decode(frame, validate=True) for frame in data['frames']]
-    if len(frames) != 3: raise ValueError('frames')
-    run_stage('PORTRAIT_FACE', lambda: matcher.decode_face(portrait))
-    face_scores, pad_scores = [], []
-    for index, frame in enumerate(frames):
-        image, face = run_stage(f'CAMERA_FACE_{index + 1}', lambda: matcher.decode_face(frame))
-        face_scores.append(run_stage('FACE_MATCH', lambda: matcher.compare(portrait, frame)))
-        pad_scores.append(run_stage('PAD', lambda: pad.score(image, face)))
-    print(json.dumps({'face': face_scores, 'pad': pad_scores}, allow_nan=False))
+    print(json.dumps(score_capture(matcher, pad, portrait, frames), allow_nan=False))
 
 
 if __name__ == '__main__':

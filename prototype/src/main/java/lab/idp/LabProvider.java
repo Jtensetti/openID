@@ -8,6 +8,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.stereotype.Component;
 import se.swedenconnect.spring.authnserver.attributes.*;
 import se.swedenconnect.spring.authnserver.authentication.*;
+import se.swedenconnect.spring.authnserver.authentication.provider.UserAuthenticationInputToken;
 import se.swedenconnect.spring.authnserver.authentication.provider.redirect.*;
 import se.swedenconnect.spring.authnserver.error.*;
 import se.swedenconnect.spring.authnserver.sso.SsoPolicy;
@@ -24,6 +25,10 @@ public final class LabProvider extends AbstractUserRedirectAuthenticationProvide
   @Override public String getName() { return webAuthn.enabled() ? "WEBAUTHN-SYNTHETIC-PROOFING" : "SIMULATED-ONLY"; }
   @Override public List<String> getSupportedAuthnContextUris() { return List.of(Metadata.LAB_CONTEXT); }
   @Override public List<String> getSupportedAttributes() { return List.of(AttributeIdentifiers.DISPLAY_NAME); }
+  @Override public Authentication authenticateUser(UserAuthenticationInputToken token) throws AuthenticationErrorException {
+    SignatureRequestPolicy.requireLoginOnly(token.getAuthnRequirements());
+    return super.authenticateUser(token);
+  }
   @Override public boolean supportsUserAuthenticationToken(Authentication token) {
     return webAuthn.enabled() ? token instanceof PasskeyAuthenticationToken : token instanceof UsernamePasswordAuthenticationToken;
   }

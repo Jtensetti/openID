@@ -71,12 +71,21 @@ class FaceMatcher:
 
     def feature(self, encoded):
         image, face = self.decode_face(encoded)
+        return self.feature_from_face(image, face)
+
+    def feature_from_face(self, image, face):
+        """Use only the image/landmarks returned by decode_face in this request."""
         return self.recognizer.feature(self.recognizer.alignCrop(image, face)).copy()
 
     def compare(self, signed_portrait, camera_image):
         reference = self.feature(signed_portrait)
         candidate = self.feature(camera_image)
-        score = float(self.recognizer.match(reference, candidate, cv2.FaceRecognizerSF_FR_COSINE))
+        return self.compare_features(reference, candidate)
+
+    def compare_features(self, reference, candidate):
+        # OpenCV may normalize its inputs in place. Keep the reference unchanged
+        # when it is reused for the three frames of a single capture.
+        score = float(self.recognizer.match(reference.copy(), candidate.copy(), cv2.FaceRecognizerSF_FR_COSINE))
         if not math.isfinite(score) or not -1.00001 <= score <= 1.00001:
             raise FaceRejected('INVALID_SCORE')
         return max(-1.0, min(1.0, score))

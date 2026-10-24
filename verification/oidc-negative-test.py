@@ -26,12 +26,15 @@ with tempfile.TemporaryDirectory() as tmp:
  tls=ssl.create_default_context(cafile=str(keys/'tls.crt'))
  token_mutation=None;token_request_mutation=None
  subprocess.run(['openssl','pkcs12','-in',str(keys/'idp.p12'),'-passin','pass:test-only-changeit','-nodes','-nocerts','-out',str(root/'idp.pem')],check=True,capture_output=True)
+ subprocess.run(['openssl','pkcs12','-in',str(keys/'sp.p12'),'-passin','pass:test-only-changeit','-nodes','-nocerts','-out',str(root/'sp.pem')],check=True,capture_output=True)
+ used_assertion=None;used_code=None;used_verifier=None
  def b64(data):return base64.urlsafe_b64encode(data).rstrip(b'=').decode()
  class Proxy(http.server.BaseHTTPRequestHandler):
   def log_message(self,*args):pass
   def do_GET(self):self.forward()
   def do_POST(self):self.forward()
   def forward(self):
+   global used_assertion,used_code,used_verifier
    host=self.headers.get('Host'); port={'idp.example.test':9443,'sp.example.test':9444}.get(host)
    if port is None:self.send_error(400);return
    c=http.client.HTTPSConnection('127.0.0.1',port,context=tls,timeout=20)
@@ -41,10 +44,23 @@ with tempfile.TemporaryDirectory() as tmp:
     if token_request_mutation=='pkce':fields['code_verifier']=['A'*43]
     elif token_request_mutation=='redirect':fields['redirect_uri']=['https://sp.example.test/wrong']
     elif token_request_mutation=='client':fields.pop('client_assertion',None)
+    elif token_request_mutation=='assertion_replay':fields['client_assertion']=[used_assertion]
+    elif token_request_mutation=='code_replay':fields['code']=[used_code];fields['code_verifier']=[used_verifier]
+    elif token_request_mutation.startswith('assertion_'):
+     a,b,s=fields['client_assertion'][0].split('.')
+     claims=json.loads(base64.urlsafe_b64decode(b+'='*(-len(b)%4)))
+     claim=token_request_mutation.removeprefix('assertion_')
+     if claim=='signature':s=b64(b'invalid-signature')
+     else:
+      claims[claim]=int(time.time())-60 if claim=='exp' else 'https://wrong.example.test'
+      b=b64(json.dumps(claims).encode());s=b64(subprocess.run(['openssl','dgst','-sha256','-sign',str(root/'sp.pem')],input=(a+'.'+b).encode(),check=True,capture_output=True).stdout)
+     fields['client_assertion']=[a+'.'+b+'.'+s]
     body=urllib.parse.urlencode(fields,doseq=True).encode();self.headers.replace_header('Content-Length',str(len(body)))
    headers={k:v for k,v in self.headers.items() if k.lower() not in ('connection','accept-encoding')}
    try:
     c.request(self.command,self.path,body=body,headers=headers);r=c.getresponse(); data=r.read()
+    if self.path=='/oidc/token' and r.status==200 and token_request_mutation is None and token_mutation is None:
+     exchanged=urllib.parse.parse_qs(body.decode());used_assertion=exchanged['client_assertion'][0];used_code=exchanged['code'][0];used_verifier=exchanged['code_verifier'][0]
     if self.path=='/oidc/token' and r.status==200 and token_mutation:
      payload=json.loads(data); a,b,signature=payload['id_token'].split('.')
      claims=json.loads(base64.urlsafe_b64decode(b+'='*(-len(b)%4)))
@@ -52,7 +68,8 @@ with tempfile.TemporaryDirectory() as tmp:
      else:
       if token_mutation=='algorithm':
        header=json.loads(base64.urlsafe_b64decode(a+'='*(-len(a)%4)));header['alg']='HS256';a=b64(json.dumps(header).encode())
-      else:claims[token_mutation]={'nonce':'wrong','iss':'https://wrong.example.test','aud':'wrong-client','exp':int(time.time())-60,'acr':'http://id.elegnamnden.se/loa/1.0/loa3'}[token_mutation]
+      elif token_mutation=='auth_time_missing':claims.pop('auth_time',None)
+      else:claims[token_mutation]={'nonce':'wrong','iss':'https://wrong.example.test','aud':'wrong-client','exp':int(time.time())-60,'acr':'http://id.elegnamnden.se/loa/1.0/loa3','auth_time':int(time.time())-600}[token_mutation]
       b=b64(json.dumps(claims).encode());signature=b64(subprocess.run(['openssl','dgst','-sha256','-sign',str(root/'idp.pem')],input=(a+'.'+b).encode(),check=True,capture_output=True).stdout)
      payload['id_token']=a+'.'+b+'.'+signature;data=json.dumps(payload).encode()
     self.send_response(r.status)
@@ -96,6 +113,7 @@ with tempfile.TemporaryDirectory() as tmp:
     except Exception:pass
     time.sleep(.3)
    else:raise AssertionError('startup failed '+host)
+  assert request(client(),'https://idp.example.test/sign/')[0] != 200
   key=json.loads(crypt(op='new'));ident=wallet.enroll(key['publicKey'],document())['id'];wallet.activate(ident,'REVIEW-oidc-test-001')
   def sign(action,rid):
    ch=wallet.challenge({'credentialId':ident,'action':action,'requestId':rid})
@@ -112,16 +130,19 @@ with tempfile.TemporaryDirectory() as tmp:
   c,rid,fields=begin();wallet.execute(sign('approve',rid));status,html,url=complete(c,fields)
   assert status==200 and 'inloggad med OIDC' in html,(status,html[:1500],url)
   print('PASS OIDC positive: signed consent, code, S256 PKCE, private_key_jwt, nonce, verified TLS and session',flush=True)
-  for mutation in ('nonce','iss','aud','exp','acr','algorithm','signature'):
+  for mutation in ('nonce','iss','aud','exp','acr','auth_time','auth_time_missing','algorithm','signature'):
    c,rid,fields=begin();wallet.execute(sign('approve',rid));token_mutation=mutation
    assert complete(c,fields)[0]==400,mutation
    denied(c);token_mutation=None
-  print('PASS signed wrong nonce/issuer/audience/expiry/acr and bad algorithm/signature rejected',flush=True)
-  for mutation in ('pkce','redirect','client'):
+  print('PASS signed wrong nonce/issuer/audience/expiry/acr, stale/missing auth_time and bad algorithm/signature rejected',flush=True)
+  for mutation in ('pkce','redirect','client','assertion_aud','assertion_iss','assertion_sub','assertion_exp','assertion_signature','assertion_replay','code_replay'):
+   if mutation in ('assertion_replay','code_replay'):
+    fresh,rid,fields=begin();wallet.execute(sign('approve',rid));assert complete(fresh,fields)[0]==200
+    claim=used_assertion.split('.')[1];assert json.loads(base64.urlsafe_b64decode(claim+'='*(-len(claim)%4)))['exp']>time.time()+5
    c,rid,fields=begin();wallet.execute(sign('approve',rid));token_request_mutation=mutation
    assert complete(c,fields)[0]==400,mutation
    denied(c);token_request_mutation=None
-  print('PASS wrong PKCE verifier, token redirect and missing client assertion denied',flush=True)
+  print('PASS wrong PKCE/redirect, missing or invalid private_key_jwt, client assertion replay and code replay denied',flush=True)
   for mutation in ('pkce','method','redirect','client','acr'):
    c=client();capture_authorize=True;request(c,'https://sp.example.test/oidc/login');capture_authorize=False
    parsed=urllib.parse.urlsplit(captured_authorize);params=urllib.parse.parse_qs(parsed.query)

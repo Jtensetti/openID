@@ -59,6 +59,13 @@ bind('#authentication', async form => {
   form.elements.response.value = responseToJson(key);
   HTMLFormElement.prototype.submit.call(form);
 });
+bind('#document-signature', async form => {
+  const fields = new URLSearchParams(new FormData(form));
+  const options = await post('/sign/options', fields);
+  const key = await navigator.credentials.get(optionsFromJson(options));
+  form.elements.response.value = responseToJson(key);
+  HTMLFormElement.prototype.submit.call(form);
+});
 
 let installation;
 const install = document.querySelector('#install');

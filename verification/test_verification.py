@@ -13,6 +13,7 @@ import numpy as np
 from face import FaceMatcher, FaceRejected, MODELS
 from server import handler, unique_object, verify_document
 from identity import VerifiedDocument
+from biometric_worker import score_capture
 
 class FaceTests(unittest.TestCase):
     @classmethod
@@ -32,6 +33,47 @@ class FaceTests(unittest.TestCase):
         score=self.matcher.recognizer.match(a,b,cv2.FaceRecognizerSF_FR_COSINE)
         self.assertTrue(np.isfinite(a).all())
         self.assertGreater(score,0.999)
+
+    def test_capture_matches_pairwise_inference_with_four_decodes_and_features(self):
+        # Real SFace, generated pixels and fixture landmarks; not an accuracy test.
+        rng = np.random.default_rng(2026)
+        images = {key: rng.integers(0, 256, (112, 112, 3), dtype=np.uint8)
+                  for key in (b'portrait', b'one', b'two', b'three')}
+        original_images = {key: image.copy() for key, image in images.items()}
+        face = np.array([10, 10, 90, 90, 38, 42, 74, 42, 56, 62, 40, 84, 72, 84, .99], dtype=np.float32)
+        original_face = face.copy()
+        frames = [b'one', b'two', b'three']
+        with patch.object(self.matcher, 'decode_face', side_effect=lambda raw: (images[raw], face)) as decode:
+            expected = [self.matcher.compare(b'portrait', frame) for frame in frames]
+            decode.reset_mock()
+            pad = Mock(); pad.score.return_value = .91
+            with patch.object(self.matcher, 'feature_from_face', wraps=self.matcher.feature_from_face) as feature:
+                result = score_capture(self.matcher, pad, b'portrait', frames)
+            self.assertEqual(4, decode.call_count)
+            self.assertEqual(4, feature.call_count)
+        np.testing.assert_allclose(result['face'], expected, rtol=0, atol=1e-7)
+        self.assertEqual([.91]*3, result['pad'])
+        for call, frame in zip(pad.score.call_args_list, frames):
+            self.assertIs(images[frame], call.args[0])
+            self.assertIs(face, call.args[1])
+        for key in images: np.testing.assert_array_equal(images[key], original_images[key])
+        np.testing.assert_array_equal(face, original_face)
+
+    def test_feature_comparison_preserves_inputs_and_rejects_invalid_scores(self):
+        matcher = FaceMatcher.__new__(FaceMatcher); matcher.recognizer = Mock()
+        reference, candidate = np.array([[2., 3.]]), np.array([[4., 5.]])
+        def mutating_match(a, b, mode):
+            a[:] = 0; b[:] = 0
+            return .75
+        matcher.recognizer.match.side_effect = mutating_match
+        self.assertEqual(.75, matcher.compare_features(reference, candidate))
+        np.testing.assert_array_equal(reference, [[2., 3.]])
+        np.testing.assert_array_equal(candidate, [[4., 5.]])
+        matcher.recognizer.match.side_effect = None
+        for score in (float('nan'), float('inf'), -float('inf'), 1.1, -1.1):
+            matcher.recognizer.match.return_value = score
+            with self.assertRaisesRegex(FaceRejected, 'INVALID_SCORE'):
+                matcher.compare_features(reference, candidate)
 
     def test_malformed_and_oversize_images_rejected(self):
         for image in [b'',b'not an image',b'x'*2_000_001]:

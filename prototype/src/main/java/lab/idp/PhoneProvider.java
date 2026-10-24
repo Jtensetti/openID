@@ -9,6 +9,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 import se.swedenconnect.spring.authnserver.attributes.*;
 import se.swedenconnect.spring.authnserver.authentication.*;
+import se.swedenconnect.spring.authnserver.authentication.provider.UserAuthenticationInputToken;
 import se.swedenconnect.spring.authnserver.authentication.provider.redirect.*;
 import se.swedenconnect.spring.authnserver.error.*;
 import se.swedenconnect.spring.authnserver.sso.SsoPolicy;
@@ -24,6 +25,10 @@ public final class PhoneProvider extends AbstractUserRedirectAuthenticationProvi
   @Override public String getName() { return "PASSPORT-DEVICE"; }
   @Override public List<String> getSupportedAuthnContextUris() { return List.of(PhoneIdentity.CONTEXT); }
   @Override public List<String> getSupportedAttributes() { return PhoneAttributes.supported(); }
+  @Override public Authentication authenticateUser(UserAuthenticationInputToken token) throws AuthenticationErrorException {
+    SignatureRequestPolicy.requireLoginOnly(token.getAuthnRequirements());
+    return super.authenticateUser(token);
+  }
   @Override public boolean supportsUserAuthenticationToken(Authentication token) { return token instanceof Approval; }
   @Override protected UserAuthentication createUserAuthentication(ResumedAuthenticationToken token) throws AuthenticationErrorException {
     try {

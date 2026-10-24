@@ -12,6 +12,11 @@ den nya tjänsten avvisar det backendvalet tills motsvarande implementation finn
 betrodd operatörsprocess. `lookup` får en engångsfråga som binder credential,
 profilversion och intern dokumentreferens till passets autentiserade namn,
 MRZ-födelsedatum, utfärdarland, nationalitet och giltighet. Foto skickas inte.
+Om den krypterade passprofilen innehåller `passportPersonalNumber` skickas även
+det autentiserade DG1-fältet med exakt de 10 eller 12 siffror som passet gav.
+En saknad uppgift utelämnas; inget nummer eller sekel beräknas från namn eller
+födelsedatum. Frågeobjektets representation döljer fälten; adaptern får inte
+logga innehållet.
 
 En verklig adapter måste autentisera registerkällan, ha rätt till åtkomst,
 entydigt verifiera personens koppling till dokumentet och validera källans
@@ -19,6 +24,12 @@ svar. Frågans interna dokumentreferens är en HMAC, inte ett passnummer som
 myndigheten kan slå upp. Namn och MRZ-födelsedatum räcker inte för entydig
 identifiering. Vilka ytterligare auktoritativa underlag som behövs ska avgöras
 med registerleverantören; implementationen gissar varken personnummer eller sekel.
+Ett svar måste också överensstämma med passets nummer när det finns. Tolv
+siffror jämförs exakt; tio siffror jämförs med registersvarets sista tio,
+medan registerkällan måste fastställa seklet. Avvikelse eller syntetisk
+ersättning för ett sådant nummer nekas före lagring. Kontrollen upprepas
+vid användning av lagrade bevis, även för äldre bindningar. Ett korrekt
+återgivet nummer är fortfarande inte bevis på att en registerfråga utförts.
 
 Resultatet måste vara `RegistryResult`, återge frågans fyra bindningar och
 innehålla en unik bevisreferens, kontrolltid och sluttid. Endast `MATCH` med
@@ -62,7 +73,8 @@ SQLite-operatören har fortfarande tillgång till både databas och nyckelfil.
 Detta ger inte verklig personseparation eller skydd mot en illvillig
 systemadministratör. Stulna och borttappade telefoner kräver en dokumenterad
 operatörskontroll innan administrativ spärr/ersättning; ingen e-postbaserad
-återställning införs. Spärrkanal dygnet runt återstår.
+återställning införs. Den publika betan har nu en [separat spärrkanal](avisering-och-sparr.md);
+privata ID:n är inte automatiskt migrerade och sammanhängande fysiska prov återstår.
 
 ## Operatörsflöde
 
@@ -87,7 +99,9 @@ en separat policy för motpart, ändamål och användarens information/godkänna
 `test_registry_binding` använder interna `TEST-...`-identiteter och en uttrycklig
 testadapter. Syntetiska bindningar måste aktiveras separat i testkoden och kan
 aldrig lämna ut nationella identitetsattribut eller godkännas genom operatörens
-CLI. Bilder och registerkontroll är testdubblar; SQLite, AES-GCM, ECDSA,
+CLI. För gränssnittets nummerjämförelse används även publicerade SPAR-testnummer
+med en lokal testadapter. Inga SPAR-anrop görs och inget sådant resultat
+påstås vara registerverifierat. Bilder och registerkontroll är testdubblar; SQLite, AES-GCM, ECDSA,
 transaktioner, sessionskontroller och backup/återläsning är verkliga i proven.
 
 Testerna täcker fel person, fel nyckel/dokument/profil, återspelning, skyddade

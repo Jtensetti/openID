@@ -30,6 +30,32 @@ ikraftträdande behöver kontrolleras inför en formell bedömning.
 T02 och T03 använder föränderliga `latest`-adresser. De är läshänvisningar;
 fullständig profilmappning och extern interoperabilitet återstår.
 
+## Granskningsbas för protokoll och underskrift, 2026-10-23
+
+[protocol-sources.json](protocol-sources.json) låser versionsrubrik och
+SHA-256 för den direkt hämtade HTML som lästs. T02 identifierades nu som
+1.9 och T03 som 1.1, båda daterade 2026-10-21. Detta ersätter den äldre
+tekniska inventeringens versionsuppgift, men fastställer inte tillämpligt
+anslutningsavtal eller övergångsregler. Indexet länkar också till december
+2024; sökindex kan fortfarande visa äldre dokumentversioner.
+
+| ID | Primärkälla |
+|---|---|
+| T05 | [DSS Implementation Profile](https://docs.swedenconnect.se/technical-framework/latest/07_-_Implementation_Profile_for_using_DSS_in_Central_Signing_Services.html), direkt hämtad version 1.7, 2026-10-23. |
+| T06 | [Certificate Profile for Central Signing Services](https://docs.swedenconnect.se/technical-framework/latest/08_-_Certificate_Profile_for_Central_Signing_Services.html), direkt hämtad version 1.3, 2026-10-21. |
+| T07 | [Swedish OpenID Connect Profile](https://www.oidc.se/specifications/swedish-oidc-profile-1_0.html), 1.0, 2023-12-11. |
+| T08 | [Signature Extension for OpenID Connect](https://www.oidc.se/specifications/oidc-signature-extension-1_2.html), direkt hämtad version 1.2, 2026-10-18. |
+| T09 | [Sweden Connect Security Requirements](https://docs.swedenconnect.se/federation/security-requirements.html), 1.0. |
+| T10 | [OIDC Metadata Requirements](https://docs.swedenconnect.se/federation/oidc-metadata-requirements.html), 1.0. |
+| T11 | [OpenID Foundation, OP conformance testing](https://openid.net/certification/connect_op_testing/) och [submission](https://openid.net/certification/op_submission/). Interna testresultat är inte resultat från denna svit. |
+| T12 | [OpenSSL CMS](https://docs.openssl.org/3.0/man1/openssl-cms/): `-verify`, `-binary`, `-cades` och explicit CA-fil används för separata syntetiska interoperabilitetsprov. |
+
+T06:s certifikatprofil och T05:s DSS-protokoll implementeras inte av
+den nya lokala CMS-labben. [SignService](https://github.com/swedenconnect/signservice)
+är fortsatt en kandidat för en sådan integration, inte ett infört beroende.
+Tillämpliga delar och kvarstående verifiering beskrivs i
+[prövningsunderlaget](provningsunderlag.md).
+
 ## WebAuthn
 
 W01 omfattar [W3C WebAuthn Level 3](https://www.w3.org/TR/webauthn-3/) och
@@ -81,3 +107,21 @@ särskilt K5.7–K5.9, K5.13 och K5.14. Ingen formell kravstatus ändras.
 [ICAO Doc 9303, del 10, åttonde upplagan med ändringar](https://www.icao.int/publications/documents/9303_p10_cons_en.pdf),
 tabell 72: DG11 kan innehålla personal number och fullständigt födelsedatum;
 fälten är valfria. Detta bevisar inte förekomst i ett visst svenskt pass.
+
+## Komplettering 2026-10-23: utgivning
+
+- D08 K2.1–K2.3 och D09 vägledning till K5.13 har lästs på nytt för
+  organisation, uthållighet, kontroll av handlingens status och oberoende
+  provning. Detta ändrar inte formell kravstatus.
+- D15: [Digg, bilaga D om biometriska uppgifter](https://www.digg.se/digitala-tjanster/e-legitimering/om-e-legitimering/tillitsnivaer-for-e-legitimering/tillitsramverk-for-svensk-e-legitimation/vagledning-for-utfardare/bilaga-d-dataskyddsforordningens-bestammelser-vid-behandling-av-biometriska-uppgifter),
+  senast uppdaterad 2025-03-19. Avsnitt 3 och 5 är underlag för alternativ
+  grundidentifiering vid samtycke respektive konsekvensbedömning.
+- P01: [Polisen, kontroll av pass/nationellt id-kort](https://polisen.se/tjanster-tillstand/pass-och-nationellt-id-kort/giltiga-svenska-resehandlingar/kontroll-av-passnationellt-id-kort/),
+  granskad 2025-02-27. Publik giltighetskontroll och CSCA-certifikat är
+  skilda funktioner. Sidan dokumenterar inte ett API-avtal för OpenID.
+- R01: [SPAR, Personsök](https://www.statenspersonadressregister.se/master/start/teknisk-info/personsoek/),
+  beskriver SOAP/XML, version 2023.1 och klientcertifikat. Ingen anslutning
+  eller behörighet följer av att dokumentationen är tillgänglig.
+- R02: [SPAR, exempelfiler för avisering](https://www.statenspersonadressregister.se/master/start/teknisk-info/filtransport/filer-foer-aviseringar/).
+  Två publicerade exempelidentifierare återanvänds enbart i lokala
+  adaptertester; inga produktionsuppslag görs.
