@@ -64,6 +64,18 @@ class RuntimeTests(unittest.TestCase):
             path.write_text(json.dumps(fields))
             with self.assertRaisesRegex(ValueError, 'canonical origin'): load_config(path)
 
+    def test_csca_crl_is_optional_but_must_be_an_absolute_existing_file(self):
+        from serve import load_config
+        fields = dict(bind='127.0.0.1', origin='https://localhost:8765', team='A'*10, bundle='se.openid.PassportCapture',
+            developmentAttestation=True, tlsCert='/missing', tlsKey='/missing', csca='/missing', database='/missing', pairingFile='/missing')
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)/'config.json'
+            for crl, message in (('relative.crl', 'Absolute paths'), ('/missing.crl', 'Absolute paths|missing'), ):
+                path.write_text(json.dumps(fields | {'cscaCrl': crl}))
+                with self.assertRaisesRegex(ValueError, message): load_config(path)
+            path.write_text(json.dumps(fields | {'unknownCrl': '/x'}))
+            with self.assertRaisesRegex(ValueError, 'do not match'): load_config(path)
+
     def test_camera_rejection_returns_only_safe_frame_code(self):
         from biometric_worker import CameraImageRejected
         self.native.finish.side_effect = CameraImageRejected(2)

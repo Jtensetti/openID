@@ -36,7 +36,7 @@ def verify_document(command, request):
         except (ValueError, AttributeError):
             stage = None
         allowed = {'FORMAT', 'SIGNER', 'TRUST_CHAIN', 'SIGNATURE', 'DATA_HASHES',
-                   'IDENTITY_FORMAT', 'DOCUMENT_DATE', 'PORTRAIT_FORMAT', 'CONFIGURATION'}
+                   'IDENTITY_FORMAT', 'DOCUMENT_DATE', 'PORTRAIT_FORMAT', 'CONFIGURATION', 'REVOCATION_STATUS', 'REVOKED'}
         if isinstance(stage, str) and stage in allowed:
             print(json.dumps({'event': 'passport_rejected', 'stage': stage}), file=sys.stderr, flush=True)
         raise ValueError('passport verification failed')
@@ -140,6 +140,7 @@ def handler(matcher, command, port, native=None, origin=None, token=None, browse
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--csca', required=True, type=Path, help='Operator-provisioned trusted CSCA PEM bundle')
+    parser.add_argument('--csca-crl', type=Path, help='CRLs signed by the trusted CSCAs, e.g. SWE.crl; revocation then fails closed')
     parser.add_argument('--java', default='java')
     parser.add_argument('--jar', type=Path, default=ROOT.parent / 'prototype/target/isolated-eid-lab.jar')
     parser.add_argument('--port', type=int, default=8765)
@@ -158,7 +159,9 @@ def main():
     if not 1024 <= args.port <= 65535 or not args.csca.is_file() or not args.jar.is_file():
         parser.error('A valid trust bundle, built JAR and unprivileged port are required')
     matcher = FaceMatcher(ROOT / 'models')
-    command = [args.java, '-Xmx128m', '-jar', str(args.jar.resolve()), 'verify-passport', str(args.csca.resolve())]
+    if args.csca_crl and not args.csca_crl.is_file(): parser.error('CRL file missing')
+    command = [args.java, '-Xmx128m', '-jar', str(args.jar.resolve()), 'verify-passport', str(args.csca.resolve()),
+               *([str(args.csca_crl.resolve())] if args.csca_crl else [])]
     from pad import PresentationAttackDetector
     pad=PresentationAttackDetector(ROOT/'models')
     origin=args.origin or f'http://localhost:{args.port}'

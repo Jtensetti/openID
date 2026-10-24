@@ -62,7 +62,7 @@ def score_frames(portrait, frames):
 def load_config(path):
     value = json.loads(Path(path).read_text())
     required = {'bind', 'origin', 'team', 'bundle', 'developmentAttestation', 'tlsCert', 'tlsKey', 'csca', 'database', 'pairingFile'}
-    if not required <= set(value) or set(value) - required - {'listenPort', 'publicEnrollment'}:
+    if not required <= set(value) or set(value) - required - {'listenPort', 'publicEnrollment', 'cscaCrl'}:
         raise ValueError('Configuration fields do not match the example')
     if type(value.get('publicEnrollment', False)) is not bool: raise ValueError('Public enrollment flag')
     if value.get('publicEnrollment', False) and (value['developmentAttestation'] is not False or value['origin'] != 'https://api.openid.tensetti.io'):
@@ -75,10 +75,10 @@ def load_config(path):
     if not re.fullmatch('[A-Z0-9]{10}', value['team']): raise ValueError('Apple Team ID')
     if not re.fullmatch('[A-Za-z0-9.-]{3,128}', value['bundle']): raise ValueError('Bundle ID')
     if type(value['developmentAttestation']) is not bool: raise ValueError('Attestation environment')
-    for key in ('tlsCert', 'tlsKey', 'csca', 'database', 'pairingFile'):
-        if not Path(value[key]).is_absolute(): raise ValueError('Absolute paths required')
-    for key in ('tlsCert', 'csca'):
-        if not Path(value[key]).is_file(): raise ValueError('Certificate file missing')
+    for key in ('tlsCert', 'tlsKey', 'csca', 'database', 'pairingFile', 'cscaCrl'):
+        if key in value and not Path(value[key]).is_absolute(): raise ValueError('Absolute paths required')
+    for key in ('tlsCert', 'csca', 'cscaCrl'):
+        if key in value and not Path(value[key]).is_file(): raise ValueError('Certificate file missing')
     private_file(value['tlsKey'])
     token = private_file(value['pairingFile']).decode('ascii').strip()
     if not re.fullmatch('[A-Za-z0-9_-]{43,128}', token): raise ValueError('Pairing file format')
@@ -204,7 +204,8 @@ def main():
             from native import NativeSessions, AppAttest
             from chip import ChipProcess
             from server import verify_document
-            command = ['java', '-Xmx128m', '-jar', config['jar'], 'verify-passport', config['csca']]
+            # With cscaCrl, document signer revocation is checked against a current CSCA-signed CRL (fail closed).
+            command = ['java', '-Xmx128m', '-jar', config['jar'], 'verify-passport', config['csca'], *([config['cscaCrl']] if 'cscaCrl' in config else [])]
             native = NativeSessions(AppAttest(config['team'], config['bundle'], config['developmentAttestation']),
                 lambda data: verify_document(command, data), None, None, wallet=wallet,
                 chip_factory=lambda data: ChipProcess([*command[:-2], 'authenticate-chip', command[-1]], data),
