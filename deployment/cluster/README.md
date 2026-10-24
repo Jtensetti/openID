@@ -177,8 +177,30 @@ Kör `maintenance.py` schemalagt med ett separat underhållskonto. Välj
 lagringstider efter fastställd policy; följande värden är endast ett körningsexempel:
 
 ```sh
-python maintenance.py --config /srv/openid/maintenance.json --profile-days 7 --event-days 30
+python maintenance.py --config /srv/openid/maintenance.json --profile-days 7 --event-days 1827
 ```
+
+Händelser och aktiveringsbeslut får inte gallras tidigare än 1827 dagar
+efter det senaste av händelsen/beslutet och credentialens sista giltighet.
+Kontrollen finns även i databasfunktionen. Råa biometriska underlag ingår
+inte i detta bevarande; profilernas gallring styrs separat. Administrativa
+loggar har ingen automatisk gallring. Oberoende arkiv, läsbarhetsprov,
+fastställd lagringspolicy och rättslig grund behöver etableras i driften.
+
+### Uppgradering till schema 2
+
+Nya installationer använder `schema.sql`, version 2. Version 1 nekas av den
+nya applikationen. Stoppa applikationer och underhåll, ta och verifiera en
+backup med den tidigare, låsta kodrevisionen och kör `migrate-1-to-2.sql`
+med databasens kontrollerade ägarkonto. Migreringen är transaktionell och
+nekar annan startversion. Starta därefter den nya revisionen och verifiera
+readiness, rollgränser och försöksspärren innan trafik öppnas.
+
+Den nya backupen omfattar även biometribudgeten. Äldre backuper återläses
+med sin tidigare kodrevision i en stängd miljö, spärras och migreras innan
+ny kod får ansluta. Återställning av en äldre backup kan förlora senare
+försök; håll därför ny identitetskontroll stängd i minst 24 timmar efter
+återläsning, även när alla återställda credentials redan har spärrats.
 
 Varje körning omkrypterar högst 100 profiler och gallrar högst 100 rader per
 tabell. Ett avbrott rullar tillbaka den pågående transaktionen. Profiler kan

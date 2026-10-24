@@ -21,7 +21,7 @@ FEDERATION_RP = 'openID kontotjänst'
 FEDERATION_PURPOSE = 'Logga in och dela namn, födelsedatum enligt passet och passfoto'
 SIGN_PURPOSE = 'Skriv under och dela namn, födelsedatum enligt passet och passfoto'
 SIGN_MESSAGE_LIMIT = 400
-BIOMETRIC_ATTEMPTS = 5          # failed face/PAD/pose decisions per passport ...
+BIOMETRIC_ATTEMPTS = 5          # analyses, including success and worker errors, per passport ...
 BIOMETRIC_WINDOW = 24 * 3600    # ... within this many seconds
 
 SECURITY_CODE_ATTEMPTS = 5      # wrong security codes in a row before the code is locked for good
@@ -49,7 +49,7 @@ def weak_security_code(code, birth_mrz=None):
     return False
 
 class BiometricAttemptLimit(ValueError):
-    """Too many failed biometric decisions for this passport today. Safe to tell the holder."""
+    """The persistent analysis budget is exhausted. Safe to tell the holder."""
 
 def sign_message(value):
     """Plain text the holder reads in full before a separate signing approval."""
@@ -280,23 +280,22 @@ class Wallet:
             self.event(db, ident, 'REVOKED')
 
     def biometric_attempt(self, document):
-        """Refuse analysis after too many failed biometric decisions for the same passport (HMAC tag only)."""
+        """Commit one attempt BEFORE inference. Never refund on errors, success or process death.
+
+        BEGIN IMMEDIATE serializes independent Wallet objects/processes as well as threads.
+        Keep the original table name so upgrading an existing pilot preserves its spent budget.
+        """
         if not isinstance(document, VerifiedDocument): raise ValueError('verified document required')
         with self.transaction() as db:
-            self.vault.key(create=not db.execute('SELECT 1 FROM profiles LIMIT 1').fetchone())
+            self.vault.key(create=not (db.execute('SELECT 1 FROM profiles LIMIT 1').fetchone()
+                or db.execute('SELECT 1 FROM biometric_failures LIMIT 1').fetchone()))
             tag = self.vault.document_tag(document)
             db.execute('DELETE FROM biometric_failures WHERE time<=?', (int(self.clock())-BIOMETRIC_WINDOW,))
-            if db.execute('SELECT count(*) FROM biometric_failures WHERE document_tag=?', (tag,)).fetchone()[0] >= BIOMETRIC_ATTEMPTS:
+            used = db.execute('SELECT count(*) FROM biometric_failures WHERE document_tag=?', (tag,)).fetchone()[0]
+            if used >= BIOMETRIC_ATTEMPTS:
                 raise BiometricAttemptLimit('biometric attempt limit')
-
-    def biometric_failure(self, document):
-        """Record a failed decision; returns the attempts left in the window."""
-        with self.transaction() as db:
-            tag = self.vault.document_tag(document)
             db.execute('INSERT INTO biometric_failures VALUES(?,?)', (tag, int(self.clock())))
-            used = db.execute('SELECT count(*) FROM biometric_failures WHERE document_tag=? AND time>?',
-                (tag, int(self.clock())-BIOMETRIC_WINDOW)).fetchone()[0]
-            return max(0, BIOMETRIC_ATTEMPTS-used)
+        return BIOMETRIC_ATTEMPTS-used-1
 
     def start_request(self, ident):
         # Fixed local RP: caller cannot supply a name, domain, purpose or callback.

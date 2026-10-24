@@ -10,7 +10,7 @@
   <form id="document-signature" method="post" th:action="@{/sign/finish}">
     <input type="hidden" name="transaction" th:value="${tx.id()}"><input type="hidden" name="digest" th:value="${tx.digest()}"><input type="hidden" name="response" value="">
     <label><input type="checkbox" name="intent" value="sign-this-document" required><span th:text="${intent}"></span></label>
-    <button type="submit">Skriv under med testnyckel</button>
+    <button type="submit" disabled>Skriv under med testnyckel</button>
   </form>
   <form method="post" th:action="@{/sign/cancel}"><button class="secondary">Avbryt utan underskrift</button></form>
   <p>Bekräfta inom 60 sekunder. Efter underskrift kan du hämta dokumentet, underskriften och testcertifikaten.</p>

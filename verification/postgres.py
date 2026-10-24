@@ -8,7 +8,8 @@ import time
 import psycopg
 from psycopg.conninfo import conninfo_to_dict
 from psycopg_pool import ConnectionPool, PoolTimeout, TooManyRequests
-from wallet import Wallet, device_crypto, identifier
+from wallet import Wallet, device_crypto, identifier, BiometricAttemptLimit
+from identity import VerifiedDocument
 
 
 class RegistryUnavailable(RuntimeError):
@@ -50,8 +51,6 @@ class PostgresWallet(Wallet):
     # The shared schema has no sign-message column; federated signing is SQLite-pilot only.
     federated_signing = False
     security_codes_supported = False
-    # The shared schema has no attempt table yet; the SQLite pilot enforces the per-passport limit.
-    biometric_attempt = None
 
     def __init__(self, dsn, origin, vault, crypto=device_crypto, *, local_test=False, pool_size=8):
         if type(pool_size) is not int or not 1 <= pool_size <= 16: raise ValueError('pool size')
@@ -95,9 +94,19 @@ class PostgresWallet(Wallet):
 
     def health(self):
         with self.transaction() as db:
-            if db.execute('SELECT version FROM schema_version').fetchone()[0] != 1:
+            if db.execute('SELECT version FROM schema_version').fetchone()[0] != 2:
                 raise RegistryUnavailable('schema unavailable')
         self.vault.key()
+
+    def biometric_attempt(self, document):
+        if not isinstance(document, VerifiedDocument): raise ValueError('verified document required')
+        tag = self.vault.document_tag(document)
+        # A separate commit makes model errors/process death unable to restore this reservation.
+        # The database function serializes the tag across every enrollment replica.
+        with self.transaction() as db:
+            remaining = db.execute('SELECT reserve_biometric_attempt(?)', (tag,)).fetchone()[0]
+        if remaining < 0: raise BiometricAttemptLimit('biometric attempt limit')
+        return remaining
 
     def credential(self, db, ident):
         row = db.execute('SELECT * FROM credentials WHERE id=? FOR UPDATE', (identifier(ident),)).fetchone()

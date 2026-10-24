@@ -15,7 +15,7 @@
     <form id="registration" method="post" th:action="@{/wallet/register/options}" th:if="${available and not registered}">
       <input type="hidden" name="credential" value="TEST-CREDENTIAL-alice">
       <label><input type="checkbox" name="simulatedProofing" value="acknowledged" required> Jag förstår att identitetskontrollen är simulerad och att detta endast skapar en testnyckel.</label>
-      <button type="submit">Registrera testnyckel</button>
+      <button type="submit" disabled>Registrera testnyckel</button>
     </form>
     <p>Välj en passkey eller FIDO2-säkerhetsnyckel. En passkey kan synkroniseras av din nyckelleverantör.</p>
     <p><a class="action" th:href="${sp}">Öppna testtjänsten</a></p>

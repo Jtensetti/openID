@@ -146,6 +146,14 @@ class CaptureTests(unittest.TestCase):
         self.assertTrue(result['checksPassed']); self.assertEqual('FAILED', result['poseCheck'])
         self.assertEqual({'event': 'pose_check', 'result': 'FAILED'}, json.loads(log.getvalue()))
 
+    def test_worker_errors_spend_budget_before_inference(self):
+        self.matcher.compare.side_effect = ValueError('synthetic worker failure')
+        for _ in range(BIOMETRIC_ATTEMPTS):
+            with self.assertRaisesRegex(ValueError, 'synthetic worker failure'): self.finish()
+        self.matcher.compare.reset_mock()
+        with self.assertRaises(BiometricAttemptLimit): self.finish()
+        self.matcher.compare.assert_not_called()
+
     def test_limit_is_per_passport_not_global(self):
         self.pad.score.return_value = 0.2
         for _ in range(BIOMETRIC_ATTEMPTS): self.finish()

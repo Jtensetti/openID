@@ -18,7 +18,7 @@ Aktuell originaltext behöver kontrolleras inför en formell bedömning.
 | ID-08 | Återställning, D08 K6.3 | Nyregistrering för samma pass ersätter nyckeln; spärrad nyckel kan inte aktiveras igen. | Förlorad telefon utan självbetjäning, nytt pass och skydd mot gammal databasåterläsning. |
 | ID-09 | Bindning/giltighet, D08 K6.4–K6.7 | Signerade engångsoperationer, utgång och samtidiga beslut testas i Python och XCTest. | Oberoende avisering och komplett utgivningsprocess. |
 | ID-10 | Spärr, D03 §8.6 | App, operatörs-CLI och separat spärrtjänst i den publika betan; aktuell status kontrolleras vid godkännande, konsumtion och skyddad SP-läsning. | Sammanhängande telefonprov, schemalagd återstart, bemanning och oberoende granskning. |
-| ID-11 | Bevarande/avveckling, D08 K2.7–K2.8, K5.5 | Råunderlag lagras inte; PostgreSQL-läget har begränsad gallring och Transit-omkryptering. | Fastställda lagringstider, avveckling och gallring av administrativa loggar/personlänkar. |
+| ID-11 | Bevarande/avveckling, D08 K2.7–K2.8, K5.5 | Råunderlag lagras inte; PostgreSQL-läget har begränsad gallring, Transit-omkryptering och ett bevarandegolv på 1827 dagar för händelser och aktiveringsbeslut. | Fastställda lagringstider, avveckling och gallring av administrativa loggar/personlänkar. |
 
 ## Protokoll och säkerhet
 

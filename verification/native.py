@@ -162,7 +162,7 @@ class NativeSessions:
         portrait=document.portrait
         # Persistent per-document limit: a stolen passport cannot be used to tune attacks against the thresholds.
         limiter=getattr(self.wallet,'biometric_attempt',None) if self.wallet is not None else None
-        if limiter is not None:limiter(document)
+        remaining=limiter(document) if limiter is not None else None
         face_scores=[];pad_scores=[];poses=[]
         if self.biometrics is not None:
             result=self.biometrics(portrait,frames)
@@ -184,8 +184,7 @@ class NativeSessions:
             print(json.dumps({'event':'pose_check','result':'PASSED' if pose_passed else 'FAILED'}),file=sys.stderr,flush=True)
         # Experimental thresholds; calibration is pending.
         passed=min(face_scores)>=0.5 and min(pad_scores)>=0.8 and (pose_passed or not self.pose_enforced)
-        credential=None;remaining=None
-        if not passed and limiter is not None:remaining=self.wallet.biometric_failure(document)
+        credential=None
         if passed and pending['devicePublicKey'] is not None:
             credential=self.wallet.enroll(pending['devicePublicKey'], document)
         # No raw scores to the client: they would be an oracle for tuning a presentation or morphing attack.

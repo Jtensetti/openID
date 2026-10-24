@@ -10,7 +10,7 @@
     <form id="authentication" method="post" th:action="@{/lab/webauthn/finish}">
       <input type="hidden" name="authnId" th:value="${authnId}"><input type="hidden" name="response" value="">
       <label>Testidentitet <select name="credential"><option value="TEST-CREDENTIAL-alice">SYNTHETIC-alice</option><option value="TEST-CREDENTIAL-revoked">SYNTHETIC-revoked (spärrad)</option><option value="TEST-CREDENTIAL-expired">SYNTHETIC-expired (utgången)</option></select></label>
-      <button type="submit">Godkänn med testnyckel</button>
+      <button type="submit" disabled>Godkänn med testnyckel</button>
     </form>
     <form method="post" th:action="@{/lab}"><input type="hidden" name="authnId" th:value="${authnId}"><button class="secondary" name="action" value="cancel">Avbryt</button></form>
     <p>Begäran gäller i 60 sekunder. Registrera först din testnyckel i <a href="/wallet/">testplånboken</a> och starta sedan en ny inloggning.</p>

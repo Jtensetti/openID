@@ -9,7 +9,8 @@ from transit import TransitVault
 
 
 def maintain(wallet, *, profile_days, event_days, batch=100):
-    if any(type(v) is not int or not 1<=v<=3650 for v in (profile_days,event_days)):
+    if (type(profile_days) is not int or not 1<=profile_days<=3650
+            or type(event_days) is not int or not 1827<=event_days<=3650):
         raise ValueError('explicit retention periods required')
     if type(batch) is not int or not 1<=batch<=1000:raise ValueError('batch')
     changed=removed=0

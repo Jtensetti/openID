@@ -81,7 +81,7 @@ class ClusterTests(unittest.TestCase):
 
     def setUp(self):
         with self.psycopg.connect(DSN, autocommit=True) as db:
-            db.execute('TRUNCATE openid.credentials,openid.persons,openid.operator_events,openid.maintenance_runs RESTART IDENTITY CASCADE')
+            db.execute('TRUNCATE openid.credentials,openid.persons,openid.operator_events,openid.maintenance_runs,openid.biometric_attempts RESTART IDENTITY CASCADE')
         self.enroller=self.store('enroller')
         self.a=self.store('wallet'); self.b=self.store('wallet')
         self.ident=self.enroller.enroll(self.keys[0]['publicKey'], document())['id']
@@ -114,6 +114,38 @@ class ClusterTests(unittest.TestCase):
         with self.assertRaises(self.psycopg.Error):self.sql('bob','SELECT approve_activation(%s)',(proposal,))
         self.assertEqual(2,len(self.sql('auditor','SELECT * FROM operator_events')))
 
+    def test_biometric_budget_is_atomic_across_replicas_and_cannot_be_reset_by_services(self):
+        from wallet import BiometricAttemptLimit
+        second=self.store('enroller')
+        def attempt(i):
+            try:return (self.enroller if i%2 else second).biometric_attempt(document())
+            except BiometricAttemptLimit:return None
+        with ThreadPoolExecutor(max_workers=12) as pool:
+            results=list(pool.map(attempt,range(24)))
+        self.assertEqual(list(range(5)),sorted(r for r in results if r is not None))
+        self.enroller.close();self.enroller=self.store('enroller')
+        with self.assertRaises(BiometricAttemptLimit):self.enroller.biometric_attempt(document())
+        self.assertEqual(4,self.enroller.biometric_attempt(document(documentNumber='TEST00009')))
+        for role in self.dsns:
+            if role=='backup':continue
+            with self.subTest(role=role),self.assertRaises(self.psycopg.Error):
+                self.sql(role,'DELETE FROM biometric_attempts')
+        with self.psycopg.connect(DSN) as db:
+            db.execute('UPDATE openid.biometric_attempts SET times=ARRAY[%s::bigint]',(int(time.time())-86401,))
+        self.assertEqual(4,self.enroller.biometric_attempt(document()))
+
+    def test_short_audit_retention_is_refused_even_when_bypassing_the_cli(self):
+        from maintenance import maintain
+        maintenance=self.store('maintenance')
+        for days in (0,1,30,1826):
+            with self.subTest(days=days),self.assertRaises(ValueError):
+                maintain(maintenance,profile_days=7,event_days=days)
+            with self.assertRaises(self.psycopg.Error):
+                self.sql('maintenance','SELECT purge_expired(7,%s,100)',(days,))
+        self.activate()
+        self.sql('maintenance','SELECT purge_expired(7,1827,100)')
+        self.assertEqual(1,len(self.sql('auditor','SELECT * FROM activation_proposals')))
+
     def test_same_login_cannot_approve_even_with_both_roles(self):
         proposal=self.sql('carol','SELECT request_activation(%s,%s,%s)',(self.ident,'REVIEW-test-002',24))[0][0]
         with self.assertRaises(self.psycopg.Error):self.sql('carol','SELECT approve_activation(%s)',(proposal,))
@@ -132,7 +164,8 @@ class ClusterTests(unittest.TestCase):
     def test_function_privileges_match_actual_roles(self):
         allowed={'request_activation(text,text,integer)':{'alice','carol'},'approve_activation(text)':{'bob','carol'},
             'revoke_credential(text)':{'revoker'},'revoke_all_after_restore()':{'revoker'},
-            'purge_expired(integer,integer,integer)':{'maintenance'}}
+            'purge_expired(integer,integer,integer)':{'maintenance'},
+            'reserve_biometric_attempt(text)':{'enroller'}}
         for function,users in allowed.items():
             for role in self.dsns:
                 with self.subTest(function=function,role=role):
@@ -396,7 +429,7 @@ class ClusterTests(unittest.TestCase):
         obsolete_snapshot=cluster.call(source,'sys/storage/raft/snapshot',token=token,raw=True)
         cluster.call(source,'transit/keys/openid-profile/rotate',{},token)
         with self.psycopg.connect(DSN,autocommit=True) as admin:
-            admin.execute('TRUNCATE openid.credentials,openid.persons,openid.operator_events,openid.maintenance_runs RESTART IDENTITY CASCADE')
+            admin.execute('TRUNCATE openid.credentials,openid.persons,openid.operator_events,openid.maintenance_runs,openid.biometric_attempts RESTART IDENTITY CASCADE')
         self.enroller.vault=TransitVault(source['address'],tokens['enroller'],str(cluster.cert))
         self.ident=self.enroller.enroll(self.keys[0]['publicKey'],document())['id'];self.activate()
         destination=self.root/('paired-'+secrets.token_hex(8))
@@ -422,14 +455,14 @@ class ClusterTests(unittest.TestCase):
         from maintenance import maintain
         maintenance=self.store('maintenance')
         self.bao_request('transit/keys/openid-profile/rotate',{})
-        result=maintain(maintenance,profile_days=7,event_days=30,batch=1)
+        result=maintain(maintenance,profile_days=7,event_days=1827,batch=1)
         self.assertEqual(1,result['rewrapped'])
-        self.assertEqual(0,maintain(maintenance,profile_days=7,event_days=30)['rewrapped'])
+        self.assertEqual(0,maintain(maintenance,profile_days=7,event_days=1827)['rewrapped'])
         self.activate()
         with self.psycopg.connect(DSN) as db:
             db.execute('SET LOCAL ROLE openid_owner')
             db.execute('UPDATE openid.credentials SET expires=%s',(int(time.time())-8*86400,))
-        maintain(maintenance,profile_days=7,event_days=30)
+        maintain(maintenance,profile_days=7,event_days=1827)
         with self.a.transaction() as db:
             self.assertEqual(0,db.execute('SELECT count(*) FROM profiles').fetchone()[0])
             self.assertEqual(1,db.execute('SELECT count(*) FROM credentials').fetchone()[0])

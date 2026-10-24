@@ -356,9 +356,13 @@ Bilden framåt ska vara frontal och de två andra tydligt vridna åt olika håll
 (`PASSED`/`FAILED`) utan att stoppa registreringen. Använd det bara medan
 gränserna mäts på fysiska enheter; standard är `enforce`.
 
-Högst fem underkända biometriska beslut per pass och dygn (HMAC-tagg i
-`biometric_failures`, även över omstart). Råa poäng skickas inte till appen.
-Klusterläget saknar ännu tabellen och begränsar därför inte antalet försök.
+Högst fem biometriska analyser per pass och rullande 24 timmar (HMAC-tagg i
+`biometric_failures`, även över omstart). Budgeten omfattar nu alla analyser,
+även godkända försök och modellfel, och debiteras atomärt före analysen.
+Parallella registreringar och nya processer kan inte återställa budgeten.
+PostgreSQL använder samma fem analyser per verifierad handling och rullande
+24 timmar, med Transit-HMAC, databasens klocka och en separat transaktion.
+Råa poäng skickas inte till appen.
 
 ### Spärrade dokumentsignerare
 

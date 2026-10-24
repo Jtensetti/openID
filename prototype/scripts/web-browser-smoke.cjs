@@ -45,7 +45,17 @@ async function run(transport) {
       protocol: 'ctap2', transport, hasResidentKey: true, hasUserVerification: true,
       isUserVerified: true, automaticPresenceSimulation: true,
     }});
-    await page.goto(idp + '/wallet/');
+    // Deliberately hold the deferred script: controls must not submit a native,
+    // empty assertion before the WebAuthn handler has been installed.
+    let releaseScript;
+    const scriptReady = new Promise(resolve => { releaseScript = resolve; });
+    await context.route(idp + '/wallet/wallet.js', async route => { await scriptReady; await route.continue(); });
+    await page.goto(idp + '/wallet/', {waitUntil: 'commit'});
+    const registerButton = page.getByRole('button', {name: 'Registrera testnyckel'});
+    await registerButton.waitFor();
+    assert.equal(await registerButton.isDisabled(), true);
+    releaseScript();
+    await context.unroute(idp + '/wallet/wallet.js');
     assert.equal(await page.evaluate(() => window.isSecureContext), true);
     assert.equal(await page.locator('body').evaluate(el => el.scrollWidth <= innerWidth), true);
     const manifest = await cdp.send('Page.getAppManifest');
@@ -99,7 +109,10 @@ async function run(transport) {
     assert.equal((await page.goto(sp + '/me')).status(), 401);
     await page.goto(sp);
     await page.getByRole('link', {name: 'Starta testinloggning'}).click();
+    const revokedOptions = page.waitForResponse(response =>
+      response.url() === idp + '/lab/webauthn/options' && response.request().method() === 'POST');
     await page.getByRole('button', {name: 'Godkänn med testnyckel'}).click();
+    assert.equal((await revokedOptions).status(), 400, 'Revoked credential options must be refused before WebAuthn');
     await page.getByRole('status').filter({hasText: 'Kontrollen nekades'}).waitFor();
     assert.equal((await page.goto(sp + '/me')).status(), 401);
 
