@@ -37,6 +37,7 @@ jobs:
         run: |
           docker build --tag openid-wallet:ci --file deployment/cluster/Dockerfile .
           docker run --rm --read-only --cap-drop ALL --entrypoint python openid-wallet:ci cluster_recovery.py --help
+          docker run --rm --read-only --cap-drop ALL --entrypoint python openid-wallet:ci audit_archive.py --help
       - name: Enable and verify database TLS
         env:
           POSTGRES_CONTAINER: '${{ job.services.postgres.id }}'

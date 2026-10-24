@@ -53,6 +53,7 @@ class ClusterTests(unittest.TestCase):
         cls.dsns={}
         with psycopg.connect(DSN, autocommit=True) as db:
             db.execute((Path(__file__).parents[1]/'deployment/cluster/schema.sql').read_text(), prepare=False)
+            db.execute((Path(__file__).parents[1]/'deployment/cluster/archive-access.sql').read_text(), prepare=False)
             for user, roles in {'enroller':['enroller'], 'wallet':['wallet'], 'alice':['requester'],
                 'bob':['approver'], 'carol':['requester','approver'], 'revoker':['revoker'],
                 'maintenance':['maintenance'], 'auditor':['auditor'], 'backup':['backup']}.items():
@@ -181,6 +182,29 @@ class ClusterTests(unittest.TestCase):
         for operation in (migrated.enrollment_available,lambda:migrated.biometric_attempt(document()),
                           lambda:migrated.enroll(self.keys[2]['publicKey'],document())):
             with self.assertRaises(EnrollmentQuarantine):operation()
+
+    def test_private_audit_archive_uses_read_only_role_and_a_single_snapshot(self):
+        from audit_archive import export_snapshot,postgres_snapshot,verify,write_table
+        from unittest.mock import patch
+        import audit_archive
+        self.activate()
+        target=self.root/('audit-'+secrets.token_hex(8))
+        def revoke_after_credentials(*args):
+            result=write_table(*args)
+            if args[2]=='credentials':self.sql('revoker','SELECT revoke_credential(%s)',(self.ident,))
+            return result
+        with patch.object(audit_archive,'write_table',side_effect=revoke_after_credentials):
+            receipt=export_snapshot(postgres_snapshot(self.dsns['auditor'],local_test=True),target,'postgresql','a'*40)
+        self.assertEqual('VERIFIED',verify(target,receipt['manifestSha256'])['state'])
+        self.assertIn('ACTIVE',(target/'credentials.jsonl').read_text())
+        self.assertNotIn('REVOKED',(target/'events.jsonl').read_text())
+        self.assertNotIn('REVOKED',(target/'operator_events.jsonl').read_text())
+        self.assertEqual('REVOKED',self.b.execute(self.signed())['state'])
+        self.assertEqual(1,len((target/'activation_proposals.jsonl').read_text().splitlines()))
+        for query in ('SELECT sealed FROM profiles','SELECT person FROM profiles','SELECT subject FROM credentials',
+                      'SELECT hash FROM security_codes','SELECT secret_hash FROM federation_requests',
+                      'DELETE FROM events','UPDATE credentials SET state=state','SELECT reserve_biometric_attempt(\'forged\')'):
+            with self.subTest(query=query),self.assertRaises(self.psycopg.Error):self.sql('auditor',query)
 
     def test_same_login_cannot_approve_even_with_both_roles(self):
         proposal=self.sql('carol','SELECT request_activation(%s,%s,%s)',(self.ident,'REVIEW-test-002',24))[0][0]
