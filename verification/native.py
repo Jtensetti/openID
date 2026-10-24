@@ -4,6 +4,7 @@ import math
 from pathlib import Path
 import secrets
 import subprocess
+import sys
 import time
 
 POSES=('front','right','left')
@@ -50,10 +51,10 @@ class AppAttest:
 
 class NativeSessions:
     def __init__(self,attest,passport,matcher,pad,clock=time.monotonic,wallet=None,chip_factory=None,biometrics=None,
-                 pose_order=random_pose_order,pose_direction=False):
+                 pose_order=random_pose_order,pose_direction=False,pose_enforced=True):
         self.attest,self.passport,self.matcher,self.pad,self.clock=attest,passport,matcher,pad,clock
         self.wallet=wallet
-        self.pose_order,self.pose_direction=pose_order,pose_direction
+        self.pose_order,self.pose_direction,self.pose_enforced=pose_order,pose_direction,pose_enforced
         self.biometrics=biometrics
         self.chip_factory=chip_factory
         self.pending={}
@@ -178,8 +179,11 @@ class NativeSessions:
             not math.isfinite(score) or not 0 <= score <= 1 for score in pad_scores): raise ValueError('invalid model score')
         if any(isinstance(r,bool) or not isinstance(r,(int,float)) or not math.isfinite(r) for r in poses):raise ValueError('invalid pose')
         pose_passed=check_poses(pending['poses'],poses,self.pose_direction)
+        if not self.pose_enforced:
+            # Calibration mode: only the outcome is logged, never ratios, scores or images.
+            print(json.dumps({'event':'pose_check','result':'PASSED' if pose_passed else 'FAILED'}),file=sys.stderr,flush=True)
         # Experimental thresholds; calibration is pending.
-        passed=min(face_scores)>=0.5 and min(pad_scores)>=0.8 and pose_passed
+        passed=min(face_scores)>=0.5 and min(pad_scores)>=0.8 and (pose_passed or not self.pose_enforced)
         credential=None;remaining=None
         if not passed and limiter is not None:remaining=self.wallet.biometric_failure(document)
         if passed and pending['devicePublicKey'] is not None:

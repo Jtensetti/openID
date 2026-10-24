@@ -137,6 +137,15 @@ class CaptureTests(unittest.TestCase):
         self.time += 24 * 3600 + 1
         self.assertTrue(self.finish()['checksPassed'])
 
+    def test_log_mode_records_outcome_without_blocking(self):
+        import contextlib, io
+        self.order = ['left', 'front', 'right']
+        self.native.pose_enforced = False
+        log = io.StringIO()
+        with contextlib.redirect_stderr(log): result = self.finish()
+        self.assertTrue(result['checksPassed']); self.assertEqual('FAILED', result['poseCheck'])
+        self.assertEqual({'event': 'pose_check', 'result': 'FAILED'}, json.loads(log.getvalue()))
+
     def test_limit_is_per_passport_not_global(self):
         self.pad.score.return_value = 0.2
         for _ in range(BIOMETRIC_ATTEMPTS): self.finish()

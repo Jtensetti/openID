@@ -178,7 +178,7 @@ def main():
         from pad import PresentationAttackDetector
         native=NativeSessions(AppAttest(args.team,args.bundle,args.development_attestation),
             lambda data: verify_document(command,data),matcher,pad,wallet=wallet,
-            chip_factory=lambda data:ChipProcess([*command[:-2],'authenticate-chip',command[-1]],data))
+            chip_factory=lambda data:ChipProcess([args.java,'-Xmx128m','-jar',str(args.jar.resolve()),'authenticate-chip',str(args.csca.resolve())],data))
     address=ipaddress.ip_address(args.bind)
     remote=not address.is_loopback
     if address.is_unspecified or not address.is_private:parser.error('Only explicit private-network or loopback addresses are allowed')

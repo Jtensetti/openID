@@ -84,6 +84,14 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(result, {'error': 'CAMERA_IMAGE_REJECTED', 'frame': 2})
         self.assertEqual(headers['Cache-Control'], 'no-store')
 
+    def test_chip_command_is_independent_of_the_optional_crl(self):
+        from serve import proofing_commands
+        config = {'jar': '/app/lab.jar', 'csca': '/s/csca.pem'}
+        self.assertEqual(proofing_commands(config)[1], ['java', '-Xmx128m', '-jar', '/app/lab.jar', 'authenticate-chip', '/s/csca.pem'])
+        passport, chip = proofing_commands(config | {'cscaCrl': '/s/csca.crl'})
+        self.assertEqual(passport[-3:], ['verify-passport', '/s/csca.pem', '/s/csca.crl'])
+        self.assertEqual(chip, ['java', '-Xmx128m', '-jar', '/app/lab.jar', 'authenticate-chip', '/s/csca.pem'])
+
     def test_attempt_limit_is_a_distinct_safe_error(self):
         from wallet import BiometricAttemptLimit
         self.native.finish.side_effect = BiometricAttemptLimit('biometric attempt limit')

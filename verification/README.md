@@ -325,6 +325,10 @@ Bilden framåt ska vara frontal och de två andra tydligt vridna åt olika håll
 (`native.check_poses`). Riktningen höger/vänster kontrolleras först när
 `pose_direction` slås på efter fysisk kalibrering. Gränserna är experimentella.
 
+`"poseCheck": "log"` i runtime-konfigurationen loggar enbart utfallet
+(`PASSED`/`FAILED`) utan att stoppa registreringen. Använd det bara medan
+gränserna mäts på fysiska enheter; standard är `enforce`.
+
 Högst fem underkända biometriska beslut per pass och dygn (HMAC-tagg i
 `biometric_failures`, även över omstart). Råa poäng skickas inte till appen.
 Klusterläget saknar ännu tabellen och begränsar därför inte antalet försök.
