@@ -6,6 +6,7 @@ live ports are used. The installed nginx version is included in the result.
 import base64
 import http.client
 import http.server
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -48,6 +49,14 @@ with tempfile.TemporaryDirectory(prefix='openid-ingress-') as temporary:
     class Upstream(http.server.BaseHTTPRequestHandler):
         def log_message(self, *args):
             pass
+        def do_POST(self):
+            data = self.rfile.read(int(self.headers.get('Content-Length', '0')))
+            body = json.dumps({'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest(),
+                               'authorizationPresent': 'Authorization' in self.headers}).encode()
+            self.send_response(200)
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
         def do_GET(self):
             if self.path == '/test/run/sign-encrypted':
                 self.send_response(303)
@@ -84,22 +93,29 @@ with tempfile.TemporaryDirectory(prefix='openid-ingress-') as temporary:
         config = config.replace(old, new)
     configuration = root / 'nginx.conf'
     configuration.write_text('daemon off; master_process off; pid ' + str(root / 'nginx.pid')
-        + '; error_log ' + str(root / 'error.log') + '; events {} http { access_log off;\n' + config + '\n}')
+        + '; error_log ' + str(root / 'error.log') + '; events {} http { access_log off;\n'
+        # nginx -t/start can create/chown its temp directories, even without traffic.
+        # Every path must belong to this disposable instance, never the host's nginx.
+        + ''.join(f'{kind}_temp_path {root / kind};\n'
+                  for kind in ['client_body', 'proxy', 'fastcgi', 'uwsgi', 'scgi'])
+        + config + '\n}')
     command = [NGINX, '-p', str(root), '-c', str(configuration)]
     subprocess.run([*command, '-t'], check=True, capture_output=True)
     process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
     context = ssl.create_default_context(cafile=str(cert))
 
-    def request(path, authenticated=True):
+    def request(path, authenticated=True, body=None, host='openid.tensetti.io'):
         # Connect only to loopback, while checking the generated certificate and correct SNI.
-        connection = http.client.HTTPSConnection('openid.tensetti.io', public_port, timeout=5, context=context)
+        connection = http.client.HTTPSConnection(host, public_port, timeout=5, context=context)
         connection.sock = context.wrap_socket(socket.create_connection(('127.0.0.1', public_port), timeout=5),
-            server_hostname='openid.tensetti.io')
+            server_hostname=host)
         try:
-            headers = {'Host': 'openid.tensetti.io'}
+            headers = {'Host': host}
             if authenticated:
                 headers['Authorization'] = 'Basic ' + base64.b64encode(('test:' + password).encode()).decode()
-            connection.request('GET', path, headers=headers)
+            if body is not None:
+                headers['Content-Type'] = 'application/x-www-form-urlencoded'
+            connection.request('GET' if body is None else 'POST', path, body=body, headers=headers)
             response = connection.getresponse()
             return response.status, dict(response.getheaders()), response.read()
         finally:
@@ -125,7 +141,23 @@ with tempfile.TemporaryDirectory(prefix='openid-ingress-') as temporary:
         for path in ['/wallet', '/lab', '/test/run/UPPER', '/test/run/' + 'a' * 33, '/test/run/loa3/extra']:
             assert request(path)[0] == 404, path
         assert request('/oidc/login')[0] == 200
+        # Model an unavailable temp-file area: allowed SAML requests must fit in memory.
+        body_temp = root / 'client_body'
+        body_temp.rmdir()
+        body_temp.write_text('No disk spooling in this test')
+        for host, path in [('openid.tensetti.io', '/acs'), ('openid.tensetti.io', '/test/acs'),
+                           ('openid.tensetti.io', '/sign/acs'), ('idp.openid.tensetti.io', '/phone/complete')]:
+            for size in (64 * 1024, 128 * 1024):
+                payload = b'SAMLResponse=' + b'x' * (size - len(b'SAMLResponse='))
+                status, _, raw = request(path, body=payload, host=host)
+                assert status == 200, (path, size, status)
+                result = json.loads(raw)
+                assert result['bytes'] == size and result['sha256'] == hashlib.sha256(payload).hexdigest()
+                assert result['authorizationPresent'] is False
+            assert request(path, authenticated=False, body=b'x' * 65536, host=host)[0] == 401
+            assert request(path, body=b'x' * (128 * 1024 + 1), host=host)[0] == 413
         print(json.dumps({'status': 'PASS', 'consoleCases': len(cases), 'largeRedirectBytes': len(expected_location),
+            'largePostBytes': [65536, 131072], 'postRoutes': 4, 'oversizePostDenied': True,
             'betaAuthEnforced': True, 'credentialsStripped': True, 'unexpectedRoutesDenied': True,
             'nginx': subprocess.run([NGINX, '-v'], capture_output=True, text=True, check=True).stderr.strip()}))
     finally:

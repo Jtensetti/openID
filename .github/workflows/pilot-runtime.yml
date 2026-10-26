@@ -7,13 +7,19 @@ permissions:
 jobs:
   container:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
+      - name: Test bundle rejection and import safety
+        run: python3 -m unittest discover -s deployment -p test_image_bundle.py -v
+      - name: Export tracked source only
+        run: |
+          mkdir "$RUNNER_TEMP/image-source"
+          git archive HEAD | tar -x -C "$RUNNER_TEMP/image-source"
       - name: Build pinned private pilot image
-        run: docker build --tag openid-pilot:ci --file deployment/Dockerfile .
+        run: docker build --platform linux/amd64 --tag openid-pilot:ci --file "$RUNNER_TEMP/image-source/deployment/Dockerfile" "$RUNNER_TEMP/image-source"
       - name: Prepare generated certificates and private volumes
         run: |
           openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=Generated-test-CSCA -keyout "$RUNNER_TEMP/test-csca.key" -out "$RUNNER_TEMP/test-csca.pem"
@@ -93,3 +99,28 @@ jobs:
           docker logs openid-pilot || true
           docker logs openid-rp || true
           docker rm --force openid-pilot openid-rp || true
+      - name: Package the tested image and provenance
+        run: |
+          python3 deployment/image_bundle.py package --image openid-pilot:ci \
+            --protocol "$RUNNER_TEMP/protocol-evidence/protocol-results.json" \
+            --inventory "$RUNNER_TEMP/python-packages.json" \
+            --output "$RUNNER_TEMP/image-bundle"
+      - name: Verify export and reload without rebuilding
+        run: |
+          revision="$(git rev-parse HEAD)"
+          manifest_sha="$(sha256sum "$RUNNER_TEMP/image-bundle/manifest.json" | cut -d ' ' -f 1)"
+          docker image rm "openid-pilot:commit-$revision" openid-pilot:ci
+          sudo python3 deployment/image_bundle.py import --directory "$RUNNER_TEMP/image-bundle" \
+            --expected-revision "$revision" --expected-manifest-sha256 "$manifest_sha"
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --entrypoint java \
+            "openid-pilot:commit-$revision" -version
+      - name: Retain deployable image after main push or manual build
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pilot-image-${{ github.sha }}
+          path: '${{ runner.temp }}/image-bundle'
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 7

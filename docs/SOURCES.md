@@ -1,5 +1,22 @@
 # Källregister
 
+## Separat byggmiljö, 2026-10-26
+
+[GitHub-hosted runners](https://docs.github.com/en/actions/concepts/runners/github-hosted-runners)
+beskriver nya virtuella maskiner för vanliga hostade jobb.
+[Actions-artefakter](https://docs.github.com/en/actions/using-workflows/storing-workflow-data-as-artifacts)
+beskriver filbevaring, retention och artefaktdigest. Projektets separata
+manifest binder även image, källrevision och protokollbevis.
+[Docker image load](https://docs.docker.com/reference/cli/docker/image/load/)
+stödjer komprimerade arkiv och återställer images och taggar utan ombygge.
+Importskriptet jämför därför även det faktiskt inlästa image-ID:t.
+
+[nginx client_body_buffer_size](https://nginx.org/en/docs/http/ngx_http_core_module.html#client_body_buffer_size)
+och [client_body_temp_path](https://nginx.org/en/docs/http/ngx_http_core_module.html#client_body_temp_path)
+anger när request-body skrivs till temporär fil och var den placeras.
+Betans begränsade SAML-POST ryms nu inom motsvarande minnesbuffert;
+engångsprovet anger egna temporära sökvägar för samtliga nginx-moduler.
+
 ## CI:s Ubuntu-paketkälla, 2026-10-26
 
 [Ubuntu Server: Install and manage packages](https://ubuntu.com/server/docs/how-to/software/package-management/)

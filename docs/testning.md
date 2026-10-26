@@ -102,6 +102,12 @@ Tabellen är ett daterat resultat för revisionen ovan.
 
 ## Kör lokalt
 
+[Serverleveransen](../deployment/build/README.md) provar export och återinläsning
+av den byggda imagen utan ombygge. Negativa paketprov avvisar skadade filer,
+fel revision/plattform, saknat protokollbevis och otillräckligt utrymme.
+Ingressprovet omfattar också stora SAML-POST utan temporärfillagring och
+avvisar överstora anrop; det använder enbart egna temporära nginx-kataloger.
+
 - [Pass, modeller, register och federation](../verification/README.md#tester).
 - [SAML, WebAuthn, lagring och återläsning](../prototype/README.md#tester-och-beroenden).
 - [iOS-bygge och simulator](../ios/README.md#bygg-och-testa).
