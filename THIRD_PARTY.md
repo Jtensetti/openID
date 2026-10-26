@@ -156,12 +156,36 @@ Ytterligare rättningar för `libssl3`/`openssl` 3.0.22-1~deb12u2 och `tzdata`
 2026e-0+deb12u1 hämtas från Debian Security med versions- och hashlås i
 [bookworm-updates.lock.json](deployment/build/bookworm-updates.lock.json).
 Befintliga paketlicenser och copyright-filer i `/usr/share/doc` bevaras
-genom Debians paketinstallation. Python, Node och Temurins versioner ändras inte.
+genom Debians paketinstallation. Python- och Temurin-versionerna ändras inte av OS-rättningen.
+Node uppdateras separat till 24.22.1 enligt följande avsnitt.
 
 Den daterade OS-inventeringen och CycloneDX sparas för varje byggd pilotimage.
 Den är skild från Maven-/Python-SBOM och omfattar inte de kopierade runtime-
 binärerna. Resultat, täckning och stoppvillkor beskrivs i
 [bygginstruktionen](deployment/build/README.md#systempaket-och-säkerhetsunderlag).
+
+## Node-säkerhetsuppdatering 2026-10-26
+
+Node **24.22.1** ersätter 24.19.0 i serverimages, server-/register-/iPhone-CI
+samt det separata AWS-testets installationsskript. Inga sådana AWS-jobb körs
+av ändringen. [Officiell säkerhetsrelease](https://nodejs.org/en/blog/release/v24.22.1)
+beskriver bland annat TLS-/DNS-/Brotli-rättningar, CA-uppdatering och OpenSSL 3.5.9.
+Dockerimagen är låst till
+`sha256:55fb5f5a527ea2c5c4a95f963e48ef90aa38c7b346054fdc8ee9957a2b55d205`;
+amd64-källan anges som
+[nodejs/docker-node@80f02a542da739e6a662451d1db66456a0dea253](https://github.com/nodejs/docker-node/tree/80f02a542da739e6a662451d1db66456a0dea253/24/bookworm-slim).
+Linux x64-distributionen har SHA-256
+`6c172a9ab6718f7b801fb5a7bd486af2ee5e32758086a04b84fcce2aa77095e6`
+enligt Node-projektets SHASUMS256.txt.
+
+Node är MIT med separata licenser för inbäddade delar. Releasefilen LICENSE
+har kontrollerats och innehåller dessa texter; den kopieras fortsatt till
+serverimagen från den officiella Node-distributionen. Ingen Node-källkod
+kopieras till projektet. `runtime-components.json` inventerar den faktiska
+Node-binärens komponentversioner samt Python/OpenSSL/SQLite/Expat och
+Temurins releaseuppgifter. Det är inventering, inte full advisorytäckning
+eller oberoende SBOM-attest. Testa protokoll och CryptoKit-interoperabilitet
+med den nya runtime-versionen före införande.
 
 ## Projektlicens och förvaltning
 

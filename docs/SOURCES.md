@@ -19,6 +19,17 @@ Docker Official Images-manifestet för Python 3.12.15-slim-bookworm anger
 amd64-källrevision `2a3b794c223ab067d122719541cdd54a068732a5` och ny indexdigest
 enligt komponentregistret. Detta är upstream-proveniens, ingen egen byggattest.
 
+## Runtime-uppföljning, 2026-10-26
+
+[Node 24.22.1](https://nodejs.org/en/blog/release/v24.22.1) är en säkerhetsrelease.
+Version, officiell distributionshash, Docker-digest och LICENSE kontrollerades.
+Den nya runtime-versionen används även i protokoll- och signaturproven.
+[Python 3.12.16](https://www.python.org/downloads/release/python-31216/)
+och [Temurin 21.0.13+9](https://github.com/adoptium/temurin21-binaries/releases/tag/jdk-21.0.13%2B9)
+är publicerade säkerhetsuppdateringar. Deras införande kräver separat
+verifierad image/distribution och kompatibilitetsprov; de införs inte genom
+Debian-/Node-ändringen. Bevakning får inte stanna vid systempaketlistan.
+
 ## Separat byggmiljö, 2026-10-26
 
 [GitHub-hosted runners](https://docs.github.com/en/actions/concepts/runners/github-hosted-runners)

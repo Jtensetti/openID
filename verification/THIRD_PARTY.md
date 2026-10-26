@@ -89,7 +89,7 @@ Foundation, CryptoKit/Secure Enclave, Security/Keychain, LocalAuthentication,
 CoreNFC, DeviceCheck och AVFoundation via Xcode 16.4. NFC-/OpenSSL-versioner
 är låsta i `ios/PassportCapture.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`.
 
-Serverns enhetssignaturer verifieras med Node 24.19.0 `node:crypto`
+Serverns enhetssignaturer verifieras med Node 24.22.1 `node:crypto`
 (createPublicKey/verify), SHA-256 och standard DER/SPKI för P-256.
 Python 3.12:s sqlite3, hashlib och secrets används för beständighet,
 standardhashar och slumputmaningar. Appens registrerings- och godkännande-API
@@ -164,7 +164,7 @@ kontrollerades 2026-10-20 och var fortsatt 1.0.3 (publicerad 2026-10-13).
 Apache-2.0, revision, transitiva licenser och JAR-hashar finns i rotens
 komponentregister och befintliga Maven-lås.
 
-Profilkryptering använder Node **24.19.0** `node:crypto` AES-256-GCM.
+Profilkryptering använder Node **24.22.1** `node:crypto` AES-256-GCM.
 Dokumentreferenser och tjänstesubjekt använder Python 3.12 `hmac`/SHA-256
 med separat nyckel. De befintliga OpenCV- och qrcode-versionerna används
 för passfotots storlek respektive QR.
@@ -187,7 +187,7 @@ HTTP/2, proxyprotokoll, kontrollsocket och automatiska omstarter efter ett
 visst antal anrop används inte. NFC-sessionerna tillhör en enda worker.
 
 `deployment/Dockerfile` låser officiella Python **3.12.15 slim-bookworm**,
-Node **24.19.0 bookworm-slim** och befintliga Temurin **21.0.12.1+1** med
+Node **24.22.1 bookworm-slim** och befintliga Temurin **21.0.12.1+1** med
 image-digests, avlästa från Docker Registry 2026-10-20. Python har PSF-licens,
 Node MIT med tredjepartslicenser och Temurin GPL-2.0 med Classpath Exception.
 Basimagens Debian-licenser, JRE:s `legal/` och Nodes LICENSE bevaras.

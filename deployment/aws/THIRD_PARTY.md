@@ -30,7 +30,7 @@ omfattar inte egna kodfel, Rust-binärens hela beroendegraf eller OS-paket.
 Licens- och NOTICE-filer från hjulen och Guards låsta källrevision finns
 oförändrade i `licenses/`; installationen behåller även paketens egna filer.
 
-Node 24.19.0 och OpenBao 2.7.1 återanvänds från
+Node 24.22.1 och OpenBao 2.7.1 återanvänds från
 [befintligt komponentregister](../../verification/THIRD_PARTY.md).
 `bootstrap.sh` kontrollerar deras publicerade Linux-artefakters SHA-256 och
 AWS regionala CA-pakets SHA-256. CA-paketet kommer från

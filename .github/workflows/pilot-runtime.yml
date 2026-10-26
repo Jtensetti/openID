@@ -68,27 +68,23 @@ jobs:
           export OPENID_UID="$(id -u)" OPENID_GID="$(id -g)"
           docker compose -f deployment/compose.yaml config --quiet
           docker exec openid-pilot python -m pip inspect > "$RUNNER_TEMP/python-packages.json"
+          docker exec -i openid-pilot python - > "$RUNNER_TEMP/runtime-components.json" <<'PY'
+          import json, ssl, sqlite3, sys, subprocess, pyexpat
+          from pathlib import Path
+          print(json.dumps({
+              'python': sys.version,
+              'pythonOpenSSL': ssl.OPENSSL_VERSION,
+              'pythonSQLite': sqlite3.sqlite_version,
+              'pythonExpat': pyexpat.EXPAT_VERSION,
+              'node': json.loads(subprocess.check_output(['node', '-p', 'JSON.stringify(process.versions)'], text=True)),
+              'temurinRelease': Path('/opt/java/openjdk/release').read_text(),
+              'scope': 'Runtime component inventory; not a complete runtime vulnerability assessment.'
+          }, indent=2))
+          PY
           docker image inspect openid-pilot:ci --format '{{.Id}}' > "$RUNNER_TEMP/image-id.txt"
           docker stop --time 10 openid-rp
           docker stop --time 70 openid-pilot
           test "$(docker inspect openid-pilot --format '{{.State.ExitCode}}')" = 0
-      - name: Audit every installed Debian package in the built image
-        run: |
-          python3 .github/scripts/audit_image_os.py \
-            --image "$(cat "$RUNNER_TEMP/image-id.txt")" \
-            --output "$RUNNER_TEMP/image-os-audit"
-      - name: Save image package inventory
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: pilot-image-inventory
-          path: |
-            ${{ runner.temp }}/python-packages.json
-            ${{ runner.temp }}/image-id.txt
-            ${{ runner.temp }}/runtime-versions.txt
-            ${{ runner.temp }}/image-os-audit/
-          if-no-files-found: error
-          retention-days: 90
       - name: SAML and OIDC integration with generated identities and no external network
         run: |
           mkdir "$RUNNER_TEMP/protocol-evidence"
@@ -106,6 +102,24 @@ jobs:
         with:
           name: protocol-evidence
           path: '${{ runner.temp }}/protocol-evidence'
+          retention-days: 90
+      - name: Audit every installed Debian package in the built image
+        run: |
+          python3 .github/scripts/audit_image_os.py \
+            --image "$(cat "$RUNNER_TEMP/image-id.txt")" \
+            --output "$RUNNER_TEMP/image-os-audit"
+      - name: Save image package inventory
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pilot-image-inventory
+          path: |
+            ${{ runner.temp }}/python-packages.json
+            ${{ runner.temp }}/image-id.txt
+            ${{ runner.temp }}/runtime-versions.txt
+            ${{ runner.temp }}/runtime-components.json
+            ${{ runner.temp }}/image-os-audit/
+          if-no-files-found: error
           retention-days: 90
       - name: Logs and cleanup
         if: always()

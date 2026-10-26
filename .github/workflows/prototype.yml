@@ -45,7 +45,7 @@ jobs:
         run: python3 -m unittest discover -s ../ops/tests -v
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: '24.19.0'
+          node-version: '24.22.1'
       - name: Test browser feedback for failed and blocked completion
         run: node ../verification/test-phone-feedback.cjs
       - name: Install pinned browser test tooling

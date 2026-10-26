@@ -84,6 +84,23 @@ class ImageAuditTests(unittest.TestCase):
             value = report(); value['Results'][0]['Packages'] = changed
             with self.subTest(packages=changed), self.assertRaises(ValueError): self.assess(value)
 
+    def test_split_debian_version_retains_revision_epoch_and_rebuild_suffix(self):
+        value = report()
+        value['Results'][0]['Packages'] = [
+            {'Name': 'libc6', 'Version': '2.36', 'Release': '9+deb12u13', 'Arch': 'amd64'},
+            {'Name': 'tzdata', 'Version': '2025b', 'Release': '0+deb12u2', 'Arch': 'all'}]
+        self.assertEqual(self.assess(value)['packageCount'], 2)
+        value['Results'][0]['Packages'][0]['Release'] = '9+deb12u12'
+        with self.assertRaises(ValueError): self.assess(value)
+        value['Results'][0]['Packages'][0]['Release'] = '9+deb12u13'
+        value['Results'][0]['Packages'][0]['Epoch'] = 1
+        with self.assertRaises(ValueError): self.assess(value)
+        self.assertEqual(audit.package_version({'Version': '1.2.3', 'Epoch': 2,
+                                              'Release': '4+deb12u1+b2'}), '2:1.2.3-4+deb12u1+b2')
+        for epoch in [True, -1, '1']:
+            with self.subTest(epoch=epoch), self.assertRaises(ValueError):
+                audit.package_version({'Version': '1', 'Epoch': epoch})
+
     def test_suppressed_and_invalid_findings_are_rejected(self):
         value = report(); value['Results'][0]['ExperimentalModifiedFindings'] = [{'Vulnerability': {}}]
         with self.assertRaises(ValueError): self.assess(value)

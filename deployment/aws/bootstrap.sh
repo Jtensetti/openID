@@ -7,10 +7,10 @@ apt-get -qq update
 apt-get -qq install -y python3.12-venv ca-certificates curl xz-utils
 install -d -m 700 /opt/openid-tools /var/tmp/openid-aws
 curl --fail --silent --show-error --location --max-time 120 \
-  https://nodejs.org/dist/v24.19.0/node-v24.19.0-linux-x64.tar.xz -o /opt/openid-tools/node.tar.xz
-printf '%s  %s\n' 14b342e71204f811bde6153be8e04b62aef63c236fef92b55f9c83154b409647 /opt/openid-tools/node.tar.xz | sha256sum --check --strict
+  https://nodejs.org/dist/v24.22.1/node-v24.22.1-linux-x64.tar.xz -o /opt/openid-tools/node.tar.xz
+printf '%s  %s\n' 6c172a9ab6718f7b801fb5a7bd486af2ee5e32758086a04b84fcce2aa77095e6 /opt/openid-tools/node.tar.xz | sha256sum --check --strict
 tar -xJf /opt/openid-tools/node.tar.xz -C /opt/openid-tools
-export PATH="/opt/openid-tools/node-v24.19.0-linux-x64/bin:$PATH"
+export PATH="/opt/openid-tools/node-v24.22.1-linux-x64/bin:$PATH"
 curl --fail --silent --show-error --location --max-time 120 \
   https://github.com/openbao/openbao/releases/download/v2.7.1/openbao_2.7.1_linux_amd64.tar.gz -o /opt/openid-tools/bao.tar.gz
 printf '%s  %s\n' 0e2f1ce10d124e03112b50dd2fbec6b78003783253bc3a91587938f39d1e2243 /opt/openid-tools/bao.tar.gz | sha256sum --check --strict

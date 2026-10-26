@@ -82,6 +82,23 @@ def installed_packages(raw):
     return result
 
 
+def package_version(package):
+    # Trivy's dpkg analyzer separates epoch, upstream version and Debian revision.
+    # Reconstruct the complete binary version; never discard Debian security revisions.
+    version = package['Version']
+    release = package.get('Release', '')
+    epoch = package.get('Epoch', 0)
+    if not isinstance(version, str) or not version or not isinstance(release, str):
+        raise ValueError('invalid scanner package version')
+    if type(epoch) is not int or epoch < 0:
+        raise ValueError('invalid package epoch')
+    if release:
+        version += '-' + release
+    if epoch:
+        version = str(epoch) + ':' + version
+    return version
+
+
 def assess(scan, installed, image_id, version, now):
     if scan.get('SchemaVersion') != 2 or scan.get('ArtifactType') != 'container_image':
         raise ValueError('unsupported scanner report')
@@ -106,7 +123,7 @@ def assess(scan, installed, image_id, version, now):
     packages = result['Packages']
     if not isinstance(packages, list) or not packages:
         raise ValueError('missing package coverage')
-    found = [(p['Name'], p['Version'], p['Arch']) for p in packages]
+    found = [(p['Name'], package_version(p), p['Arch']) for p in packages]
     if len(found) != len(set(found)) or set(found) != installed:
         raise ValueError('scanner and installed package inventories differ')
     if result.get('ExperimentalModifiedFindings') or result.get('Misconfigurations'):

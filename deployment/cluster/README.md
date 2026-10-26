@@ -11,7 +11,7 @@ Det befintliga SQLite-läget finns kvar för en lokal pilot.
 - OpenBao 2.7.1 med TLS, separat lagring och åtkomsthantering. `bao.hcl`
   är en nodkonfiguration; redundant drift kräver ett riktigt Raft-kluster,
   separata felzoner och provad återställning. Stäng av swap på värdarna.
-- Python 3.12 och Node 24.19.0, eller den låsta autentiseringscontainern.
+- Python 3.12 och Node 24.22.1, eller den låsta autentiseringscontainern.
 - Certifikat för API, PostgreSQL och OpenBao. Hemliga filer ska ha läge 0600
   i en katalog med läge 0700, utanför repot.
 

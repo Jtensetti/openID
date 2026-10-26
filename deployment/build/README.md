@@ -116,7 +116,8 @@ lokalt med avstängd telemetri. Skannern installeras inte i serverimagen.
 CycloneDX för OS-paketen, databasdatum och databasens SHA-256, verktygslås/SBOM
 och `assessment.json` med filhashar och täckningsgränser i 90 dagar. Behåll
 denna artefakt från samma godkända helhetskörning tillsammans med releasebevisen.
-Python-listan och runtime-versionerna finns i samma artefakt. OS-kontrollen
+Python-listan, runtime-versionerna och komponentversioner från Node, Python
+(OpenSSL/SQLite/Expat) och Temurins releasefil finns i samma artefakt. OS-kontrollen
 granskar **inte** separat byggda/kopierade Python-, Node- och Temurin-runtime,
 deras inbäddade bibliotek, modeller, värd-OS eller andra images. Den befintliga
 OSV-kontrollen av applikationslåsen kvarstår; hela leveranskedjan är ännu inte täckt.
@@ -130,6 +131,10 @@ hämtas automatiskt. Både pilot och registerimage använder dessa rättningar;
 den fullständiga OS-grinden körs tills vidare bara för piloten.
 Paketsteget kräver **Linux/amd64 och Debian Bookworm** och får bara köras inne
 i det isolerade imagebygget. Det ska inte köras direkt på en driftvärd.
+
+Node 24.22.1 används i images och motsvarande CI-prov. Python/Temurin har
+nyare publicerade säkerhetsreleaser som behöver införas separat; OS-grinden
+bevisar inte att dessa runtime-komponenter är aktuella.
 
 Versionsbyten kräver ny käll-, licens- och advisorykontroll samt nya hashlås
 och hela CI-körningen. Förvaltningen följer repots beroendeprocess; namngiven
