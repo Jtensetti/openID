@@ -100,7 +100,9 @@ class PassportVerifierTest {
       var directory = java.nio.file.Path.of(export); java.nio.file.Files.createDirectories(directory);
       java.nio.file.Files.write(directory.resolve("csca.der"),ca.getEncoded());
       java.nio.file.Files.write(directory.resolve("csca.crl"),
-          crl(caKey, "CN=SYNTHETIC-CSCA", NOW.minusSeconds(60), NOW.plusSeconds(3600)).getEncoded());
+          numberedCrl(caKey, "CN=SYNTHETIC-CSCA", 1, NOW.minusSeconds(60), NOW.plusSeconds(3600)).getEncoded());
+      java.nio.file.Files.write(directory.resolve("csca-next.crl"),
+          numberedCrl(caKey, "CN=SYNTHETIC-CSCA", 2, NOW.minusSeconds(30), NOW.plusSeconds(7200)).getEncoded());
       java.nio.file.Files.write(directory.resolve("portrait.jpg"),image);
       for (var entry : Map.of("sod",sod,"dg1",dg1,"dg2",dg2).entrySet())
         java.nio.file.Files.write(directory.resolve(entry.getKey()+".bin"),entry.getValue());
@@ -202,6 +204,61 @@ class PassportVerifierTest {
     var otherKey = key();
     var forged = crl(otherKey, "CN=SYNTHETIC-CSCA", NOW.minusSeconds(60), NOW.plusSeconds(86400));
     assertThrows(IllegalArgumentException.class, () -> new PassportVerifier(Set.of(ca), List.of(forged), CLOCK));
+  }
+  java.security.cert.X509CRL numberedCrl(KeyPair issuer, String name, long number, Instant issued, Instant expires) throws Exception {
+    return numberedCrl(issuer,name,BigInteger.valueOf(number),issued,expires);
+  }
+  java.security.cert.X509CRL numberedCrl(KeyPair issuer, String name, BigInteger number, Instant issued, Instant expires) throws Exception {
+    var builder = new org.bouncycastle.cert.X509v2CRLBuilder(new X500Name(name), Date.from(issued));
+    builder.setNextUpdate(Date.from(expires));
+    builder.addExtension(Extension.cRLNumber, false, new org.bouncycastle.asn1.ASN1Integer(number));
+    return new JcaX509CRLConverter().getCRL(builder.build(new JcaContentSignerBuilder("SHA256withECDSA").build(issuer.getPrivate())));
+  }
+  @Test void crlUpdateAcceptsIdenticalOrNewerSignedListAndExpiredPredecessor() throws Exception {
+    var first=numberedCrl(caKey,"CN=SYNTHETIC-CSCA",1,NOW.minusSeconds(60),NOW.plusSeconds(3600)).getEncoded();
+    var next=numberedCrl(caKey,"CN=SYNTHETIC-CSCA",2,NOW.minusSeconds(30),NOW.plusSeconds(7200)).getEncoded();
+    var expired=numberedCrl(caKey,"CN=SYNTHETIC-CSCA",0,NOW.minusSeconds(7200),NOW.minusSeconds(3600)).getEncoded();
+    for (byte[] previous : new byte[][]{first,expired})
+      assertEquals("VERIFIED",lab.proofing.CrlCommand.validate(next,previous,Set.of(ca),CLOCK).get("status"));
+    assertEquals("VERIFIED",lab.proofing.CrlCommand.validate(first,first,Set.of(ca),CLOCK).get("status"));
+    assertEquals(NOW.plusSeconds(7200).getEpochSecond(),lab.proofing.CrlCommand.validate(next,first,Set.of(ca),CLOCK).get("validUntil"));
+  }
+  @Test void crlUpdateRejectsRollbackAndReusedNumberWithChangedContent() throws Exception {
+    var current=numberedCrl(caKey,"CN=SYNTHETIC-CSCA",2,NOW.minusSeconds(60),NOW.plusSeconds(3600)).getEncoded();
+    for (var candidate : List.of(
+        numberedCrl(caKey,"CN=SYNTHETIC-CSCA",1,NOW.minusSeconds(30),NOW.plusSeconds(7200)),
+        numberedCrl(caKey,"CN=SYNTHETIC-CSCA",2,NOW.minusSeconds(30),NOW.plusSeconds(7200)),
+        numberedCrl(caKey,"CN=SYNTHETIC-CSCA",3,NOW.minusSeconds(120),NOW.plusSeconds(7200))))
+      assertThrows(IllegalArgumentException.class,()->lab.proofing.CrlCommand.validate(candidate.getEncoded(),current,Set.of(ca),CLOCK));
+  }
+  @Test void crlUpdateRejectsUnknownSignatureMissingNumberAndInvalidDates() throws Exception {
+    for (var candidate : List.of(
+        numberedCrl(key(),"CN=SYNTHETIC-CSCA",1,NOW.minusSeconds(60),NOW.plusSeconds(3600)),
+        crl(caKey,"CN=SYNTHETIC-CSCA",NOW.minusSeconds(60),NOW.plusSeconds(3600)),
+        numberedCrl(caKey,"CN=SYNTHETIC-CSCA",1,NOW.plusSeconds(1),NOW.plusSeconds(3600)),
+        numberedCrl(caKey,"CN=SYNTHETIC-CSCA",1,NOW.minusSeconds(60),NOW),
+        numberedCrl(caKey,"CN=SYNTHETIC-CSCA",-1,NOW.minusSeconds(60),NOW.plusSeconds(3600))))
+      assertThrows(IllegalArgumentException.class,()->lab.proofing.CrlCommand.validate(candidate.getEncoded(),null,Set.of(ca),CLOCK));
+  }
+  @Test void crlUpdateCannotDropIssuerCoverageOrContainDuplicateIssuerVersions() throws Exception {
+    var otherKey=key(); var other=certificate(otherKey,"CN=OTHER",otherKey,"CN=OTHER",true);
+    var first=numberedCrl(caKey,"CN=SYNTHETIC-CSCA",1,NOW.minusSeconds(60),NOW.plusSeconds(3600)).getEncoded();
+    var second=numberedCrl(otherKey,"CN=OTHER",1,NOW.minusSeconds(60),NOW.plusSeconds(3600)).getEncoded();
+    var bundle=new ByteArrayOutputStream();bundle.write(first);bundle.write(second);
+    assertEquals(2,lab.proofing.CrlCommand.validate(bundle.toByteArray(),null,Set.of(ca,other),CLOCK).get("issuers"));
+    assertThrows(IllegalArgumentException.class,()->lab.proofing.CrlCommand.validate(first,bundle.toByteArray(),Set.of(ca,other),CLOCK));
+    bundle.reset();bundle.write(first);bundle.write(first);
+    assertThrows(IllegalArgumentException.class,()->lab.proofing.CrlCommand.validate(bundle.toByteArray(),null,Set.of(ca),CLOCK));
+  }
+  @Test void crlNumberSupportsTwentySignedOctetsAndMustBeNonCritical() throws Exception {
+    var largest=BigInteger.ONE.shiftLeft(159).subtract(BigInteger.ONE);
+    var valid=numberedCrl(caKey,"CN=SYNTHETIC-CSCA",largest,NOW.minusSeconds(60),NOW.plusSeconds(3600));
+    assertEquals("VERIFIED",lab.proofing.CrlCommand.validate(valid.getEncoded(),null,Set.of(ca),CLOCK).get("status"));
+    var oversized=numberedCrl(caKey,"CN=SYNTHETIC-CSCA",largest.add(BigInteger.ONE),NOW.minusSeconds(60),NOW.plusSeconds(3600));
+    assertThrows(IllegalArgumentException.class,()->lab.proofing.CrlCommand.validate(oversized.getEncoded(),null,Set.of(ca),CLOCK));
+    var critical=crl(caKey,"CN=SYNTHETIC-CSCA",NOW.minusSeconds(60),NOW.plusSeconds(3600),
+        Map.of(Extension.cRLNumber,new org.bouncycastle.asn1.ASN1Integer(1)));
+    assertThrows(IllegalArgumentException.class,()->lab.proofing.CrlCommand.validate(critical.getEncoded(),null,Set.of(ca),CLOCK));
   }
   @Test void rejectsEmptyTrustOrDscAsTrustAnchor() {
     assertThrows(IllegalArgumentException.class,()->new PassportVerifier(Set.of(),CLOCK));

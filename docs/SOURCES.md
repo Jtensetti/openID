@@ -163,6 +163,9 @@ lydelse inför juridiskt ställningstagande.
   avsnitt 4.1.4.3 och 4.1.5–4.1.5.1: nyckelbyte och certifikatspärr.
   Verifierarens stöd är avgränsat till kompletta direkta CRL:er. Kontrollen
   av certifikat är skild från den enskilda resehandlingens giltighetsstatus.
+  CRL-profilen och Appendix B anger även ett icke-kritiskt CRL-nummer som
+  icke-negativt heltal på högst 20 oktetter. Uppdateringsverktygets krav på
+  stigande nummer och bevarad utfärdartäckning är dess dokumenterade policy.
 
 ## Registeridentifierare
 

@@ -85,8 +85,15 @@ ID-05: Registrering av en verifierad identitet kräver nu ett aktuellt
 till registreringen; utgång under fångst eller lagring avvisas och rullas
 tillbaka. Även spärrat CSCA-ankare och listor med otillåten omfattning nekas.
 Syntetiska negativa prov täcker båda databaslägena. Driftens provisionering,
-färskhållning, skydd mot återgång till äldre CRL och passets egen spärrstatus
+färskhållning, skydd vid helsystems-återställning och passets egen spärrstatus
 återstår; detta är inget tillitsgodkännande.
+
+ID-05/OPS-07: `crl_maintenance.py` verifierar kandidat och installerad CRL
+med samma Java-bibliotek som passkontrollen. Äldre version, ändrat innehåll
+med återanvänt nummer, förlorad utfärdartäckning och ogiltig signatur nekas.
+Filbyte är låst och atomärt, med negativa felprov och utgångsvarning.
+Verktyget hämtar inget och installerar ingen schemaläggning. Kontrollen
+ersätter inte oberoende aktuell information efter återläsning av hela värden.
 
 ID-05: Aktuell riktningsguide, fångsttrösklar och lokalt kameraprov beskrivs i
 [iPhone-dokumentationen](../ios/README.md#fotografering). Guiden är inte ett liveness-bevis.
