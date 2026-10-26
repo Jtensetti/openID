@@ -156,7 +156,7 @@ JRE:s licensfiler bevaras, och upstream-SBOM finns både i imagen och i
 `pilot-image-inventory`. SBOM beskriver upstreambygget, inte hela serverimagen.
 BuildKit med stöd för `ADD --checksum` (Dockerfile 1.6+) krävs.
 
-Python **3.12.16** byggs från oförändrat officiellt källarkiv i en separat,
+Python **3.12.16** byggs från ett hashlåst officiellt källarkiv i en separat,
 digestlåst byggcontainer. Källarkiv och upstream-SPDX verifieras av BuildKit
 före användning. `build_python.sh` bygger med delat libpython, PGO och LTO,
 utan Tk, och kräver passerade upstream-prov för TLS, hashning, SQLite, XML,
@@ -164,6 +164,31 @@ tar, temporära kataloger och cookies. Kompilering/prov sker utan externt nät.
 Installation sker i en tom stagingkatalog och ersätter hela basens äldre
 Python-installation. Python 3.12.16 och inbäddad Expat 2.9.0 kontrolleras
 också i den färdiga imagen innan paketinstallationen fortsätter.
+
+En avgränsad teständring hämtar upstreams accepterade avbrottsfel för
+`test_pha_required_nocert`. Testet kräver fortfarande att servern nekar
+anslutningen utan klientcertifikat. Inget TLS-beteende ändras och inget prov
+hoppas över. Originalfil, patchad fil och upstreamreferens har separata
+hashvärden i `python-runtime.lock.json` och `tls-test-patch.json`.
+
+`install_build_pip.py` installerar det hashlåsta pip 26.2.2-hjulet utan nät
+eller index, direkt från hjulfilen. Installation får inte felaktigt använda
+byggcontainerns redan installerade pip. Applikationspaketen har fortsatt
+hashkrav och endast binära hjul tillåts.
+
+Efter installation tas pip, dess inbäddade paket, startprogram och hela
+`ensurepip` inklusive gammalt bootstrap-hjul bort från driftfilsystemet.
+Tjänsten installerar inte paket under körning; uppdatering kräver en ny image.
+Båda imagernas CI verifierar att pip/ensurepip inte går att importera och att
+paketförteckningen beskriver de verkligt installerade applikationspaketen.
+`python-packages.json` använder `openid-python-inventory-v1`, framtaget med
+standardbibliotekets metadata. Detta tar inte bort historiska bygglager.
+
+Pips bygglicenser, upstream-SBOM och borttagningsbevis bevaras under
+Python-underlaget. Pip 26.2.2 har fortfarande advisoryfynd i medlevererad
+urllib3 och andra komponenter; borttagningen begränsar runtime, men ersätter
+inte bedömning av byggverktygets exponering. Pythonkällans ursprungliga SPDX
+ska inte läsas som en förteckning över det färdiga driftfilsystemet.
 
 Käll-SPDX, licenser, bygglås och upstream-testlogg sparas under
 `/usr/share/doc/openid-python/` och i inventeringsartefakten. Runtime-rapporten
@@ -200,3 +225,6 @@ bilder och YuNet/SFace. `runtime-components.json` inkluderar OpenCV:s
 byggkonfiguration, upstream-SBOM och hash för binären och de medlevererade
 delade biblioteken. Se verifierarens [licens- och komponentregister](../../verification/THIRD_PARTY.md)
 för de kvarvarande inbäddade biblioteksfynd som OS- och PyPI-skanning inte täcker.
+
+Registerjobbets tidsgräns är 30 minuter för källbygget och de efterföljande
+integrationsproven; det inför inget nytt jobb, schema eller molnbehörighet.

@@ -46,8 +46,20 @@ har hämtats och hashkontrollerats. Taggen pekar på commit
 komprometterade CA-nycklar, Expat, tarfile och tempfile.
 [Dockerprojektets byggrecept](https://github.com/docker-library/python/blob/2a3b794c223ab067d122719541cdd54a068732a5/3.12/trixie/Dockerfile)
 och MIT-licens ligger till grund för det separata källbygget. Bygget behåller
-Python-/komponentlicenser, SPDX och testresultat. Bevakning får inte stanna
-vid systempaketlistan; även pip och andra inbäddade beroenden återstår.
+Python-/komponentlicenser, SPDX och testresultat.
+[Pips ändringslogg](https://pip.pypa.io/en/stable/news/) och PyPI:s officiella
+hjul för 26.2.2 kontrollerades: uppdaterade CA-certifikat och tidigare
+säkerhetsrättningar ingår. Hjulhash, MIT-licens, transitiva licenser och
+inbäddad CycloneDX är dokumenterade i komponentregistret. Pips nya version
+används som byggverktyg; pip och ensurepip tas sedan bort ur driftfilsystemet.
+Ursprunglig Python-SPDX beskriver källutgåvan före denna paketering. Bevakning får inte stanna vid
+systempaketlistan; andra inbäddade beroenden återstår.
+
+[Upstreams TLS-testförväntan](https://github.com/python/cpython/blob/540b3d0a7fa7cd842f064f79b1410cbd6868bffa/Lib/test/test_ssl.py)
+för avvisad post-handshake-autentisering utan certifikat används i ett
+avgränsat testbackport. Referensen innehåller mönstret; den anges inte som
+committen som introducerade det. Filhashar och teständring bevaras i bygglåset.
+Runtime-TLS-koden ändras inte.
 
 ## Separat byggmiljö, 2026-10-26
 

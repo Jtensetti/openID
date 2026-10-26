@@ -248,9 +248,13 @@ backup till 3.46.1; spärrar och nekad återaktivering måste bestå. Verkliga
 Wallet-/signatur-/återställningsprov körs också i den byggda pilotimagen.
 Detta ändrar inte formell status och ersätter inte införande eller driftövning.
 
-SEC-03: Python 3.12.16 byggs från oförändrad, hashlåst officiell källa med
+SEC-03: Python 3.12.16 byggs från hashlåst officiell källa med
 Expat 2.9.0, sparade licenser/SPDX och obligatoriska upstream-säkerhetsprov.
 Hela äldre installationen ersätts. Den faktiska serverimagen provas separat
 med openID-flöden. Driftcontainerns Java uppdateras också till 21.0.13+9.
-Övriga OS-/runtimefynd, pip-beroenden, oberoende granskning och införande
+Ett upstreambaserat testbackport accepterar kända avbrottsfel utan att ändra
+TLS eller hoppa över prov. Pip 26.2.2 används för bygginstallation och ingår
+i OSV-grinden. Pip och ensurepip tas sedan bort ur driftfilsystemet; båda
+imagernas CI kontrollerar att verktygen inte kan importeras eller startas.
+Övriga OS-/runtimefynd, inbäddade pip-beroenden, oberoende granskning och införande
 kvarstår som separata krav; uppdateringen höjer ingen formell tillitsstatus.

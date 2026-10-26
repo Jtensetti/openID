@@ -95,7 +95,7 @@ jobs:
         run: |
           export OPENID_UID="$(id -u)" OPENID_GID="$(id -g)"
           docker compose -f deployment/compose.yaml config --quiet
-          docker exec openid-pilot python -m pip inspect > "$RUNNER_TEMP/python-packages.json"
+          docker exec -i openid-pilot python - < deployment/build/python_inventory.py > "$RUNNER_TEMP/python-packages.json"
           docker exec -i openid-pilot python - > "$RUNNER_TEMP/runtime-components.json" <<'PY'
           import hashlib, json, ssl, sqlite3, sys, subprocess, pyexpat, cv2
           from importlib.metadata import distribution
@@ -114,6 +114,10 @@ jobs:
               'pythonExecutableSHA256': hashlib.sha256(Path(sys.executable).read_bytes()).hexdigest(),
               'pythonSourceSbomSHA256': hashlib.sha256(Path('/usr/share/doc/openid-python/source.spdx.json').read_bytes()).hexdigest(),
               'pythonUpstreamTestsSHA256': hashlib.sha256(Path('/usr/share/doc/openid-python/upstream-tests.log').read_bytes()).hexdigest(),
+              'pipBuildTool': json.loads(Path('/usr/share/doc/openid-python/pip-build-tool.json').read_text()),
+              'pipRemoval': json.loads(Path('/usr/share/doc/openid-python/pip-removal.json').read_text()),
+              'pythonTlsTestPatch': json.loads(Path('/usr/share/doc/openid-python/tls-test-patch.json').read_text()),
+              'pipUpstreamSbomSHA256': hashlib.sha256(Path('/usr/share/doc/openid-python/pip-upstream-sbom.cdx.json').read_bytes()).hexdigest(),
               'node': json.loads(subprocess.check_output(['node', '-p', 'JSON.stringify(process.versions)'], text=True)),
               'temurinRelease': Path('/opt/java/openjdk/release').read_text(),
               'temurinUpstreamSbomSHA256': hashlib.sha256(Path('/opt/java/openjdk/upstream-sbom.cdx.json').read_bytes()).hexdigest(),

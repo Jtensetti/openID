@@ -30,3 +30,6 @@
 !deployment/build/python-runtime.lock.json
 !deployment/build/licenses/
 !deployment/build/licenses/docker-library-python-LICENSE.txt
+!deployment/build/install_build_pip.py
+!deployment/build/remove_build_pip.py
+!deployment/build/patch_python_test.py

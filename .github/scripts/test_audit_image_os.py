@@ -196,7 +196,7 @@ class ImageAuditTests(unittest.TestCase):
                             if line.startswith('FROM python:')]
             self.assertEqual([python['builder'], lock['base']['image']], python_bases)
             dockerfile = (audit.ROOT/name).read_text()
-            for artifact in ('source', 'sbom'):
+            for artifact in ('source', 'sbom', 'pip'):
                 item = python[artifact]
                 self.assertIn('ADD --checksum=sha256:'+item['sha256']+' '+item['url'], dockerfile)
 

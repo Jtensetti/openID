@@ -14,7 +14,21 @@
   "recipeLicenseSHA256": "0a3ffdfc4f368b76ae1140b5fbe2f2f69ee76ee00a3024e8a09ca9b2e265186f",
   "limits": [
     "Upstream SPDX describes source, not the complete final runtime.",
-    "ensurepip bundles pip 25.0.1 and its vendored dependencies; those require separate advisory assessment.",
+    "Source SPDX describes original bundled pip 25.0.1; pip 26.2.2 is a build tool only, and both pip and ensurepip are removed from the final runtime filesystem.",
     "A source build does not provide an independent build attestation."
-  ]
+  ],
+  "pip": {
+    "version": "26.2.2",
+    "wheelName": "pip-26.2.2-py3-none-any.whl",
+    "url": "https://files.pythonhosted.org/packages/3f/06/3e4420302363fbb71be3c7f35ce042f54bfca330e3e66b3a2e3c4cca579f/pip-26.2.2-py3-none-any.whl",
+    "sha256": "fd7f4dfa8190e014013b9f08f3e973f4e4c26ffd179a204895533a7254813a70",
+    "sbomSHA256": "7be976001ba70fe6b38530af13063bea96e1bd894c271c4e57908c737079ef93"
+  },
+  "tlsTestPatch": {
+    "sourceURL": "https://raw.githubusercontent.com/python/cpython/540b3d0a7fa7cd842f064f79b1410cbd6868bffa/Lib/test/test_ssl.py",
+    "upstreamFileSHA256": "2fcce92b2e387c5db3a77b48ce6c1526cc408ad354d52f6406bed30bec2c3e90",
+    "originalSHA256": "a76687f22bcf7f442009f30cb814025101b7f40757d3dd07a1cb693a703cb858",
+    "patchedSHA256": "a5ec49ea3608865b18f9ee819ed9c9bb4621c4a4141fab46f8f2f1f7e9752926",
+    "scope": "Only test_pha_required_nocert expected connection-abort exceptions; runtime TLS code unchanged."
+  }
 }

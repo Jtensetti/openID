@@ -244,7 +244,7 @@ systempaket. Uppdateringsansvaret följer förvaltningen nedan.
 ## Python 3.12.16 från officiell källutgåva
 
 Den officiella [säkerhetsutgåvan](https://www.python.org/downloads/release/python-31216/)
-är oförändrad CPython-kod, tagg `v3.12.16`, commit
+är ursprunget för runtimekoden, tagg `v3.12.16`, commit
 `2c2462afc5d978d31f3d073001fc202d269917ff`. Arkiv och officiell SPDX låses i
 [python-runtime.lock.json](deployment/build/python-runtime.lock.json).
 Källarkivets SHA-256 är
@@ -268,11 +268,32 @@ PSF-2.0 och historiska Python-licenser i `LICENSE`, fullständig upstream
 docker-library/python vid `2a3b794c223ab067d122719541cdd54a068732a5`;
 dess [MIT-licens](deployment/build/licenses/docker-library-python-LICENSE.txt)
 bevaras i repo och image. `BUILD-NOTICE.txt` beskriver bygg-/paketeringsändringen.
-Pythonkällan modifieras inte. OS-bibliotekens egna licenser ligger kvar.
+Runtimekällan modifieras inte. En testförväntan från upstream backporteras
+med filhashar och PSF-attribution; inga tester hoppas över. OS-bibliotekens
+egna licenser ligger kvar.
 
-`ensurepip` installerar upstreams pip 25.0.1, samma version som i den tidigare
-basen. Dess inbäddade paket behöver separat uppföljning; Python-uppdateringen
-innebär inte att samtliga runtime- eller pakethanterarfynd är åtgärdade.
+Pip **26.2.2** används endast för paketinstallation under bygget. Hjulet har
+SHA-256 `fd7f4dfa8190e014013b9f08f3e973f4e4c26ffd179a204895533a7254813a70`;
+inbäddad CycloneDX har SHA-256
+`7be976001ba70fe6b38530af13063bea96e1bd894c271c4e57908c737079ef93`.
+Körningen startar från det verifierade hjulet utan nät och kräver en faktisk
+installation även om byggmiljön redan har pip. Inga runtimefiler i ensurepip
+modifieras. Efter paketinstallationen tas både pip och hela ensurepip bort
+ur det färdiga driftfilsystemet. Separat inventering verifierar borttagningen.
+Historiska bygglager omfattas inte av denna borttagningskontroll.
+
+Pips MIT-licens och transitiva licens-/attributionsfiler kopieras till
+`/usr/share/doc/openid-python/pip-licenses/` före borttagning: bland annat
+Apache-2.0, BSD, ISC, PSF och certifis MPL-2.0. Inbäddad SBOM bevaras också.
+Pythonkällans SPDX beskriver upstreams ursprungliga pip 25.0.1, medan
+byggverktygets SBOM beskriver 26.2.2; ingendera innebär att pip finns i runtime.
+Ingen licens för hela projektet härleds från detta.
+
+Pips version ingår i OSV-kontrollen. Separat kontroll av dess bundlade
+komponenter gav fynd för urllib3, msgpack och setuptools. De kräver bedömning
+av faktisk medlevererad kod och bygganvändning; inga undantag eller påståenden
+om fullständig rättning följer av versionsbytet. Borttagning ur runtime
+ersätter inte granskning av byggverktyget.
 Förvaltaren ansvarar för versions-, licens- och advisorybevakning samt byte
 till en verifierad officiell container när en sådan finns. Oberoende
 granskning, integrationstester och behörigt releasebeslut krävs fortsatt.
