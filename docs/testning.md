@@ -1,5 +1,10 @@
 # Testning
 
+Serverjobbet använder Ubuntus huvudarkiv via HTTPS för webbläsarens
+systemberoenden. Bytet från testmaskinens Azure-spegel ändrar inte suites,
+komponenter eller Ubuntus signeringsnyckel. Jobbet har 25 minuters total
+tidsgräns för installation och hela provkedjan; inga prov får hoppas över.
+
 Testkonsolens nginx-ingress har ett separat loopbackprov i
 `deployment/test_beta_nginx.py`; direktprov mot Java-processen testar inte
 nginx-adresser eller storleken på dess svarshuvuden. OIDC:s telefonsida tillåter

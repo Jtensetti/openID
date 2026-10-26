@@ -7,7 +7,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 25
     services:
       postgres:
         image: postgres:18.6-bookworm@sha256:afc7e2d441324c0388fa80c3d24f733b4194a4eb7f47dd8ee2b08eb1a24a647c
@@ -50,6 +50,20 @@ jobs:
         run: node ../verification/test-phone-feedback.cjs
       - name: Install pinned browser test tooling
         run: npm ci --ignore-scripts
+      - name: Use the official Ubuntu archive for browser dependencies
+        run: |
+          sudo python3 - <<'PY'
+          from pathlib import Path
+          source = Path('/etc/apt/sources.list.d/ubuntu.sources')
+          original = source.read_text()
+          updated = original
+          for scheme in ('http', 'https'):
+              updated = updated.replace(f'{scheme}://azure.archive.ubuntu.com/ubuntu',
+                                        'https://archive.ubuntu.com/ubuntu')
+          if updated != original:
+              source.write_text(updated)
+          print('Ubuntu source URI checked; suites, components and signing key unchanged.')
+          PY
       - name: Install Chromium for the pinned Playwright version
         run: npx --no-install playwright install --with-deps chromium --only-shell
       - name: Browser SAML, WebAuthn USB/platform, PWA and revocation

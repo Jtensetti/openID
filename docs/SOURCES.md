@@ -1,5 +1,13 @@
 # Källregister
 
+## CI:s Ubuntu-paketkälla, 2026-10-26
+
+[Ubuntu Server: Install and manage packages](https://ubuntu.com/server/docs/how-to/software/package-management/)
+anger `ubuntu.sources`, huvudarkivet och `Signed-By` för Ubuntu 24.04.
+[Huvudarkivet via HTTPS](https://archive.ubuntu.com/ubuntu/) har kontrollerats.
+CI byter endast URI för Azure-spegeln; APT:s befintliga signaturkontroll,
+suites och komponenter behålls.
+
 ## Omkontroll för appens GAP-arbete, 2026-10-26
 
 D08 har lästs på nytt mot den publicerade webbsidan (rubrikdatum
