@@ -193,6 +193,13 @@ TestFlight-inbjudan är distributionskontroll, inte identitetsbevis.
 `RuntimeTests` provar åtkomstgränserna, och `WalletSecurityTests` provar
 standardanslutning och bevarad privat serverbindning.
 
+OPS-01/02: bakom betans nginx skiljer ett explicit loopbackproxyläge
+klienternas trafikräknare åt. Nginx ersätter inkommande adressuppgifter;
+runtime nekar förfalskade, saknade och tvetydiga värden och normaliserar
+motsvarande IP-skrivsätt. `test_ingress_client`, `RuntimeTests` och det
+riktiga nginx-provet täcker dessa gränser. Införande och kapacitetsmål i
+betan återstår; NAT-klienter delar räknare och lokala processer är betrodda.
+
 ## Underskrift, testkonsol, biometri och spärrlista 2026-10-24
 
 SIG-01/02, FED-01 (D03 §8.4; T02 §7; SAP): telefonprovidern visar SignMessage i

@@ -28,6 +28,13 @@ Databasens transaktioner avgör samtidiga godkännanden och spärrar. Ett fillå
 hindrar flera runtime-processer på samma databas. Detta är en ensam nod,
 inte en distribuerad tjänst. [Start och drift](../deployment/README.md).
 
+Betans nginx ersätter `X-OpenID-Client-IP` med anslutningens adress. Endast
+en explicit betrodd loopbackproxy får förmedla den till trafikbegränsningen;
+runtime nekar saknad, tvetydig eller oväntad adress. Direktläge litar bara på
+transportens motpart. Detta ändrar inte App Attest, identitetsbeslut eller
+beständiga försöksbudgetar. Värddatorns lokala processer delar fortsatt
+säkerhetszon med ingressen.
+
 ## Registrering
 
 1. Appen skapar en P-256-nyckel i Secure Enclave. Keychain lagrar den omslutna

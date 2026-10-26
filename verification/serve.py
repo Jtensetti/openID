@@ -15,6 +15,7 @@ import subprocess
 import sys
 
 from runtime import Runtime, validate_origin
+from ingress_client import proxy_config
 
 ROOT = Path(__file__).resolve().parent
 
@@ -69,7 +70,7 @@ def proofing_commands(config):
 def load_config(path):
     value = json.loads(Path(path).read_text())
     required = {'bind', 'origin', 'team', 'bundle', 'developmentAttestation', 'tlsCert', 'tlsKey', 'csca', 'database', 'pairingFile'}
-    if not required <= set(value) or set(value) - required - {'listenPort', 'publicEnrollment', 'cscaCrl', 'poseCheck'}:
+    if not required <= set(value) or set(value) - required - {'listenPort', 'publicEnrollment', 'cscaCrl', 'poseCheck', 'trustedProxy'}:
         raise ValueError('Configuration fields do not match the example')
     if type(value.get('publicEnrollment', False)) is not bool: raise ValueError('Public enrollment flag')
     # 'log' keeps registration open while the uncalibrated pose limits are measured on real devices.
@@ -80,6 +81,7 @@ def load_config(path):
     address = ipaddress.ip_address(value['bind'])
     if address.is_unspecified or not address.is_private or address.is_multicast:
         raise ValueError('Bind to an explicit loopback or private network address')
+    proxy_config(value.get('trustedProxy'), value['bind'])
     import re
     if not re.fullmatch('[A-Z0-9]{10}', value['team']): raise ValueError('Apple Team ID')
     if not re.fullmatch('[A-Za-z0-9.-]{3,128}', value['bundle']): raise ValueError('Bundle ID')
@@ -218,7 +220,8 @@ def main():
                 lambda data: verify_document(command, data), None, None, wallet=wallet,
                 chip_factory=lambda data: ChipProcess(chip_command, data),
                 biometrics=score_frames, pose_enforced=config.get('poseCheck', 'enforce') == 'enforce')
-            app = Runtime(native, wallet, config['origin'], config['pairing'], public_enrollment=config.get('publicEnrollment', False))
+            app = Runtime(native, wallet, config['origin'], config['pairing'], public_enrollment=config.get('publicEnrollment', False),
+                trusted_proxy=config.get('trustedProxy'))
             app.crypto = crypto
             return app
 
@@ -241,6 +244,9 @@ def reject_duplicate_headers(worker, req):
     seen = set()
     for key, value in req.headers:
         key = key.lower()
+        # WSGI maps '-' and '_' to the same environment name. Do not let an
+        # alternate spelling alias the dedicated ingress address header.
+        if '_' in key: raise InvalidHeader('unsupported header name')
         if key in seen: raise InvalidHeader('duplicate header')
         seen.add(key)
     # Do not accept proxy interpretation, chunked bodies, or Expect negotiation.

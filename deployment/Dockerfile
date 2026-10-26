@@ -52,6 +52,7 @@ COPY verification/crypto_runtime.py verification/serve.py verification/runtime.p
 COPY verification/crypto-worker.mjs verification/attest.mjs verification/device-signature.mjs verification/profile-crypto.mjs ./
 COPY verification/revocation.py verification/notices.py verification/notice_exporter.py verification/continuity_operator.py ./
 COPY verification/audit_archive.py ./
+COPY verification/ingress_client.py ./
 COPY verification/rp_web ./rp_web
 COPY deployment/probe.py ./probe.py
 USER 10001:10001

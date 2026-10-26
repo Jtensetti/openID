@@ -37,7 +37,7 @@ with tempfile.TemporaryDirectory(prefix='openid-ingress-') as temporary:
     cert, key = root / 'tls.crt', root / 'tls.key'
     subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1',
         '-subj', '/CN=Generated ingress test', '-addext',
-        'subjectAltName=DNS:localhost,DNS:openid.tensetti.io,DNS:idp.openid.tensetti.io',
+        'subjectAltName=DNS:localhost,DNS:openid.tensetti.io,DNS:idp.openid.tensetti.io,DNS:api.openid.tensetti.io',
         '-keyout', str(key), '-out', str(cert)], check=True, capture_output=True)
     password = 'synthetic-ingress-only'
     hashed = subprocess.run(['openssl', 'passwd', '-apr1', '-stdin'], input=password + '\n',
@@ -52,7 +52,9 @@ with tempfile.TemporaryDirectory(prefix='openid-ingress-') as temporary:
         def do_POST(self):
             data = self.rfile.read(int(self.headers.get('Content-Length', '0')))
             body = json.dumps({'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest(),
-                               'authorizationPresent': 'Authorization' in self.headers}).encode()
+                               'authorizationPresent': 'Authorization' in self.headers,
+                               'clientAddresses': self.headers.get_all('X-OpenID-Client-IP'),
+                               'forwardedPresent': 'Forwarded' in self.headers or 'X-Forwarded-For' in self.headers}).encode()
             self.send_response(200)
             self.send_header('Content-Length', str(len(body)))
             self.end_headers()
@@ -104,7 +106,7 @@ with tempfile.TemporaryDirectory(prefix='openid-ingress-') as temporary:
     process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
     context = ssl.create_default_context(cafile=str(cert))
 
-    def request(path, authenticated=True, body=None, host='openid.tensetti.io'):
+    def request(path, authenticated=True, body=None, host='openid.tensetti.io', extra_headers=None):
         # Connect only to loopback, while checking the generated certificate and correct SNI.
         connection = http.client.HTTPSConnection(host, public_port, timeout=5, context=context)
         connection.sock = context.wrap_socket(socket.create_connection(('127.0.0.1', public_port), timeout=5),
@@ -115,6 +117,7 @@ with tempfile.TemporaryDirectory(prefix='openid-ingress-') as temporary:
                 headers['Authorization'] = 'Basic ' + base64.b64encode(('test:' + password).encode()).decode()
             if body is not None:
                 headers['Content-Type'] = 'application/x-www-form-urlencoded'
+            headers.update(extra_headers or {})
             connection.request('GET' if body is None else 'POST', path, body=body, headers=headers)
             response = connection.getresponse()
             return response.status, dict(response.getheaders()), response.read()
@@ -141,6 +144,18 @@ with tempfile.TemporaryDirectory(prefix='openid-ingress-') as temporary:
         for path in ['/wallet', '/lab', '/test/run/UPPER', '/test/run/' + 'a' * 33, '/test/run/loa3/extra']:
             assert request(path)[0] == 404, path
         assert request('/oidc/login')[0] == 200
+        # The API's dedicated header must replace attacker input with exactly the
+        # actual socket peer. Ordinary Forwarded headers remain stripped.
+        for spoof in ({}, {'X-OpenID-Client-IP':'198.51.100.9'},
+                      {'X-OpenID-Client-IP':'198.51.100.9','x-openid-client-ip':'192.0.2.8'},
+                      {'X-OpenID-Client-IP':'198.51.100.9,192.0.2.8','X-Forwarded-For':'192.0.2.8','Forwarded':'for=192.0.2.8'},
+                      {'X_OpenID_Client_IP':'198.51.100.9'}):
+            status, _, raw = request('/native/start',authenticated=False,body=b'{}',
+                                    host='api.openid.tensetti.io',extra_headers=spoof)
+            assert status == 200, status
+            response=json.loads(raw)
+            assert response['clientAddresses'] == ['127.0.0.1'], response
+            assert response['forwardedPresent'] is False
         # Model an unavailable temp-file area: allowed SAML requests must fit in memory.
         body_temp = root / 'client_body'
         body_temp.rmdir()
@@ -159,6 +174,7 @@ with tempfile.TemporaryDirectory(prefix='openid-ingress-') as temporary:
         print(json.dumps({'status': 'PASS', 'consoleCases': len(cases), 'largeRedirectBytes': len(expected_location),
             'largePostBytes': [65536, 131072], 'postRoutes': 4, 'oversizePostDenied': True,
             'betaAuthEnforced': True, 'credentialsStripped': True, 'unexpectedRoutesDenied': True,
+            'ingressClientAddressOverwritten': True, 'spoofedClientAddressCases': 5,
             'nginx': subprocess.run([NGINX, '-v'], capture_output=True, text=True, check=True).stderr.strip()}))
     finally:
         process.terminate()

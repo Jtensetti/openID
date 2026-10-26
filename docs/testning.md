@@ -1,5 +1,12 @@
 # Testning
 
+Betans klientadress provas i tre led: `test_ingress_client` nekar fel
+proxykonfiguration och tvetydiga IP-värden; `RuntimeTests` kontrollerar
+separata trafik- och registreringsgränser samt att förfalskningar inte når
+tjänsterna; `deployment/test_beta_nginx.py` skickar förfalskade huvuden genom
+riktig nginx/TLS och kräver exakt en adress från den faktiska anslutningen.
+Det är syntetiska loopbackprov, inte bevis för installerad publik konfiguration.
+
 Serverjobbet använder Ubuntus huvudarkiv via HTTPS för webbläsarens
 systemberoenden. Bytet från testmaskinens Azure-spegel ändrar inte suites,
 komponenter eller Ubuntus signeringsnyckel. Jobbet har 25 minuters total

@@ -1,5 +1,13 @@
 # Källregister
 
+## Avgränsad klientadress genom betans ingress, 2026-10-26
+
+[nginx proxy_set_header](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_set_header)
+och [remote_addr](https://nginx.org/en/docs/http/ngx_http_core_module.html#var_remote_addr)
+ligger till grund för att ersätta klientens adresshuvud med anslutningens
+adress. Inga `real_ip`-regler ingår. Eget proxyläge begränsas till explicit
+loopbacklyssnare; det provas med förfalskade huvuden genom riktig nginx.
+
 ## Separat byggmiljö, 2026-10-26
 
 [GitHub-hosted runners](https://docs.github.com/en/actions/concepts/runners/github-hosted-runners)
