@@ -2,6 +2,23 @@
 
 ## Aktuell verifiering
 
+`test_audit_archive` provar faktisk SQLite-export, samtidig spärr mellan
+tabelläsningar, offlineverifiering utan register/nyckel, fältminimering,
+manipulerat manifest, trunkering, filinventering, symlänkar, privata
+filrättigheter, resursgränser och städning efter fel. `test_cluster` provar
+samma snapshotgräns i PostgreSQL med riktig läsroll, utgivningsbeslut och
+operatörsjournal. Rollen nekas profilers chiffertext, subjects,
+PIN-verifierare, sessionshemligheter och skrivning. Containerbygget provar
+exportörens paketerade CLI. Detta är syntetiska utvecklingsprov; extern
+arkivmottagning och fullständiga utgivningsbevis ingår inte.
+
+`deployment/archive/test_store.py` provar leverans, separat mottagarroll och
+senare återläsning med versionsbunden kvittens. Felaktig data, fel konto,
+fel roll, ändrade versioner, bristande bevarande och kryptering nekar
+bekräftelse. Stubber kontrollerar S3-API-kontrakt; CI kontrollerar även den
+genererade CloudFormation-mallens säkerhetsregler. Ingen riktig AWS-stack
+eller faktisk extern mottagning används i dessa prov.
+
 Aktuella körningar och deras exakta revisioner finns i
 [GitHub Actions](https://github.com/Jtensetti/openID/actions).
 [Prövningsunderlaget för OIDC, SAML och underskrift](provningsunderlag.md)

@@ -1,5 +1,9 @@
 # AWS-testets beroenden
 
+Samma låsta AWS SDK-graf används av den separata
+[arkivklienten](../archive/README.md). Den för inga nya paket till
+applikationens runtime och tar inga credentials från repot.
+
 Kontrollerat 2026-10-20. `requirements.lock` låser AWS SDK och hela dess
 installerade Python-graf med hjulhashar. `sbom.cdx.json` innehåller dessa
 sju paket och CI-verktyget CloudFormation Guard. Fullständiga källrevisioner,

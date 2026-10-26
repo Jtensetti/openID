@@ -2,6 +2,12 @@
 
 ## Status
 
+Privata registerjournaler kan tas ut med [arkivexportören](docs/arkivexport.md).
+Exporten innehåller känsliga ID:n och operatörsuppgifter och ska förvaras
+utanför repot och publika CI-artefakter. Verifiering kräver en separat
+bevarad manifestkontrollsumma. Detta ger integritetskontroll av ett uttag,
+inte en attest av det ursprungliga identitetsbeslutet.
+
 Projektet saknar produktionsrelease, Digg-godkännande och oberoende
 säkerhetsgranskning.
 

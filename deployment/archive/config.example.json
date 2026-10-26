@@ -1,0 +1,9 @@
+{
+  "bucket": "replace-with-private-archive-bucket",
+  "owner": "111111111111",
+  "issuer": "222222222222",
+  "custodianRole": "arn:aws:iam::111111111111:role/ArchiveCustodian",
+  "region": "eu-north-1",
+  "prefix": "openid-archive",
+  "days": 1827
+}
