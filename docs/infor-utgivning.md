@@ -41,7 +41,7 @@ produktions-API. Bygg inte skrapning som en underförstådd registeranslutning.
 |---|---|---|
 | 1 | Granska adapterkontraktet och anslut vald registerkälla i kundtest. Håll passpärrkontroll som separat integration. | Entydiga och negativa källsvar provas; ingen aktivering vid avbrott eller otillräckliga uppgifter. |
 | 2 | Genomför hela den fysiska kedjan på stödda iPhone-/iOS-kombinationer. | Protokoll med revisioner, förväntat/faktiskt resultat och privat bevisreferens per fall. |
-| 3 | Begränsa försök beständigt per verifierad handling före biometriskt beslut. | Parallella försök, ny appsession och serveromstart kan inte nollställa räknaren; utrednings-/återöppningspolicy beslutad. Nuvarande IP-/sessionsgränser räcker inte som denna kontroll. |
+| 3 | Verifiera den införda beständiga försöksbudgeten i avsedd drift. | SQLite och PostgreSQL debiterar före analys; parallellitet, omstart, modellfel och återläsningspaus provas i kod. Driftkonfiguration, utrednings-/återöppningspolicy och fysisk helkedja återstår. |
 | 4 | Utvärdera biometri för hela registreringsbeslutet och beställ oberoende prov. | Låsta modeller/trösklar, angreppstyper, injektion, relä, försöksbudget, felgrader och osäkerhet kan granskas tillsammans. |
 | 5 | Mät prestanda på vald driftmiljö innan fler processer eller större instanser införs. | Separata tider för modellstart, avkodning/detektion, SFace, PAD och hela registreringen; CPU/minne och svarstidsfördelning vid samtidig legitimering/spärr. Inga råbilder, mallar eller personnummer i mätloggar. |
 

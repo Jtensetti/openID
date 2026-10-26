@@ -1,5 +1,9 @@
 # Teknisk prövning av OIDC, SAML och dokumentunderskrift
 
+Test-PDF:ens [synliga underskriftskvitto](pdf-underskrift.md) ingår i dess
+signaturfält och signerade bytes. Rendering av kvittot och kryptografisk
+validering är skilda kontroller; test-CA:n blir inte allmänt betrodd av detta.
+
 Underlaget avser egen teknisk verifiering med syntetiska identiteter.
 Det är inte ett godkännande från Digg, en OpenID-certifiering eller en
 extern revisionsrapport. Ett godkänt bibliotek bevisar inte att den egna

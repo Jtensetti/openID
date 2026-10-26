@@ -15,6 +15,9 @@ tyst installera på en annan plattform.
 
 ## Ändringar
 
+För en sammanhållen leverans, följ [releasekandidat och återgång](releasekandidat.md).
+Komponenternas tidigare godkända körningar ersätter inte prov av den gemensamma revisionen.
+
 1. Utgå från aktuell `main` och arbeta på en separat branch. Rikta PR:n mot
    `main`. En PR som bygger på en annan branch behöver föras hela vägen till
    `main` efter att beroendet mergats.

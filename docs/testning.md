@@ -1,6 +1,32 @@
 # Testning
 
+Serverjobbet använder Ubuntus huvudarkiv via HTTPS för webbläsarens
+systemberoenden. Bytet från testmaskinens Azure-spegel ändrar inte suites,
+komponenter eller Ubuntus signeringsnyckel. Jobbet har 25 minuters total
+tidsgräns för installation och hela provkedjan; inga prov får hoppas över.
+
+Testkonsolens nginx-ingress har ett separat loopbackprov i
+`deployment/test_beta_nginx.py`; direktprov mot Java-processen testar inte
+nginx-adresser eller storleken på dess svarshuvuden. OIDC:s telefonsida tillåter
+endast samma ursprung och den konfigurerade tjänstens `/oidc/callback` som
+formulärmål. `PhonePagePolicyTest` provar det faktiska svarshuvudet och nekar
+olämpliga ursprung. `test-phone-feedback.cjs` provar även blockerad, misslyckad
+och utebliven återgång efter godkännande. Fysisk webbläsaråtergång efter
+appgodkännande ska redovisas separat från protokollproven.
+Loopbackprovet ingår i `Assurance checks` via infrastrukturjobbet.
+Artefakten `nginx-ingress-evidence` innehåller resultat, faktisk nginx-version,
+testad Git-revision och konfigurationens SHA-256. Den förinstallerade nginx
+på Ubuntu 24.04 används utan att starta eller ändra värdens systemtjänst.
+
 ## Aktuell verifiering
+
+`WalletHTTPTests` provar appens gemensamma nätverksgräns med syntetisk
+URL-laddning: HTTPS-krav, JSON, exakt svarsadress, nekad omdirigering,
+storleksgräns med/utan Content-Length, HTTP-fel och avbruten uppgift.
+Samma transport används för den separata spärrtjänsten. Kodfelsrensning vid
+låsning provas i modellen. XCUITest kontrollerar att version och byggnummer
+går att läsa utan upplåsning. Dessa prov omfattar inte riktig TLS, NFC,
+Apple-attestering eller fysisk identitetskontroll.
 
 `test_audit_archive` provar faktisk SQLite-export, samtidig spärr mellan
 tabelläsningar, offlineverifiering utan register/nyckel, fältminimering,
@@ -100,7 +126,9 @@ Maskinläsbara rapporter bevaras för spårbarhet.
 
 `node verification/test-phone-feedback.cjs` provar webbklientens meddelanden,
 begränsade återförsök för statushämtning och att ett avbrott inte utlöser
-slutförande. DOM och nätverk är testdubblar i detta prov. Det separata
+slutförande. Provet ingår i serverjobbet i `Assurance checks` och täcker även
+blockerad, misslyckad och tidsutgången återgång. DOM och nätverk är
+testdubblar i detta prov. Det separata
 `federation-browser-test.cjs` provar samma slutlägen i Chromium.
 `test_identity` verifierar att utgången status bara lämnas efter rätt
 begäransbindning och aldrig tillåter konsumtion av ett godkännande.

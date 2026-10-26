@@ -19,6 +19,89 @@ class PadesSignerTest {
     assertEquals(PadesSigner.sha256Hex(document), signed.documentSha256());
     PadesSigner.verify(signed.pdf(), signer.authority(), ALICE, Instant.now());
     assertTrue(signed.signer().getSubjectX500Principal().getName().contains("CN=ALICE SYNTHETIC"));
+    String evidence = System.getProperty("pades.evidence.dir");
+    if (evidence != null) {
+      var directory = java.nio.file.Path.of(evidence); java.nio.file.Files.createDirectories(directory);
+      java.nio.file.Files.write(directory.resolve("underskriftskvitto-exempel.pdf"), signed.pdf());
+      java.nio.file.Files.write(directory.resolve("original.pdf"), document);
+      java.nio.file.Files.writeString(directory.resolve("test-ca.pem"), PadesSigner.pem(signer.authority()));
+    }
+  }
+
+  @Test void visibleReceiptIsTheSignedFieldAndRendersOnThePage() throws Exception {
+    for (boolean highValue : new boolean[]{false, true}) {
+      var signer = new PadesSigner(Clock.systemUTC());
+      byte[] original = PadesSigner.demoDocument("OID-123456", Instant.now(), highValue);
+      var signed = signer.sign(original, ALICE, "request-1");
+      try (var pdf = org.apache.pdfbox.Loader.loadPDF(signed.pdf());
+           var unsigned = org.apache.pdfbox.Loader.loadPDF(original)) {
+        var form = pdf.getDocumentCatalog().getAcroForm();
+        assertFalse(form.getNeedAppearances());
+        assertEquals(1, form.getFields().size());
+        var field = (org.apache.pdfbox.pdmodel.interactive.form.PDSignatureField) form.getField(SignatureAppearance.FIELD);
+        assertEquals(pdf.getSignatureDictionaries().getFirst().getCOSObject(), field.getSignature().getCOSObject());
+        var widget = field.getWidgets().getFirst();
+        assertTrue(widget.isPrinted());
+        assertTrue(pdf.getPage(0).getAnnotations().stream().anyMatch(a -> a.getCOSObject().equals(widget.getCOSObject())));
+        assertEquals(475, widget.getRectangle().getWidth());
+        assertEquals(275, widget.getRectangle().getHeight());
+        var appearance = widget.getNormalAppearanceStream();
+        assertNotNull(appearance);
+        String content = new org.apache.pdfbox.pdfparser.PDFStreamParser(appearance).parse().stream()
+            .filter(org.apache.pdfbox.cos.COSString.class::isInstance).map(org.apache.pdfbox.cos.COSString.class::cast)
+            .map(org.apache.pdfbox.cos.COSString::getString).collect(java.util.stream.Collectors.joining("\n"));
+        assertTrue(content.contains("ALICE SYNTHETIC"));
+        assertTrue(content.contains("TESTUNDERSKRIFT"));
+        assertTrue(content.contains(PadesSigner.sha256Hex(original)));
+        // Rendering, not only a populated /V: the visible field must paint ink in the reserved area.
+        var before = new org.apache.pdfbox.rendering.PDFRenderer(unsigned).renderImage(0);
+        var after = new org.apache.pdfbox.rendering.PDFRenderer(pdf).renderImage(0);
+        int y = (int) pdf.getPage(0).getMediaBox().getHeight() - 320;
+        assertNotEquals(before.getRGB(70, y), after.getRGB(70, y));
+      }
+      PadesSigner.verify(signed.pdf(), signer.authority(), ALICE, Instant.now());
+    }
+  }
+
+  @Test void changingOrCopyingTheAppearanceCannotProvideAValidSignature() throws Exception {
+    var signer = new PadesSigner(Clock.systemUTC());
+    var signed = signer.sign(PadesSigner.demoDocument("OID-123456", Instant.now()), ALICE, "request-1");
+    byte[] changed;
+    try (var pdf = org.apache.pdfbox.Loader.loadPDF(signed.pdf()); var out = new java.io.ByteArrayOutputStream()) {
+      var field = pdf.getSignatureFields().getFirst();
+      var appearance = field.getWidgets().getFirst().getNormalAppearanceStream();
+      try (var stream = appearance.getCOSObject().createOutputStream()) {
+        stream.write("BT /F1 12 Tf 18 150 Td (BOB SYNTHETIC) Tj ET".getBytes(StandardCharsets.US_ASCII));
+      }
+      pdf.saveIncremental(out); changed = out.toByteArray();
+    }
+    assertThrows(Exception.class, () -> PadesSigner.verify(changed, signer.authority(), ALICE, Instant.now()));
+    // A raster copy can look identical, but contains no signed byte range or signer certificate.
+    try (var source = org.apache.pdfbox.Loader.loadPDF(signed.pdf());
+         var copy = new org.apache.pdfbox.pdmodel.PDDocument(); var out = new java.io.ByteArrayOutputStream()) {
+      var page = new org.apache.pdfbox.pdmodel.PDPage(org.apache.pdfbox.pdmodel.common.PDRectangle.A4); copy.addPage(page);
+      var image = org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory.createFromImage(copy,
+          new org.apache.pdfbox.rendering.PDFRenderer(source).renderImage(0));
+      try (var canvas = new org.apache.pdfbox.pdmodel.PDPageContentStream(copy, page)) {
+        canvas.drawImage(image, 0, 0, page.getMediaBox().getWidth(), page.getMediaBox().getHeight());
+      }
+      copy.save(out);
+      assertThrows(Exception.class, () -> PadesSigner.verify(out.toByteArray(), signer.authority(), ALICE, Instant.now()));
+    }
+  }
+
+  @Test void longSignerAndReferenceFitAndArbitraryPdfIsRefused() throws Exception {
+    var signer = new PadesSigner(Clock.systemUTC());
+    var longName = new PadesSigner.Signer("W".repeat(64), "a".repeat(64), "900101");
+    var result = signer.sign(PadesSigner.demoDocument("OID-123456", Instant.now()), longName, "W".repeat(64));
+    PadesSigner.verify(result.pdf(), signer.authority(), longName, Instant.now());
+    String evidence = System.getProperty("pades.evidence.dir");
+    if (evidence != null) java.nio.file.Files.write(java.nio.file.Path.of(evidence, "long-name.pdf"), result.pdf());
+    try (var pdf = new org.apache.pdfbox.pdmodel.PDDocument(); var out = new java.io.ByteArrayOutputStream()) {
+      pdf.addPage(new org.apache.pdfbox.pdmodel.PDPage()); pdf.save(out);
+      assertThrows(Exception.class, () -> signer.sign(out.toByteArray(), ALICE, "request-1"));
+    }
+    assertThrows(IllegalArgumentException.class, () -> signer.sign(new byte[]{1}, ALICE, "injected\nreference"));
   }
 
   /** Independent check with OpenSSL when it is installed: same bytes, DER CMS, valid signature. */
@@ -66,5 +149,6 @@ class PadesSignerTest {
   @Test void refusesUnverifiedSigner() {
     assertThrows(IllegalArgumentException.class, () -> new PadesSigner.Signer("alice", "a".repeat(64), "900101"));
     assertThrows(IllegalArgumentException.class, () -> new PadesSigner.Signer("ALICE", "short", "900101"));
+    assertThrows(IllegalArgumentException.class, () -> new PadesSigner.Signer("W".repeat(65), "a".repeat(64), "900101"));
   }
 }

@@ -20,6 +20,15 @@ import java.io.IOException;
 @SpringBootApplication
 public class IdpApplication {
   private static final String PAGE_CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
+  static String phonePageCsp(String sp, boolean oidc) {
+    if (!oidc) return PAGE_CSP;
+    var uri = java.net.URI.create(sp);
+    if (!"https".equals(uri.getScheme()) || uri.getHost() == null || uri.getRawUserInfo() != null
+        || !uri.getRawPath().isEmpty() || uri.getRawQuery() != null || uri.getRawFragment() != null)
+      throw new IllegalArgumentException("Configured HTTPS service origin required");
+    // Browsers enforce form-action across the POST -> OIDC callback redirect as well.
+    return PAGE_CSP.replace("form-action 'self';", "form-action 'self' " + uri.toASCIIString() + "/oidc/callback;");
+  }
   @Bean WebAuthnService webAuthnService(SyntheticRegistry registry, @Value("${lab.idp-base}") String base,
       @Value("${lab.webauthn:false}") boolean enabled) {
     return new WebAuthnService(registry, base, java.time.Clock.systemUTC(), enabled);
@@ -53,7 +62,9 @@ public class IdpApplication {
         .build();
   }
   @Bean
-  FilterRegistrationBean<OncePerRequestFilter> labBoundary(SyntheticRegistry registry, @Value("${lab.idp-base}") String base) {
+  FilterRegistrationBean<OncePerRequestFilter> labBoundary(SyntheticRegistry registry, @Value("${lab.idp-base}") String base,
+      @Value("${lab.sp-base}") String sp, @Value("${authn-server.oidc.enabled:false}") boolean oidc) {
+    String phoneCsp = phonePageCsp(sp, oidc);
     var filter = new OncePerRequestFilter() {
       @Override protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
         if (!request.getRemoteAddr().equals("127.0.0.1") || !java.net.URI.create(base).getAuthority().equals(request.getHeader("Host")) ||
@@ -69,7 +80,7 @@ public class IdpApplication {
         // Resume routes render upstream's separately protected SAML auto-POST page.
         if ((request.getRequestURI().startsWith("/lab") && !request.getRequestURI().equals("/lab/resume")) ||
             (request.getRequestURI().startsWith("/phone") && !request.getRequestURI().equals("/phone/resume")))
-          response.setHeader("Content-Security-Policy", PAGE_CSP);
+          response.setHeader("Content-Security-Policy", request.getRequestURI().startsWith("/phone") ? phoneCsp : PAGE_CSP);
         // In lab mode, revocation cannot interleave status verification and SAML response signing.
         try {
           if (request.getRequestURI().equals("/lab/resume")) {

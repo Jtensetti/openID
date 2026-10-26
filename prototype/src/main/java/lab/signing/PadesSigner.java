@@ -45,7 +45,7 @@ public final class PadesSigner {
 
   public record Signer(String displayName, String subject, String birthDateMrz) {
     public Signer {
-      if (displayName == null || !displayName.matches("[A-Z ]{1,89}") || subject == null || !subject.matches("[a-f0-9]{64}")
+      if (displayName == null || !displayName.matches("[A-Z ]{1,64}") || subject == null || !subject.matches("[a-f0-9]{64}")
           || birthDateMrz == null || !birthDateMrz.matches("[0-9]{6}")) throw new IllegalArgumentException("Verified signer required");
     }
   }
@@ -109,15 +109,16 @@ public final class PadesSigner {
             "Det används för att visa en federerad underskrift enligt Sweden Connects",
             "tekniska ramverk (SignMessage, signMessageDigest och SAD).",
             "",
-            "4. Underskrift. Underskriften läggs in som en PAdES-signatur. Den syns i",
-            "PDF-läsarens signaturpanel. Certifikatet kommer från en test-CA som inte är",
-            "betrodd och får inte användas för rättshandlingar.",
+            "4. Underskrift. Ett synligt kvitto läggs in tillsammans med en PAdES-signatur.",
+            "Äktheten kontrolleras med den digitala signaturen, inte med kvittots utseende.",
+            "Certifikatet kommer från en test-CA och får inte användas för rättshandlingar.",
         };
         for (String text : body) y = line(c, regular, 12, 60, y, text);
         y -= 30;
         y = line(c, bold, 12, 60, y, "Underskrifter");
-        line(c, regular, 11, 60, y - 2, "Se signaturpanelen. Varje underskrift omfattar hela dokumentet i den versionen.");
+        line(c, regular, 11, 60, y - 2, "Kvittot visas nedan efter underskrift. Kontrollera även den digitala signaturen.");
       }
+      SignatureAppearance.reserve(document, page);
       document.save(out);
       return out.toByteArray();
     }
@@ -129,6 +130,7 @@ public final class PadesSigner {
 
   public Signed sign(byte[] pdf, Signer signer, String signRequestId) throws Exception {
     if (pdf.length == 0 || pdf.length > 2_000_000) throw new IllegalArgumentException("Document size");
+    if (signRequestId == null || !signRequestId.matches("[A-Za-z0-9_-]{1,64}")) throw new IllegalArgumentException("Signature reference");
     Instant now = clock.instant();
     authority.checkValidity(Date.from(now));
     // One key and certificate per signature, as in a central signing service; never a login or TLS key.
@@ -147,6 +149,7 @@ public final class PadesSigner {
         new JcaContentSignerBuilder("SHA256withECDSA").setProvider(BC).build(authorityKey.getPrivate())));
 
     try (var document = Loader.loadPDF(pdf); var out = new ByteArrayOutputStream()) {
+      var field = SignatureAppearance.reservedField(document);
       var signature = new PDSignature();
       signature.setFilter(PDSignature.FILTER_ADOBE_PPKLITE);
       signature.setSubFilter(PDSignature.SUBFILTER_ETSI_CADES_DETACHED);
@@ -155,7 +158,11 @@ public final class PadesSigner {
       signature.setLocation("openID testmiljö");
       signature.setSignDate(GregorianCalendar.from(now.atZone(ZoneOffset.UTC)));
       var options = new SignatureOptions(); options.setPreferredSignatureSize(12000);
+      field.setValue(signature);
       document.addSignature(signature, options);
+      if (field.getSignature() == null || field.getSignature().getCOSObject() != signature.getCOSObject())
+        throw new GeneralSecurityException("Signature field binding failed");
+      SignatureAppearance.draw(document, field, signer.displayName(), now, signRequestId, sha256Hex(pdf));
       var external = document.saveIncrementalForExternalSigning(out);
       byte[] content = external.getContent().readAllBytes();
       external.setSignature(cms(content, certificate, key.getPrivate()));

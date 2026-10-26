@@ -75,6 +75,7 @@ import LocalAuthentication
         verification.cancel(); snapshot = nil; credential = nil; configuration = nil; revocationProof = nil
         focusedRequest = nil; registrationPresented = false; settingsPresented = false
         unlocked = false; busy = false; activeAction = nil; error = nil; statusMessage = nil; decisionMessage = nil
+        securityCodeMessage = nil; pendingLink = nil
     }
     func saveConfiguration(origin: String, pairing: String) throws {
         guard unlocked, !busy, !verification.busy else { throw WalletError.rejected }
@@ -137,12 +138,11 @@ import LocalAuthentication
                 var request = URLRequest(url: RevocationProof.endpoint)
                 request.httpMethod = "POST"; request.timeoutInterval = 20
                 request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                request.setValue("application/json", forHTTPHeaderField: "Accept")
                 request.httpBody = try JSONSerialization.data(withJSONObject: ["credential": credential.id, "token": proof.token, "confirm": true])
-                let session = URLSession(configuration: .ephemeral, delegate: RevocationRedirectPolicy(), delegateQueue: nil)
-                defer { session.invalidateAndCancel() }
-                let (_, response) = try await session.data(for: request)
+                let (_, status) = try await WalletHTTP().send(request, limit: 4096)
                 try Task.checkCancellation(); guard generation == epoch else { return }
-                guard let http = response as? HTTPURLResponse, http.url == RevocationProof.endpoint, http.statusCode == 200 else { throw WalletError.unavailable }
+                guard status == 200 else { throw WalletError.unavailable }
                 snapshot = nil; focusedRequest = nil
                 statusMessage = "Ditt ID är spärrat permanent. Registrera ett nytt ID om du vill använda openID igen."
             } catch {
@@ -212,7 +212,7 @@ import LocalAuthentication
                 if generation == epoch, let walletError = error as? WalletError, case .securityCode(let code, _) = walletError {
                     // The server counted the attempt and returned how many remain; the request stays open for a retry.
                     securityCodeMessage = error.localizedDescription
-                    if code == "PIN_LOCKED" { focusedRequest = nil; self.error = error.localizedDescription; refreshAfterBusy() }
+                    if code == "PIN_LOCKED" { focusedRequest = nil; self.error = error.localizedDescription; refreshAfterBusy(epoch: epoch) }
                     return
                 }
                 if generation == epoch {
@@ -227,9 +227,10 @@ import LocalAuthentication
         }
     }
     /// A locked code changes the holder's status; fetch it once the failed operation has finished.
-    private func refreshAfterBusy() {
+    private func refreshAfterBusy(epoch: UUID) {
         Task { [weak self] in
-            while self?.busy == true { try? await Task.sleep(nanoseconds: 50_000_000) }
+            while self?.generation == epoch && self?.busy == true { try? await Task.sleep(nanoseconds: 50_000_000) }
+            guard self?.generation == epoch else { return }
             self?.perform("snapshot")
         }
     }
@@ -261,14 +262,5 @@ import LocalAuthentication
         guard unlocked, !busy, snapshot?.state == .revoked || snapshot?.state == .expired else { throw WalletError.rejected }
         if let credential { try vault.remove("revocation-" + credential.id) }
         try vault.remove("credential"); credential = nil; snapshot = nil; revocationProof = nil
-    }
-}
-
-final class RevocationRedirectPolicy: NSObject, URLSessionTaskDelegate {
-    func urlSession(_ session: URLSession, task: URLSessionTask,
-                    willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest,
-                    completionHandler: @escaping (URLRequest?) -> Void) {
-        // A revocation proof must never follow a redirect to another endpoint.
-        completionHandler(nil)
     }
 }

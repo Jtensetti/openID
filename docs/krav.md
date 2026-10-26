@@ -1,9 +1,18 @@
 # Tekniska krav och verifieringsluckor
 
+SIG-01/02: test-PDF:en har ett [synligt underskriftskvitto](pdf-underskrift.md)
+i det riktiga signaturfältet. Kvittot omfattas av samma signerade revision.
+Rendering, ändrat kvitto och bildkopiering provas separat från certifikattillit.
+Testutfärdaren är fortsatt ej betrodd och formell kravstatus ändras inte.
+
 Krav-ID:n behålls för spårbarhet till tester och tidigare granskningar.
 Tabellen beskriver teknisk täckning; formell kravstatus är fortsatt `OPEN`.
-Källhänvisningar avser inventeringen 2026-10-19 i [SOURCES.md](SOURCES.md).
+Källhänvisningar avser inventeringen och daterade omkontroller i [SOURCES.md](SOURCES.md).
 Aktuell originaltext behöver kontrolleras inför en formell bedömning.
+
+[iPhone-underlaget](iphone-sakerhet.md) delar upp appens tekniska kontroller,
+installationsbevis och återstående fysiska/organisatoriska bevis. APP-01–08
+är delpunkter; de ersätter inte de överordnade kravens formella status.
 
 ## Identitet och nycklar
 
@@ -86,6 +95,12 @@ begäran från ett okänt anslutnings-/kontrollfel. Okänd orsak presenteras int
 som bekräftad spärr eller bekräftat nekande. Avslutade QR-begäranden döljs
 och en länk erbjuder en ny inloggning. Status får återhämtas automatiskt;
 godkännanden skickas aldrig om automatiskt. Formell kravstatus ändras inte.
+
+ID-09/TEST-01: appens nekandeval ligger utanför det rullbara innehållet i
+alla begäransvarianter, inklusive underskrift och säkerhetskod. UI-prov
+täcker synlighet utan rullning, stor text, öppet tangentbord och utgång.
+Ett nekande kräver fortfarande ett separat signerat beslut; att stänga
+vyn är inte ett serverbekräftat avbrott.
 
 ### OIDC och tillitsnivåer i privat beta
 

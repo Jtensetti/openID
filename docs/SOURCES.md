@@ -1,5 +1,48 @@
 # Källregister
 
+## CI:s Ubuntu-paketkälla, 2026-10-26
+
+[Ubuntu Server: Install and manage packages](https://ubuntu.com/server/docs/how-to/software/package-management/)
+anger `ubuntu.sources`, huvudarkivet och `Signed-By` för Ubuntu 24.04.
+[Huvudarkivet via HTTPS](https://archive.ubuntu.com/ubuntu/) har kontrollerats.
+CI byter endast URI för Azure-spegeln; APT:s befintliga signaturkontroll,
+suites och komponenter behålls.
+
+## Omkontroll för appens GAP-arbete, 2026-10-26
+
+D08 har lästs på nytt mot den publicerade webbsidan (rubrikdatum
+2022-10-04, sidfot 2024-12-20). [ISO/IEC 27001:2022](https://www.iso.org/standard/27001)
+och [Amd 1:2024](https://www.iso.org/standard/88435.html) är underlag för
+ledningssystemets avgränsning. Fullständig bedömning förutsätter licensierad
+standardtext och beslutad SoA; appens tekniska mappning är inte en certifiering.
+
+[Apple App Attest Environment](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.developer.devicecheck.appattest-environment)
+och [förberedelser för App Attest](https://developer.apple.com/documentation/devicecheck/preparing-to-use-the-app-attest-service)
+kontrollerade 2026-10-26: utvecklings- och produktionsnycklar tillhör skilda
+miljöer. Produktion kan väljas för lokal provning, och TestFlight använder
+produktion. Appens signerade entitlement kontrolleras separat från byggläget.
+
+## Synligt PDF-kvitto och tillit, omkontroll 2026-10-26
+
+[Diggs valideringsbeskrivning](https://www.digg.se/digitala-tjanster/e-underskrift/valideringstjanst),
+[Adobes AATL-beskrivning](https://www.adobe.com/security/approved-trust-list.html)
+och [EU:s tillitsförteckningar](https://digital-strategy.ec.europa.eu/en/policies/eu-trusted-lists)
+har kontrollerats för skillnaden mellan synlighet, integritet och tillit.
+T05 och T06 nedan anger fortsatt version 1.7 respektive 1.3.
+[PDFBox FAQ](https://pdfbox.apache.org/3.0/faq.html#how-can-i-check-signed-pdfs)
+beskriver att parsing/rendering inte i sig validerar digitala underskrifter.
+Den befintliga låsta PDFBox-versionen 3.0.8 används utan nytt beroende.
+
+## Testkonsolens ingress och formuläråtergång, 2026-10-26
+
+[nginx proxy_buffer_size](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_buffer_size)
+beskriver gränsen för bakomliggande svarshuvuden även när response buffering
+är avstängd. [CSP form-action](https://www.w3.org/TR/CSP3/#directive-form-action)
+anger kontrollen av formulärnavigationer. Telefonsidans policy behöver tillåta
+OIDC:s konfigurerade callback efter godkännandets POST, utan godtyckliga mål.
+
+## Ursprunglig inventering
+
 Referenser från inventeringen 2026-10-19. Kravnummer och avsnitt finns i
 [kravöversikten](krav.md). Originaltexternas aktuella lydelse och
 ikraftträdande behöver kontrolleras inför en formell bedömning.

@@ -2,15 +2,11 @@ import Foundation
 
 final class WalletAPI {
     let configuration: ServerConfiguration
-    private let session: URLSession
+    private let transport = WalletHTTP()
 
     init(configuration: ServerConfiguration) {
         self.configuration = configuration
-        let options = URLSessionConfiguration.ephemeral
-        options.urlCache = nil; options.httpCookieStorage = nil
-        session = URLSession(configuration: options, delegate: NoRedirect(), delegateQueue: nil)
     }
-    deinit { session.invalidateAndCancel() }
     func post<T: Decodable>(_ path: String, body: [String: Any], as type: T.Type) async throws -> T {
         let data = try await postData(path, body: body)
         return try JSONDecoder().decode(type, from: data)
@@ -25,20 +21,12 @@ final class WalletAPI {
         var request = URLRequest(url: URL(string: path, relativeTo: configuration.url)!)
         request.httpMethod = "POST"; request.timeoutInterval = 60
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue(configuration.origin, forHTTPHeaderField: "Origin")
         if !configuration.pairing.isEmpty { request.setValue(configuration.pairing, forHTTPHeaderField: "X-CSRF-Token") }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         guard request.httpBody!.count <= 14_000_000 else { throw WalletError.rejected }
-        // Check size while streaming; data(for:) would buffer the entire response.
-        let (stream, response) = try await session.bytes(for: request)
-        guard let status = (response as? HTTPURLResponse)?.statusCode else { throw WalletError.unavailable }
-        if status == 429 { throw WalletError.overloaded }
-        var data = Data()
-        for try await byte in stream {
-            guard data.count < 262144 else { throw WalletError.rejected }
-            data.append(byte)
-        }
-        try Task.checkCancellation()
+        let (data, status) = try await transport.send(request, limit: 262144)
         if status == 503 {
             if path.hasPrefix("/native/"),
                let error = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -65,8 +53,4 @@ final class WalletAPI {
         guard status == 200 else { throw WalletError.rejected }
         return data
     }
-}
-private final class NoRedirect: NSObject, URLSessionTaskDelegate {
-    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
-                    newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) { completionHandler(nil) }
 }
