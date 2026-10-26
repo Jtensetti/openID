@@ -421,6 +421,13 @@ provisioneras separat. Kör som samma OS-användare som äger den aktiva listan,
 i en befintlig katalog med betrodda överordnade kataloger, utan symlänkar
 eller skrivbehörighet för andra användare.
 
+Stoppa registreringsprocessen före listbytet och starta den först efter
+godkänd kontroll. Detta tömmer fångstsessioner som redan hunnit verifiera
+passet med föregående lista. Filbytet samordnas ännu inte med pågående
+registreringstransaktioner; kör därför inte verktyget som obevakad
+bakgrundsuppdatering mot en aktiv registreringsprocess. Separata
+autentiseringsinstanser behöver inte stoppas.
+
 ```sh
 python3 crl_maintenance.py install \
   --jar ../prototype/target/isolated-eid-lab.jar \

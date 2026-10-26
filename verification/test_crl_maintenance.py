@@ -66,7 +66,9 @@ class MaintenanceTests(unittest.TestCase):
             with self.assertRaises(OSError):self.install()
         # Rename already happened: report failure, inspect/retry, never roll back.
         self.assertEqual(b'new',self.destination.read_bytes())
-        self.assertEqual('UNCHANGED',self.install()['status'])
+        with patch('crl_maintenance.os.fsync',wraps=os.fsync) as sync:
+            self.assertEqual('UNCHANGED',self.install()['status'])
+            self.assertEqual(2,sync.call_count) # retry both durability barriers
         self.assertFalse(list(self.root.glob('.crl-*')))
 
     def test_concurrent_update_refuses_without_running_verifier(self):

@@ -71,6 +71,12 @@ def update_lock(destination):
         os.close(fd)
 
 
+def sync_parent(path):
+    directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try: os.fsync(directory)
+    finally: os.close(directory)
+
+
 def install(candidate_path, destination, verifier, *, initialize=False, clock=time.time):
     destination = Path(destination).absolute()
     candidate = read_regular(candidate_path)
@@ -82,7 +88,14 @@ def install(candidate_path, destination, verifier, *, initialize=False, clock=ti
         if initialize and previous is not None: raise ValueError('CRL already initialized')
         result = verifier(candidate, previous)
         if result['validUntil'] <= clock() + MIN_REMAINING: raise ValueError('CRL too close to expiry')
-        if previous == candidate: return result | {'status':'UNCHANGED'}
+        if previous == candidate:
+            # A retry after an uncertain directory sync must establish durability,
+            # rather than acknowledging unchanged bytes without retrying the barrier.
+            fd = os.open(destination, os.O_RDONLY | os.O_NOFOLLOW)
+            try: os.fsync(fd)
+            finally: os.close(fd)
+            sync_parent(destination)
+            return result | {'status':'UNCHANGED'}
         temporary = None
         try:
             with tempfile.NamedTemporaryFile(dir=destination.parent, prefix='.crl-', delete=False) as stream:
@@ -91,9 +104,7 @@ def install(candidate_path, destination, verifier, *, initialize=False, clock=ti
             # Expiry during validation/write must not promote an unusable list.
             if result['validUntil'] <= clock() + MIN_REMAINING: raise ValueError('CRL too close to expiry')
             os.replace(temporary, destination)
-            directory = os.open(destination.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-            try: os.fsync(directory)
-            finally: os.close(directory)
+            sync_parent(destination)
         finally:
             if temporary is not None: temporary.unlink(missing_ok=True)
         return result | {'status':'INSTALLED'}
