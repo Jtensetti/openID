@@ -43,10 +43,10 @@ def seed(root):
     print('Created generated Wallet and stale backup with SQLite ' + sqlite3.sqlite_version)
 
 
-def check(root):
+def check(root, expected_source='3.40.1'):
     root = root.resolve()
     state = json.loads((root/'fixture.json').read_text())
-    assert state['sqlite'] == '3.40.1', 'fixture was not made by the previous runtime'
+    assert state['sqlite'] == expected_source, 'fixture was not made by the expected runtime'
     ident = state['credential']
     current = Wallet(root/'live'/'wallet.sqlite', ORIGIN)
     with current.transaction() as db:
@@ -58,7 +58,7 @@ def check(root):
     recovered = Wallet(target, ORIGIN)
     with recovered.transaction() as db:
         assert recovered.credential(db, ident)['state'] == 'REVOKED'
-        assert db.execute('SELECT state FROM requests WHERE id=?', (state['request'],)).fetchone() == ('CANCELLED',)
+        assert db.execute('SELECT state FROM requests WHERE id=?', (state['request'],)).fetchone()[0] == 'CANCELLED'
         assert db.execute('SELECT kind FROM events WHERE credential=? ORDER BY rowid DESC LIMIT 1', (ident,)).fetchone()[0] == 'REVOKED'
         assert db.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
     require_rejection(lambda: recovered.activate(ident, 'GENERATED-REACTIVATION'))
