@@ -79,10 +79,12 @@ commit räcker inte. Historikändring kräver separat beslut.
 
 ## Rapportera problem
 
-En privat säkerhetskanal är ännu inte konfigurerad. Publicera inte känsliga
-sårbarhetsdetaljer i öppna issues; be projektägaren om en privat kontaktväg.
-Inför pilot- eller produktionsrelease behövs ansvarig mottagare och en
-dokumenterad process för triage och kommunikation.
+Rapportera via [GitHubs privata sårbarhetsrapportering](https://github.com/Jtensetti/openID/security/advisories/new).
+Ange berörd version, förutsättningar, konsekvens och minsta syntetiska exempel
+som visar problemet. Skicka inte pass, biometrik, personakter, privata nycklar
+eller lösenord. Publicera inte känsliga sårbarhetsdetaljer i öppna issues.
+Kanalen är aktiverad; bemannad beredskap och garanterad svarstid är ännu inte
+fastställda. Den ersätter inte användarens separata spärrfunktion.
 
 ## Test och release
 

@@ -45,6 +45,13 @@ bekräftelse. Stubber kontrollerar S3-API-kontrakt; CI kontrollerar även den
 genererade CloudFormation-mallens säkerhetsregler. Ingen riktig AWS-stack
 eller faktisk extern mottagning används i dessa prov.
 
+`deployment/security/test_security_template.py` kör samma Guard-regler som
+infrastrukturjobbet mot mallen och avsiktligt osäkra varianter. Proven nekar
+offentlig eller okrypterad lagring, avstängd revisionslogg, för bred radering
+av snapshots, utebliven backup utan larm samt extra beräkningsjobb och betald
+skanning. Dessa lokala konfigurationsprov skapar inga AWS-resurser och provar
+inte faktisk snapshot-, logg- eller larmleverans.
+
 Aktuella körningar och deras exakta revisioner finns i
 [GitHub Actions](https://github.com/Jtensetti/openID/actions).
 [Prövningsunderlaget för OIDC, SAML och underskrift](provningsunderlag.md)
