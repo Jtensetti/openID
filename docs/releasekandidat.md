@@ -21,6 +21,8 @@ gäller även när alla automatiska kontroller har passerat.
    signatur, bundle/version, App Attest-miljö, debuggerbehörighet och profil.
    För servern bevaras exakt image-ID/digest och byggunderlag. En tagg ensam
    är inte en stabil referens. Återbyggnad kan ge andra artefaktbytes.
+   Använd [separat byggmiljö och verifierad import](../deployment/build/README.md)
+   för serverpaketet; kör inga Dockerbyggen på betavärden.
 6. Efter merge: kontrollera att `main` har samma träd som det testade
    slutresultatet. Om trädet ändras krävs relevanta nya kontroller. Håll
    huvudrevision, CI:s tillfälliga merge-revision och lokalt byggd revision

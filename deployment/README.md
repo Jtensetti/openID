@@ -9,6 +9,11 @@ Modellkalibrering, fysisk NFC/App Attest och oberoende granskning återstår.
 
 ## Publik TestFlight-beta
 
+Serverpaket byggs och provas i den
+[separata byggmiljön](build/README.md), exporteras med proveniens och importeras
+utan ombygge på betavärden. Lokala labbinstruktioner nedan är för separata
+utvecklingsdatorer; använd dem inte som byggprocedur på en körande betaserver.
+
 Instruktionerna nedan gäller den egna privata miljön. Betan använder i stället
 `beta-compose.yaml` tillsammans med `continuity-compose.yaml`, produktions-App
 Attest och den fasta publika HTTPS-adressen. Följ
@@ -21,6 +26,9 @@ på Linux med nginx och OpenSSL installerade. Provet startar en separat nginx
 på loopback med genererade certifikat och en syntetisk bakomliggande tjänst.
 Det kontrollerar samtliga testadresser, inklusive `loa3`, långa signerade
 omdirigeringar för krypterat SignMessage, betakontoskydd och nekade adresser.
+Det provar även SAML-POST på 64/128 KiB utan användbar temporärfilskatalog,
+bevarat innehåll, betakontoskydd och avvisning över 128 KiB. Nginx-provets
+samtliga temporära kataloger ligger i dess egen engångskatalog.
 Inga pilotnycklar eller riktiga konton används. Resultatet anger nginx-versionen.
 
 ## Förbered och starta
