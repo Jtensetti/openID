@@ -51,6 +51,7 @@ får inte läggas i repot. Läs [säkerhetsinformationen](SECURITY.md) och
 - [Revision av hela tjänsten](docs/revision.md)
 - [Förutsättningar inför bredare utgivning](docs/infor-utgivning.md)
 - [Protokoll för fysisk acceptans](docs/fysisk-acceptans.md)
+- [iPhone: säkerhetskontroller och kvarstående bevis](docs/iphone-sakerhet.md)
 - [Källregister](docs/SOURCES.md)
 
 Kodagenter börjar i [AGENTS.md](AGENTS.md), som hänvisar till projektets

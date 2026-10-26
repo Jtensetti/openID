@@ -2,6 +2,37 @@ import XCTest
 
 final class WalletUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
+    func testRejectIsVisibleWithoutScrollingForEveryRequestKind() {
+        for variant in [[], ["--pin"], ["--sign"], ["--sign", "--pin"], ["--sign", "--pin", "--largest-text"]] as [[String]] {
+            let app = XCUIApplication(); app.launchArguments = ["--approval-preview"] + variant; app.launch()
+            let reject = app.buttons[variant.contains("--sign") ? "Avböj underskrift" : "Neka begäran"]
+            XCTAssertTrue(reject.waitForExistence(timeout: 5))
+            XCTAssertTrue(reject.isHittable, "Reject must be visible before scrolling: \(variant)")
+            XCTAssertTrue(reject.isEnabled)
+            XCTAssertGreaterThanOrEqual(reject.frame.minY, app.frame.minY)
+            XCTAssertLessThanOrEqual(reject.frame.maxY, app.frame.maxY)
+            app.terminate()
+        }
+    }
+    func testRejectRemainsVisibleWithKeyboardAndDoesNotRequireSecurityCode() {
+        let app = XCUIApplication(); app.launchArguments = ["--approval-preview", "--pin"]; app.launch()
+        let field = app.secureTextFields["approval.securityCode"]
+        for _ in 0..<6 { if field.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(field.isHittable); field.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["approval.approve"].isEnabled)
+        let reject = app.buttons["Neka begäran"]
+        XCTAssertTrue(reject.isHittable)
+        XCTAssertTrue(reject.isEnabled)
+        XCTAssertLessThanOrEqual(reject.frame.maxY, app.keyboards.firstMatch.frame.minY)
+    }
+    func testExpiredRequestKeepsBothDecisionsDisabled() {
+        let app = XCUIApplication(); app.launchArguments = ["--approval-preview", "--expired"]; app.launch()
+        let reject = app.buttons["Neka begäran"]
+        XCTAssertTrue(reject.waitForExistence(timeout: 5))
+        XCTAssertFalse(reject.isEnabled)
+        XCTAssertFalse(app.buttons["approval.approve"].isEnabled)
+    }
     func testCaptureGuideInstructionsProgressAndCorrection() {
         let app = XCUIApplication(); app.launchArguments = ["--capture-guide-preview"]; app.launch()
         XCTAssertTrue(app.staticTexts["capture.instruction"].waitForExistence(timeout: 10))
@@ -85,6 +116,14 @@ final class WalletUITests: XCTestCase {
         app.buttons["Inställningar"].tap()
         XCTAssertTrue(app.buttons["Lås upp openID"].exists)
         XCTAssertFalse(app.buttons["Spärra mitt ID"].exists)
+    }
+    func testInstalledBuildCanBeIdentifiedWithoutUnlocking() {
+        let app = XCUIApplication(); app.launchArguments = []; app.launch()
+        app.buttons["Inställningar"].tap()
+        let version = app.descendants(matching: .any)["settings.version"].firstMatch
+        for _ in 0..<4 { if version.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(version.isHittable)
+        XCTAssertNotNil((version.value as? String)?.range(of: #"^[0-9]+\.[0-9]+\.[0-9]+ \([0-9]+\)$"#, options: .regularExpression))
     }
     func testGuideIsReachableWithoutBiometricPermission() {
         let app = XCUIApplication(); app.launchArguments = []; app.launch()

@@ -11,6 +11,8 @@ import SwiftUI
                     CapturePreviewFixture()
                 } else if ProcessInfo.processInfo.arguments.contains("--usability-preview") {
                     UsabilityPreviewFixture()
+                } else if ProcessInfo.processInfo.arguments.contains("--approval-preview") {
+                    ApprovalPreviewFixture()
                 } else if ProcessInfo.processInfo.arguments.contains("--large-text-preview") {
                     WalletRootView().environment(\.dynamicTypeSize, .accessibility5)
                 } else {

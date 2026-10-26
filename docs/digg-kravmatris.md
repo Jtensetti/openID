@@ -1,15 +1,18 @@
 # Kravmatris: mål tillitsnivå 3
 
-Bedömning 2026-10-22, teknisk bas `9c3ea77`. 40 relevanta numrerade punkter för
+Teknisk bas efter PR #41: `3a064b5`, omkontrollerad 2026-10-26. Appens senare
+kontroller beskrivs separat i [iPhone-underlaget](iphone-sakerhet.md); deras
+bygg-/testrevision ska anges i leveransbeviset. 40 relevanta numrerade punkter för
 passbaserad distansutgivning. Varje rad är en samlad punkt, inte varje underkrav.
-Status: **T** stark teknisk täckning (6), **D** delvis (22), **S** saknas/ej styrkt (12).
+Status: **T** stark teknisk täckning (6), **D** delvis (23), **S** saknas/ej styrkt (11).
 Samtliga har formell status **OPEN**. T betyder inte uppfyllt eller godkänt.
 Utkast och nya skydd ändrar inte status utan verifierad tillämpning och evidens.
 Detta är en preliminär egenbedömning, inte en revision eller ett procentmått.
 
 Källor: [Diggs ramverk](https://www.digg.se/digitala-tjanster/e-legitimering/om-e-legitimering/tillitsnivaer-for-e-legitimering/tillitsramverk-for-svensk-e-legitimation)
 och [vägledning](https://www.digg.se/digitala-tjanster/e-legitimering/om-e-legitimering/tillitsnivaer-for-e-legitimering/tillitsramverk-for-svensk-e-legitimation/vagledning-for-utfardare).
-Kontrollerade 2026-10-22. Ramverkstexten anger 2022-10-04; sidfoten 2024-12-20.
+Ramverket omkontrollerat 2026-10-26; vägledning enligt källregistrets senaste
+omkontroll. Ramverkstexten anger 2022-10-04; sidfoten 2024-12-20.
 Kravnamnen nedan är våra arbetsrubriker. Originaltexten styr.
 
 K2.5 (nivå 4), K5.10–K5.12 (alternativa identifieringsmetoder) och K6.7
@@ -28,8 +31,8 @@ och respektive komponent. Klusterfunktioner i CI räknas inte som driftsatta i S
 | K2.3 | S | Organisation | Ekonomisk uthållighet | Dokumentera finansiering och riskbärande för minst ett år. |
 | K2.4 | D | Säkerhetsansvarig | Ledningssystem | Fastställ rutiner, roller och riskregister; genomför och dokumentera risk- och incidentövningar. |
 | K2.6 | S | Avtalsansvarig | Underleverantörer | Kartlägg säkerhetskritiska leverantörer och kontrollera avtal, ansvar och underlag. |
-| K2.7 | D | Dataskydd/drift | Spårbarhet | Definiera vilka händelser och handlingar som bevaras; visa komplett, åtkomstskyddad historik. |
-| K2.8 | S | Dataskydd | Bevarande | Fastställ laglig bevarande- och gallringsplan; verifiera läsbarhet och radering över tid. |
+| K2.7 | D | Dataskydd/drift | Spårbarhet | PR #41 exporterar minimerade registerjournaler med konsekvent snapshot och separat manifestkontroll. Fullständiga utgivningshandlingar, faktisk arkivmottagning och åtkomstskyddad historik behöver styrkas. |
+| K2.8 | D | Dataskydd | Bevarande | PR #41 innehåller COMPLIANCE-lås, separat kvittens och återläsningskontroll; kod-/kontraktsprov ger delvis teknisk täckning. Beslutad bevarande-/gallringsplan, separat förvaltare, driftsättning och operativa läsbarhetsprov återstår. |
 | K2.9 | S | Oberoende revisor | Internrevision | Utse oberoende kompetent funktion och upprätta treårig revisionsplan. |
 | K3.1 | D | Drift | Fysiskt skydd | Kontrollera molnleverantörens underlag och egna datorer, medier och åtkomst. |
 | K3.2 | S | Organisation | Personal | Dokumentera rollanpassad bakgrundskontroll och utbildning före tillträde. |
@@ -38,7 +41,7 @@ och respektive komponent. Klusterfunktioner i CI räknas inte som driftsatta i S
 | K4.1 | D | Säkerhetsansvarig | Kontrollernas effektivitet | Samla hotmodell, riskbeslut och oberoende prov av tillämpliga kontroller. |
 | K4.2 | T | Utveckling | Skyddad kommunikation | Negativa kanal-/replaytester finns; granska samtliga driftvägar och extern interoperabilitet. |
 | K4.3 | D | Nyckelförvaltare | Servernycklar | Lokala filer/OpenBao är inte bevisad HSM; verifiera hårdvaruskydd, flerpersonskontroll, rotation och återställning. |
-| K4.4 | D | Drift | Säker förändring | Lås och CI finns; inför bevakning, sårbarhetsundersökning, patchansvar och incidentberedskap. |
+| K4.4 | D | Drift | Säker förändring | Lås, samlad CI-grind och daglig advisory-workflow finns. Verifiera faktisk bevakning/larmmottagning, branchskydd, sårbarhetsundersökning, patchansvar och incidentberedskap. |
 | K5.1 | D | Utfärdare | Villkor | Publicera fastställda villkor och begränsningar för innehavare och förlitande parter. |
 | K5.2 | D | Utveckling/utfärdare | Villkor i ansökan | Visa rätt versions villkor före ansökan och bevara acceptansbevis. |
 | K5.3 | S | Utfärdare | Utfärdardeklaration | Färdigställ och fastställ utfärdardeklarationen i organisationens styrande dokument. |
@@ -74,7 +77,7 @@ endast en referens. Varken manuell aktivering eller godkänd CI ersätter gransk
 ## Första arbetsordning
 
 1. Fastställ organisationens styrningsrutiner och utse ansvariga utanför kodrepot.
-2. Förstärk lokalt nyckelskydd och prova avvisning av osäkra filer.
+2. Verifiera infört lokalt nyckelskydd och appens [åtta kontrollområden](iphone-sakerhet.md) på avsedd enhet och miljö.
 3. Slutför användarprov och driftberedskap för [avisering och spärr](avisering-och-sparr.md),
    inklusive verklig separat kontaktkontroll och leveransfel.
 4. Utvärdera SPAR-åtkomst; beställ ingen anslutning utan kostnadsbeslut.

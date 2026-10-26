@@ -12,6 +12,22 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
+      - name: Exercise beta ingress with generated TLS on loopback
+        shell: bash
+        run: |
+          git rev-parse HEAD > "$RUNNER_TEMP/nginx-tested-revision.txt"
+          sha256sum deployment/beta-nginx.conf > "$RUNNER_TEMP/nginx-config.sha256"
+          python3 deployment/test_beta_nginx.py | tee "$RUNNER_TEMP/nginx-ingress.json"
+      - name: Save ingress regression evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: nginx-ingress-evidence
+          path: |
+            ${{ runner.temp }}/nginx-tested-revision.txt
+            ${{ runner.temp }}/nginx-config.sha256
+            ${{ runner.temp }}/nginx-ingress.json
+          retention-days: 90
       - name: Test resource expiry boundaries
         run: |
           python3.12 -m venv "$RUNNER_TEMP/aws-venv"

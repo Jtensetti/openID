@@ -16,6 +16,13 @@ Attest och den fasta publika HTTPS-adressen. Följ
 manuell aktivering, behörigheter och återställningsgränser.
 Privata ID:n migreras inte genom att byta serveradress i appen.
 
+Testkonsolens ingress provas med `python3 deployment/test_beta_nginx.py`
+på Linux med nginx och OpenSSL installerade. Provet startar en separat nginx
+på loopback med genererade certifikat och en syntetisk bakomliggande tjänst.
+Det kontrollerar samtliga testadresser, inklusive `loa3`, långa signerade
+omdirigeringar för krypterat SignMessage, betakontoskydd och nekade adresser.
+Inga pilotnycklar eller riktiga konton används. Resultatet anger nginx-versionen.
+
 ## Förbered och starta
 
 Kräver Docker med Compose, Python 3 och OpenSSL på värddatorn. Använd ett

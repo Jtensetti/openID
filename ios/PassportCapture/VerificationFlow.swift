@@ -51,9 +51,12 @@ import NFCPassportReader
                 stepTitle = "Ansluter säkert"
                 status = "Kontrollerar anslutningen och appen."
                 let start = try await api.postObject("/native/start", body: [:])
+                try Task.checkCancellation()
                 guard let id = start["id"] as? String, let challenge = start["challenge"] as? String else { throw FlowError.rejected }
                 let keyID = try await service.generateKey()
+                try Task.checkCancellation()
                 let attestation = try await service.attestKey(keyID, clientDataHash: Data(SHA256.hash(data: Data(challenge.utf8))))
+                try Task.checkCancellation()
                 let registered = try await api.postObject("/native/attest", body: ["id": id, "keyId": keyID, "attestation": attestation.base64EncodedString()])
                 guard let nonce = registered["nonce"] as? String else { throw FlowError.rejected }
                 try Task.checkCancellation()
@@ -70,9 +73,9 @@ import NFCPassportReader
                     case .activeAuthentication: return "Kontrollerar chipet. Håll kvar telefonen."
                     }
                 })
+                try Task.checkCancellation()
                 passportRead = true
                 clearDocument()
-                try Task.checkCancellation()
                 guard let sod = passport.dataGroupsRead[.SOD]?.data,
                       let dg1 = passport.dataGroupsRead[.DG1]?.data,
                       let dg2 = passport.dataGroupsRead[.DG2]?.data,
@@ -82,15 +85,18 @@ import NFCPassportReader
                     "dg14": Data(dg14).base64EncodedString(), "devicePublicKey": credential.publicKey.base64EncodedString()]
                 let documentBytes = try JSONSerialization.data(withJSONObject: document, options: [.sortedKeys])
                 let documentAssertion = try await service.generateAssertion(keyID, clientDataHash: Data(SHA256.hash(data: documentBytes)))
+                try Task.checkCancellation()
                 stepTitle = "Kontrollerar passets äkthet"
                 status = "Passet är läst. Servern kontrollerar signaturen och uppgifterna innan nästa chipläsning."
                 let chipStart = try await api.postObject("/native/chip/start", body: ["id": id,
                     "payload": documentBytes.base64EncodedString(), "assertion": documentAssertion.base64EncodedString()])
                 guard let chipToken = chipStart["chipToken"] as? String else { throw FlowError.rejected }
                 activeChip = ["id": id, "chipToken": chipToken]
+                try Task.checkCancellation()
                 stepTitle = "Säkerhetskontroll av chipet"
                 status = "Första läsningen är klar. Håll telefonen mot samma pass igen. Behåll kontakten tills säkerhetskontrollen är klar."
                 let chipResult = try await chipRelay.authenticate(api: api, initial: chipStart)
+                try Task.checkCancellation()
                 guard let captureNonce = chipResult["nonce"] as? String,
                       let poses = CapturePose.sequence(server: chipResult["poses"] as? [String]) else { throw FlowError.rejected }
                 status = ""

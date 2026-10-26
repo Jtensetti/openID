@@ -372,8 +372,10 @@ final class TestConsole {
         .append("<div class='verdict ").append(r.passed() ? "ok" : "fail").append("'><span class='mark' aria-hidden='true'>").append(r.passed() ? "✓" : "✕").append("</span><div><h1>")
         .append(esc(r.kase().title())).append("</h1><p>").append(r.passed() ? "Godkänt – IdP:n betedde sig som ramverket kräver." : "Underkänt – se kontrollerna nedan.").append("</p></div></div>");
     if (r.signed() != null) {
-      html.append("<section class='signed'><h2>Dokumentet är underskrivet</h2><p>Underskriften är en PAdES-signatur i PDF:en. Öppna filen i en PDF-läsare och titta i signaturpanelen. ")
-          .append("Certifikatet kommer från en test-CA som ingen litar på, så läsaren visar underskriften som ej betrodd.</p><p class='actions'>")
+      html.append("<section class='signed'><h2>Dokumentet är underskrivet</h2><p>PDF:en visar ett underskriftskvitto med namn, tid och dokumentets kontrollsumma. ")
+          .append("Kvittot omfattas av den digitala PAdES-signaturen. Utseendet kan kopieras; kontrollera själva PDF-filen i en läsare eller valideringstjänst med signaturstöd.</p>")
+          .append("<p>Testutfärdaren är inte betrodd. En synlig ruta eller lokal tillit till testcertifikatet gör inte underskriften betrodd hos andra. ")
+          .append("Tiden kommer från serverklockan, inte från en betrodd tidsstämplingstjänst.</p><p class='actions'>")
           .append("<a class='button' href='/test/report/").append(r.id()).append("/signed.pdf'>Hämta underskriven PDF</a> ")
           .append("<a href='/test/report/").append(r.id()).append("/document.pdf'>Originalet</a> · ")
           .append("<a href='/test/report/").append(r.id()).append("/evidence.json'>Underskriftsbevis (JSON)</a> · <a href='/test/ca.pem'>Test-CA</a></p></section>");
