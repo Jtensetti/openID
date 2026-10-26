@@ -121,7 +121,9 @@ Maskinläsbara rapporter bevaras för spårbarhet.
 
 `node verification/test-phone-feedback.cjs` provar webbklientens meddelanden,
 begränsade återförsök för statushämtning och att ett avbrott inte utlöser
-slutförande. DOM och nätverk är testdubblar i detta prov. Det separata
+slutförande. Provet ingår i serverjobbet i `Assurance checks` och täcker även
+blockerad, misslyckad och tidsutgången återgång. DOM och nätverk är
+testdubblar i detta prov. Det separata
 `federation-browser-test.cjs` provar samma slutlägen i Chromium.
 `test_identity` verifierar att utgången status bara lämnas efter rätt
 begäransbindning och aldrig tillåter konsumtion av ett godkännande.
