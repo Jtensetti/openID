@@ -5,7 +5,11 @@ const signing = document.querySelector('main')?.dataset?.kind === 'sign';
 const words = signing
   ? { flow: 'underskriften', Flow: 'Underskriften', start: 'starta en ny underskrift', Start: 'Starta en ny underskrift' }
   : { flow: 'inloggningen', Flow: 'Inloggningen', start: 'starta en ny inloggning', Start: 'Starta en ny inloggning' };
-let stopped = false, failures = 0, controller;
+let stopped = false, failures = 0, controller, completionTimer, completing = false;
+function completionFailed() {
+  completing = false; clearTimeout(completionTimer);
+  finish('Återgången till tjänsten kunde inte slutföras', 'Appens godkännande togs emot, men tjänstens resultat kunde inte visas. Starta ett nytt test från tjänstens testsida.');
+}
 // back: the service is told the user stopped (SAML status cancel) instead of a local dead end.
 function finish(title, message, back = false) {
   stopped = true;
@@ -37,7 +41,13 @@ async function poll() {
     const { state } = await response.json();
     if (stopped) return;
     failures = 0;
-    if (state === 'APPROVED') { stopped = true; status.textContent = `Godkännandet är mottaget. Slutför ${words.flow}…`; form.requestSubmit(); return; }
+    if (state === 'APPROVED') {
+      stopped = true; completing = true;
+      status.textContent = `Godkännandet är mottaget. Slutför ${words.flow}…`;
+      completionTimer = setTimeout(completionFailed, 15000);
+      try { form.requestSubmit(); } catch { completionFailed(); }
+      return;
+    }
     if (state === 'REJECTED') { finish(signing ? 'Du avböjde underskriften' : 'Du nekade legitimeringen', signing ? 'Ingenting har skrivits under. Tjänsten får besked om att du avböjde.' : 'Du har inte loggats in. Om du vill försöka igen, starta en ny inloggning.', true); return; }
     if (state === 'CANCELLED') { finish(`${words.Flow} avbröts`, `Begäran har avslutats. ${words.Start} när du vill försöka igen.`); return; }
     if (state === 'EXPIRED') { finish('QR-koden har gått ut', `Tiden för att godkänna är slut. ${words.Start} och skanna den nya QR-koden med openID-appen.`); return; }
@@ -62,5 +72,8 @@ document.querySelector('#cancel').addEventListener('submit', async event => {
     finish('Avbrottet kunde inte bekräftas', `Godkänn inte den gamla begäran i appen. Kontrollera Aktivitet om du redan godkänt. Du kan sedan ${words.start}.`);
   }
 });
-window.addEventListener('pagehide', () => { stopped = true; controller?.abort(); });
+document.addEventListener('securitypolicyviolation', event => {
+  if (completing && event.effectiveDirective === 'form-action') completionFailed();
+});
+window.addEventListener('pagehide', () => { stopped = true; completing = false; clearTimeout(completionTimer); controller?.abort(); });
 poll();

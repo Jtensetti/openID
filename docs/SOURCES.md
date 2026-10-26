@@ -1,5 +1,13 @@
 # Källregister
 
+## Testkonsolens ingress och formuläråtergång, 2026-10-26
+
+[nginx proxy_buffer_size](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_buffer_size)
+beskriver gränsen för bakomliggande svarshuvuden även när response buffering
+är avstängd. [CSP form-action](https://www.w3.org/TR/CSP3/#directive-form-action)
+anger kontrollen av formulärnavigationer. Telefonsidans policy behöver tillåta
+OIDC:s konfigurerade callback efter godkännandets POST, utan godtyckliga mål.
+
 Referenser från inventeringen 2026-10-19. Kravnummer och avsnitt finns i
 [kravöversikten](krav.md). Originaltexternas aktuella lydelse och
 ikraftträdande behöver kontrolleras inför en formell bedömning.

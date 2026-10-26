@@ -2,15 +2,16 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
 const source = fs.readFileSync(require('node:path').join(__dirname, '../prototype/src/main/resources/static/phone/page.js'), 'utf8');
-async function scenario(responses, kind='login') {
+async function scenario(responses, kind='login', submitThrows=false) {
   const nodes = Object.fromEntries(['#complete','#status','#heading','.qr','#control-code','#open-app','#cancel','#restart','#return','#cancel button','main','.sign-message'].map(k => [k,{hidden:false, textContent:'', addEventListener(type,fn){this[type]=fn}, requestSubmit(){this.submitted=true}}]));
   nodes['#restart'].hidden=true; nodes['#return'].hidden=true; nodes.main.dataset={kind};
-  const timers=[]; let calls=0;
-  const context={document:{querySelector:k=>nodes[k]},window:{addEventListener(){}},AbortController,URLSearchParams,FormData:class{*[Symbol.iterator](){}},setTimeout(fn,ms){const t={fn,ms};timers.push(t);return t},clearTimeout(t){timers.splice(timers.indexOf(t),1)},fetch:async()=>{calls++;const value=responses.shift();if(value instanceof Error)throw value;return {ok:!value.http,status:value.http||200,json:async()=>value}}};
+  if(submitThrows) nodes['#complete'].requestSubmit=()=>{throw Error('navigation blocked')};
+  const timers=[], documentEvents={}, windowEvents={}; let calls=0;
+  const context={document:{querySelector:k=>nodes[k],addEventListener:(type,fn)=>documentEvents[type]=fn},window:{addEventListener:(type,fn)=>windowEvents[type]=fn},AbortController,URLSearchParams,FormData:class{*[Symbol.iterator](){}},setTimeout(fn,ms){const t={fn,ms};timers.push(t);return t},clearTimeout(t){const i=timers.indexOf(t);if(i>=0)timers.splice(i,1)},fetch:async()=>{calls++;const value=responses.shift();if(value instanceof Error)throw value;return {ok:!value.http,status:value.http||200,json:async()=>value}}};
   vm.runInNewContext(source,context);
   const settle=async()=>{for(let i=0;i<10;i++)await Promise.resolve()};
   await settle();
-  return {nodes, get calls(){return calls},async tick(){const t=timers.find(t=>t.ms===1500);assert.ok(t);timers.splice(timers.indexOf(t),1);t.fn();await settle()},async cancel(){await nodes['#cancel'].submit({preventDefault(){},currentTarget:nodes['#cancel']});await settle()}};
+  return {nodes, timers, documentEvents, windowEvents, get calls(){return calls},async tick(ms=1500){const t=timers.find(t=>t.ms===ms);assert.ok(t);timers.splice(timers.indexOf(t),1);t.fn();await settle()},async cancel(){await nodes['#cancel'].submit({preventDefault(){},currentTarget:nodes['#cancel']});await settle()}};
 }
 (async()=>{
   for (const [state,title,back] of [['REJECTED','Du nekade legitimeringen',true],['EXPIRED','QR-koden har gått ut',false],['CANCELLED','Inloggningen avbröts',false]]) {
@@ -26,5 +27,9 @@ async function scenario(responses, kind='login') {
   const denied=await scenario([{http:400}]);assert.match(denied.nodes['#status'].textContent,/Mitt ID/);assert.ok(!denied.nodes['#complete'].submitted);
   const cancel=await scenario([{state:'PENDING'},{}]);await cancel.cancel();assert.equal(cancel.nodes['#heading'].textContent,'Inloggningen avbröts');assert.equal(cancel.nodes['#return'].hidden,false);await cancel.tick();assert.equal(cancel.calls,2);
   const uncertain=await scenario([{state:'PENDING'},Error()]);await uncertain.cancel();assert.equal(uncertain.nodes['#heading'].textContent,'Avbrottet kunde inte bekräftas');assert.ok(!uncertain.nodes['#complete'].submitted);
-  console.log('PASS 10 feedback scenarios: rejection, expiry, cancellation, recovery, offline, invalid request, cancel button, uncertain cancel, signing rejection, signing expiry');
+  const timeout=await scenario([{state:'APPROVED'}]);await timeout.tick(15000);assert.match(timeout.nodes['#heading'].textContent,/Återgången/);assert.equal(timeout.calls,1);assert.equal(timeout.nodes['#restart'].hidden,false);
+  const blocked=await scenario([{state:'APPROVED'}]);blocked.documentEvents.securitypolicyviolation({effectiveDirective:'form-action'});assert.match(blocked.nodes['#status'].textContent,/resultat kunde inte visas/);assert.equal(blocked.nodes['.qr'].hidden,true);
+  const thrown=await scenario([{state:'APPROVED'}],'login',true);assert.match(thrown.nodes['#heading'].textContent,/Återgången/);
+  const navigated=await scenario([{state:'APPROVED'}]);navigated.windowEvents.pagehide();assert.equal(navigated.timers.length,0);
+  console.log('PASS 14 feedback scenarios, including blocked, failed and timed-out completion, and timer cleanup on navigation');
 })().catch(e=>{console.error(e);process.exitCode=1});

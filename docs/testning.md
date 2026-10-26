@@ -1,5 +1,14 @@
 # Testning
 
+Testkonsolens nginx-ingress har ett separat loopbackprov i
+`deployment/test_beta_nginx.py`; direktprov mot Java-processen testar inte
+nginx-adresser eller storleken på dess svarshuvuden. OIDC:s telefonsida tillåter
+endast samma ursprung och den konfigurerade tjänstens `/oidc/callback` som
+formulärmål. `PhonePagePolicyTest` provar det faktiska svarshuvudet och nekar
+olämpliga ursprung. `test-phone-feedback.cjs` provar även blockerad, misslyckad
+och utebliven återgång efter godkännande. Fysisk webbläsaråtergång efter
+appgodkännande ska redovisas separat från protokollproven.
+
 ## Aktuell verifiering
 
 `test_audit_archive` provar faktisk SQLite-export, samtidig spärr mellan
