@@ -48,6 +48,11 @@ class FaceMatcher:
     def decode_face(self, encoded):
         if not isinstance(encoded, bytes) or not 0 < len(encoded) <= 2_000_000:
             raise FaceRejected('IMAGE_SIZE_REJECTED')
+        # Camera JPEG and passport JPEG/JPEG 2000 only. Reject other formats
+        # before dispatching to native codecs. This is a format gate, not a
+        # validity check: malformed allowed formats must still fail decoding.
+        if not encoded.startswith((b'\xff\xd8\xff', b'\x00\x00\x00\x0cjP  \r\n\x87\n', b'\xff\x4f\xff\x51')):
+            raise FaceRejected('IMAGE_REJECTED')
         try:
             image = cv2.imdecode(np.frombuffer(encoded, dtype=np.uint8), cv2.IMREAD_COLOR)
             if image is None or min(image.shape[:2]) < 80 or max(image.shape[:2]) > 4096:

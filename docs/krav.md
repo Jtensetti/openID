@@ -232,3 +232,10 @@ FIFO, katalog, symlänk, hårdlänk, breda rättigheter och fel längd.
 Se [40-punktsmatrisen](digg-kravmatris.md) och
 [avisering och spärr](avisering-och-sparr.md). Formell status
 förblir OPEN; dokumenten är ännu inte fastställda eller operativt verifierade.
+
+ID-05/INT-02: bildverifiering accepterar endast JPEG, JPEG 2000 i JP2-container
+och rå JPEG 2000-kodström. Formatkontrollen sker före den inbyggda avkodaren;
+korrupta tillåtna format, övriga format och befintliga storleksgränser provas.
+OpenCV 4.14.0.94 och ansiktsmodeller provas även i den byggda serverimagen.
+Detta minskar parserytan, utan att ändra tillitsnivå eller utgöra bevis på
+biometrisk kvalitet, fysisk PAD eller säkerhet hos alla inbäddade bibliotek.

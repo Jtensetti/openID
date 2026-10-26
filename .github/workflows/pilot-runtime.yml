@@ -22,6 +22,13 @@ jobs:
           git archive HEAD | tar -x -C "$RUNNER_TEMP/image-source"
       - name: Build pinned private pilot image
         run: docker build --platform linux/amd64 --tag openid-pilot:ci --file "$RUNNER_TEMP/image-source/deployment/Dockerfile" "$RUNNER_TEMP/image-source"
+      - name: Test actual packaged image codecs and face models without network
+        run: |
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --pids-limit 128 --memory 2g --cpus 2 \
+            --tmpfs /tmp:size=128m,mode=1777 \
+            -v "$PWD/verification/test_verification.py:/app/verification/test_verification.py:ro" \
+            --entrypoint python openid-pilot:ci -m unittest -v test_verification.FaceTests
       - name: Prepare generated certificates and private volumes
         run: |
           openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=Generated-test-CSCA -keyout "$RUNNER_TEMP/test-csca.key" -out "$RUNNER_TEMP/test-csca.pem"
@@ -69,8 +76,13 @@ jobs:
           docker compose -f deployment/compose.yaml config --quiet
           docker exec openid-pilot python -m pip inspect > "$RUNNER_TEMP/python-packages.json"
           docker exec -i openid-pilot python - > "$RUNNER_TEMP/runtime-components.json" <<'PY'
-          import hashlib, json, ssl, sqlite3, sys, subprocess, pyexpat
+          import hashlib, json, ssl, sqlite3, sys, subprocess, pyexpat, cv2
+          from importlib.metadata import distribution
           from pathlib import Path
+          opencv = distribution('opencv-python-headless')
+          sbom_paths = [p for p in opencv.files if str(p).endswith('/sboms/auditwheel.cdx.json')]
+          assert len(sbom_paths) == 1, 'OpenCV upstream SBOM missing or ambiguous'
+          opencv_sbom = opencv.locate_file(sbom_paths[0]).read_bytes()
           print(json.dumps({
               'python': sys.version,
               'pythonOpenSSL': ssl.OPENSSL_VERSION,
@@ -79,6 +91,14 @@ jobs:
               'node': json.loads(subprocess.check_output(['node', '-p', 'JSON.stringify(process.versions)'], text=True)),
               'temurinRelease': Path('/opt/java/openjdk/release').read_text(),
               'temurinUpstreamSbomSHA256': hashlib.sha256(Path('/opt/java/openjdk/upstream-sbom.cdx.json').read_bytes()).hexdigest(),
+              'opencv': {
+                  'packageVersion': opencv.version, 'libraryVersion': cv2.__version__,
+                  'buildInformation': cv2.getBuildInformation(),
+                  'upstreamSbom': json.loads(opencv_sbom),
+                  'upstreamSbomSHA256': hashlib.sha256(opencv_sbom).hexdigest(),
+                  'fileSHA256': {str(p): hashlib.sha256(opencv.locate_file(p).read_bytes()).hexdigest()
+                      for p in opencv.files if str(p).startswith(('opencv_python_headless.libs/', 'cv2/LICENSE')) or str(p) == 'cv2/cv2.abi3.so'},
+              },
               'scope': 'Runtime component inventory; not a complete runtime vulnerability assessment.'
           }, indent=2))
           PY

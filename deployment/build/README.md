@@ -160,3 +160,10 @@ saknade/extra/dubbla paket, ändrade versioner, gammal/framtida databas,
 dolda/felaktiga fynd, korrupta distributionsfiler, skadliga arkivmedlemmar
 och att tidigare resultat eller skannerfel inte kan ge godkänt.
 Linux-jobbet provar dessutom verklig paketinstallation och skanning av sin image.
+
+Bildproven körs också i den faktiskt byggda serverimagen med avstängt nät
+och skrivskyddat filsystem: JPEG/JP2/rå JPEG 2000, andra format, korrupta
+bilder och YuNet/SFace. `runtime-components.json` inkluderar OpenCV:s
+byggkonfiguration, upstream-SBOM och hash för binären och de medlevererade
+delade biblioteken. Se verifierarens [licens- och komponentregister](../../verification/THIRD_PARTY.md)
+för de kvarvarande inbäddade biblioteksfynd som OS- och PyPI-skanning inte täcker.

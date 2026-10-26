@@ -3,7 +3,7 @@
   "specVersion": "1.6",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-10-24T14:14:00Z"
+    "timestamp": "2026-10-26T21:39:08.690022+00:00"
   },
   "components": [
     {
@@ -100,12 +100,23 @@
     {
       "type": "library",
       "name": "opencv-python-headless",
-      "version": "4.13.0.92",
-      "purl": "pkg:pypi/opencv-python-headless@4.13.0.92",
+      "version": "4.14.0.94",
+      "purl": "pkg:pypi/opencv-python-headless@4.14.0.94",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "0bd48544f77c68b2941392fcdf9bcd2b9cdf00e98cb8c29b2455d194763cf99e"
+          "content": "211e581f5a4670acbbe08fff36a35e9946039d2eea28b80394632d036d1be527"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT AND Apache-2.0"
+        }
+      ],
+      "properties": [
+        {
+          "name": "openid:embedded-inventory",
+          "value": "opencv-upstream-sbom.cdx.json; upstream inventory is incomplete and does not cover all embedded source-built libraries."
         }
       ]
     },

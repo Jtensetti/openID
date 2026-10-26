@@ -221,3 +221,19 @@ fälten är valfria. Detta bevisar inte förekomst i ett visst svenskt pass.
 - R02: [SPAR, exempelfiler för avisering](https://www.statenspersonadressregister.se/master/start/teknisk-info/filtransport/filer-foer-aviseringar/).
   Två publicerade exempelidentifierare återanvänds enbart i lokala
   adaptertester; inga produktionsuppslag görs.
+
+## Bildbibliotek 2026-10-26
+
+- [OpenCV Python release 94](https://github.com/opencv/opencv-python/releases/tag/94),
+  revision `2ba8bf62f2f1215ab620416b041c9659005fa25c`; FFmpeg 8.1.2 och
+  rättningar i Pythonbindningarna.
+- [OpenCV 4.14.0](https://github.com/opencv/opencv/releases/tag/4.14.0),
+  revision `0654a42e19215ef25b1d367d822f3c630447e7c7`.
+- [Officiella byggalternativ](https://docs.opencv.org/4.x/db/d05/tutorial_config_reference.html):
+  separata flaggor för bildformat och beroenden; ett eget begränsat bygge
+  är undersökt men inte infört.
+- [PyPI 4.14.0.94](https://pypi.org/project/opencv-python-headless/4.14.0.94/):
+  Linux/amd64-hjulets bytes, licenstexter och upstream-SBOM kontrollerade.
+- [AlmaLinux ALSA-2026-85968](https://errata.almalinux.org/8/ALSA-2026-85968.html),
+  2026-10-21: OpenSSL-fix `1.1.1k-18.el8_6`. Hjulets SBOM anger `-17`,
+  så denna versionsmatchade lucka är fortfarande öppen.
