@@ -56,7 +56,8 @@ jobs:
           from pathlib import Path
           source = Path('/etc/apt/sources.list.d/ubuntu.sources')
           original = source.read_text()
-          updated = original
+          updated = original.replace('mirror+file:/etc/apt/apt-mirrors.txt',
+                                     'https://archive.ubuntu.com/ubuntu')
           for scheme in ('http', 'https'):
               updated = updated.replace(f'{scheme}://azure.archive.ubuntu.com/ubuntu',
                                         'https://archive.ubuntu.com/ubuntu')

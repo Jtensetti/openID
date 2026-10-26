@@ -56,8 +56,10 @@ engångsprovet anger egna temporära sökvägar för samtliga nginx-moduler.
 [Ubuntu Server: Install and manage packages](https://ubuntu.com/server/docs/how-to/software/package-management/)
 anger `ubuntu.sources`, huvudarkivet och `Signed-By` för Ubuntu 24.04.
 [Huvudarkivet via HTTPS](https://archive.ubuntu.com/ubuntu/) har kontrollerats.
-CI byter endast URI för Azure-spegeln; APT:s befintliga signaturkontroll,
-suites och komponenter behålls.
+[GitHubs runnerkonfiguration](https://github.com/actions/runner-images/blob/c74a28e5f8943ae6a39cac7c3701dd6bd0a2ea51/images/ubuntu/scripts/build/configure-apt-sources.sh)
+pekar Ubuntu 24.04 på `mirror+file:/etc/apt/apt-mirrors.txt`, med Azure först.
+CI ersätter både denna URI och direktadressen till Azure med huvudarkivets
+HTTPS-adress. APT:s befintliga signaturkontroll, suites och komponenter behålls.
 
 ## Omkontroll för appens GAP-arbete, 2026-10-26
 
