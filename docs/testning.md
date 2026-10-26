@@ -198,3 +198,13 @@ och Chromium för USB-/plattformsautentiserare. OpenSSL verifierar samma
 exporterade CMS-dokument och avvisar förändring av innehåll/radslut,
 fel CA, utgånget certifikat och manipulerad signatur. En skild
 kryptografisk implementation är inte en oberoende organisatorisk revision.
+
+## Systempaket i pilotens image
+
+`.github/scripts/test_audit_image_os.py` provar negativa paket-, databas-,
+rapport- och distributionsfall. Containerjobbet installerar hash-låsta
+Debian-rättningar och jämför faktisk dpkg-inventering med Trivys täckning
+på exakt image-ID. Fynd och ofullständiga underlag stoppar exporten;
+`pilot-image-inventory` sparar även underkända underlag, OS-SBOM och
+täckningsgränser i 90 dagar. Körda resultat hör till vald CI-revision.
+Kopierade runtime-binärer och värd-OS ingår inte i denna kontroll.

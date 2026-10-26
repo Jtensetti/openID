@@ -131,6 +131,38 @@ distribueras. Ramverket följer iOS och Apples SDK-villkor; Xcode är låst till
 [huvudvinkel](https://developer.apple.com/documentation/vision/vnfaceobservation/yaw) och
 [fångstkvalitet](https://developer.apple.com/documentation/vision/vndetectfacecapturequalityrequest).
 
+## Byggkontroll av systempaket
+
+Trivy **0.76.1**, källrevision
+`e713f67f7d54decdcd9b3132c9751833dcced698`, används endast i det isolerade
+pilotbygget. Ursprung är [Aqua Securitys officiella repo](https://github.com/aquasecurity/trivy).
+Distribution och upstream-SBOM låses med SHA-256 i
+[trivy.lock.json](deployment/build/trivy.lock.json). Projektet är aktivt
+underhållet vid kontrollen 2026-10-26; releasen publicerades 2026-10-21.
+[Apache-2.0](deployment/build/licenses/Trivy-LICENSE.txt) och
+[NOTICE](deployment/build/licenses/Trivy-NOTICE.txt) bevaras oförändrade.
+Verktyget eller dess Go-beroenden distribueras inte med appen/serverimagen.
+Upstream-SBOM har 458 komponentposter och sparas i CI-artefakten; den saknar
+licensdeklarationer per komponent och utgör inte en fullständig licensrevision.
+Vid eventuell egen distribution av verktyget krävs separat transitiv licensgranskning.
+
+Python **3.12.15-slim-bookworm** använder nu indexdigest
+`sha256:6a0e06f5ba0b373d051aabd3fffb9b873f27f9a2a3a14bcbe37dee6f0e3bbc70`.
+Docker Official Images anger
+[docker-library/python@2a3b794c223ab067d122719541cdd54a068732a5](https://github.com/docker-library/python/tree/2a3b794c223ab067d122719541cdd54a068732a5/3.12/slim-bookworm)
+som källa för amd64-manifestet. Uppdateringen bevarar Python-versionen och
+tar in Debian-paketet `ca-certificates` 20250419~deb12u2.
+Ytterligare rättningar för `libssl3`/`openssl` 3.0.22-1~deb12u2 och `tzdata`
+2026e-0+deb12u1 hämtas från Debian Security med versions- och hashlås i
+[bookworm-updates.lock.json](deployment/build/bookworm-updates.lock.json).
+Befintliga paketlicenser och copyright-filer i `/usr/share/doc` bevaras
+genom Debians paketinstallation. Python, Node och Temurins versioner ändras inte.
+
+Den daterade OS-inventeringen och CycloneDX sparas för varje byggd pilotimage.
+Den är skild från Maven-/Python-SBOM och omfattar inte de kopierade runtime-
+binärerna. Resultat, täckning och stoppvillkor beskrivs i
+[bygginstruktionen](deployment/build/README.md#systempaket-och-säkerhetsunderlag).
+
 ## Projektlicens och förvaltning
 
 **Projektets egen licens är inte beslutad.** POM/SBOM använder `NOASSERTION`

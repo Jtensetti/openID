@@ -1,4 +1,8 @@
-FROM python:3.12.15-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258 AS maven-tool
+FROM python:3.12.15-slim-bookworm@sha256:6a0e06f5ba0b373d051aabd3fffb9b873f27f9a2a3a14bcbe37dee6f0e3bbc70 AS python-base
+COPY deployment/build/patch_bookworm.py deployment/build/bookworm-updates.lock.json /tmp/openid-os-patches/
+RUN python /tmp/openid-os-patches/patch_bookworm.py && rm -rf /tmp/openid-os-patches
+
+FROM python-base AS maven-tool
 RUN python -c "import urllib.request,hashlib,zipfile,io; data=urllib.request.urlopen('https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.9.11/apache-maven-3.9.11-bin.zip').read(); assert hashlib.sha256(data).hexdigest()=='0d7125e8c91097b36edb990ea5934e6c68b4440eef4ea96510a0f6815e7eeadb'; zipfile.ZipFile(io.BytesIO(data)).extractall('/opt')"
 RUN chmod +x /opt/apache-maven-3.9.11/bin/mvn
 
@@ -23,7 +27,7 @@ COPY verification/package.json verification/package-lock.json ./
 RUN npm ci --ignore-scripts --omit=dev
 
 FROM eclipse-temurin:21.0.12.1_1-jre-noble@sha256:35501d3f93173b420ac9001658eb68157e813316b865087e345c187fca422c4c AS java-runtime
-FROM python:3.12.15-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258
+FROM python-base
 LABEL org.opencontainers.image.source="https://github.com/Jtensetti/openID"
 LABEL org.opencontainers.image.description="Private iPhone verification pilot"
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 JAVA_HOME=/opt/java/openjdk

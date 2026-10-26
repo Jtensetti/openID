@@ -88,10 +88,63 @@ oberoende administrativ spärr mot värdens administratör. Sådan rollseparatio
 och produktionsbeslut hanteras separat. iPhone-distributionssignering sker
 fortsatt i den privata Xcode-miljön; inga Apple-certifikat flyttas till CI.
 
-## Prov
+## Systempaket och säkerhetsunderlag
+
+Pilotjobbet kör `.github/scripts/audit_image_os.py` mot det **exakta image-ID**
+som byggts och provats. En nätlös engångscontainer läser installerade Debian-paket
+med `dpkg-query`. Trivy jämför dem med säkerhetsdatabasen; namn, version och
+arkitektur för samtliga paket måste också stämma mellan de två inventeringarna.
+Okänt OS, saknad täckning, fel image-ID, verktygsfel och en databas äldre än
+24 timmar nekar kontrollen. Ingen gammal lyckad rapport återanvänds.
+
+Alla rapporterade fynd, även låg/okänd allvarlighetsgrad och fynd utan publicerad
+rättning, stoppar exporten och den gemensamma grinden. Ingen ignore-fil,
+statusfiltrering eller automatisk riskacceptans används. Fynd behöver rättas
+eller utredas med ett separat granskat beslutsunderlag; detta är en konservativ
+releasekontroll, inte ett påstående att ISO 27001 kräver noll skannerfynd.
+Bedöm faktisk påverkan: en advisory mot ett källpaket bevisar inte att varje
+binärpaket eller tjänstefunktion är exploaterbar.
+
+Trivy **0.76.1** och dess upstream-SBOM hämtas från officiella releasen och
+verifieras mot [trivy.lock.json](trivy.lock.json). Verktyget körs endast på
+byggmaskinen, med samma läsbehörighet som jobbet, utan molnbehörigheter eller
+åtkomst till betans data. Inga nya jobb eller scheman tillkommer. Internet
+behövs för distributionsfiler och aktuell säkerhetsdatabas; skanning sker
+lokalt med avstängd telemetri. Skannern installeras inte i serverimagen.
+
+`pilot-image-inventory` sparar även vid fynd paketlistan, full Trivy-rapport,
+CycloneDX för OS-paketen, databasdatum och databasens SHA-256, verktygslås/SBOM
+och `assessment.json` med filhashar och täckningsgränser i 90 dagar. Behåll
+denna artefakt från samma godkända helhetskörning tillsammans med releasebevisen.
+Python-listan och runtime-versionerna finns i samma artefakt. OS-kontrollen
+granskar **inte** separat byggda/kopierade Python-, Node- och Temurin-runtime,
+deras inbäddade bibliotek, modeller, värd-OS eller andra images. Den befintliga
+OSV-kontrollen av applikationslåsen kvarstår; hela leveranskedjan är ännu inte täckt.
+
+Python-basen är låst till en uppdaterad digest för samma 3.12.15/Bookworm-release.
+[bookworm-updates.lock.json](bookworm-updates.lock.json) låser ytterligare
+OpenSSL-/tzdata-paket med Debian-version, ursprung och SHA-256. Byggskriptet
+kontrollerar alla nedladdningar och paketidentiteter före installation, nekar
+nedgradering och kontrollerar installerad slutversion. Inga extra beroenden
+hämtas automatiskt. Både pilot och registerimage använder dessa rättningar;
+den fullständiga OS-grinden körs tills vidare bara för piloten.
+Paketsteget kräver **Linux/amd64 och Debian Bookworm** och får bara köras inne
+i det isolerade imagebygget. Det ska inte köras direkt på en driftvärd.
+
+Versionsbyten kräver ny käll-, licens- och advisorykontroll samt nya hashlås
+och hela CI-körningen. Förvaltningen följer repots beroendeprocess; namngiven
+produktionsförvaltare och oberoende releasebeslut återstår.
+
+## Prov av leverans och paketkontroll
 
 `python3 -m unittest discover -s deployment -p test_image_bundle.py -v`
 provar skadade filer, fel revision/manifest/plattform, saknade filer,
 symlänkar, misslyckade/dubbla/ofullständiga protokollresultat, utrymmesstopp
 och fel inläst image-ID. Actions provar dessutom verklig export, borttagning
 av byggtaggar, återinläsning och Java-start utan nät från det inlästa paketet.
+
+`python3 .github/scripts/test_audit_image_os.py -v` provar fel image/verktyg/OS,
+saknade/extra/dubbla paket, ändrade versioner, gammal/framtida databas,
+dolda/felaktiga fynd, korrupta distributionsfiler, skadliga arkivmedlemmar
+och att tidigare resultat eller skannerfel inte kan ge godkänt.
+Linux-jobbet provar dessutom verklig paketinstallation och skanning av sin image.

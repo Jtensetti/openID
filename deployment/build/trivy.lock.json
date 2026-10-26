@@ -1,0 +1,17 @@
+{
+  "version": "0.76.1",
+  "source": "https://github.com/aquasecurity/trivy",
+  "revision": "e713f67f7d54decdcd9b3132c9751833dcced698",
+  "license": "Apache-2.0",
+  "checkedAt": "2026-10-26",
+  "linuxAmd64": {
+    "url": "https://github.com/aquasecurity/trivy/releases/download/v0.76.1/trivy_0.76.1_Linux-64bit.tar.gz",
+    "sha256": "c7cbe3137fb8a48a17574bede3dd6beb16742d1e9772929940fc90082c39d9c0",
+    "maxBytes": 67108864
+  },
+  "sbom": {
+    "url": "https://github.com/aquasecurity/trivy/releases/download/v0.76.1/bom.json",
+    "sha256": "ad5e126e4746e5219b6f53386c4f3fd0a17b8a676dc7f4a63339611a1ee6d6e1",
+    "maxBytes": 2097152
+  }
+}

@@ -1,5 +1,7 @@
 FROM node:24.19.0-bookworm-slim@sha256:a9f5f7c91a432850b2a8a7797adf5eadb6c733ceed61167806cee7ea7fbc29df AS node
-FROM python:3.12.15-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258
+FROM python:3.12.15-slim-bookworm@sha256:6a0e06f5ba0b373d051aabd3fffb9b873f27f9a2a3a14bcbe37dee6f0e3bbc70
+COPY deployment/build/patch_bookworm.py deployment/build/bookworm-updates.lock.json /tmp/openid-os-patches/
+RUN python /tmp/openid-os-patches/patch_bookworm.py && rm -rf /tmp/openid-os-patches
 LABEL org.opencontainers.image.source="https://github.com/Jtensetti/openID"
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 COPY --from=node /usr/local/bin/node /usr/local/bin/node

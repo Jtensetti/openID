@@ -1,5 +1,24 @@
 # Källregister
 
+## OS-kontroll och Debian-rättningar, 2026-10-26
+
+[Trivy 0.76.1](https://github.com/aquasecurity/trivy/releases/tag/v0.76.1),
+officiella distributionshashar, källrevision, LICENSE, NOTICE och upstream-SBOM
+kontrollerades. [Debian-täckningen](https://trivy.dev/docs/latest/coverage/os/debian/)
+skiljer dpkg-paket från egenbyggda binärer och använder Debians säkerhetsbedömning.
+[Databasdokumentationen](https://trivy.dev/docs/latest/configuration/db/)
+anger officiell OCI-källa och uppdateringsflöde. Projektet kräver aktuell
+databas och jämför hela dpkg-inventeringen med skannerns paketlista.
+
+[Debian Securitys amd64-index](https://security.debian.org/debian-security/dists/bookworm-security/main/binary-amd64/Packages.xz)
+anger version, fil och SHA-256 för de låsta Bookworm-rättningarna.
+De hämtade `.deb`-filernas hash har kontrollerats mot detta index.
+[CVE-2026-84782](https://security-tracker.debian.org/tracker/CVE-2026-84782)
+anger OpenSSL 3.0.22-1~deb12u2 som rättad Bookworm-version.
+Docker Official Images-manifestet för Python 3.12.15-slim-bookworm anger
+amd64-källrevision `2a3b794c223ab067d122719541cdd54a068732a5` och ny indexdigest
+enligt komponentregistret. Detta är upstream-proveniens, ingen egen byggattest.
+
 ## Separat byggmiljö, 2026-10-26
 
 [GitHub-hosted runners](https://docs.github.com/en/actions/concepts/runners/github-hosted-runners)

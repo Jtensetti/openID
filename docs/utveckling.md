@@ -94,7 +94,10 @@ grinden passerar. Det finns inga automatiska undantag.
 
 Dependabot föreslår varje vecka uppdateringar för actions, Maven, npm och
 Docker. Förslag behöver licens-/advisorygranskning, nya lås och passerad CI.
-OSV:s register är inte heltäckande; särskilt OS-lager, JDK/Node, PostgreSQL,
+Pilotens Debian-paket har dessutom en Trivy-grind med full dpkg-jämförelse;
+fynd och ofullständig täckning stoppar imageexporten. Den skannern är versions-
+och hashlåst och behöver följas upp vid varje verktygsbyte.
+OSV:s register är inte heltäckande; övriga OS-lager, JDK/Node, PostgreSQL,
 OpenBao, modeller och driftkonfiguration behöver separat bevakning av
 driftägaren. Swift-commitfrågor ersätter inte bevakning av inbäddade OpenSSL.
 Verifiera dagliga körningar och en mottagare för fel efter aktivering på

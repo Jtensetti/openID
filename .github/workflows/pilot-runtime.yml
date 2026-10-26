@@ -14,6 +14,8 @@ jobs:
           persist-credentials: false
       - name: Test bundle rejection and import safety
         run: python3 -m unittest discover -s deployment -p test_image_bundle.py -v
+      - name: Test OS scan coverage, stale databases and rejected evidence
+        run: python3 .github/scripts/test_audit_image_os.py -v
       - name: Export tracked source only
         run: |
           mkdir "$RUNNER_TEMP/image-source"
@@ -36,6 +38,9 @@ jobs:
           docker exec openid-pilot python probe.py /srv/openid/runtime.json
           docker exec openid-pilot node --version
           docker exec openid-pilot java -version
+          docker exec openid-pilot python --version > "$RUNNER_TEMP/runtime-versions.txt"
+          docker exec openid-pilot node --version >> "$RUNNER_TEMP/runtime-versions.txt"
+          docker exec openid-pilot java -version >> "$RUNNER_TEMP/runtime-versions.txt" 2>&1
           if docker exec openid-pilot touch /app/must-not-write; then exit 1; fi
           docker exec openid-pilot sh -c 'test ! -e /app/verification/test_runtime.py && test ! -e /app/verification/test_chip_fixture.py'
       - name: Run packaged local test service
@@ -67,14 +72,23 @@ jobs:
           docker stop --time 10 openid-rp
           docker stop --time 70 openid-pilot
           test "$(docker inspect openid-pilot --format '{{.State.ExitCode}}')" = 0
+      - name: Audit every installed Debian package in the built image
+        run: |
+          python3 .github/scripts/audit_image_os.py \
+            --image "$(cat "$RUNNER_TEMP/image-id.txt")" \
+            --output "$RUNNER_TEMP/image-os-audit"
       - name: Save image package inventory
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: pilot-image-inventory
           path: |
             ${{ runner.temp }}/python-packages.json
             ${{ runner.temp }}/image-id.txt
-          retention-days: 14
+            ${{ runner.temp }}/runtime-versions.txt
+            ${{ runner.temp }}/image-os-audit/
+          if-no-files-found: error
+          retention-days: 90
       - name: SAML and OIDC integration with generated identities and no external network
         run: |
           mkdir "$RUNNER_TEMP/protocol-evidence"

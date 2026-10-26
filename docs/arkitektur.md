@@ -155,6 +155,13 @@ De utgör därför inte separata administrativa säkerhetszoner.
 
 ## Återstående kontroller
 
+Pilotens separata byggmiljö kontrollerar Debian-paketen i den faktiska imagen
+med Trivy och en oberoende dpkg-inventering. Fynd eller ofullständig kontroll
+hindrar export och den gemensamma CI-grinden. Byggverktyget har inga
+driftbehörigheter och ingår inte i serverimagen. Se
+[byggkontrollen](../deployment/build/README.md#systempaket-och-säkerhetsunderlag)
+för täckning, hashlås och kvarvarande runtime-/värdgranskning.
+
 Bredare fysiska enhetsprov, biometrisk/PAD-kalibrering, injektion och relä,
 certifikatspärr, registerkontroll, HSM, operativ befogenhetsseparation och återställning med
 beständig spärrstatus behöver fortsatt operativ verifiering. Den separata

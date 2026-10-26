@@ -23,3 +23,6 @@
 !deployment/
 !deployment/probe.py
 !deployment/Dockerfile
+!deployment/build/
+!deployment/build/patch_bookworm.py
+!deployment/build/bookworm-updates.lock.json
