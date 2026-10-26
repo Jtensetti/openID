@@ -337,7 +337,10 @@ lagras i databasen och överlever omstart. Den skyddar mot att en äldre
 backup saknar senare biometriförsök. Identitetsnyckeln måste bevaras separat
 även när det bara finns försökshistorik och inga profiler.
 Den publika betan kontrollerar dessutom den separata aktuella spärrtabellen;
-dess konfiguration och migrationsmarkör måste bevaras. Återställ aldrig
+dess konfiguration och migrationsmarkör måste bevaras. `recovery.py backup`
+kopierar markören utan att starta Wallet; `restore` bevarar den och kan dessutom
+kräva den med `--require-continuity` för en äldre kopia. Använd alltid flaggan
+för en driftsatt tjänst. Återställ aldrig
 en äldre programversion som saknar denna kontroll. Det privata grundläget
 saknar externt spärrankare. Inga adminfunktioner exponeras via HTTP.
 

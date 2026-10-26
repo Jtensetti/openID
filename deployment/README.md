@@ -147,15 +147,29 @@ cd verification
   --destination /privat/backups/kopia-001
 .venv/bin/python recovery.py restore --backup /privat/backups/kopia-001/wallet.sqlite \
   --destination /privat/aterstalld \
-  --identity-key /separat/nyckelforvaring/wallet.identity-key
+  --identity-key /separat/nyckelforvaring/wallet.identity-key --require-continuity
 ```
 
-Säkerhetskopian använder SQLite backup-API och innehåller ingen profilnyckel.
+Säkerhetskopian använder SQLite backup-API i läsläge, utan Wallet-start,
+schemaändring eller nätverksanrop, och innehåller ingen profilnyckel. En befintlig
+`wallet.continuity-required` följer med kopian och återställningen. Felaktiga
+markörer avvisas. Behåll hela backupkatalogen. `--require-continuity` kräver
+oberoende spärr och avisering även när en äldre kopia saknar markören;
+använd flaggan för driftsatta tjänster. Driftkonfigurationen och IAM-åtkomsten
+till den **aktuella** oberoende spärrtjänsten måste ordnas separat före start.
+Flaggan återskapar inte den tjänsten eller dess aktuella spärrhistorik.
 Förvara nyckeln separat och skydda även backupmediet. Återställning kräver en
 ny katalog, kontrollerar databasen och dekrypteringen och **spärrar samtliga
 återställda nycklar**. Alla användare måste registrera sig på nytt. Byt aldrig
 ut en databas under en körande tjänst. Att manuellt kopiera in en gammal
 databas kringgår denna procedur och stöds inte.
+
+Prova återläsning i en isolerad miljö innan en kopia används: kontrollera att
+samtliga gamla ID:n är spärrade, att gamla förfrågningar inte kan slutföras,
+att registreringskarantänen består efter omstart och att saknad oberoende
+spärrkonfiguration stoppar start. Registrera revision, kopians kontrollsumma,
+ålder, återställningstid och resultat utan personuppgifter. Denna procedur
+ersätter inte extern backupförvaring eller en genomförd driftövning.
 
 ## Gräns mot publik drift
 

@@ -37,7 +37,7 @@ with tempfile.TemporaryDirectory(prefix='openid-ingress-') as temporary:
     cert, key = root / 'tls.crt', root / 'tls.key'
     subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1',
         '-subj', '/CN=Generated ingress test', '-addext',
-        'subjectAltName=DNS:localhost,DNS:openid.tensetti.io,DNS:idp.openid.tensetti.io',
+        'subjectAltName=DNS:localhost,DNS:openid.tensetti.io,DNS:idp.openid.tensetti.io,DNS:api.openid.tensetti.io',
         '-keyout', str(key), '-out', str(cert)], check=True, capture_output=True)
     password = 'synthetic-ingress-only'
     hashed = subprocess.run(['openssl', 'passwd', '-apr1', '-stdin'], input=password + '\n',
@@ -47,6 +47,10 @@ with tempfile.TemporaryDirectory(prefix='openid-ingress-') as temporary:
     expected_location = 'https://idp.openid.tensetti.io/saml2/authn?SAMLRequest=' + 'x' * 6000
 
     class Upstream(http.server.BaseHTTPRequestHandler):
+        def end_headers(self):
+            # A conflicting backend policy must not create duplicate HSTS fields.
+            self.send_header('Strict-Transport-Security', 'max-age=0')
+            super().end_headers()
         def log_message(self, *args):
             pass
         def do_POST(self):
@@ -117,6 +121,8 @@ with tempfile.TemporaryDirectory(prefix='openid-ingress-') as temporary:
                 headers['Content-Type'] = 'application/x-www-form-urlencoded'
             connection.request('GET' if body is None else 'POST', path, body=body, headers=headers)
             response = connection.getresponse()
+            transport = [value for name, value in response.getheaders() if name.lower() == 'strict-transport-security']
+            assert transport == ['max-age=31536000'], (host, path, response.status, transport)
             return response.status, dict(response.getheaders()), response.read()
         finally:
             connection.close()
@@ -141,6 +147,10 @@ with tempfile.TemporaryDirectory(prefix='openid-ingress-') as temporary:
         for path in ['/wallet', '/lab', '/test/run/UPPER', '/test/run/' + 'a' * 33, '/test/run/loa3/extra']:
             assert request(path)[0] == 404, path
         assert request('/oidc/login')[0] == 200
+        assert request('/wallet', host='idp.openid.tensetti.io')[0] == 404
+        assert request('/wallet', host='api.openid.tensetti.io')[0] == 404
+        assert request('/wallet/challenge', host='api.openid.tensetti.io')[0] == 403
+        assert request('/wallet/challenge', body=b'{}', host='api.openid.tensetti.io')[0] == 200
         # Model an unavailable temp-file area: allowed SAML requests must fit in memory.
         body_temp = root / 'client_body'
         body_temp.rmdir()
@@ -159,6 +169,7 @@ with tempfile.TemporaryDirectory(prefix='openid-ingress-') as temporary:
         print(json.dumps({'status': 'PASS', 'consoleCases': len(cases), 'largeRedirectBytes': len(expected_location),
             'largePostBytes': [65536, 131072], 'postRoutes': 4, 'oversizePostDenied': True,
             'betaAuthEnforced': True, 'credentialsStripped': True, 'unexpectedRoutesDenied': True,
+            'hstsAllResponses': True, 'duplicateUpstreamHstsRemoved': True, 'hstsHosts': 3,
             'nginx': subprocess.run([NGINX, '-v'], capture_output=True, text=True, check=True).stderr.strip()}))
     finally:
         process.terminate()
