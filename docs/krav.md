@@ -1,5 +1,10 @@
 # Tekniska krav och verifieringsluckor
 
+SIG-01/02: test-PDF:en har ett [synligt underskriftskvitto](pdf-underskrift.md)
+i det riktiga signaturfältet. Kvittot omfattas av samma signerade revision.
+Rendering, ändrat kvitto och bildkopiering provas separat från certifikattillit.
+Testutfärdaren är fortsatt ej betrodd och formell kravstatus ändras inte.
+
 Krav-ID:n behålls för spårbarhet till tester och tidigare granskningar.
 Tabellen beskriver teknisk täckning; formell kravstatus är fortsatt `OPEN`.
 Källhänvisningar avser inventeringen 2026-10-19 i [SOURCES.md](SOURCES.md).

@@ -1,5 +1,16 @@
 # Källregister
 
+## Synligt PDF-kvitto och tillit, omkontroll 2026-10-26
+
+[Diggs valideringsbeskrivning](https://www.digg.se/digitala-tjanster/e-underskrift/valideringstjanst),
+[Adobes AATL-beskrivning](https://www.adobe.com/security/approved-trust-list.html)
+och [EU:s tillitsförteckningar](https://digital-strategy.ec.europa.eu/en/policies/eu-trusted-lists)
+har kontrollerats för skillnaden mellan synlighet, integritet och tillit.
+T05 och T06 nedan anger fortsatt version 1.7 respektive 1.3.
+[PDFBox FAQ](https://pdfbox.apache.org/3.0/faq.html#how-can-i-check-signed-pdfs)
+beskriver att parsing/rendering inte i sig validerar digitala underskrifter.
+Den befintliga låsta PDFBox-versionen 3.0.8 används utan nytt beroende.
+
 Referenser från inventeringen 2026-10-19. Kravnummer och avsnitt finns i
 [kravöversikten](krav.md). Originaltexternas aktuella lydelse och
 ikraftträdande behöver kontrolleras inför en formell bedömning.
