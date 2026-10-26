@@ -37,8 +37,17 @@ kontrollsummor, releaseuppgifter och CycloneDX kontrollerades. JDK/JRE används
 nu i pilotbygget och serverproven enligt komponentregistret.
 [Adoptiums arkivinstruktion](https://adoptium.net/installation/archives) och
 [BuildKits checksum-kontroll](https://docs.docker.com/reference/dockerfile/#add---checksum)
-ligger till grund för installationen. Python-uppdateringen och den separata
-`ops/`-imagen återstår. Bevakning får inte stanna vid systempaketlistan.
+ligger till grund för installationen, även i `ops/`-imagen.
+
+Python 3.12.16:s officiella XZ-arkiv och
+[käll-SPDX](https://www.python.org/ftp/python/3.12.16/Python-3.12.16.tar.xz.spdx.json)
+har hämtats och hashkontrollerats. Taggen pekar på commit
+`2c2462afc5d978d31f3d073001fc202d269917ff`. Utgåvan rättar bland annat
+komprometterade CA-nycklar, Expat, tarfile och tempfile.
+[Dockerprojektets byggrecept](https://github.com/docker-library/python/blob/2a3b794c223ab067d122719541cdd54a068732a5/3.12/trixie/Dockerfile)
+och MIT-licens ligger till grund för det separata källbygget. Bygget behåller
+Python-/komponentlicenser, SPDX och testresultat. Bevakning får inte stanna
+vid systempaketlistan; även pip och andra inbäddade beroenden återstår.
 
 ## Separat byggmiljö, 2026-10-26
 

@@ -156,9 +156,25 @@ JRE:s licensfiler bevaras, och upstream-SBOM finns både i imagen och i
 `pilot-image-inventory`. SBOM beskriver upstreambygget, inte hela serverimagen.
 BuildKit med stöd för `ADD --checksum` (Dockerfile 1.6+) krävs.
 
-Python 3.12.16 återstår att införa och verifiera. Den separata driftimagen i
-`ops/` använder fortfarande äldre Temurin 21.0.12.1+1; den har egen byggkontext
-och innehåller ingen e-id-tjänst. OS-grinden täcker inte dessa runtime-luckor.
+Python **3.12.16** byggs från oförändrat officiellt källarkiv i en separat,
+digestlåst byggcontainer. Källarkiv och upstream-SPDX verifieras av BuildKit
+före användning. `build_python.sh` bygger med delat libpython, PGO och LTO,
+utan Tk, och kräver passerade upstream-prov för TLS, hashning, SQLite, XML,
+tar, temporära kataloger och cookies. Kompilering/prov sker utan externt nät.
+Installation sker i en tom stagingkatalog och ersätter hela basens äldre
+Python-installation. Python 3.12.16 och inbäddad Expat 2.9.0 kontrolleras
+också i den färdiga imagen innan paketinstallationen fortsätter.
+
+Käll-SPDX, licenser, bygglås och upstream-testlogg sparas under
+`/usr/share/doc/openid-python/` och i inventeringsartefakten. Runtime-rapporten
+anger deras relevanta hashvärden samt interpreterfilens SHA-256. Detta är
+spårbarhet inom bygget, inte oberoende attest eller bevis för bitidentiska
+ombyggen. Den färdiga imagen måste dessutom passera openID:s faktiska
+bild-, signatur-, Wallet-, återställnings- och protokollprov.
+
+Den separata driftimagen i `ops/` får också Temurin 21.0.13+9, med egen
+byggkontext och utan e-id-tjänst. Noble-systempaketen och övriga runtime-
+beroenden behöver fortsatt granskning. OS-grinden täcker inte sådana luckor.
 
 Versionsbyten kräver ny käll-, licens- och advisorykontroll samt nya hashlås
 och hela CI-körningen. Förvaltningen följer repots beroendeprocess; namngiven

@@ -111,12 +111,18 @@ SBOM hämtar licensdeklarationer från Maven-POM:er. Filgranskningen fann:
 
 ## Driftimage
 
-`ops/Dockerfile` låser Temurin **21.0.12.1+1** på Ubuntu Noble med image-digests.
+`ops/Dockerfile` använder Temurin **21.0.13+9** från samma kontrollerade
+Linux x64-arkiv och SBOM som beskrivs nedan. Hela JDK-/JRE-katalogen ersätts;
+den tidigare Java-installationen används inte av den slutliga containern.
+Ubuntu Noble-lagren är fortsatt låsta till de tidigare image-digests som
+levererades med Temurin 21.0.12.1+1. Detta är inte en full OS-uppdatering.
 Docker Hubs official-images-manifest kopplade taggarna till
 [adoptium/containers@511f9356dc4d50932a0a5f8cfb0f87ed1aef4f07](https://github.com/adoptium/containers/tree/511f9356dc4d50932a0a5f8cfb0f87ed1aef4f07).
 Dockerfile-källan är Apache-2.0. JDK/JRE har GPL-2.0 med Classpath Exception
 och separata licenser i `legal/`; Ubuntu-paketens licenser finns i
-`/usr/share/doc`. Dessa bevaras i basimagen och täcks inte av Maven-SBOM.
+`/usr/share/doc`. De nya JRE-licenserna och OS-licenserna bevaras och täcks
+inte av Maven-SBOM. Kandidaten är begränsad till Linux/amd64; Compose väljer
+den plattformen även på Apple Silicon.
 
 Imagen bygger endast `ops/src/SealedEnvironment.java`. Verifierare,
 Sweden Connect, identitetsdatabas och testnycklar ingår inte.
@@ -163,9 +169,8 @@ paketlicenser i `/usr/share/doc` bevaras genom Debians installation.
 
 [CVE-2025-7458](https://security-tracker.debian.org/tracker/CVE-2025-7458)
 är rättad i denna SQLite-version enligt Debian. Det innebär inte att
-alla OS- eller runtimefynd är åtgärdade. Python 3.12.15 behöver fortsatt
-sin separata säkerhetsuppdatering. Node och Temurin uppdateras separat
-enligt följande avsnitt. Ingen egen källkod från Dockerprojektet kopieras.
+alla OS- eller runtimefynd är åtgärdade. Basens hela `/usr/local` ersätts av
+det nya Python-källbygget nedan. Node och Temurin uppdateras separat.
 
 CI använder den tidigare, digestlåsta Bookworm-basen enbart för att skapa
 en syntetisk SQLite 3.40.1-fixture utan nät, privilegier eller riktiga uppgifter.
@@ -233,8 +238,44 @@ bibliotek. Den ersätter inte OS-rapporten, Maven-SBOM eller sådan bedömning.
 Kompatibilitet provas med serverns Java-, signatur- och passprov samt pilotens
 SAML/OIDC-prov mot den paketerade JRE:n. Aktuella resultat hör till PR:n och
 exakt CI-revision. Byte av version ersätter inte oberoende granskning.
-Den separata `ops/`-imagen ovan använder ännu äldre Temurin, och Python 3.12.16
-återstår att införa. Uppdateringsansvaret följer förvaltningen nedan.
+Även `ops/` använder nu dessa Java-arkiv, men behåller sina tidigare Noble-
+systempaket. Uppdateringsansvaret följer förvaltningen nedan.
+
+## Python 3.12.16 från officiell källutgåva
+
+Den officiella [säkerhetsutgåvan](https://www.python.org/downloads/release/python-31216/)
+är oförändrad CPython-kod, tagg `v3.12.16`, commit
+`2c2462afc5d978d31f3d073001fc202d269917ff`. Arkiv och officiell SPDX låses i
+[python-runtime.lock.json](deployment/build/python-runtime.lock.json).
+Källarkivets SHA-256 är
+`b5796915dc45ff745cfb4e990a7e7c93d6f546328a102ce31448d69ebc37575c`;
+SPDX-filens SHA-256 är
+`6c268edc3c8b9b12a875b3d3ed2495983b8a4a94c070927863b942722a9a216c`.
+SPDX binder CPython-arkivet och inventerar bland annat Expat 2.9.0,
+HACL*, libb2, mpdecimal och pip med inbäddade beroenden. Den är en
+källförteckning, inte en fullständig förteckning eller attest av slutimagen.
+
+Byggmiljön är digestlåst `python:3.12.15-trixie`, separat från runtime.
+Den nya interpretern installeras i en tom stagingkatalog; basens äldre
+Python, standardbibliotek och paket ersätts helt. Expat 2.9.0 byggs från
+den bundlade koden, medan OpenSSL och SQLite kommer från låsta Debian-paket.
+Upstream-proven för TLS, hashning, SQLite, XML, tar, temporära kataloger och
+cookies måste passera utan extern nätåtkomst före installation.
+
+PSF-2.0 och historiska Python-licenser i `LICENSE`, fullständig upstream
+`Doc/license.rst`, Expat-COPYING och käll-SPDX sparas i
+`/usr/share/doc/openid-python/`. Byggreceptet är anpassat från
+docker-library/python vid `2a3b794c223ab067d122719541cdd54a068732a5`;
+dess [MIT-licens](deployment/build/licenses/docker-library-python-LICENSE.txt)
+bevaras i repo och image. `BUILD-NOTICE.txt` beskriver bygg-/paketeringsändringen.
+Pythonkällan modifieras inte. OS-bibliotekens egna licenser ligger kvar.
+
+`ensurepip` installerar upstreams pip 25.0.1, samma version som i den tidigare
+basen. Dess inbäddade paket behöver separat uppföljning; Python-uppdateringen
+innebär inte att samtliga runtime- eller pakethanterarfynd är åtgärdade.
+Förvaltaren ansvarar för versions-, licens- och advisorybevakning samt byte
+till en verifierad officiell container när en sådan finns. Oberoende
+granskning, integrationstester och behörigt releasebeslut krävs fortsatt.
 
 ## Projektlicens och förvaltning
 

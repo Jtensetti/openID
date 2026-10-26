@@ -190,10 +190,15 @@ class ImageAuditTests(unittest.TestCase):
 
     def test_server_images_use_the_locked_runtime_base(self):
         lock = json.loads((audit.ROOT/'deployment/build/debian-runtime.lock.json').read_text())
+        python = json.loads((audit.ROOT/'deployment/build/python-runtime.lock.json').read_text())
         for name in ('deployment/Dockerfile', 'deployment/cluster/Dockerfile'):
             python_bases = [line.split()[1] for line in (audit.ROOT/name).read_text().splitlines()
                             if line.startswith('FROM python:')]
-            self.assertEqual([lock['base']['image']], python_bases)
+            self.assertEqual([python['builder'], lock['base']['image']], python_bases)
+            dockerfile = (audit.ROOT/name).read_text()
+            for artifact in ('source', 'sbom'):
+                item = python[artifact]
+                self.assertIn('ADD --checksum=sha256:'+item['sha256']+' '+item['url'], dockerfile)
 
     def test_existing_output_cannot_reuse_a_previous_success(self):
         with tempfile.TemporaryDirectory() as directory:

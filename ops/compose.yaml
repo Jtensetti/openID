@@ -1,5 +1,6 @@
 services:
   sealed-production:
+    platform: linux/amd64
     build: .
     image: openid-sealed:local
     read_only: true

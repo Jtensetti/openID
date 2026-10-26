@@ -247,3 +247,10 @@ advisory. Ett syntetiskt prov flyttar ett SQLite 3.40.1-register och en äldre
 backup till 3.46.1; spärrar och nekad återaktivering måste bestå. Verkliga
 Wallet-/signatur-/återställningsprov körs också i den byggda pilotimagen.
 Detta ändrar inte formell status och ersätter inte införande eller driftövning.
+
+SEC-03: Python 3.12.16 byggs från oförändrad, hashlåst officiell källa med
+Expat 2.9.0, sparade licenser/SPDX och obligatoriska upstream-säkerhetsprov.
+Hela äldre installationen ersätts. Den faktiska serverimagen provas separat
+med openID-flöden. Driftcontainerns Java uppdateras också till 21.0.13+9.
+Övriga OS-/runtimefynd, pip-beroenden, oberoende granskning och införande
+kvarstår som separata krav; uppdateringen höjer ingen formell tillitsstatus.

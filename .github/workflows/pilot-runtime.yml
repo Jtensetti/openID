@@ -100,6 +100,8 @@ jobs:
           import hashlib, json, ssl, sqlite3, sys, subprocess, pyexpat, cv2
           from importlib.metadata import distribution
           from pathlib import Path
+          assert sys.version_info[:3] == (3, 12, 16)
+          assert pyexpat.EXPAT_VERSION == 'expat_2.9.0'
           opencv = distribution('opencv-python-headless')
           sbom_paths = [p for p in opencv.files if str(p).endswith('/sboms/auditwheel.cdx.json')]
           assert len(sbom_paths) == 1, 'OpenCV upstream SBOM missing or ambiguous'
@@ -109,6 +111,9 @@ jobs:
               'pythonOpenSSL': ssl.OPENSSL_VERSION,
               'pythonSQLite': sqlite3.sqlite_version,
               'pythonExpat': pyexpat.EXPAT_VERSION,
+              'pythonExecutableSHA256': hashlib.sha256(Path(sys.executable).read_bytes()).hexdigest(),
+              'pythonSourceSbomSHA256': hashlib.sha256(Path('/usr/share/doc/openid-python/source.spdx.json').read_bytes()).hexdigest(),
+              'pythonUpstreamTestsSHA256': hashlib.sha256(Path('/usr/share/doc/openid-python/upstream-tests.log').read_bytes()).hexdigest(),
               'node': json.loads(subprocess.check_output(['node', '-p', 'JSON.stringify(process.versions)'], text=True)),
               'temurinRelease': Path('/opt/java/openjdk/release').read_text(),
               'temurinUpstreamSbomSHA256': hashlib.sha256(Path('/opt/java/openjdk/upstream-sbom.cdx.json').read_bytes()).hexdigest(),
@@ -124,6 +129,7 @@ jobs:
           }, indent=2))
           PY
           docker cp openid-pilot:/opt/java/openjdk/upstream-sbom.cdx.json "$RUNNER_TEMP/temurin-upstream-sbom.cdx.json"
+          docker cp openid-pilot:/usr/share/doc/openid-python "$RUNNER_TEMP/python-runtime-evidence"
           docker image inspect openid-pilot:ci --format '{{.Id}}' > "$RUNNER_TEMP/image-id.txt"
           docker stop --time 10 openid-rp
           docker stop --time 70 openid-pilot
@@ -163,6 +169,7 @@ jobs:
             ${{ runner.temp }}/runtime-versions.txt
             ${{ runner.temp }}/runtime-components.json
             ${{ runner.temp }}/sqlite-transition.json
+            ${{ runner.temp }}/python-runtime-evidence
             ${{ runner.temp }}/temurin-upstream-sbom.cdx.json
             ${{ runner.temp }}/image-os-audit/
           if-no-files-found: error

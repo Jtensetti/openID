@@ -13,3 +13,7 @@
 !deployment/build/
 !deployment/build/patch_debian.py
 !deployment/build/debian-runtime.lock.json
+!deployment/build/build_python.sh
+!deployment/build/python-runtime.lock.json
+!deployment/build/licenses/
+!deployment/build/licenses/docker-library-python-LICENSE.txt

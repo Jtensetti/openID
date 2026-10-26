@@ -13,7 +13,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Build the digest-pinned image
-        run: docker build --tag openid-sealed:ci ops
+        run: docker build --platform linux/amd64 --tag openid-sealed:ci ops
       - name: Run with no network, read-only filesystem and no Linux capabilities
         run: |
           docker run --detach --name openid-sealed --network none --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 64 --memory 192m --cpus 0.5 --tmpfs /tmp:rw,noexec,nosuid,nodev,size=16m,mode=1777 openid-sealed:ci
@@ -22,6 +22,9 @@ jobs:
             sleep 1
           done
           docker exec openid-sealed java -cp /app SealedEnvironment probe
+          docker exec openid-sealed grep -Fx 'JAVA_RUNTIME_VERSION="21.0.13+9-LTS"' /opt/java/openjdk/release
+          docker exec openid-sealed java -version
+          docker exec openid-sealed sh -c 'test -r /opt/java/openjdk/upstream-sbom.cdx.json && test -r /opt/java/openjdk/legal/java.base/LICENSE'
           test "$(docker exec openid-sealed id -u)" = 10001
           if docker exec openid-sealed touch /app/must-not-be-writable; then exit 1; fi
           docker image inspect openid-sealed:ci --format '{{.Id}}'
