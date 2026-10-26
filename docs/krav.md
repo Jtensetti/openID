@@ -2,8 +2,12 @@
 
 Krav-ID:n behålls för spårbarhet till tester och tidigare granskningar.
 Tabellen beskriver teknisk täckning; formell kravstatus är fortsatt `OPEN`.
-Källhänvisningar avser inventeringen 2026-10-19 i [SOURCES.md](SOURCES.md).
+Källhänvisningar avser inventeringen och daterade omkontroller i [SOURCES.md](SOURCES.md).
 Aktuell originaltext behöver kontrolleras inför en formell bedömning.
+
+[iPhone-underlaget](iphone-sakerhet.md) delar upp appens tekniska kontroller,
+installationsbevis och återstående fysiska/organisatoriska bevis. APP-01–08
+är delpunkter; de ersätter inte de överordnade kravens formella status.
 
 ## Identitet och nycklar
 

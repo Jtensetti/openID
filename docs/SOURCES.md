@@ -1,5 +1,21 @@
 # Källregister
 
+## Omkontroll för appens GAP-arbete, 2026-10-26
+
+D08 har lästs på nytt mot den publicerade webbsidan (rubrikdatum
+2022-10-04, sidfot 2024-12-20). [ISO/IEC 27001:2022](https://www.iso.org/standard/27001)
+och [Amd 1:2024](https://www.iso.org/standard/88435.html) är underlag för
+ledningssystemets avgränsning. Fullständig bedömning förutsätter licensierad
+standardtext och beslutad SoA; appens tekniska mappning är inte en certifiering.
+
+[Apple App Attest Environment](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.developer.devicecheck.appattest-environment)
+och [förberedelser för App Attest](https://developer.apple.com/documentation/devicecheck/preparing-to-use-the-app-attest-service)
+kontrollerade 2026-10-26: utvecklings- och produktionsnycklar tillhör skilda
+miljöer. Produktion kan väljas för lokal provning, och TestFlight använder
+produktion. Appens signerade entitlement kontrolleras separat från byggläget.
+
+## Ursprunglig inventering
+
 Referenser från inventeringen 2026-10-19. Kravnummer och avsnitt finns i
 [kravöversikten](krav.md). Originaltexternas aktuella lydelse och
 ikraftträdande behöver kontrolleras inför en formell bedömning.

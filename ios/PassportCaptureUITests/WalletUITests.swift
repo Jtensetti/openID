@@ -86,6 +86,14 @@ final class WalletUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Lås upp openID"].exists)
         XCTAssertFalse(app.buttons["Spärra mitt ID"].exists)
     }
+    func testInstalledBuildCanBeIdentifiedWithoutUnlocking() {
+        let app = XCUIApplication(); app.launchArguments = []; app.launch()
+        app.buttons["Inställningar"].tap()
+        let version = app.descendants(matching: .any)["settings.version"].firstMatch
+        for _ in 0..<4 { if version.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(version.isHittable)
+        XCTAssertNotNil((version.value as? String)?.range(of: #"^[0-9]+\.[0-9]+\.[0-9]+ \([0-9]+\)$"#, options: .regularExpression))
+    }
     func testGuideIsReachableWithoutBiometricPermission() {
         let app = XCUIApplication(); app.launchArguments = []; app.launch()
         app.swipeUp()

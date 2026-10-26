@@ -35,10 +35,15 @@ open ios/PassportCapture.xcodeproj
    Prova sedan
    [QR-inloggningen](../verification/README.md#saml-inloggning-med-passets-identitet).
 
-App Attest-entitlement är `development`; använd serverflaggan
-`--development-attestation` för detta bygge. Installation från Xcode kräver
-Apple-signering men ingen App Store-publicering. Vid TestFlight-export använder Xcode produktionsmiljön för App Attest.
-Betaservern tillåter automatisk anslutning endast med produktionsattestering.
+Debug använder App Attest `development` och en privat testserver med
+`--development-attestation`. Release använder `production` så att ett
+signerat bygge för registrerade telefoner kan använda den publika betan.
+Miljön styrs av `APP_ATTEST_ENVIRONMENT` i projektgeneratorn. Installation
+från Xcode kräver Apple-signering men ingen App Store-publicering.
+TestFlight använder alltid produktionsmiljön. Betaservern tillåter automatisk
+anslutning endast med produktionsattestering. Kontrollera den exporterade
+appens entitlement och provisioneringsprofil före installation; byggläge
+ensamt är inget attestbevis. Se [Apples miljöbeskrivning](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.developer.devicecheck.appattest-environment).
 
 ## Funktioner
 
@@ -119,6 +124,24 @@ Appen döljs när scenen är inaktiv och låses i bakgrunden. Pågående uppgift
 och LAContext avbryts, och sena nätverkssvar ignoreras. En redan skickad
 begäran kan ha nått servern; hämta status efter återkomst.
 
+Låsning rensar även väntande länkar och kodfel. Inmatade säkerhetskoder rensas
+när kodvyn lämnas eller appen låses. Ett fördröjt statusanrop efter kodspärr
+får inte fortsätta in i en ny upplåsning. Registreringen kontrollerar avbrott
+efter Apples nyckel-/attesteringsanrop innan nästa nätverks- eller NFC-steg.
+En pågående NFC-läsning kan fortfarande behöva avslutas i systemrutan;
+resultatet får inte skickas vidare efter avbrott.
+
+`WalletHTTP` hanterar alla appens serveranrop, även separat spärr, med HTTPS,
+exakt svarsadress, JSON och nekade omdirigeringar. Svar begränsas under
+strömning till 256 KiB för verifieraren och 4 KiB för spärrtjänsten.
+Överföringen avbryts även vid fel i svarshuvud eller storlek. Diskcache och
+cookiehantering är avstängda. Negativa URL-laddningsprov använder testdubblar;
+de ersätter inte TLS-prov mot vald miljö.
+
+Inställningar visar den installerade appens version och byggnummer. Använd
+detta tillsammans med källrevision, IPA-kontrollsumma och signerad profil vid
+ett [fysiskt acceptansprov](../docs/fysisk-acceptans.md).
+
 ## Bygg och testa
 
 ```sh
@@ -152,8 +175,10 @@ Den nya separata spärrfunktionen behöver fortfarande ett sammanhängande telef
 Biometrisk/PAD-kalibrering, modellrättigheter, certifikatspärr, registerkontroll
 och oberoende granskning återstår; se [verifierarens
 begränsningar](../verification/README.md#begränsningar).
-Appen utfärdar ingen godkänd e-legitimation. Myndighetsanslutning,
-dokumentunderskrift och pushnotiser ingår inte.
+Appen utfärdar ingen godkänd e-legitimation. Myndighetsanslutning och pushnotiser
+ingår inte. Underskriftsflödet ovan är en testfunktion utan kvalificerad
+underskrift eller betrodda långtidsbevis. [Appens säkerhetsunderlag](../docs/iphone-sakerhet.md)
+knyter kontroller till GAP-punkter och skiljer dem från kvarstående beslut.
 
 ## Kamerainläsning och fel i registreringen
 

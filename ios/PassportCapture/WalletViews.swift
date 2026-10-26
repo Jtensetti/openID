@@ -288,6 +288,10 @@ struct SecurityCodeView: View {
             }
         }.navigationTitle("Säkerhetskod").navigationBarTitleDisplayMode(.inline)
             .onAppear { model.clearSecurityCodeMessage() }
+            .onChange(of: model.unlocked) { unlocked in
+                if !unlocked { current = ""; new = ""; repeated = ""; dismiss() }
+            }
+            .onDisappear { current = ""; new = ""; repeated = "" }
             .onChange(of: model.statusMessage) { message in
                 if message != nil && model.snapshot?.securityCode?.set == true && model.securityCodeMessage == nil { dismiss() }
             }
@@ -353,6 +357,8 @@ struct ApprovalView: View {
             }.padding(24)
         }.background(Palette.paper).navigationTitle("Kontrollera begäran").navigationBarTitleDisplayMode(.inline)
             .onAppear { model.clearSecurityCodeMessage() }
+            .onChange(of: model.unlocked) { unlocked in if !unlocked { securityCode = ""; dismiss() } }
+            .onDisappear { securityCode = "" }
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Stäng") { dismiss() }.disabled(model.busy) } }
             .interactiveDismissDisabled(model.busy)
     }
@@ -437,7 +443,9 @@ struct SettingsView: View {
             Section("Om") {
                 NavigationLink("Så fungerar det") { GuideView() }
                 NavigationLink("Personuppgifter och säkerhet") { PrivacyView() }
-                LabeledContent("Version", value: "0.2")
+                LabeledContent("Version", value: AppBuild.current.display)
+                    .accessibilityElement(children: .ignore).accessibilityLabel("Version")
+                    .accessibilityValue(AppBuild.current.display).accessibilityIdentifier("settings.version")
             }
         }.scrollContentBackground(.hidden).background(Palette.paper).navigationTitle("Inställningar")
             .confirmationDialog("Spärra detta ID permanent?", isPresented: $revoke, titleVisibility: .visible) {

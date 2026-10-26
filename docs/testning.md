@@ -2,6 +2,14 @@
 
 ## Aktuell verifiering
 
+`WalletHTTPTests` provar appens gemensamma nätverksgräns med syntetisk
+URL-laddning: HTTPS-krav, JSON, exakt svarsadress, nekad omdirigering,
+storleksgräns med/utan Content-Length, HTTP-fel och avbruten uppgift.
+Samma transport används för den separata spärrtjänsten. Kodfelsrensning vid
+låsning provas i modellen. XCUITest kontrollerar att version och byggnummer
+går att läsa utan upplåsning. Dessa prov omfattar inte riktig TLS, NFC,
+Apple-attestering eller fysisk identitetskontroll.
+
 `test_audit_archive` provar faktisk SQLite-export, samtidig spärr mellan
 tabelläsningar, offlineverifiering utan register/nyckel, fältminimering,
 manipulerat manifest, trunkering, filinventering, symlänkar, privata
