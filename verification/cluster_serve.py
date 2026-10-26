@@ -8,7 +8,7 @@ import re
 import ssl
 import sys
 from runtime import Runtime, validate_origin
-from serve import private_file, bounded_worker, close_worker, reject_duplicate_headers, score_frames
+from serve import private_file, bounded_worker, close_worker, reject_duplicate_headers, score_frames, proofing_commands
 
 
 def config_file(path):
@@ -17,7 +17,8 @@ def config_file(path):
         'tlsCert','tlsKey','pairingFile','metricsFile'}
     proofing={'team','bundle','developmentAttestation','csca','jar'}
     if config.get('role')=='proofing': fields |= proofing
-    if set(config)!=fields or config['role'] not in ('wallet','proofing'): raise ValueError('configuration fields')
+    optional={'cscaCrl'} if config.get('role')=='proofing' else set()
+    if not fields <= set(config) or set(config)-fields-optional or config['role'] not in ('wallet','proofing'): raise ValueError('configuration fields')
     validate_origin(config['origin'])
     address=ipaddress.ip_address(config['bind'])
     if address.is_unspecified or address.is_multicast or not address.is_private: raise ValueError('explicit private bind required')
@@ -27,7 +28,7 @@ def config_file(path):
         if config['workers']!=1: raise ValueError('proofing requires one worker')
         if not re.fullmatch('[A-Z0-9]{10}',config['team']) or not re.fullmatch('[A-Za-z0-9.-]{3,128}',config['bundle']): raise ValueError('Apple identifiers')
         if type(config['developmentAttestation']) is not bool: raise ValueError('attestation environment')
-    for field in fields & {'databaseFile','baoTokenFile','baoCA','tlsCert','tlsKey','pairingFile','metricsFile','csca','jar'}:
+    for field in set(config) & {'databaseFile','baoTokenFile','baoCA','tlsCert','tlsKey','pairingFile','metricsFile','csca','jar','cscaCrl'}:
         if not Path(config[field]).is_absolute() or not Path(config[field]).is_file(): raise ValueError('absolute existing path required')
     private_file(config['tlsKey'])
     context=ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER); context.load_cert_chain(config['tlsCert'],config['tlsKey'])
@@ -51,10 +52,10 @@ def create_app(config, *, local_test=False):
             from native import NativeSessions, AppAttest
             from chip import ChipProcess
             from server import verify_document
-            command=['java','-Xmx128m','-jar',config['jar'],'verify-passport',config['csca']]
+            command,chip_command=proofing_commands(config)
             native=NativeSessions(AppAttest(config['team'],config['bundle'],config['developmentAttestation']),
                 lambda data:verify_document(command,data),None,None,wallet=wallet,
-                chip_factory=lambda data:ChipProcess([*command[:-2],'authenticate-chip',command[-1]],data),biometrics=score_frames)
+                chip_factory=lambda data:ChipProcess(chip_command,data),biometrics=score_frames)
         app=Runtime(native,wallet,config['origin'],private_file(config['pairingFile']).decode().strip(),
             metrics_token=private_file(config['metricsFile']).decode().strip(),role=config['role'])
         app.crypto=crypto

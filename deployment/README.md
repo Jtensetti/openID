@@ -47,7 +47,8 @@ python3 deployment/setup.py \
   --directory "$HOME/openid-pilot" \
   --address 192.168.1.20 \
   --team DITTTEAMID \
-  --csca /privat/trusted-csca.pem
+  --csca /privat/trusted-csca.pem \
+  --csca-crl /privat/csca.crl
 
 export OPENID_DIRECTORY="$HOME/openid-pilot"
 export OPENID_UID="$(id -u)" OPENID_GID="$(id -g)"

@@ -155,6 +155,15 @@ denna genomgång; EU-hänvisningarna ersätter inte läsning av konsoliderad
 lydelse inför juridiskt ställningstagande.
 
 
+## Certifikatspärr, kontrollerat 2026-10-26
+
+- [Polismyndigheten: CSCA-certifikat](https://polisen.se/tjanster-tillstand/pass-och-nationellt-id-kort/giltiga-svenska-resehandlingar/kontroll-av-passnationellt-id-kort/csca-certifikat/)
+  hänvisar till svenska CSCA-certifikat och publicerade spärrlistor.
+- [ICAO Doc 9303, del 12, åttonde upplagan med ändring 1](https://www.icao.int/sites/default/files/publications/DocSeries/9303_p12_cons_en.pdf),
+  avsnitt 4.1.4.3 och 4.1.5–4.1.5.1: nyckelbyte och certifikatspärr.
+  Verifierarens stöd är avgränsat till kompletta direkta CRL:er. Kontrollen
+  av certifikat är skild från den enskilda resehandlingens giltighetsstatus.
+
 ## Registeridentifierare
 
 - [Skatteverket: samordningsnummer](https://www.skatteverket.se/privat/folkbokforing/personnummerochsamordningsnummer/samordningsnummer.4.5c281c7015abecc2e201130b.html), kontrollerad 2026-10-21. Dagfältet ökas med 60; kontrollsiffra ingår. Formatkontroll är inte registerverifiering eller bevis på styrkt identitet.

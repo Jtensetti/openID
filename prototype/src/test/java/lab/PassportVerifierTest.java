@@ -44,10 +44,14 @@ class PassportVerifierTest {
   }
   static KeyPair key() throws Exception { var g = KeyPairGenerator.getInstance("EC"); g.initialize(256); return g.generateKeyPair(); }
   static X509Certificate certificate(KeyPair subject, String name, KeyPair issuer, String issuerName, boolean root) throws Exception {
+    return certificate(subject, name, issuer, issuerName, root,
+        root ? KeyUsage.keyCertSign | KeyUsage.cRLSign : KeyUsage.digitalSignature);
+  }
+  static X509Certificate certificate(KeyPair subject, String name, KeyPair issuer, String issuerName, boolean root, int usage) throws Exception {
     var builder = new JcaX509v3CertificateBuilder(new X500Name(issuerName), new BigInteger(96, new SecureRandom()),
         Date.from(NOW.minusSeconds(86400)), Date.from(NOW.plusSeconds(86400)), new X500Name(name), subject.getPublic());
     builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(root));
-    builder.addExtension(Extension.keyUsage, true, new KeyUsage(root ? KeyUsage.keyCertSign : KeyUsage.digitalSignature));
+    builder.addExtension(Extension.keyUsage, true, new KeyUsage(usage));
     return new JcaX509CertificateConverter().getCertificate(builder.build(new JcaContentSignerBuilder("SHA256withECDSA").build(issuer.getPrivate())));
   }
   byte[] dg1(String expiry) {
@@ -95,6 +99,8 @@ class PassportVerifierTest {
     if (export != null) {
       var directory = java.nio.file.Path.of(export); java.nio.file.Files.createDirectories(directory);
       java.nio.file.Files.write(directory.resolve("csca.der"),ca.getEncoded());
+      java.nio.file.Files.write(directory.resolve("csca.crl"),
+          crl(caKey, "CN=SYNTHETIC-CSCA", NOW.minusSeconds(60), NOW.plusSeconds(3600)).getEncoded());
       java.nio.file.Files.write(directory.resolve("portrait.jpg"),image);
       for (var entry : Map.of("sod",sod,"dg1",dg1,"dg2",dg2).entrySet())
         java.nio.file.Files.write(directory.resolve(entry.getKey()+".bin"),entry.getValue());
@@ -123,8 +129,13 @@ class PassportVerifierTest {
     sod=sign("SHA-1","SHA1withECDSA"); assertThrows(PassportVerifier.Rejected.class,()->verifier.verify(sod,dg1,dg2));
   }
   java.security.cert.X509CRL crl(KeyPair issuer, String issuerName, Instant thisUpdate, Instant nextUpdate, X509Certificate... revoked) throws Exception {
+    return crl(issuer, issuerName, thisUpdate, nextUpdate, Map.of(), revoked);
+  }
+  java.security.cert.X509CRL crl(KeyPair issuer, String issuerName, Instant thisUpdate, Instant nextUpdate,
+      Map<org.bouncycastle.asn1.ASN1ObjectIdentifier,org.bouncycastle.asn1.ASN1Encodable> extensions, X509Certificate... revoked) throws Exception {
     var builder = new org.bouncycastle.cert.X509v2CRLBuilder(new X500Name(issuerName), Date.from(thisUpdate));
     builder.setNextUpdate(Date.from(nextUpdate));
+    for (var extension : extensions.entrySet()) builder.addExtension(extension.getKey(), true, extension.getValue());
     for (var certificate : revoked) builder.addCRLEntry(certificate.getSerialNumber(), Date.from(thisUpdate), CRLReason.keyCompromise);
     return new org.bouncycastle.cert.jcajce.JcaX509CRLConverter().getCRL(builder.build(new JcaContentSignerBuilder("SHA256withECDSA").build(issuer.getPrivate())));
   }
@@ -132,6 +143,34 @@ class PassportVerifierTest {
     var current = crl(caKey, "CN=SYNTHETIC-CSCA", NOW.minusSeconds(3600), NOW.plusSeconds(86400 * 90));
     assertEquals("CHECKED_CRL", new PassportVerifier(Set.of(ca), List.of(current), CLOCK).verify(sod, dg1, dg2).revocation());
     assertEquals("NOT_CHECKED", verifier.verify(sod, dg1, dg2).revocation());
+    assertEquals(0, verifier.verify(sod, dg1, dg2).revocationValidUntil());
+    // Certificate expiry limits reuse even when the CRL has a later nextUpdate.
+    assertEquals(NOW.plusSeconds(86400).getEpochSecond(),
+        new PassportVerifier(Set.of(ca), List.of(current), CLOCK).verify(sod, dg1, dg2).revocationValidUntil());
+    var shortLived = crl(caKey, "CN=SYNTHETIC-CSCA", NOW.minusSeconds(60), NOW.plusSeconds(120));
+    assertEquals(NOW.plusSeconds(120).getEpochSecond(),
+        new PassportVerifier(Set.of(ca), List.of(shortLived), CLOCK).verify(sod, dg1, dg2).revocationValidUntil());
+  }
+  @Test void revokedTrustAnchorCannotIssueAnAcceptedDocument() throws Exception {
+    var revoked = crl(caKey, "CN=SYNTHETIC-CSCA", NOW.minusSeconds(60), NOW.plusSeconds(3600), ca);
+    assertEquals("REVOKED", assertThrows(PassportVerifier.Rejected.class,
+        () -> new PassportVerifier(Set.of(ca), List.of(revoked), CLOCK).verify(sod,dg1,dg2)).stage());
+  }
+  @Test void crlSigningRequiresTheCrlSignKeyUsage() throws Exception {
+    var noCrlUsage = certificate(caKey, "CN=SYNTHETIC-CSCA", caKey, "CN=SYNTHETIC-CSCA", true, KeyUsage.keyCertSign);
+    var current = crl(caKey, "CN=SYNTHETIC-CSCA", NOW.minusSeconds(60), NOW.plusSeconds(3600));
+    assertThrows(IllegalArgumentException.class, () -> new PassportVerifier(Set.of(noCrlUsage), List.of(current), CLOCK));
+  }
+  @Test void partialDeltaAndUnknownCriticalCrlSemanticsAreRejected() throws Exception {
+    Map<org.bouncycastle.asn1.ASN1ObjectIdentifier,org.bouncycastle.asn1.ASN1Encodable> extensions = Map.of(
+        Extension.deltaCRLIndicator, new org.bouncycastle.asn1.ASN1Integer(1),
+        Extension.issuingDistributionPoint, new IssuingDistributionPoint(null,false,false,null,false,false),
+        new org.bouncycastle.asn1.ASN1ObjectIdentifier("1.2.3.4.5"), org.bouncycastle.asn1.DERNull.INSTANCE);
+    for (var entry : extensions.entrySet()) {
+      var unsupported = crl(caKey, "CN=SYNTHETIC-CSCA", NOW.minusSeconds(60), NOW.plusSeconds(3600),
+          Map.of(entry.getKey(), entry.getValue()));
+      assertThrows(IllegalArgumentException.class, () -> new PassportVerifier(Set.of(ca), List.of(unsupported), CLOCK));
+    }
   }
   @Test void revokedDocumentSignerIsRejectedEvenWithValidSignature() throws Exception {
     var revoked = crl(caKey, "CN=SYNTHETIC-CSCA", NOW.minusSeconds(3600), NOW.plusSeconds(86400), signer);

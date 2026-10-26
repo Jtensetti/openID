@@ -384,18 +384,36 @@ skickas inte till appen.
 
 ### Spärrade dokumentsignerare
 
-Med `cscaCrl` i runtime-konfigurationen (eller `--csca-crl`) kontrolleras
-dokumentsignerarens certifikat mot CSCA:ns spärrlista, till exempel
-Polismyndighetens `http://cert.polisen.se/CSCA/SWE.crl`. Spärrlistan måste vara
-signerad av en betrodd CSCA och gälla nu. Spärrad eller okontrollerbar
-signerare stoppas (fail closed). En lista från en nyare CSCA-nyckel med samma
-namn täcker signerare från äldre nycklar (ICAO 9303-12). Hämta en ny lista före
-`nextUpdate`, annars stoppas alla registreringar:
+Registrering med en verifierad identitet kräver `CHECKED_CRL` och en ännu
+giltig `revocationValidUntil` från passverifieraren. Kravet kontrolleras före
+chipdialogen, före bildanalysen och både före och inne i databastransaktionen.
+Om giltigheten löper ut under arbetet återställs hela registreringen.
+Samma villkor gäller SQLite och PostgreSQL. Befintliga autentiserings- och
+spärrflöden kräver inte en ny passkontroll.
 
-```sh
-curl -fsS -o /privat/csca.crl http://cert.polisen.se/CSCA/SWE.crl
-openssl crl -inform DER -in /privat/csca.crl -noout -issuer -nextupdate
-```
+Ange `cscaCrl` i runtime-konfigurationen för SQLite eller klustrets
+registreringsinstans (`role: proofing`). Fristående verifiering tar
+`--csca-crl`. Utan spärrlista kan diagnostiken rapportera `NOT_CHECKED`,
+men resultatet får inte registrera en identitet. Det är därför fortfarande
+möjligt att starta tjänsten utan listan och hantera befintliga användare.
+
+Spärrlistan måste vara komplett, direkt utfärdad, signerad av en provisionerad
+CSCA med `cRLSign` och gälla nu. Delta-/distributionspunktsbegränsade listor
+och okända kritiska tillägg avvisas. Spärrad dokumentsignerare eller valt
+CSCA-ankare stoppas. En lista från en nyare CSCA-nyckel med samma namn kan
+täcka äldre signerare (ICAO 9303-12). Resultatets giltighet begränsas av
+`nextUpdate` och båda certifikatens sista giltighetsdag.
+
+Polismyndigheten publicerar exempelvis `http://cert.polisen.se/CSCA/SWE.crl`.
+Transporten ger inte tillit; den kryptografiska kontrollen mot separat
+provisionerade CSCA-certifikat gör det. Hämta till en separat kandidatfil,
+kontrollera signatur, utfärdare, omfattning och datum och byt sedan filen
+atomärt. Att enbart läsa listan med `openssl crl -noout` verifierar inte
+signaturen. Skriv aldrig en pågående hämtning över den använda filen.
+Uppdatering före `nextUpdate`, skydd mot återställning till äldre listor och
+driftlarm behöver införas och provas i drift. Certifikatspärr ersätter inte
+kontroll av om själva passet är förlorat, stulet eller återkallat.
+
 Passiva passkontroller, ansiktsjämförelse och liveness avgör inte utgivning;
 `issuanceEnabled` är alltid false.
 

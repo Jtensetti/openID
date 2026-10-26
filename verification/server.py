@@ -126,7 +126,8 @@ def handler(matcher, command, port, native=None, origin=None, token=None, browse
                     value = base64.b64decode(request[field], validate=True)
                     if not 0 < len(value) <= limit:
                         raise ValueError('invalid input')
-                portrait = verify_document(command, request).portrait
+                document = verify_document(command, request)
+                portrait = document.portrait
                 score = matcher.compare(portrait, base64.b64decode(request['camera'], validate=True))
                 pad_score = None
                 if pad is not None:
@@ -134,7 +135,7 @@ def handler(matcher, command, port, native=None, origin=None, token=None, browse
                     pad_score = pad.score(image,face)
                 return self.respond(200, {'passiveAuthentication': True, 'faceCosineSimilarity': score, 'padLiveScore':pad_score,
                     'faceDecision': 'NOT_CALIBRATED', 'liveness': 'RGB_PAD_SCORE_ONLY' if pad is not None else 'NOT_PERFORMED',
-                    'chipAuthentication': 'NOT_PERFORMED', 'revocation': 'NOT_CHECKED',
+                    'chipAuthentication': 'NOT_PERFORMED', 'revocation': document.revocation,
                     'identityVerified': False, 'issuanceEnabled': False})
             except (ValueError, TypeError, KeyError, OSError, subprocess.SubprocessError, sqlite3.Error, FaceRejected):
                 return self.respond(400, {'error': 'Kontrollen kunde inte slutföras. Kontrollera chipfiler, tillitsankare och att båda bilderna innehåller exakt ett tydligt ansikte.'})

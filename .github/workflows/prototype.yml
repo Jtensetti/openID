@@ -86,7 +86,7 @@ jobs:
           export PROOFING_FIXTURES=/tmp/openid-proofing-fixtures
           export PROOFING_JAVA="$JAVA_HOME/bin/java"
           export PROOFING_PYTHON="$PWD/.venv/bin/python"
-          .venv/bin/python -m unittest -v test_verification test_biometric_diagnostics test_native test_chip test_wallet test_relying_party test_identity test_identity_key test_registry_binding test_runtime test_crypto_runtime test_revocation test_notices test_continuity_config test_continuity_operator test_pose test_security_code test_biometric_budget
+          .venv/bin/python -m unittest -v test_verification test_biometric_diagnostics test_native test_chip test_wallet test_relying_party test_identity test_identity_key test_registry_binding test_runtime test_crypto_runtime test_revocation test_notices test_continuity_config test_continuity_operator test_pose test_security_code test_biometric_budget test_passport_revocation
           .venv/bin/python -m unittest -v test_audit_archive
           .venv/bin/python -m unittest discover -s ../deployment/continuity -p 'test_*.py' -v
           .venv/bin/python runtime_smoke.py

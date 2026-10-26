@@ -80,6 +80,14 @@ för stöd för explicita EC-parametrar. Ett genererat Brainpool-prov täcker
 betrodd kedja, obetrodd kedja och ändrad datagrupp. Detta ändrar inte
 kraven på tillitsankare eller den kvarstående kontrollen av certifikatspärr.
 
+ID-05: Registrering av en verifierad identitet kräver nu ett aktuellt
+`CHECKED_CRL`-resultat. Status och sista giltighetstid följer med från Java
+till registreringen; utgång under fångst eller lagring avvisas och rullas
+tillbaka. Även spärrat CSCA-ankare och listor med otillåten omfattning nekas.
+Syntetiska negativa prov täcker båda databaslägena. Driftens provisionering,
+färskhållning, skydd mot återgång till äldre CRL och passets egen spärrstatus
+återstår; detta är inget tillitsgodkännande.
+
 ID-05: Aktuell riktningsguide, fångsttrösklar och lokalt kameraprov beskrivs i
 [iPhone-dokumentationen](../ios/README.md#fotografering). Guiden är inte ett liveness-bevis.
 
