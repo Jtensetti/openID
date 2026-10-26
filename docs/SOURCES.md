@@ -69,6 +69,15 @@ avgränsat testbackport. Referensen innehåller mönstret; den anges inte som
 committen som introducerade det. Filhashar och teständring bevaras i bygglåset.
 Runtime-TLS-koden ändras inte.
 
+[BuildKits nätisolering](https://docs.docker.com/reference/dockerfile/#run---networknone),
+[skrivskyddade byggmonteringar](https://docs.docker.com/reference/dockerfile/#run---mounttypebind)
+och [pips lokala installation](https://pip.pypa.io/en/stable/cli/pip_install/#cmdoption-no-index)
+ligger till grund för imagebyggens installation från hashlåsta hjul utan nät.
+PyPI:s JSON-metadata och [PyTorchs officiella CPU-index](https://download.pytorch.org/whl/cpu/torch/)
+identifierar de exakta befintliga hjulen. Metadataadress och dess SHA-256
+finns i `python-wheels.lock.json`; själva filens befintliga hash verifieras
+separat av BuildKit och pip. En metadatahash ensam verifierar inte hjulfilen.
+
 ## Separat byggmiljö, 2026-10-26
 
 [GitHub-hosted runners](https://docs.github.com/en/actions/concepts/runners/github-hosted-runners)

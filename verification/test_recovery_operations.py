@@ -9,6 +9,7 @@ import sys
 import tempfile
 import unittest
 
+import recovery
 from recovery import backup_database, restore
 from wallet import Wallet
 
@@ -27,7 +28,7 @@ class RecoveryOperationsTests(unittest.TestCase):
         self.marker.chmod(0o600)
 
     def cli(self, *args):
-        return subprocess.run([sys.executable, str(Path(__file__).with_name('recovery.py')), *map(str, args)],
+        return subprocess.run([sys.executable, str(Path(recovery.__file__)), *map(str, args)],
                               check=True, capture_output=True, text=True, timeout=15)
 
     def test_cli_backup_does_not_initialize_wallet_or_modify_live_database(self):

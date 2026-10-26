@@ -20,3 +20,4 @@
 !deployment/build/install_build_pip.py
 !deployment/build/remove_build_pip.py
 !deployment/build/patch_python_test.py
+!deployment/build/python-wheels.lock.json

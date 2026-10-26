@@ -27,6 +27,13 @@ på Ubuntu 24.04 används utan att starta eller ändra värdens systemtjänst.
 
 ## Aktuell verifiering
 
+`deployment/build/test_python_wheels.py` provar att de båda imagebyggens
+applikationshjul täcker de befintliga requirements-filerna exakt. Förändrade
+hashar, osäkert ursprung, saknade/extra hjul, direktlänkar i krav och förlorad
+nätisolering avvisas. CI:s riktiga BuildKit-byggen installerar utan nät;
+`python_inventory.py` jämför sedan pips rapport och installerade versioner
+mot hjullåset. Lokala källkontroller ensamma bevisar inte Linux-isoleringen.
+
 `WalletHTTPTests` provar appens gemensamma nätverksgräns med syntetisk
 URL-laddning: HTTPS-krav, JSON, exakt svarsadress, nekad omdirigering,
 storleksgräns med/utan Content-Length, HTTP-fel och avbruten uppgift.

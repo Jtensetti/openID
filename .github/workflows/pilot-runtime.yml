@@ -16,6 +16,8 @@ jobs:
         run: python3 -m unittest discover -s deployment -p test_image_bundle.py -v
       - name: Test OS scan coverage, stale databases and rejected evidence
         run: python3 .github/scripts/test_audit_image_os.py -v
+      - name: Reject altered wheel origins and network-enabled package installs
+        run: python3 deployment/build/test_python_wheels.py -v
       - name: Export tracked source only
         run: |
           mkdir "$RUNNER_TEMP/image-source"

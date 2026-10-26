@@ -294,6 +294,16 @@ komponenter gav fynd för urllib3, msgpack och setuptools. De kräver bedömning
 av faktisk medlevererad kod och bygganvändning; inga undantag eller påståenden
 om fullständig rättning följer av versionsbytet. Borttagning ur runtime
 ersätter inte granskning av byggverktyget.
+Pilot- och registerbyggen installerar nu applikationshjulen från ett lokalt,
+skrivskyddat BuildKit-steg utan nätåtkomst. Filadresserna kommer från PyPI:s
+officiella distributionsmetadata respektive PyTorchs CPU-index, som för
+det låsta torch-hjulet hänvisar till `download-r2.pytorch.org`.
+`deployment/build/python-wheels.lock.json` binder ursprung till befintliga
+paketversioner och hashkrav; inga nya paket, versioner eller licenser införs.
+Installationsrapport och verklig paketlista kontrolleras i båda images.
+Åtgärden begränsar pips nätverksexponering under imagebygget; värdens CI-pip,
+BuildKit och andra nedladdare behöver fortsatt egen bedömning. Existerande
+komponentregister, licenser och SBOM kvarstår; hjullåset ersätter dem inte.
 Förvaltaren ansvarar för versions-, licens- och advisorybevakning samt byte
 till en verifierad officiell container när en sådan finns. Oberoende
 granskning, integrationstester och behörigt releasebeslut krävs fortsatt.

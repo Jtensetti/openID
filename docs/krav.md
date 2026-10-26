@@ -279,5 +279,9 @@ Ett upstreambaserat testbackport accepterar kända avbrottsfel utan att ändra
 TLS eller hoppa över prov. Pip 26.2.2 används för bygginstallation och ingår
 i OSV-grinden. Pip och ensurepip tas sedan bort ur driftfilsystemet; båda
 imagernas CI kontrollerar att verktygen inte kan importeras eller startas.
+Applikationshjul hämtas separat med BuildKits checksum-kontroll och installeras
+med avstängt nät, lokalt paketlager och obligatoriska hashkrav. Både profilerna
+och faktisk installation kontrolleras mot samma låsta krav och filursprung.
+Det begränsar pips nätverksexponering i imagebygget; övrig CI omfattas inte.
 Övriga OS-/runtimefynd, inbäddade pip-beroenden, oberoende granskning och införande
 kvarstår som separata krav; uppdateringen höjer ingen formell tillitsstatus.

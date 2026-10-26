@@ -176,6 +176,23 @@ eller index, direkt från hjulfilen. Installation får inte felaktigt använda
 byggcontainerns redan installerade pip. Applikationspaketen har fortsatt
 hashkrav och endast binära hjul tillåts.
 
+Alla applikationshjul hämtas i ett separat `scratch`-steg av BuildKit med
+`ADD --checksum`, från de officiella filadresserna i
+[python-wheels.lock.json](python-wheels.lock.json). Låset hänvisar till samma
+versioner och SHA-256 som komponenternas befintliga requirements-filer.
+Pilotprofilen har 21 paket; registerprofilen har sex och hämtar inga
+biometriska beroenden. Paketinstallation körs med `RUN --network=none`,
+`--no-index`, lokal `--find-links`, hashkrav och oförändrad beroendelösning.
+Hjulen monteras skrivskyddat från nedladdningssteget och kopieras inte till
+driftfilsystemet. Inget pip-anrop i dessa två imagebyggen behöver nätåtkomst.
+
+`test_python_wheels.py` nekar ändrade krav/hashar, saknade eller extra hjul,
+andra ursprung och förlorad nätisolering. CI bygger sedan de riktiga Linux-
+images och jämför installerade paket samt pips installationsrapport med
+profilens namn, versioner, lokala filadresser och SHA-256. Lås och rapport
+bevaras under Python-underlaget; deras hashvärden finns i paketinventeringen.
+Förändrat ursprung kräver samma granskning som övriga beroendeändringar.
+
 Efter installation tas pip, dess inbäddade paket, startprogram och hela
 `ensurepip` inklusive gammalt bootstrap-hjul bort från driftfilsystemet.
 Tjänsten installerar inte paket under körning; uppdatering kräver en ny image.
@@ -187,7 +204,11 @@ standardbibliotekets metadata. Detta tar inte bort historiska bygglager.
 Pips bygglicenser, upstream-SBOM och borttagningsbevis bevaras under
 Python-underlaget. Pip 26.2.2 har fortfarande advisoryfynd i medlevererad
 urllib3 och andra komponenter; borttagningen begränsar runtime, men ersätter
-inte bedömning av byggverktygets exponering. Pythonkällans ursprungliga SPDX
+inte bedömning av byggverktygets exponering. Nätisoleringen av pip begränsar
+dess exponering för proxy- och HTTP-svar under dessa imagebyggen. BuildKits
+nedladdare, andra verktygs nätåtkomst och pip på CI-värden omfattas inte av
+denna åtgärd. Den rättar inte pips bundlade källkod och är inget generellt
+sårbarhetsundantag. Pythonkällans ursprungliga SPDX
 ska inte läsas som en förteckning över det färdiga driftfilsystemet.
 
 Käll-SPDX, licenser, bygglås och upstream-testlogg sparas under

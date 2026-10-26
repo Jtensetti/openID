@@ -37,6 +37,12 @@ jobs:
         run: |
           docker build --tag openid-wallet:ci --file deployment/cluster/Dockerfile .
           docker run --rm -i --network none --read-only --cap-drop ALL --entrypoint python openid-wallet:ci - < deployment/build/python_inventory.py > "$RUNNER_TEMP/cluster-python-packages.json"
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --pids-limit 32 --memory 256m --cpus 1 \
+            --user "$(id -u):$(id -g)" --tmpfs /tmp:size=32m,mode=1777 \
+            -e PYTHONPATH=/tests:/app/verification \
+            -v "$PWD/verification/test_cluster_revocation.py:/tests/test_cluster_revocation.py:ro" \
+            --entrypoint python openid-wallet:ci -m unittest -v test_cluster_revocation
           docker run --rm --read-only --cap-drop ALL --entrypoint python openid-wallet:ci cluster_recovery.py --help
           docker run --rm --read-only --cap-drop ALL --entrypoint python openid-wallet:ci audit_archive.py --help
       - name: Enable and verify database TLS

@@ -1,3 +1,12 @@
+# Download exact reviewed artifacts with BuildKit; pip never downloads them.
+FROM scratch AS python-wheels
+ADD --checksum=sha256:bd249d0b3f7972f7432f0a6b6ff3b3ee2d129f70cd1ff6c09a9dd9e29a2b88e3 https://files.pythonhosted.org/packages/fe/85/7522a52e5e2f42faf1a129113ab63e548c42e103e9af395b7bfe65e403e2/gunicorn-26.2.0-py3-none-any.whl /wheels/gunicorn-26.2.0-py3-none-any.whl
+ADD --checksum=sha256:a1db9f7148b06a28606767efaca51fa6f9398c5c0a3810519be69d7000bdb631 https://files.pythonhosted.org/packages/4e/de/748bd7609c71cae5d737f0ba9192f19329f70180ecda8fff3cac02c5abe3/psycopg-3.3.6-py3-none-any.whl /wheels/psycopg-3.3.6-py3-none-any.whl
+ADD --checksum=sha256:1679a1cb93fbe5a6d1fd58d82cbddcc6fcb8c61446ba7cae6eb2a7b19bc585de https://files.pythonhosted.org/packages/0a/42/948bb3d2617795093512613fd96ba380e922992c7908fbc073858147d196/psycopg_binary-3.3.6-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl /wheels/psycopg_binary-3.3.6-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+ADD --checksum=sha256:9b9cd6a4fcec47a410f7e82d408540e7f77b478509e91b44c1a5457a13e5ff37 https://files.pythonhosted.org/packages/5d/b4/452c6607a0f479465cd8a9b0d9956919fcb150050c1f83f9f11e6b8ee8dc/psycopg_pool-3.3.3-py3-none-any.whl /wheels/psycopg_pool-3.3.3-py3-none-any.whl
+ADD --checksum=sha256:16e64e0716c14960108e85d853062c9e8bba5ca8252c0b4d0231b9df4060ff4f https://files.pythonhosted.org/packages/dd/b8/d2d6d731733f51684bbf76bf34dab3b70a9148e8f2cef2bb544fccec681a/qrcode-8.2-py3-none-any.whl /wheels/qrcode-8.2-py3-none-any.whl
+ADD --checksum=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8 https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl /wheels/typing_extensions-4.16.0-py3-none-any.whl
+
 FROM python:3.12.15-trixie@sha256:0d0db5b17f11b1b7d1aafa74ceadaa64ba0944b267ff6fc22008a197acd6b9ad AS python-build
 ADD --checksum=sha256:b5796915dc45ff745cfb4e990a7e7c93d6f546328a102ce31448d69ebc37575c https://www.python.org/ftp/python/3.12.16/Python-3.12.16.tar.xz /tmp/python-source.tar.xz
 ADD --checksum=sha256:6c268edc3c8b9b12a875b3d3ed2495983b8a4a94c070927863b942722a9a216c https://www.python.org/ftp/python/3.12.16/Python-3.12.16.tar.xz.spdx.json /tmp/python-source.spdx.json
@@ -26,7 +35,12 @@ COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=node /usr/local/LICENSE /usr/share/doc/nodejs/LICENSE
 WORKDIR /app/verification
 COPY verification/cluster-requirements.lock verification/runtime-requirements.lock verification/rp-requirements.lock ./
-RUN pip install --no-cache-dir --require-hashes --only-binary=:all: -r cluster-requirements.lock -r runtime-requirements.lock -r rp-requirements.lock
+COPY deployment/build/python-wheels.lock.json /usr/share/doc/openid-python/python-wheels.lock.json
+RUN --network=none --mount=type=bind,from=python-wheels,source=/wheels,target=/wheels \
+    python -m pip --isolated --disable-pip-version-check install \
+    --no-index --find-links=/wheels --no-cache-dir --require-hashes --only-binary=:all: \
+    --report=/usr/share/doc/openid-python/wheel-installation.json -r cluster-requirements.lock -r runtime-requirements.lock -r rp-requirements.lock
+RUN --network=none printf '%s\n' registry > /usr/share/doc/openid-python/wheel-profile.txt
 COPY verification/cluster_bridge.py verification/federation.py verification/cluster_serve.py verification/cluster_operator.py verification/postgres.py verification/transit.py verification/maintenance.py verification/monitor.py verification/runtime.py verification/biometric_worker.py verification/serve.py verification/native.py verification/wallet.py verification/identity.py verification/crypto_runtime.py ./
 COPY verification/crypto-worker.mjs verification/device-signature.mjs verification/profile-crypto.mjs ./
 COPY verification/licenses /app/licenses
