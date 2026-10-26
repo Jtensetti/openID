@@ -192,13 +192,51 @@ class RuntimeTests(unittest.TestCase):
         limit = RateLimit(rate=1, burst=1, capacity=1)
         self.assertTrue(limit.allow('first')); self.assertFalse(limit.allow('second')); self.assertFalse(limit.allow('first'))
 
+    def test_proxy_clients_have_separate_enrollment_budgets(self):
+        self.app = Runtime(self.native, self.wallet, 'https://localhost:8765', 'a'*43, trusted_proxy='127.0.0.1')
+        self.app.enrollment_rate = RateLimit(rate=0, burst=1)
+        self.assertEqual(200, self.request(HTTP_X_OPENID_CLIENT_IP='192.0.2.8')[0])
+        self.assertEqual(429, self.request(HTTP_X_OPENID_CLIENT_IP='192.0.2.8')[0])
+        self.assertEqual(429, self.request(HTTP_X_OPENID_CLIENT_IP='::ffff:192.0.2.8')[0])
+        self.assertEqual(200, self.request(HTTP_X_OPENID_CLIENT_IP='198.51.100.9')[0])
+        self.assertEqual(2,self.native.start.call_count)
+
+    def test_proxy_clients_have_separate_general_budgets(self):
+        self.app = Runtime(self.native, self.wallet, 'https://localhost:8765', 'a'*43, trusted_proxy='127.0.0.1')
+        self.app.rate = RateLimit(rate=0, burst=1)
+        for ip,status in [('192.0.2.8',200),('192.0.2.8',429),('198.51.100.9',200)]:
+            self.assertEqual(status,self.request('/wallet/challenge',HTTP_X_OPENID_CLIENT_IP=ip)[0])
+        self.assertEqual(2,self.wallet.challenge.call_count)
+
+    def test_spoofed_or_missing_proxy_address_never_reaches_services(self):
+        self.app = Runtime(self.native, self.wallet, 'https://localhost:8765', 'a'*43, trusted_proxy='127.0.0.1')
+        for change in ({}, {'REMOTE_ADDR':'192.0.2.8','HTTP_X_OPENID_CLIENT_IP':'198.51.100.9'},
+                       {'HTTP_X_OPENID_CLIENT_IP':'192.0.2.8,198.51.100.9'},
+                       {'HTTP_X_OPENID_CLIENT_IP':'192.0.2.8','HTTP_X_FORWARDED_FOR':'198.51.100.9'}):
+            self.assertEqual(403,self.request(**change)[0])
+        self.native.start.assert_not_called()
+        self.app = Runtime(self.native, self.wallet, 'https://localhost:8765', 'a'*43)
+        self.assertEqual(403,self.request(HTTP_X_OPENID_CLIENT_IP='192.0.2.8')[0])
+        self.native.start.assert_not_called()
+
+    def test_proxy_configuration_rejects_non_loopback_before_opening_secrets(self):
+        from serve import load_config
+        fields = dict(bind='10.0.0.8', origin='https://localhost:8765', team='A'*10,
+            bundle='se.openid.PassportCapture', developmentAttestation=True, tlsCert='/missing',
+            tlsKey='/missing', csca='/missing', database='/missing', pairingFile='/missing', trustedProxy='127.0.0.1')
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'config.json';path.write_text(json.dumps(fields))
+            with self.assertRaisesRegex(ValueError,'loopback listener'): load_config(path)
+
     def test_bad_origin_configuration(self):
         for value in ['http://localhost:8765', 'https://user@host:8765', 'https://host:8765/', 'https://host:80', 'https://host:8765?x=1']:
             with self.subTest(value=value), self.assertRaises(ValueError): validate_origin(value)
 
     def test_duplicate_and_forwarded_headers_rejected(self):
         from gunicorn.http.errors import InvalidHeader
-        for headers in [[('HOST','one'),('HOST','two')], [('X-FORWARDED-FOR','one')], [('TRANSFER-ENCODING','chunked')]]:
+        for headers in [[('HOST','one'),('HOST','two')], [('X-FORWARDED-FOR','one')], [('TRANSFER-ENCODING','chunked')],
+                        [('X-OpenID-Client-IP','192.0.2.8'),('x-openid-client-ip','198.51.100.9')],
+                        [('X_OpenID_Client_IP','192.0.2.8')]]:
             with self.assertRaises(InvalidHeader): reject_duplicate_headers(None, Mock(headers=headers))
 
 

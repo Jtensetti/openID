@@ -26,6 +26,7 @@ OTHER_TEST_PERSON_NUMBER = '198007199295'
 def document(number='TEST00001', **fields):
     return VerifiedDocument.from_verifier({
         'passiveAuthentication': True, 'portrait': base64.b64encode(b'synthetic-image-placeholder').decode(),
+        'revocation': 'CHECKED_CRL', 'revocationValidUntil': 4102444800,  # Synthetic verifier result.
         'identity': dict(givenNames='ALICE', familyName='SYNTHETIC', birthDateMrz='900101',
                          nationality='UTO', issuingState='UTO', documentNumber=number, documentExpires='2030-10-19') | fields})
 

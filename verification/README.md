@@ -337,7 +337,10 @@ lagras i databasen och överlever omstart. Den skyddar mot att en äldre
 backup saknar senare biometriförsök. Identitetsnyckeln måste bevaras separat
 även när det bara finns försökshistorik och inga profiler.
 Den publika betan kontrollerar dessutom den separata aktuella spärrtabellen;
-dess konfiguration och migrationsmarkör måste bevaras. Återställ aldrig
+dess konfiguration och migrationsmarkör måste bevaras. `recovery.py backup`
+kopierar markören utan att starta Wallet; `restore` bevarar den och kan dessutom
+kräva den med `--require-continuity` för en äldre kopia. Använd alltid flaggan
+för en driftsatt tjänst. Återställ aldrig
 en äldre programversion som saknar denna kontroll. Det privata grundläget
 saknar externt spärrankare. Inga adminfunktioner exponeras via HTTP.
 
@@ -384,18 +387,92 @@ skickas inte till appen.
 
 ### Spärrade dokumentsignerare
 
-Med `cscaCrl` i runtime-konfigurationen (eller `--csca-crl`) kontrolleras
-dokumentsignerarens certifikat mot CSCA:ns spärrlista, till exempel
-Polismyndighetens `http://cert.polisen.se/CSCA/SWE.crl`. Spärrlistan måste vara
-signerad av en betrodd CSCA och gälla nu. Spärrad eller okontrollerbar
-signerare stoppas (fail closed). En lista från en nyare CSCA-nyckel med samma
-namn täcker signerare från äldre nycklar (ICAO 9303-12). Hämta en ny lista före
-`nextUpdate`, annars stoppas alla registreringar:
+Registrering med en verifierad identitet kräver `CHECKED_CRL` och en ännu
+giltig `revocationValidUntil` från passverifieraren. Kravet kontrolleras före
+chipdialogen, före bildanalysen och både före och inne i databastransaktionen.
+Om giltigheten löper ut under arbetet återställs hela registreringen.
+Samma villkor gäller SQLite och PostgreSQL. Befintliga autentiserings- och
+spärrflöden kräver inte en ny passkontroll.
+
+Ange `cscaCrl` i runtime-konfigurationen för SQLite eller klustrets
+registreringsinstans (`role: proofing`). Fristående verifiering tar
+`--csca-crl`. Utan spärrlista kan diagnostiken rapportera `NOT_CHECKED`,
+men resultatet får inte registrera en identitet. Det är därför fortfarande
+möjligt att starta tjänsten utan listan och hantera befintliga användare.
+
+Spärrlistan måste vara komplett, direkt utfärdad, signerad av en provisionerad
+CSCA med `cRLSign` och gälla nu. Delta-/distributionspunktsbegränsade listor
+och okända kritiska tillägg avvisas. Spärrad dokumentsignerare eller valt
+CSCA-ankare stoppas. En lista från en nyare CSCA-nyckel med samma namn kan
+täcka äldre signerare (ICAO 9303-12). Resultatets giltighet begränsas av
+`nextUpdate` och båda certifikatens sista giltighetsdag.
+
+Polismyndigheten publicerar exempelvis `http://cert.polisen.se/CSCA/SWE.crl`.
+Transporten ger inte tillit; den kryptografiska kontrollen mot separat
+provisionerade CSCA-certifikat gör det. Hämta till en separat kandidatfil,
+kontrollera och installera den med verktyget nedan. Att enbart läsa listan med `openssl crl -noout` verifierar inte
+signaturen. Skriv aldrig en pågående hämtning över den använda filen.
+Uppdatering före `nextUpdate`, återställning av hela värden och
+driftlarm behöver införas och provas i drift. Certifikatspärr ersätter inte
+kontroll av om själva passet är förlorat, stulet eller återkallat.
+
+### Kontroll och byte av spärrlista
+
+`crl_maintenance.py` använder den paketerade Java-verifierarens `check-crls`.
+Inga certifikat eller listor hämtas från nätet av verktyget. Trust-bundlen
+provisioneras separat. Kör som samma OS-användare som äger den aktiva listan,
+i en befintlig katalog med betrodda överordnade kataloger, utan symlänkar
+eller skrivbehörighet för andra användare.
+
+Stoppa registreringsprocessen före listbytet och starta den först efter
+godkänd kontroll. Detta tömmer fångstsessioner som redan hunnit verifiera
+passet med föregående lista. Filbytet samordnas ännu inte med pågående
+registreringstransaktioner; kör därför inte verktyget som obevakad
+bakgrundsuppdatering mot en aktiv registreringsprocess. Separata
+autentiseringsinstanser behöver inte stoppas.
 
 ```sh
-curl -fsS -o /privat/csca.crl http://cert.polisen.se/CSCA/SWE.crl
-openssl crl -inform DER -in /privat/csca.crl -noout -issuer -nextupdate
+python3 crl_maintenance.py install \
+  --jar ../prototype/target/isolated-eid-lab.jar \
+  --trust /privat/trusted-csca.pem \
+  --candidate /privat/hamtad-kandidat.crl \
+  --destination /privat/csca.crl
+
+python3 crl_maintenance.py check \
+  --jar ../prototype/target/isolated-eid-lab.jar \
+  --trust /privat/trusted-csca.pem \
+  --destination /privat/csca.crl
 ```
+
+För allra första installationen i en ny miljö krävs dessutom `--initialize`.
+Flaggan får inte ersätta utredning om en tidigare aktiv fil oväntat saknas,
+och kan inte skriva över en befintlig lista. Kandidaten måste ha minst fem
+minuter kvar. Per utfärdare krävs ett icke-kritiskt, icke-negativt CRL-nummer
+på högst 20 oktetter. Ändrat innehåll kräver högre nummer och samma eller
+senare `thisUpdate`. En identisk lista tillåts. Utfärdare får inte tas bort
+ur en bundle, och flera versioner för samma utfärdare nekas.
+
+Ett processlås serialiserar uppdateringar. Verifieringen använder exakt de
+byte som sedan skrivs; fil- och katalogsynkronisering omger ett atomärt byte.
+Fel före bytet lämnar den gamla filen kvar. Om katalogsynkroniseringen
+misslyckas efter bytet kan den nya listan redan vara installerad: kontrollera
+status och försök igen, återställ aldrig en äldre lista som felhantering.
+Listan installeras med mode 0600; använd samma identitet vid verifiering.
+
+Kommandona skriver en liten JSON-status utan passuppgifter. Slutkod 0 betyder
+lyckad installation/kontroll, 2 avvisad kontroll eller driftfel och 3 att
+listan går ut inom varningsfönstret (standard 72 timmar, `--warn-before` i
+sekunder). Koppla 2/3 till den beslutade driftbevakningen och bevara tid,
+revision, status och SHA-256 som ändringsbevis. Ingen timer eller molntjänst
+skapas automatiskt.
+
+Återgångsskyddet jämför med den installerade signerade filen. Det skyddar
+verktygets uppdateringsväg, inte en administratörs direkta filbyte eller
+återläsning av hela servern till ett gammalt tillstånd. Efter helsystems-
+återställning måste en oberoende aktuell källa kontrolleras innan registrering
+öppnas. Byte av trust-bundle, borttagning av utfärdare och förlorad historik
+kräver en separat granskad ändring.
+
 Passiva passkontroller, ansiktsjämförelse och liveness avgör inte utgivning;
 `issuanceEnabled` är alltid false.
 
@@ -405,7 +482,7 @@ Passiva passkontroller, ansiktsjämförelse och liveness avgör inte utgivning;
   Motståndskraft mot masker, injektion och relä behöver utvärderas.
 - App Attest styrker appinstans och signerade data, inte kamerans fysiska
   ursprung. NFC-transporten förhindrar inte relä till ett annat fysiskt chip.
-- Spärrlistan hämtas manuellt; automatisk uppdatering, länkcertifikat, äldre
+- Spärrlistan hämtas manuellt; automatiserad hämtning/bevakning, länkcertifikat, äldre
   algoritmer och historiskt giltiga men nu utgångna DSC stöds inte.
 - Poskontrollen bevisar 3D-struktur i tre bilder, inte ett sammanhängande
   rörelseförlopp. Film på skärm och injicerad video kräver PAD-, injektions-

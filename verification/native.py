@@ -51,9 +51,10 @@ class AppAttest:
 
 class NativeSessions:
     def __init__(self,attest,passport,matcher,pad,clock=time.monotonic,wallet=None,chip_factory=None,biometrics=None,
-                 pose_order=random_pose_order,pose_direction=False,pose_enforced=True):
+                 pose_order=random_pose_order,pose_direction=False,pose_enforced=True,wall_clock=time.time):
         self.attest,self.passport,self.matcher,self.pad,self.clock=attest,passport,matcher,pad,clock
         self.wallet=wallet
+        self.wall_clock=wall_clock
         self.pose_order,self.pose_direction,self.pose_enforced=pose_order,pose_direction,pose_enforced
         self.biometrics=biometrics
         self.chip_factory=chip_factory
@@ -111,6 +112,7 @@ class NativeSessions:
         for key,limit in [('sod',65536),('dg1',4096),('dg2',2_000_000),('dg14',16384)]:
             if not 0<len(base64.b64decode(data[key],validate=True))<=limit:raise ValueError('document size')
         document=self.passport(data)
+        if self.wallet is not None: document.require_current_revocation(self.wall_clock())
         chip=self.chip_factory(data)
         try:
             result=chip.next()
@@ -161,6 +163,7 @@ class NativeSessions:
         if any(not 0<len(frame)<=2_000_000 for frame in frames):raise ValueError('frame size')
         if len(set(frames))!=3:raise ValueError('duplicate frames')
         document=pending['document']
+        if self.wallet is not None: document.require_current_revocation(self.wall_clock())
         portrait=document.portrait
         # Persistent per-document limit: a stolen passport cannot be used to tune attacks against the thresholds.
         limiter=getattr(self.wallet,'biometric_attempt',None) if self.wallet is not None else None
@@ -191,6 +194,7 @@ class NativeSessions:
             credential=self.wallet.enroll(pending['devicePublicKey'], document)
         # No raw scores to the client: they would be an oracle for tuning a presentation or morphing attack.
         return {'checksPassed':passed,'passiveAuthentication':True,'appAttest':True,
-            'chipAuthentication':'SERVER_VERIFIED_CA','poseCheck':'PASSED' if pose_passed else 'FAILED',
+            'chipAuthentication':'SERVER_VERIFIED_CA','revocation':document.revocation,
+            'poseCheck':'PASSED' if pose_passed else 'FAILED',
             'policy':'EXPERIMENTAL_0.5_FACE_0.8_PAD_POSE_V1','issuanceEnabled':False,'credential':credential,
             **({'attemptsRemaining':remaining} if remaining is not None else {})}

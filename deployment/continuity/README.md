@@ -113,6 +113,11 @@ En migrerad wallet får en `wallet.continuity-required`-markör. Gamla lokala
 kommandon utan konfiguration vägrar öppna den. Driftkonfigurationen måste också
 bevaras separat från databasbackuper; markören ersätter inte det kravet.
 Återställ endast kod som förstår och kräver kontinuitetskonfigurationen.
+`recovery.py backup` bevarar markören utan att öppna Wallet eller anropa den
+oberoende tjänsten. `recovery.py restore --require-continuity` bevarar eller
+skapar kravet även för äldre kopior. Använd flaggan vid driftåterställning,
+och anslut den återställda noden till den aktuella spärrtjänsten, aldrig till
+en äldre kopia av dess tabell. Saknad konfiguration måste stoppa tjänstestart.
 En äldre programversion utan markörkontroll får inte återtas efter migration.
 
 Vid serverstart återstartas de tre containrarna med `unless-stopped`.

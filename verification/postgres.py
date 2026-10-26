@@ -98,6 +98,7 @@ class PostgresWallet(Wallet):
 
     def biometric_attempt(self, document):
         if not isinstance(document, VerifiedDocument): raise ValueError('verified document required')
+        document.require_current_revocation(self.clock())
         tag = self.vault.document_tag(document)
         # A separate commit makes model errors/process death unable to restore this reservation.
         # The database function serializes the tag across every enrollment replica.

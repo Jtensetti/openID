@@ -31,6 +31,25 @@ bevarat innehåll, betakontoskydd och avvisning över 128 KiB. Nginx-provets
 samtliga temporära kataloger ligger i dess egen engångskatalog.
 Inga pilotnycklar eller riktiga konton används. Resultatet anger nginx-versionen.
 
+API-ingressen skriver `X-OpenID-Client-IP` från sin egen anslutningsadress
+och ersätter klientens eventuella värde. Betans `runtime.json` måste därför
+innehålla `"trustedProxy": "127.0.0.1"` tillsammans med
+`"bind": "127.0.0.1"`. Driftsätt runtime, konfiguration och nginx tillsammans
+under ett registreringsstopp, och prova nyregistrering och inloggning efter
+omstart. Uppdatera inte bara nginx framför en äldre runtime.
+
+Proxyförtroendet gäller en enda uttryckligt vald loopbackadress. En annan
+anslutande adress, saknad/felaktig klientadress, dubbletter eller alternativa
+headernamn med understreck nekas av runtime. Vanliga `Forwarded`-huvuden
+förblir otillåtna. Direktläget saknar `trustedProxy` och nekar det särskilda
+adresshuvudet. Hälsokontroller behöver inte detta huvud. Ingen klientadress
+används som identitetsbevis eller sparas i HTTP-loggarna.
+
+Värddatorns lokala processer hör till förtroendegränsen. Lägg inte till en
+yttre proxy eller nginx `real_ip`-omskrivning utan en separat prövad
+konfiguration. Flera telefoner bakom samma NAT delar fortfarande gräns;
+detta är trafikskydd, inte en beständig försöksbudget per innehavare.
+
 ## Förbered och starta
 
 Kräver Docker med Compose, Python 3 och OpenSSL på värddatorn. Använd ett
@@ -47,7 +66,8 @@ python3 deployment/setup.py \
   --directory "$HOME/openid-pilot" \
   --address 192.168.1.20 \
   --team DITTTEAMID \
-  --csca /privat/trusted-csca.pem
+  --csca /privat/trusted-csca.pem \
+  --csca-crl /privat/csca.crl
 
 export OPENID_DIRECTORY="$HOME/openid-pilot"
 export OPENID_UID="$(id -u)" OPENID_GID="$(id -g)"
@@ -96,6 +116,11 @@ signeringsutmaningar finns i processminnet.
   Headerantal, headerstorlek, JSON-storlek och tillåtna routes begränsas.
 - Per klient-IP tillåts 10 API-anrop/sekund med en buffert på 160 anrop.
   Nyregistrering begränsas separat till 10/minut med en buffert på fem.
+  Den publika betan använder den validerade nginx-adressen enligt ovan;
+  motsvarande IPv4-/IPv6-skrivsätt ger samma räknare. Minnesgränsen på
+  1 024 klienter och separata kapacitetsgränser består. Räknarna är lokala
+  till processen och nollställs vid omstart; klusterläget aktiverar inte
+  proxyförtroende genom denna ändring.
 - Bildanalys körs i en separat process med 45 sekunders tidsgräns. Alla
   modellhashar kontrolleras före laddning. Misslyckad analys återanvänder
   inte registreringssessionen.
@@ -147,15 +172,29 @@ cd verification
   --destination /privat/backups/kopia-001
 .venv/bin/python recovery.py restore --backup /privat/backups/kopia-001/wallet.sqlite \
   --destination /privat/aterstalld \
-  --identity-key /separat/nyckelforvaring/wallet.identity-key
+  --identity-key /separat/nyckelforvaring/wallet.identity-key --require-continuity
 ```
 
-Säkerhetskopian använder SQLite backup-API och innehåller ingen profilnyckel.
+Säkerhetskopian använder SQLite backup-API i läsläge, utan Wallet-start,
+schemaändring eller nätverksanrop, och innehåller ingen profilnyckel. En befintlig
+`wallet.continuity-required` följer med kopian och återställningen. Felaktiga
+markörer avvisas. Behåll hela backupkatalogen. `--require-continuity` kräver
+oberoende spärr och avisering även när en äldre kopia saknar markören;
+använd flaggan för driftsatta tjänster. Driftkonfigurationen och IAM-åtkomsten
+till den **aktuella** oberoende spärrtjänsten måste ordnas separat före start.
+Flaggan återskapar inte den tjänsten eller dess aktuella spärrhistorik.
 Förvara nyckeln separat och skydda även backupmediet. Återställning kräver en
 ny katalog, kontrollerar databasen och dekrypteringen och **spärrar samtliga
 återställda nycklar**. Alla användare måste registrera sig på nytt. Byt aldrig
 ut en databas under en körande tjänst. Att manuellt kopiera in en gammal
 databas kringgår denna procedur och stöds inte.
+
+Prova återläsning i en isolerad miljö innan en kopia används: kontrollera att
+samtliga gamla ID:n är spärrade, att gamla förfrågningar inte kan slutföras,
+att registreringskarantänen består efter omstart och att saknad oberoende
+spärrkonfiguration stoppar start. Registrera revision, kopians kontrollsumma,
+ålder, återställningstid och resultat utan personuppgifter. Denna procedur
+ersätter inte extern backupförvaring eller en genomförd driftövning.
 
 ## Gräns mot publik drift
 

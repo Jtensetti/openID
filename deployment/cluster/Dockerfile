@@ -33,6 +33,7 @@ COPY verification/licenses /app/licenses
 COPY verification/THIRD_PARTY.md /app/licenses/components.md
 COPY deployment/cluster/probe.py ./probe.py
 COPY verification/cluster_recovery.py verification/audit_archive.py ./
+COPY verification/ingress_client.py ./
 COPY deployment/cluster/schema.sql /app/deployment/cluster/schema.sql
 COPY deployment/build/remove_build_pip.py /tmp/remove_build_pip.py
 RUN --network=none python /tmp/remove_build_pip.py && rm /tmp/remove_build_pip.py

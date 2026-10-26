@@ -1,5 +1,13 @@
 # Källregister
 
+## Avgränsad klientadress genom betans ingress, 2026-10-26
+
+[nginx proxy_set_header](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_set_header)
+och [remote_addr](https://nginx.org/en/docs/http/ngx_http_core_module.html#var_remote_addr)
+ligger till grund för att ersätta klientens adresshuvud med anslutningens
+adress. Inga `real_ip`-regler ingår. Eget proxyläge begränsas till explicit
+loopbacklyssnare; det provas med förfalskade huvuden genom riktig nginx.
+
 ## OS-kontroll och Debian-rättningar, 2026-10-26
 
 [Trivy 0.76.1](https://github.com/aquasecurity/trivy/releases/tag/v0.76.1),
@@ -217,6 +225,18 @@ profilcertifiering är utförd. Direktåtkomst till EUR-Lex blockerades vid
 denna genomgång; EU-hänvisningarna ersätter inte läsning av konsoliderad
 lydelse inför juridiskt ställningstagande.
 
+
+## Certifikatspärr, kontrollerat 2026-10-26
+
+- [Polismyndigheten: CSCA-certifikat](https://polisen.se/tjanster-tillstand/pass-och-nationellt-id-kort/giltiga-svenska-resehandlingar/kontroll-av-passnationellt-id-kort/csca-certifikat/)
+  hänvisar till svenska CSCA-certifikat och publicerade spärrlistor.
+- [ICAO Doc 9303, del 12, åttonde upplagan med ändring 1](https://www.icao.int/sites/default/files/publications/DocSeries/9303_p12_cons_en.pdf),
+  avsnitt 4.1.4.3 och 4.1.5–4.1.5.1: nyckelbyte och certifikatspärr.
+  Verifierarens stöd är avgränsat till kompletta direkta CRL:er. Kontrollen
+  av certifikat är skild från den enskilda resehandlingens giltighetsstatus.
+  CRL-profilen och Appendix B anger även ett icke-kritiskt CRL-nummer som
+  icke-negativt heltal på högst 20 oktetter. Uppdateringsverktygets krav på
+  stigande nummer och bevarad utfärdartäckning är dess dokumenterade policy.
 
 ## Registeridentifierare
 

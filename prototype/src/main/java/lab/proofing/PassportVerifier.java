@@ -23,9 +23,10 @@ public final class PassportVerifier {
     }
   }
   /** {@code revocation}: CHECKED_CRL when a current, CSCA-signed CRL was consulted; otherwise NOT_CHECKED. */
-  public record Result(byte[] portrait, String mimeType, LocalDate expires, Identity identity, String revocation) {
+  public record Result(byte[] portrait, String mimeType, LocalDate expires, Identity identity,
+      String revocation, long revocationValidUntil) {
     public Result { portrait = portrait.clone(); }
-    public Result(byte[] portrait, String mimeType, LocalDate expires, Identity identity) { this(portrait, mimeType, expires, identity, "NOT_CHECKED"); }
+    public Result(byte[] portrait, String mimeType, LocalDate expires, Identity identity) { this(portrait, mimeType, expires, identity, "NOT_CHECKED", 0); }
     @Override public byte[] portrait() { return portrait.clone(); }
   }
   public static final class Rejected extends Exception {
@@ -66,28 +67,38 @@ public final class PassportVerifier {
     }
     anchors = Set.copyOf(set); this.clock = clock;
     for (var crl : crls) {
+      // This verifier supports complete direct CRLs only, never a partial view
+      // which could omit a revoked signer. Reject unknown critical semantics.
+      if (crl.hasUnsupportedCriticalExtension() || crl.getExtensionValue("2.5.29.27") != null
+          || crl.getExtensionValue("2.5.29.28") != null)
+        throw new IllegalArgumentException("Complete direct CRL required");
       // Each CRL must be signed by a provisioned CSCA; an unrelated CRL is a configuration error, not an ignore.
       boolean signed = trustedCscas.stream().anyMatch(ca -> {
-        if (!ca.getSubjectX500Principal().equals(crl.getIssuerX500Principal())) return false;
+        if (!ca.getSubjectX500Principal().equals(crl.getIssuerX500Principal())
+            || ca.getKeyUsage().length <= 6 || !ca.getKeyUsage()[6]) return false;
         try { crl.verify(ca.getPublicKey(), BC); return true; } catch (GeneralSecurityException e) { return false; }
       });
       if (!signed) throw new IllegalArgumentException("CRL must be signed by a provisioned CSCA");
     }
     this.crls = List.copyOf(crls);
   }
-  private String revocation(X509Certificate documentSigner) throws Rejected {
-    if (crls.isEmpty()) return "NOT_CHECKED";
+  private record Revocation(String status, long validUntil) {}
+  private Revocation revocation(X509Certificate documentSigner, X509Certificate anchor) throws Rejected {
+    if (crls.isEmpty()) return new Revocation("NOT_CHECKED", 0);
     Date now = Date.from(clock.instant());
-    boolean current = false;
+    long validUntil = 0;
     for (var crl : crls) {
       // ICAO 9303-12: the CSCA's current key signs one CRL for all document signers under its name, also those
       // issued with an earlier CSCA key. Each CRL was verified against a provisioned CSCA at construction.
       if (!crl.getIssuerX500Principal().equals(documentSigner.getIssuerX500Principal())) continue;
-      if (crl.isRevoked(documentSigner)) throw new Rejected("REVOKED");
-      if (!crl.getThisUpdate().after(now) && crl.getNextUpdate() != null && crl.getNextUpdate().after(now)) current = true;
+      if (crl.isRevoked(documentSigner) || crl.isRevoked(anchor)) throw new Rejected("REVOKED");
+      if (!crl.getThisUpdate().after(now) && crl.getNextUpdate() != null && crl.getNextUpdate().after(now))
+        validUntil = Math.max(validUntil, crl.getNextUpdate().toInstant().getEpochSecond());
     }
-    if (!current) throw new Rejected("REVOCATION_STATUS");
-    return "CHECKED_CRL";
+    if (validUntil == 0) throw new Rejected("REVOCATION_STATUS");
+    validUntil = Math.min(validUntil, documentSigner.getNotAfter().toInstant().getEpochSecond());
+    validUntil = Math.min(validUntil, anchor.getNotAfter().toInstant().getEpochSecond());
+    return new Revocation("CHECKED_CRL", validUntil);
   }
   public Result verify(byte[] sodBytes, byte[] dg1Bytes, byte[] dg2Bytes) throws Rejected {
     String stage = "FORMAT";
@@ -114,7 +125,7 @@ public final class PassportVerifier {
       var validation = (PKIXCertPathValidatorResult)CertPathValidator.getInstance("PKIX", BC).validate(path, parameters);
       validation.getTrustAnchor().getTrustedCert().checkValidity(Date.from(clock.instant()));
       stage = "REVOCATION_STATUS";
-      String revocation = revocation(certificate);
+      var revocation = revocation(certificate, validation.getTrustAnchor().getTrustedCert());
       stage = "SIGNATURE";
       if (!signer.verify(new JcaSimpleSignerInfoVerifierBuilder().setProvider(BC).build(certificate))) throw new Rejected();
       stage = "DATA_HASHES";
@@ -152,7 +163,7 @@ public final class PassportVerifier {
       var identity = new Identity(name(mrz.getSecondaryIdentifier()), name(mrz.getPrimaryIdentifier()), birth,
           mrz.getNationality(), mrz.getIssuingState(), mrz.getDocumentNumber(), expiry.toString(), personalNumber(mrz));
       if (identity.familyName().isEmpty() && identity.givenNames().isEmpty()) throw new Rejected();
-      return new Result(image, portrait.getMimeType(), expiry, identity, revocation);
+      return new Result(image, portrait.getMimeType(), expiry, identity, revocation.status(), revocation.validUntil());
     } catch (Rejected e) { throw "REVOKED".equals(e.stage()) ? e : new Rejected(stage); }
     catch (Exception e) { throw new Rejected(stage); } // No untrusted document contents in logs/errors.
   }

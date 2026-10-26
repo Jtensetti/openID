@@ -204,6 +204,9 @@ class Wallet:
         return row
 
     def enroll(self, public_key, document=None):
+        if document is not None:
+            if not isinstance(document, VerifiedDocument): raise ValueError('verified document required')
+            document.require_current_revocation(self.clock())
         if not isinstance(public_key, str) or len(public_key) > 256: raise ValueError('key size')
         der = base64.b64decode(public_key, validate=True)
         self.crypto('validate', publicKey=public_key)
@@ -238,6 +241,9 @@ class Wallet:
                     (ident, person_id, secrets.token_hex(32), json.dumps(sealed), int(self.clock()), expiry))
                 if getattr(self, 'document_links_enabled', False):
                     db.execute('INSERT INTO profile_documents VALUES(?,?)', (ident, tag))
+            # Recheck after profile encryption; expiry during work must roll back
+            # the entire enrollment, including PostgreSQL's inherited path.
+            if document is not None: document.require_current_revocation(self.clock())
             self.event(db, ident, 'CAPTURE_VERIFIED')
         return {'id': ident, 'state': 'PENDING_REVIEW'}
 
@@ -295,6 +301,7 @@ class Wallet:
         Keep the original table name so upgrading an existing pilot preserves its spent budget.
         """
         if not isinstance(document, VerifiedDocument): raise ValueError('verified document required')
+        document.require_current_revocation(self.clock())
         with self.transaction() as db:
             self.enrollment_open(db)
             self.vault.key(create=not (db.execute('SELECT 1 FROM profiles LIMIT 1').fetchone()

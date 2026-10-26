@@ -1,5 +1,12 @@
 # Testning
 
+Betans klientadress provas i tre led: `test_ingress_client` nekar fel
+proxykonfiguration och tvetydiga IP-värden; `RuntimeTests` kontrollerar
+separata trafik- och registreringsgränser samt att förfalskningar inte når
+tjänsterna; `deployment/test_beta_nginx.py` skickar förfalskade huvuden genom
+riktig nginx/TLS och kräver exakt en adress från den faktiska anslutningen.
+Det är syntetiska loopbackprov, inte bevis för installerad publik konfiguration.
+
 Serverjobbet använder Ubuntus huvudarkiv via HTTPS för webbläsarens
 systemberoenden. Bytet från testmaskinens Azure-spegel ändrar inte suites,
 komponenter eller Ubuntus signeringsnyckel. Jobbet har 25 minuters total
@@ -45,6 +52,13 @@ bekräftelse. Stubber kontrollerar S3-API-kontrakt; CI kontrollerar även den
 genererade CloudFormation-mallens säkerhetsregler. Ingen riktig AWS-stack
 eller faktisk extern mottagning används i dessa prov.
 
+`deployment/security/test_security_template.py` kör samma Guard-regler som
+infrastrukturjobbet mot mallen och avsiktligt osäkra varianter. Proven nekar
+offentlig eller okrypterad lagring, avstängd revisionslogg, för bred radering
+av snapshots, utebliven backup utan larm samt extra beräkningsjobb och betald
+skanning. Dessa lokala konfigurationsprov skapar inga AWS-resurser och provar
+inte faktisk snapshot-, logg- eller larmleverans.
+
 Aktuella körningar och deras exakta revisioner finns i
 [GitHub Actions](https://github.com/Jtensetti/openID/actions).
 [Prövningsunderlaget för OIDC, SAML och underskrift](provningsunderlag.md)
@@ -79,6 +93,8 @@ Tabellen är ett daterat resultat för revisionen ovan.
 |---|---|---|
 | Pass | Bouncy Castle/JMRTD/JCA mot genererad CSCA, DSC, SOD, MRZ och bild. Fel signatur, hash, ankare, datum och format nekas. Spärrad DSC, inaktuell spärrlista, främmande spärrlista och CSCA-nyckelbyte provas med genererade CRL:er. | Ingen myndighetsutfärdad testhandling. Polismyndighetens verkliga CSCA-nycklar och `SWE.crl` har lästs in manuellt, inte i CI. |
 | Chip | Serverstyrd PACE, CA och färsk skyddad läsning mot ett mjukvaruchip. Kopierad data utan chipnyckel, återspelning, fel MAC och fel dokument nekas. Även CLI-transport och processgränser provas. | Testpeer använder JMRTD/JCA; det ersätter inte fysisk NFC eller oberoende protokollprovning. |
+| Certifikatspärr vid registrering | `PassportVerifierTest` provar signerade CRL:er, spärrat ankare, `cRLSign`, partiella listor och giltighetsgränser. CLI-provet för över verkligt verifierad status. `test_passport_revocation` provar saknad/felaktig status, exakt utgång, avbrott före bildanalys och SQLite-rollback när listan går ut under lagring. PostgreSQL-provet avvisar okontrollerade och utgångna resultat före registrering/biometriförsök. | Apptransport och kameraflöde använder testdubblar. Ingen driftsatt hämtning, återgångskontroll eller myndighetskontroll av själva passets spärrstatus. |
+| CRL-underhåll | `PassportVerifierTest` provar signerad versionsökning, återgång, återanvänt nummer, storleksgräns, förlorad utfärdare och dubbla versioner. `test_crl_maintenance` provar verkliga filbyten, lås, osäkra filtyper, skrivrättigheter, skrivfel och utgång. CLI-provet installerar signerade fixturer och nekar återgång till föregångaren. | Lokala filfelprov använder verifierardubbel; CI kör den riktiga Java-processen. Ingen automatisk hämtning, driftsatt larmleverans eller oberoende statuskälla efter helsystems-återställning. |
 | Bildmodeller | Låsta OpenCV- och MiniFASNet-vikter, modellinferens och felhantering. `test_pose`: landmärkesparallax, vinklat foto utan parallax, serverstyrd ordning, försöksgräns per pass, modellfel, saknad nyckel och omstart. `test_biometric_budget` provar samtidiga SQLite-instanser; PostgreSQL-proven verifierar samma budget och beständig återläsning. En äldre backup, 24-timmarsgränsen, omstart och säker HTTP-felkod provas. | Ingen mätning av biometrisk träffsäkerhet eller attackmotstånd. Poskontrollen provas med syntetiska landmärken. |
 | Kameraguide | XCTest för huvudpositioner, kvalitet, tidskontinuitet, stabilitet och negativa mätvärden. XCUITest för ringens status och instruktioner. | Testade observationer är fixturer. Vision-inferens, fysisk kamera och tillgänglighet behöver enhetsprov; detta är inget liveness-test. |
 | App Attest | Verifiering av signatur, appbindning, räknare och ändrade bytes. | Ingen fysisk Apple-attestering i CI. |
@@ -86,7 +102,7 @@ Tabellen är ett daterat resultat för revisionen ovan.
 | SAML/webbläsare | Separata verifierar-, IdP- och SP-processer, signerade/krypterade meddelanden och Chromium. Samma flöde mot SQLite och mot PostgreSQL/OpenBao med verifierad TLS och separata konton. Testkonsolens inloggnings-, negativa profil-, avbrotts-, säkerhetskods- och SignMessage/SAD-fall samt den PAdES-signerade PDF:en körs i `federation-browser-test.cjs` mot båda registerlägena. Felaktiga koder, låsning, byte av nivå och text samt otillåten inloggningsåtgärd för en signering nekas. | Chiptransport, kamera, App Attest och biometriska poäng är testdubblar i helkedjefixturen. Ingen extern federation eller redundant IdP-/SP-sessionhantering. |
 | WebAuthn | Webbläsarens WebAuthn-API och Yubico-validering med virtuella USB-/plattformsautentiserare. Fördröjt skript lämnar knappar låsta; HTTP 400 och nekad fortsatt inloggning efter spärr verifieras. | Inga fysiska nycklar eller OS-installationsprov. |
 | iOS | Bygge, signerade bytes, tillstånd och SwiftUI i simulator. | NFC, Secure Enclave, Face ID och App Attest måste provas på telefon. |
-| Pilotdrift | Riktig Gunicorn/TLS, signerade wallet-anrop, kapacitetsgräns, saknad databas, privat loggning och SIGTERM. SQLite-backup och återläsning spärrar alla nycklar och pausar ny registrering/analys i 24 timmar; fel nyckel och skadad backup avvisas. | En nod. Ingen fysisk iPhone, publik ingress eller HA. Belastningsmått omfattar angivet delsystem. |
+| Pilotdrift | Riktig Gunicorn/TLS, signerade wallet-anrop, kapacitetsgräns, saknad databas, privat loggning och SIGTERM. SQLite-backup och återläsning spärrar alla nycklar och pausar ny registrering/analys i 24 timmar; fel nyckel och skadad backup avvisas. `test_recovery_operations` provar läsande CLI-backup med kontinuitetskrav, committad WAL, bevarat startskydd, äldre kopior samt felaktiga filer/markörer. | En nod. Ingen fysisk iPhone, publik ingress eller HA. Belastningsmått omfattar angivet delsystem. |
 | Delat register | PostgreSQL 18.6, riktiga operatörsroller, OpenBao Transit, parallella TLS-workers, instansbortfall, rotation, bevarandegolv, migrering från schema 1, beständig försöksbudget, låsta PIN-funktioner och 120 sekunders begränsad last med resursmätning. Faktisk registeråterläsning spärrar gamla nycklar, pausar registrering/analys och provas med återställd nyckeltjänst. Direkta tjänsteanrop och temporär skuggtabell kan inte kringgå spärren. TLS/Raft-prov med tre noder, ledarbortfall och saknad nyckelversion. | Temporär CI-infrastruktur; inga fysiska enheter, ingen lastbalanserare, ingen PostgreSQL-failover eller återställning från extern lagring. |
 | Drift | Hälsoroutes och stängda e-id-routes över HTTP samt containerisolering i CI. | Containern innehåller ingen e-id-tjänst. |
 

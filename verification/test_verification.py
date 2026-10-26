@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import tempfile
 import threading
+import time
 import unittest
 from unittest.mock import Mock, patch
 from http.server import HTTPServer
@@ -239,6 +240,11 @@ class CliTests(unittest.TestCase):
         self.assertEqual((directory/'portrait.jpg').read_bytes(), document.portrait)
         self.assertEqual('ALICE', document.identity['givenNames'])
         self.assertEqual('900101', document.identity['birthDateMrz'])
+        self.assertEqual('NOT_CHECKED', document.revocation)
+        with self.assertRaises(ValueError): document.require_current_revocation(0)
+        document=verify_document([*command,str(directory/'csca.crl')],request)
+        self.assertEqual('CHECKED_CRL',document.revocation)
+        document.require_current_revocation(time.time())
         request['dg2']='YQ=='
         with self.assertRaises(ValueError):verify_document(command,request)
 

@@ -29,7 +29,8 @@ public final class PassportCommand {
           decoder.decode(request.required("dg1").asText()), decoder.decode(request.required("dg2").asText()));
       System.out.println(json.writeValueAsString(Map.of("passiveAuthentication", true,
           "portrait", Base64.getEncoder().encodeToString(result.portrait()), "mimeType", result.mimeType(), "identity", result.identity(),
-          "chipAuthentication", "NOT_PERFORMED", "revocation", result.revocation())));
+          "chipAuthentication", "NOT_PERFORMED", "revocation", result.revocation(),
+          "revocationValidUntil", result.revocationValidUntil())));
     } catch (Exception e) {
       String stage = e instanceof PassportVerifier.Rejected rejected ? rejected.stage() : "CONFIGURATION";
       System.out.println(json.writeValueAsString(Map.of("passiveAuthentication", false,

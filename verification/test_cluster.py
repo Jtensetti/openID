@@ -1,5 +1,6 @@
 """Integration tests require a disposable PostgreSQL database and the pinned bao binary."""
 import base64
+from dataclasses import replace
 from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import http.client
@@ -114,6 +115,16 @@ class ClusterTests(unittest.TestCase):
         self.assertEqual('ACTIVE',self.b.execute(self.signed())['state'])
         with self.assertRaises(self.psycopg.Error):self.sql('bob','SELECT approve_activation(%s)',(proposal,))
         self.assertEqual(2,len(self.sql('auditor','SELECT * FROM operator_events')))
+
+    def test_unchecked_or_expired_passport_does_not_enter_shared_registry(self):
+        for doc in (replace(document(),revocation='NOT_CHECKED',revocation_valid_until=0),
+                    replace(document(),revocation_valid_until=int(time.time())-1)):
+            with self.subTest(status=doc.revocation):
+                with self.assertRaises(ValueError):self.enroller.enroll(self.keys[1]['publicKey'],doc)
+                with self.assertRaises(ValueError):self.enroller.biometric_attempt(doc)
+        with self.psycopg.connect(DSN) as db:
+            self.assertEqual(1,db.execute('SELECT count(*) FROM openid.credentials').fetchone()[0])
+            self.assertEqual(0,db.execute('SELECT count(*) FROM openid.biometric_attempts').fetchone()[0])
 
     def test_biometric_budget_is_atomic_across_replicas_and_cannot_be_reset_by_services(self):
         from wallet import BiometricAttemptLimit
