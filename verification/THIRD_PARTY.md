@@ -186,10 +186,12 @@ säkerhetsbedömning av den egna integrationen.
 HTTP/2, proxyprotokoll, kontrollsocket och automatiska omstarter efter ett
 visst antal anrop används inte. NFC-sessionerna tillhör en enda worker.
 
-`deployment/Dockerfile` låser officiella Python **3.12.15 slim-bookworm**,
-Node **24.22.1 bookworm-slim** och befintliga Temurin **21.0.12.1+1** med
-image-digests, avlästa från Docker Registry 2026-10-20. Python har PSF-licens,
+`deployment/Dockerfile` låser officiella Python **3.12.15 slim-bookworm** och
+Node **24.22.1 bookworm-slim** med image-digests. Temurin **21.0.13+9** hämtas
+som SHA-256-låsta Linux x64-arkiv för JDK och JRE. Python har PSF-licens,
 Node MIT med tredjepartslicenser och Temurin GPL-2.0 med Classpath Exception.
+[Komponentregistret](../THIRD_PARTY.md#temurin-säkerhetsuppdatering-2026-10-26)
+anger ursprung, källrevision, distributions- och SBOM-hashar.
 Basimagens Debian-licenser, JRE:s `legal/` och Nodes LICENSE bevaras.
 Maven 3.9.11 hämtas som samma SHA-256-låsta ZIP som wrappern; hela grafens
 180 beroendehashar kontrolleras även i containerbygget. Bildvikter och

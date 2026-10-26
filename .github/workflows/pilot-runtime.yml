@@ -69,7 +69,7 @@ jobs:
           docker compose -f deployment/compose.yaml config --quiet
           docker exec openid-pilot python -m pip inspect > "$RUNNER_TEMP/python-packages.json"
           docker exec -i openid-pilot python - > "$RUNNER_TEMP/runtime-components.json" <<'PY'
-          import json, ssl, sqlite3, sys, subprocess, pyexpat
+          import hashlib, json, ssl, sqlite3, sys, subprocess, pyexpat
           from pathlib import Path
           print(json.dumps({
               'python': sys.version,
@@ -78,9 +78,11 @@ jobs:
               'pythonExpat': pyexpat.EXPAT_VERSION,
               'node': json.loads(subprocess.check_output(['node', '-p', 'JSON.stringify(process.versions)'], text=True)),
               'temurinRelease': Path('/opt/java/openjdk/release').read_text(),
+              'temurinUpstreamSbomSHA256': hashlib.sha256(Path('/opt/java/openjdk/upstream-sbom.cdx.json').read_bytes()).hexdigest(),
               'scope': 'Runtime component inventory; not a complete runtime vulnerability assessment.'
           }, indent=2))
           PY
+          docker cp openid-pilot:/opt/java/openjdk/upstream-sbom.cdx.json "$RUNNER_TEMP/temurin-upstream-sbom.cdx.json"
           docker image inspect openid-pilot:ci --format '{{.Id}}' > "$RUNNER_TEMP/image-id.txt"
           docker stop --time 10 openid-rp
           docker stop --time 70 openid-pilot
@@ -118,6 +120,7 @@ jobs:
             ${{ runner.temp }}/image-id.txt
             ${{ runner.temp }}/runtime-versions.txt
             ${{ runner.temp }}/runtime-components.json
+            ${{ runner.temp }}/temurin-upstream-sbom.cdx.json
             ${{ runner.temp }}/image-os-audit/
           if-no-files-found: error
           retention-days: 90

@@ -187,6 +187,40 @@ Temurins releaseuppgifter. Det är inventering, inte full advisorytäckning
 eller oberoende SBOM-attest. Testa protokoll och CryptoKit-interoperabilitet
 med den nya runtime-versionen före införande.
 
+## Temurin-säkerhetsuppdatering 2026-10-26
+
+Pilotens JDK/JRE och serverproven använder **Temurin 21.0.13+9-LTS**, den
+officiella [releasen](https://github.com/adoptium/temurin21-binaries/releases/tag/jdk-21.0.13%2B9)
+från Eclipse Adoptium. Projektet är aktivt underhållet; release publicerades
+2026-10-22. Linux x64-arkiven hämtas oförändrade från denna release. Byggningen
+nekar fel SHA-256 före extraktion, fel arkitektur eller annan runtime-version.
+Ingen äldre Java-distribution kopieras till pilotimagen.
+
+| Underlag | SHA-256 |
+|---|---|
+| `OpenJDK21U-jdk_x64_linux_hotspot_21.0.13_9.tar.gz` | `d7f5d5cf865a2902b70ff549b97586a7d3f234e016f041ab447ea740c7d66d1c` |
+| `OpenJDK21U-jre_x64_linux_hotspot_21.0.13_9.tar.gz` | `a535a1df9c6284d9618872984e026ae0352d1f7e9e0605425c0e6114f47351dd` |
+| `OpenJDK21U-sbom_x64_linux_hotspot_21.0.13_9.json` | `5431b6d3ad286a41d9e20b9b0d37355f430046e333b4954c0814a8c3014bd4f4` |
+
+Upstream-SBOM binder JDK- och JRE-arkiven till källrevision
+[`2ab10ca20c191701c3a9f3153bfc6e93d63714c1`](https://github.com/adoptium/jdk21u/commit/2ab10ca20c191701c3a9f3153bfc6e93d63714c1)
+och byggrevision
+[`1cf43d7a3e77886bfea7d550a902e151a87d724d`](https://github.com/adoptium/temurin-build/commit/1cf43d7a3e77886bfea7d550a902e151a87d724d).
+JRE:s separata release-metadata binder dess arkivhash till samma version och
+byggrevision. Arkivens `legal/` och releasefil bevaras; GPL-2.0 med Classpath
+Exception och komponenternas egna licenser gäller fortsatt. Ingen Java-källkod
+ändras. Källkods- och attributionskrav ska uppfyllas före extern distribution.
+SBOM sparas i imagen och CI-artefakten. Den har fem distributionskomponenter
+(JDK, JRE, statiska bibliotek, debug- och testimage), byggverktyg och byggmetadata,
+men saknar licensdeklaration per komponent och full inventering av inbäddade
+bibliotek. Den ersätter inte OS-rapporten, Maven-SBOM eller sådan bedömning.
+
+Kompatibilitet provas med serverns Java-, signatur- och passprov samt pilotens
+SAML/OIDC-prov mot den paketerade JRE:n. Aktuella resultat hör till PR:n och
+exakt CI-revision. Byte av version ersätter inte oberoende granskning.
+Den separata `ops/`-imagen ovan använder ännu äldre Temurin, och Python 3.12.16
+återstår att införa. Uppdateringsansvaret följer förvaltningen nedan.
+
 ## Projektlicens och förvaltning
 
 **Projektets egen licens är inte beslutad.** POM/SBOM använder `NOASSERTION`

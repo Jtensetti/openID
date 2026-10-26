@@ -6,7 +6,17 @@ FROM python-base AS maven-tool
 RUN python -c "import urllib.request,hashlib,zipfile,io; data=urllib.request.urlopen('https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.9.11/apache-maven-3.9.11-bin.zip').read(); assert hashlib.sha256(data).hexdigest()=='0d7125e8c91097b36edb990ea5934e6c68b4440eef4ea96510a0f6815e7eeadb'; zipfile.ZipFile(io.BytesIO(data)).extractall('/opt')"
 RUN chmod +x /opt/apache-maven-3.9.11/bin/mvn
 
-FROM eclipse-temurin:21.0.12.1_1-jdk-noble@sha256:107215954359f1ab0be058a247d7c64ed6e69c71c1682d471d38ef751ec8e964 AS java-build
+# The official versioned container tags are not yet available. Use the exact
+# upstream Linux x64 distribution, checked by BuildKit before extraction.
+FROM python-base AS java-build
+ADD --checksum=sha256:d7f5d5cf865a2902b70ff549b97586a7d3f234e016f041ab447ea740c7d66d1c https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13%2B9/OpenJDK21U-jdk_x64_linux_hotspot_21.0.13_9.tar.gz /tmp/jdk.tar.gz
+RUN test "$(dpkg --print-architecture)" = amd64 && mkdir -p /opt/java/openjdk \
+    && tar --extract --gzip --file /tmp/jdk.tar.gz --directory /opt/java/openjdk --strip-components=1 --no-same-owner \
+    && rm /tmp/jdk.tar.gz \
+    && grep -Fx 'JAVA_RUNTIME_VERSION="21.0.13+9-LTS"' /opt/java/openjdk/release
+ENV JAVA_HOME=/opt/java/openjdk
+ENV PATH="/opt/java/openjdk/bin:$PATH"
+RUN java -version && javac -version
 COPY --from=maven-tool /opt/apache-maven-3.9.11 /opt/maven
 WORKDIR /build/prototype
 COPY prototype/pom.xml prototype/mvnw ./
@@ -26,7 +36,15 @@ WORKDIR /app/verification
 COPY verification/package.json verification/package-lock.json ./
 RUN npm ci --ignore-scripts --omit=dev
 
-FROM eclipse-temurin:21.0.12.1_1-jre-noble@sha256:35501d3f93173b420ac9001658eb68157e813316b865087e345c187fca422c4c AS java-runtime
+FROM python-base AS java-runtime
+ADD --checksum=sha256:a535a1df9c6284d9618872984e026ae0352d1f7e9e0605425c0e6114f47351dd https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13%2B9/OpenJDK21U-jre_x64_linux_hotspot_21.0.13_9.tar.gz /tmp/jre.tar.gz
+RUN test "$(dpkg --print-architecture)" = amd64 && mkdir -p /opt/java/openjdk \
+    && tar --extract --gzip --file /tmp/jre.tar.gz --directory /opt/java/openjdk --strip-components=1 --no-same-owner \
+    && rm /tmp/jre.tar.gz \
+    && grep -Fx 'JAVA_RUNTIME_VERSION="21.0.13+9-LTS"' /opt/java/openjdk/release \
+    && /opt/java/openjdk/bin/java -version
+ADD --checksum=sha256:5431b6d3ad286a41d9e20b9b0d37355f430046e333b4954c0814a8c3014bd4f4 https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13%2B9/OpenJDK21U-sbom_x64_linux_hotspot_21.0.13_9.json /opt/java/openjdk/upstream-sbom.cdx.json
+RUN chmod 644 /opt/java/openjdk/upstream-sbom.cdx.json
 FROM python-base
 LABEL org.opencontainers.image.source="https://github.com/Jtensetti/openID"
 LABEL org.opencontainers.image.description="Private iPhone verification pilot"

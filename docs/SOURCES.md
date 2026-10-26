@@ -26,9 +26,13 @@ Version, officiell distributionshash, Docker-digest och LICENSE kontrollerades.
 Den nya runtime-versionen används även i protokoll- och signaturproven.
 [Python 3.12.16](https://www.python.org/downloads/release/python-31216/)
 och [Temurin 21.0.13+9](https://github.com/adoptium/temurin21-binaries/releases/tag/jdk-21.0.13%2B9)
-är publicerade säkerhetsuppdateringar. Deras införande kräver separat
-verifierad image/distribution och kompatibilitetsprov; de införs inte genom
-Debian-/Node-ändringen. Bevakning får inte stanna vid systempaketlistan.
+är publicerade säkerhetsuppdateringar. Temurins officiella Linux x64-arkiv,
+kontrollsummor, releaseuppgifter och CycloneDX kontrollerades. JDK/JRE används
+nu i pilotbygget och serverproven enligt komponentregistret.
+[Adoptiums arkivinstruktion](https://adoptium.net/installation/archives) och
+[BuildKits checksum-kontroll](https://docs.docker.com/reference/dockerfile/#add---checksum)
+ligger till grund för installationen. Python-uppdateringen och den separata
+`ops/`-imagen återstår. Bevakning får inte stanna vid systempaketlistan.
 
 ## Separat byggmiljö, 2026-10-26
 

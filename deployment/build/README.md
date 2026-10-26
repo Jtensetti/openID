@@ -132,9 +132,16 @@ den fullständiga OS-grinden körs tills vidare bara för piloten.
 Paketsteget kräver **Linux/amd64 och Debian Bookworm** och får bara köras inne
 i det isolerade imagebygget. Det ska inte köras direkt på en driftvärd.
 
-Node 24.22.1 används i images och motsvarande CI-prov. Python/Temurin har
-nyare publicerade säkerhetsreleaser som behöver införas separat; OS-grinden
-bevisar inte att dessa runtime-komponenter är aktuella.
+Node 24.22.1 används i images och motsvarande CI-prov. Pilotens JDK/JRE och
+serverproven använder Temurin 21.0.13+9. Dess officiella Linux x64-arkiv låses
+med SHA-256 före extraktion; Java byggs på samma Debian-bas som pilotens runtime.
+JRE:s licensfiler bevaras, och upstream-SBOM finns både i imagen och i
+`pilot-image-inventory`. SBOM beskriver upstreambygget, inte hela serverimagen.
+BuildKit med stöd för `ADD --checksum` (Dockerfile 1.6+) krävs.
+
+Python 3.12.16 återstår att införa och verifiera. Den separata driftimagen i
+`ops/` använder fortfarande äldre Temurin 21.0.12.1+1; den har egen byggkontext
+och innehåller ingen e-id-tjänst. OS-grinden täcker inte dessa runtime-luckor.
 
 Versionsbyten kräver ny käll-, licens- och advisorykontroll samt nya hashlås
 och hela CI-körningen. Förvaltningen följer repots beroendeprocess; namngiven
