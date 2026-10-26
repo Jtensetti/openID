@@ -351,11 +351,29 @@ struct ApprovalView: View {
                     }
                         .disabled(remaining == 0 || model.busy || (request.needsSecurityCode && !SecurityCode.valid(securityCode)))
                         .accessibilityIdentifier("approval.approve")
-                    Button(request.isSigning ? "Avböj underskrift" : "Neka begäran", role: .destructive) { model.decide(request, approve: false) }.frame(maxWidth: .infinity, minHeight: 44).disabled(remaining == 0 || model.busy)
                 }
                 if model.busy { ProgressView("Bekräftar…").frame(maxWidth: .infinity) }
             }.padding(24)
         }.background(Palette.paper).navigationTitle("Kontrollera begäran").navigationBarTitleDisplayMode(.inline)
+            // Keep refusal reachable without scrolling through a signature or dismissing the keyboard.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    Button(role: .destructive) {
+                        securityCode = ""
+                        model.decide(request, approve: false)
+                    } label: {
+                        Text(request.isSigning ? "Avböj underskrift" : "Neka begäran")
+                            .font(.headline).fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .accessibilityIdentifier("approval.reject")
+                    .disabled(request.expiresAt <= context.date.timeIntervalSince1970 || model.busy)
+                    .padding(.horizontal, 24).padding(.vertical, 8)
+                    .background(Palette.paper)
+                    .overlay(alignment: .top) { Divider() }
+                }
+            }
             .onAppear { model.clearSecurityCodeMessage() }
             .onChange(of: model.unlocked) { unlocked in if !unlocked { securityCode = ""; dismiss() } }
             .onDisappear { securityCode = "" }

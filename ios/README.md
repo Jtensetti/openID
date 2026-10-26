@@ -216,6 +216,12 @@ webbtjänsten har slutfört inloggningen. Vid osäkert resultat av en skrivande
 åtgärd uppmanas användaren att kontrollera status och Aktivitet innan nytt försök.
 Utgångna begäranden går inte att godkänna eller neka från bekräftelsevyn.
 
+**Neka begäran** respektive **Avböj underskrift** ligger fast längst ned i
+bekräftelsevyn, även med lång text eller öppet kodtangentbord. Nekande kräver
+ingen säkerhetskod. **Stäng** lämnar bara vyn; använd nekandevalet för att
+avböja hos tjänsten. Under ett pågående beslut och efter utgång är båda
+beslutsvalen inaktiva.
+
 ## Begriplighet och tillgänglighet
 
 Ett aktivt ID visar **Legitimera mig** som huvudhandling. Under Legitimera

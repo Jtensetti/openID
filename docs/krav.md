@@ -91,6 +91,12 @@ som bekräftad spärr eller bekräftat nekande. Avslutade QR-begäranden döljs
 och en länk erbjuder en ny inloggning. Status får återhämtas automatiskt;
 godkännanden skickas aldrig om automatiskt. Formell kravstatus ändras inte.
 
+ID-09/TEST-01: appens nekandeval ligger utanför det rullbara innehållet i
+alla begäransvarianter, inklusive underskrift och säkerhetskod. UI-prov
+täcker synlighet utan rullning, stor text, öppet tangentbord och utgång.
+Ett nekande kräver fortfarande ett separat signerat beslut; att stänga
+vyn är inte ett serverbekräftat avbrott.
+
 ### OIDC och tillitsnivåer i privat beta
 
 FED-03 (T03): Authorization Code med S256 PKCE, `state`, `nonce`,

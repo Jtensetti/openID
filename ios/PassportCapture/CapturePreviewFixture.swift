@@ -53,4 +53,18 @@ struct UsabilityPreviewFixture: View {
         }
     }
 }
+/// Only renders the real decision view with synthetic data; no identity or server connection is created.
+struct ApprovalPreviewFixture: View {
+    private let arguments = ProcessInfo.processInfo.arguments
+    @State private var expiresAt = Date().timeIntervalSince1970 + 120
+    var body: some View {
+        NavigationStack {
+            ApprovalView(request: WalletRequest(id: String(repeating: "a", count: 64),
+                relyingParty: "Syntetisk testtjänst", purpose: "Kontrollera en begäran utan att legitimera någon.",
+                code: "012345", expiresAt: arguments.contains("--expired") ? 0 : expiresAt,
+                signMessage: arguments.contains("--sign") ? String(repeating: "Detta är en syntetisk underskrift utan rättslig verkan.\n", count: 6) : nil,
+                verification: arguments.contains("--pin") ? "pin" : nil))
+        }.environment(\.dynamicTypeSize, arguments.contains("--largest-text") ? .accessibility5 : .large)
+    }
+}
 #endif
