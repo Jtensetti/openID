@@ -10,14 +10,20 @@ skiljer dpkg-paket från egenbyggda binärer och använder Debians säkerhetsbed
 anger officiell OCI-källa och uppdateringsflöde. Projektet kräver aktuell
 databas och jämför hela dpkg-inventeringen med skannerns paketlista.
 
-[Debian Securitys amd64-index](https://security.debian.org/debian-security/dists/bookworm-security/main/binary-amd64/Packages.xz)
-anger version, fil och SHA-256 för de låsta Bookworm-rättningarna.
-De hämtade `.deb`-filernas hash har kontrollerats mot detta index.
-[CVE-2026-84782](https://security-tracker.debian.org/tracker/CVE-2026-84782)
-anger OpenSSL 3.0.22-1~deb12u2 som rättad Bookworm-version.
-Docker Official Images-manifestet för Python 3.12.15-slim-bookworm anger
-amd64-källrevision `2a3b794c223ab067d122719541cdd54a068732a5` och ny indexdigest
-enligt komponentregistret. Detta är upstream-proveniens, ingen egen byggattest.
+[Debian Securitys Trixie-index](https://security.debian.org/debian-security/dists/trixie-security/main/binary-amd64/Packages.xz)
+anger OpenSSL `3.5.7-1~deb13u3`.
+[Trixie-updates](https://deb.debian.org/debian/dists/trixie-updates/main/binary-amd64/Packages.xz)
+anger version, fil och SHA-256 för tzdata `2026e-0+deb13u1`; den hämtade
+filens bytes har verifierats.
+[CVE-2025-7458](https://security-tracker.debian.org/tracker/CVE-2025-7458)
+är rättad i Trixies SQLite `3.46.1-7+deb13u2`, men kvar i Bookworm.
+[Debian 13:s ändringar](https://www.debian.org/releases/trixie/release-notes/whats-new.en.html)
+och [kända begränsningar](https://www.debian.org/releases/trixie/release-notes/issues.en.html)
+har granskats för amd64-containerbasen; ingen värd-OS-uppgradering görs.
+Docker Official Images-manifest och källfil för Python 3.12.15-slim-trixie
+anger källrevision `2a3b794c223ab067d122719541cdd54a068732a5`.
+Index-/amd64-digest finns i komponentregistret. Detta är upstream-proveniens,
+ingen oberoende byggattest eller fullständig OS-säkerhetsbedömning.
 
 ## Runtime-uppföljning, 2026-10-26
 

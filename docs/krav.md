@@ -239,3 +239,11 @@ korrupta tillåtna format, övriga format och befintliga storleksgränser provas
 OpenCV 4.14.0.94 och ansiktsmodeller provas även i den byggda serverimagen.
 Detta minskar parserytan, utan att ändra tillitsnivå eller utgöra bevis på
 biometrisk kvalitet, fysisk PAD eller säkerhet hos alla inbäddade bibliotek.
+
+SEC-03 / OPS-07: server- och registerimage använder låst Debian 13-bas.
+Byggsteget kräver rättade OpenSSL-/SQLite-paket och fullständigt installerade
+versioner. OS-grinden kräver Debian 13 och nekar även låg/okänd eller ofixad
+advisory. Ett syntetiskt prov flyttar ett SQLite 3.40.1-register och en äldre
+backup till 3.46.1; spärrar och nekad återaktivering måste bestå. Verkliga
+Wallet-/signatur-/återställningsprov körs också i den byggda pilotimagen.
+Detta ändrar inte formell status och ersätter inte införande eller driftövning.

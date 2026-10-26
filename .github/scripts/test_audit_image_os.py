@@ -11,22 +11,22 @@ from unittest.mock import patch
 
 import audit_image_os as audit
 
-spec = importlib.util.spec_from_file_location('patch_bookworm', audit.ROOT / 'deployment/build/patch_bookworm.py')
+spec = importlib.util.spec_from_file_location('patch_debian', audit.ROOT / 'deployment/build/patch_debian.py')
 patcher = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(patcher)
 
 NOW = datetime(2026, 10, 26, 20, 0, tzinfo=timezone.utc)
 IMAGE = 'sha256:' + 'a' * 64
-TSV = 'libc6\t2.36-9+deb12u13\tamd64\tinstalled\ntzdata\t2025b-0+deb12u2\tall\tinstalled\n'
+TSV = 'libc6\t2.41-12+deb13u4\tamd64\tinstalled\ntzdata\t2026e-0+deb13u1\tall\tinstalled\n'
 
 
 def report():
     return {'SchemaVersion': 2, 'Trivy': {'Version': '0.76.1'},
             'CreatedAt': NOW.isoformat(), 'ArtifactType': 'container_image',
-            'Metadata': {'ImageID': IMAGE, 'OS': {'Family': 'debian', 'Name': '12.15'}},
+            'Metadata': {'ImageID': IMAGE, 'OS': {'Family': 'debian', 'Name': '13.7'}},
             'Results': [{'Class': 'os-pkgs', 'Type': 'debian', 'Packages': [
-                {'Name': 'libc6', 'Version': '2.36-9+deb12u13', 'Arch': 'amd64'},
-                {'Name': 'tzdata', 'Version': '2025b-0+deb12u2', 'Arch': 'all'}]}]}
+                {'Name': 'libc6', 'Version': '2.41-12+deb13u4', 'Arch': 'amd64'},
+                {'Name': 'tzdata', 'Version': '2026e-0+deb13u1', 'Arch': 'all'}]}]}
 
 
 class ImageAuditTests(unittest.TestCase):
@@ -42,9 +42,9 @@ class ImageAuditTests(unittest.TestCase):
         value = report()
         value['Results'][0]['Vulnerabilities'] = [
             {'VulnerabilityID': 'CVE-TEST-1', 'PkgName': 'libc6',
-             'InstalledVersion': '2.36-9+deb12u13', 'Severity': 'LOW', 'Status': 'affected'},
+             'InstalledVersion': '2.41-12+deb13u4', 'Severity': 'LOW', 'Status': 'affected'},
             {'VulnerabilityID': 'CVE-TEST-2', 'PkgName': 'tzdata',
-             'InstalledVersion': '2025b-0+deb12u2', 'Severity': 'UNKNOWN'}]
+             'InstalledVersion': '2026e-0+deb13u1', 'Severity': 'UNKNOWN'}]
         self.assertEqual(self.assess(value)['findingCount'], 2)
         self.assertEqual(self.assess(value)['severityCounts'], {'LOW': 1, 'UNKNOWN': 1})
 
@@ -64,8 +64,8 @@ class ImageAuditTests(unittest.TestCase):
 
     def test_unknown_wrong_or_unsupported_os_is_rejected(self):
         for system in [{}, {'Family': 'ubuntu', 'Name': '12'},
-                       {'Family': 'debian', 'Name': '13'},
-                       {'Family': 'debian', 'Name': '12.15', 'EOSL': True}]:
+                       {'Family': 'debian', 'Name': '12'}, {'Family': 'debian', 'Name': '14'},
+                       {'Family': 'debian', 'Name': '13.7', 'EOSL': True}]:
             value = report(); value['Metadata']['OS'] = system
             with self.subTest(system=system), self.assertRaises(ValueError): self.assess(value)
 
@@ -78,7 +78,7 @@ class ImageAuditTests(unittest.TestCase):
         packages = report()['Results'][0]['Packages']
         cases = [[], packages[:1], packages*2,
                  packages + [{'Name': 'extra', 'Version': '1', 'Arch': 'amd64'}],
-                 [dict(packages[0], Version='2.36-9'), packages[1]],
+                 [dict(packages[0], Version='2.41-12'), packages[1]],
                  [dict(packages[0], Arch='arm64'), packages[1]]]
         for changed in cases:
             value = report(); value['Results'][0]['Packages'] = changed
@@ -87,12 +87,12 @@ class ImageAuditTests(unittest.TestCase):
     def test_split_debian_version_retains_revision_epoch_and_rebuild_suffix(self):
         value = report()
         value['Results'][0]['Packages'] = [
-            {'Name': 'libc6', 'Version': '2.36', 'Release': '9+deb12u13', 'Arch': 'amd64'},
-            {'Name': 'tzdata', 'Version': '2025b', 'Release': '0+deb12u2', 'Arch': 'all'}]
+            {'Name': 'libc6', 'Version': '2.41', 'Release': '12+deb13u4', 'Arch': 'amd64'},
+            {'Name': 'tzdata', 'Version': '2026e', 'Release': '0+deb13u1', 'Arch': 'all'}]
         self.assertEqual(self.assess(value)['packageCount'], 2)
-        value['Results'][0]['Packages'][0]['Release'] = '9+deb12u12'
+        value['Results'][0]['Packages'][0]['Release'] = '12+deb13u3'
         with self.assertRaises(ValueError): self.assess(value)
-        value['Results'][0]['Packages'][0]['Release'] = '9+deb12u13'
+        value['Results'][0]['Packages'][0]['Release'] = '12+deb13u4'
         value['Results'][0]['Packages'][0]['Epoch'] = 1
         with self.assertRaises(ValueError): self.assess(value)
         self.assertEqual(audit.package_version({'Version': '1.2.3', 'Epoch': 2,
@@ -107,7 +107,7 @@ class ImageAuditTests(unittest.TestCase):
         for finding in [{}, {'VulnerabilityID': 'CVE-X', 'PkgName': 'unknown',
                             'InstalledVersion': '1', 'Severity': 'LOW'},
                         {'VulnerabilityID': 'CVE-X', 'PkgName': 'libc6',
-                         'InstalledVersion': '2.36-9+deb12u13', 'Severity': 'NONE'}]:
+                         'InstalledVersion': '2.41-12+deb13u4', 'Severity': 'NONE'}]:
             value = report(); value['Results'][0]['Vulnerabilities'] = [finding]
             with self.subTest(finding=finding), self.assertRaises(ValueError): self.assess(value)
 
@@ -176,6 +176,24 @@ class ImageAuditTests(unittest.TestCase):
         with patch.object(patcher.urllib.request, 'urlopen', return_value=io.BytesIO(b'changed')):
             with self.assertRaises(ValueError): patcher.download(item)
         with self.assertRaises(ValueError): patcher.download(dict(item, url='https://unknown.invalid/test.deb'))
+        with patch.object(patcher.urllib.request, 'urlopen', return_value=io.BytesIO(b'package')):
+            self.assertEqual(patcher.download(dict(item, url='https://deb.debian.org/debian/pool/main/t/test.deb')), b'package')
+
+    def test_runtime_package_lock_rejects_old_partial_or_different_installations(self):
+        packages = [{'name': 'libsqlite3-0', 'version': '3.46.1-7+deb13u2'}]
+        with patch.object(patcher.subprocess, 'check_output', return_value='3.46.1-7+deb13u2\tinstalled'):
+            patcher.verify_versions(packages)
+        for actual in ['3.40.1-2+deb12u2\tinstalled', '3.46.1-7+deb13u1\tinstalled',
+                       '3.46.1-7+deb13u2\tunpacked', '']:
+            with self.subTest(actual=actual), patch.object(patcher.subprocess, 'check_output', return_value=actual):
+                with self.assertRaises(ValueError): patcher.verify_versions(packages)
+
+    def test_server_images_use_the_locked_runtime_base(self):
+        lock = json.loads((audit.ROOT/'deployment/build/debian-runtime.lock.json').read_text())
+        for name in ('deployment/Dockerfile', 'deployment/cluster/Dockerfile'):
+            python_bases = [line.split()[1] for line in (audit.ROOT/name).read_text().splitlines()
+                            if line.startswith('FROM python:')]
+            self.assertEqual([lock['base']['image']], python_bases)
 
     def test_existing_output_cannot_reuse_a_previous_success(self):
         with tempfile.TemporaryDirectory() as directory:

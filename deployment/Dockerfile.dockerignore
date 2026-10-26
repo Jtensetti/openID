@@ -24,5 +24,5 @@
 !deployment/probe.py
 !deployment/Dockerfile
 !deployment/build/
-!deployment/build/patch_bookworm.py
-!deployment/build/bookworm-updates.lock.json
+!deployment/build/patch_debian.py
+!deployment/build/debian-runtime.lock.json

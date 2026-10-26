@@ -1,0 +1,24 @@
+{
+  "checkedAt": "2026-10-26",
+  "base": {
+    "image": "python:3.12.15-slim-trixie@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704",
+    "amd64Manifest": "sha256:e8a38829209aea82774882e5157e1f7c3e8c8393ff53a697b3580896e57f345c",
+    "sourceCommit": "2a3b794c223ab067d122719541cdd54a068732a5",
+    "source": "https://github.com/docker-library/python/tree/2a3b794c223ab067d122719541cdd54a068732a5/3.12/slim-trixie"
+  },
+  "verifyInstalled": [
+    {"name": "libssl3t64", "version": "3.5.7-1~deb13u3"},
+    {"name": "openssl", "version": "3.5.7-1~deb13u3"},
+    {"name": "openssl-provider-legacy", "version": "3.5.7-1~deb13u3"},
+    {"name": "libsqlite3-0", "version": "3.46.1-7+deb13u2"}
+  ],
+  "source": "https://deb.debian.org/debian/dists/trixie-updates/main/binary-amd64/Packages.xz",
+  "packages": [
+    {
+      "name": "tzdata",
+      "version": "2026e-0+deb13u1",
+      "url": "https://deb.debian.org/debian/pool/main/t/tzdata/tzdata_2026e-0+deb13u1_all.deb",
+      "sha256": "165fbf909c02150f62091c64f751ae84c66ff86da124a46a58614d8e174a6acd"
+    }
+  ]
+}

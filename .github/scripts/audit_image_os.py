@@ -110,7 +110,7 @@ def assess(scan, installed, image_id, version, now):
     if metadata.get('ImageID') != image_id:
         raise ValueError('report belongs to another image')
     system = metadata['OS']
-    if system.get('Family') != 'debian' or not re.fullmatch(r'12(?:\.\d+)?', system.get('Name', '')):
+    if system.get('Family') != 'debian' or not re.fullmatch(r'13(?:\.\d+)?', system.get('Name', '')):
         raise ValueError('unexpected or unidentified operating system')
     if system.get('EOSL', False) is not False:
         raise ValueError('operating system outside support')
@@ -141,7 +141,7 @@ def assess(scan, installed, image_id, version, now):
         if severity not in ('UNKNOWN', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'):
             raise ValueError('invalid severity')
         counts[severity] += 1
-    return {'packageCount': len(installed), 'findingCount': len(findings),
+    return {'operatingSystem': dict(system), 'packageCount': len(installed), 'findingCount': len(findings),
             'uniqueAdvisoryCount': len({v['VulnerabilityID'] for v in findings}),
             'severityCounts': dict(sorted(counts.items()))}
 

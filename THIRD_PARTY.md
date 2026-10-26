@@ -146,18 +146,33 @@ Upstream-SBOM har 458 komponentposter och sparas i CI-artefakten; den saknar
 licensdeklarationer per komponent och utgör inte en fullständig licensrevision.
 Vid eventuell egen distribution av verktyget krävs separat transitiv licensgranskning.
 
-Python **3.12.15-slim-bookworm** använder nu indexdigest
-`sha256:6a0e06f5ba0b373d051aabd3fffb9b873f27f9a2a3a14bcbe37dee6f0e3bbc70`.
+Python **3.12.15-slim-trixie** använder indexdigest
+`sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704`.
 Docker Official Images anger
-[docker-library/python@2a3b794c223ab067d122719541cdd54a068732a5](https://github.com/docker-library/python/tree/2a3b794c223ab067d122719541cdd54a068732a5/3.12/slim-bookworm)
-som källa för amd64-manifestet. Uppdateringen bevarar Python-versionen och
-tar in Debian-paketet `ca-certificates` 20250419~deb12u2.
-Ytterligare rättningar för `libssl3`/`openssl` 3.0.22-1~deb12u2 och `tzdata`
-2026e-0+deb12u1 hämtas från Debian Security med versions- och hashlås i
-[bookworm-updates.lock.json](deployment/build/bookworm-updates.lock.json).
-Befintliga paketlicenser och copyright-filer i `/usr/share/doc` bevaras
-genom Debians paketinstallation. Python- och Temurin-versionerna ändras inte av OS-rättningen.
-Node uppdateras separat till 24.22.1 enligt följande avsnitt.
+[docker-library/python@2a3b794c223ab067d122719541cdd54a068732a5](https://github.com/docker-library/python/tree/2a3b794c223ab067d122719541cdd54a068732a5/3.12/slim-trixie)
+som källa. amd64-manifest och känsliga paketversioner finns i
+[debian-runtime.lock.json](deployment/build/debian-runtime.lock.json).
+Dockerfiles har MIT-licens; Python och Debian-paketen har egna licenser.
+
+Basen är Debian 13.7 med OpenSSL `3.5.7-1~deb13u3`, SQLite
+`3.46.1-7+deb13u2` och CA-certifikat `20250419+deb13u1`. Installationstillstånd
+och exakta OpenSSL-/SQLite-versioner verifieras i bygget. Tzdata
+`2026e-0+deb13u1` hämtas från officiella Debian med versions- och hashlås;
+den faktiska paketfilens SHA-256 kontrollerades 2026-10-26. Copyright och
+paketlicenser i `/usr/share/doc` bevaras genom Debians installation.
+
+[CVE-2025-7458](https://security-tracker.debian.org/tracker/CVE-2025-7458)
+är rättad i denna SQLite-version enligt Debian. Det innebär inte att
+alla OS- eller runtimefynd är åtgärdade. Python 3.12.15 behöver fortsatt
+sin separata säkerhetsuppdatering. Node och Temurin uppdateras separat
+enligt följande avsnitt. Ingen egen källkod från Dockerprojektet kopieras.
+
+CI använder den tidigare, digestlåsta Bookworm-basen enbart för att skapa
+en syntetisk SQLite 3.40.1-fixture utan nät, privilegier eller riktiga uppgifter.
+Den följer inte med i leveransimagen. Nya imagen provar läsning och säker
+återställning med SQLite 3.46.1 samt Wallet-/runtimeproven med riktiga
+signaturer och krypterad profilåterställning. Förvaltaren ansvarar för nästa
+versions- och licensgranskning; oberoende godkännande krävs före införande.
 
 Den daterade OS-inventeringen och CycloneDX sparas för varje byggd pilotimage.
 Den är skild från Maven-/Python-SBOM och omfattar inte de kopierade runtime-

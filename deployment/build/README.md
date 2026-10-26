@@ -122,15 +122,32 @@ granskar **inte** separat byggda/kopierade Python-, Node- och Temurin-runtime,
 deras inbäddade bibliotek, modeller, värd-OS eller andra images. Den befintliga
 OSV-kontrollen av applikationslåsen kvarstår; hela leveranskedjan är ännu inte täckt.
 
-Python-basen är låst till en uppdaterad digest för samma 3.12.15/Bookworm-release.
-[bookworm-updates.lock.json](bookworm-updates.lock.json) låser ytterligare
-OpenSSL-/tzdata-paket med Debian-version, ursprung och SHA-256. Byggskriptet
-kontrollerar alla nedladdningar och paketidentiteter före installation, nekar
-nedgradering och kontrollerar installerad slutversion. Inga extra beroenden
-hämtas automatiskt. Både pilot och registerimage använder dessa rättningar;
-den fullständiga OS-grinden körs tills vidare bara för piloten.
-Paketsteget kräver **Linux/amd64 och Debian Bookworm** och får bara köras inne
-i det isolerade imagebygget. Det ska inte köras direkt på en driftvärd.
+Pilotens och registertjänstens Python-bas använder **Debian 13/Trixie** med
+versions- och hashlås i [debian-runtime.lock.json](debian-runtime.lock.json).
+OpenSSL-/SQLite-versionerna kontrolleras före och efter den extra, hashlåsta
+tzdata-uppdateringen. Inga extra beroenden hämtas automatiskt, och
+byggsteget nekar nedgradering eller delvis installerade paket.
+Det får bara köras inne i det isolerade Linux/amd64-imagebygget.
+
+OS-grinden accepterar endast Debian 13 och jämför fortfarande varje
+installerat paket mot skannerns fullständiga inventering. Den accepterar
+inte en återgång till Debian 12, ett okänt OS eller rapporterad slutad
+support. Inga nya sårbarhetsundantag tillkommer. Hela OS-grinden omfattar
+tills vidare pilotimagen; registerimagen har egna funktionsprov.
+
+`sqlite_transition.py` är ett **CI-prov med genererade data**. Det skapar
+Wallet-register och äldre backup med den tidigare, låsta basens SQLite
+3.40.1 utan nät. Den byggda Trixie-imagen läser registret och återställer
+kopian med SQLite 3.46.1. Spärrar, avbrutna förfrågningar, integritet och
+nekad återaktivering måste bestå. Proven mot den nya imagen omfattar också
+Wallet, verkliga signaturer och krypterad återställning. Resultatet sparas som
+`sqlite-transition.json` i samma inventeringsartefakt. Testet ändrar inga
+verkliga register och ersätter inte en bevittnad återställningsövning.
+
+Detta är ett byte av containerbas. Produktionsvärdens OS, databasfiler,
+konfiguration och monterade volymer uppgraderas inte av byggsteget.
+Införande och återgång kräver fortfarande granskning, backup och faktisk
+kontroll på avsedd miljö enligt releaseinstruktionen.
 
 Node 24.22.1 används i images och motsvarande CI-prov. Pilotens JDK/JRE och
 serverproven använder Temurin 21.0.13+9. Dess officiella Linux x64-arkiv låses

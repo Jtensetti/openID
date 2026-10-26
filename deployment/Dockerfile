@@ -1,6 +1,6 @@
-FROM python:3.12.15-slim-bookworm@sha256:6a0e06f5ba0b373d051aabd3fffb9b873f27f9a2a3a14bcbe37dee6f0e3bbc70 AS python-base
-COPY deployment/build/patch_bookworm.py deployment/build/bookworm-updates.lock.json /tmp/openid-os-patches/
-RUN python /tmp/openid-os-patches/patch_bookworm.py && rm -rf /tmp/openid-os-patches
+FROM python:3.12.15-slim-trixie@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704 AS python-base
+COPY deployment/build/patch_debian.py deployment/build/debian-runtime.lock.json /tmp/openid-os-patches/
+RUN python /tmp/openid-os-patches/patch_debian.py && rm -rf /tmp/openid-os-patches
 
 FROM python-base AS maven-tool
 RUN python -c "import urllib.request,hashlib,zipfile,io; data=urllib.request.urlopen('https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.9.11/apache-maven-3.9.11-bin.zip').read(); assert hashlib.sha256(data).hexdigest()=='0d7125e8c91097b36edb990ea5934e6c68b4440eef4ea96510a0f6815e7eeadb'; zipfile.ZipFile(io.BytesIO(data)).extractall('/opt')"
