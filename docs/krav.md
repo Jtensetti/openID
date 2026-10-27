@@ -319,6 +319,9 @@ kvarstår som separata krav; uppdateringen höjer ingen formell tillitsstatus.
 kräver låst Debian-snapshot, autentiserade källor, licenser, motsvarande källkod
 och bygg-/regressionsbevis. Provinstallation sker i en separat kopia av den
 testade pilotimagen, bunden till dess lager och runtimekonfiguration.
+De nio verifierade paketen förbereds och omhashas i en ny tillfällig APT-cache
+med korrekta versionsprefix. Installation behåller nät-/nedladdningsförbudet
+och använder tomma paketkällor/index; befintlig cache får inte återanvändas.
 Exakt paketövergång, filprivilegier, biblioteks-/applikations-/protokollprov
 och en egen OS-bedömning krävs. Den ordinarie runtimeimagen ändras inte.
 Den versionsbundna publika verifieringsnyckeln måste matcha samma storleks-/

@@ -7,6 +7,7 @@ import platform
 import re
 import stat
 import subprocess
+import tempfile
 
 from bootstrap import fields, sha
 from build import RUNTIME_PACKAGES, load_lock, validate_packages
@@ -83,6 +84,56 @@ def check_transition(before, after, expected):
         if after[name] != {'Version': version, 'Architecture': 'amd64'}:
             raise ValueError('installed candidate identity differs')
     return sorted(changed)
+
+
+def prepare_apt_cache(directory, runtime, workspace):
+    """Stage authenticated bytes in a fresh cache; never reuse host archives/indexes."""
+    validated = validate_packages(runtime, load_lock()['candidateVersion'])
+    if len(runtime) != len(RUNTIME_PACKAGES) or len(validated) != len(runtime):
+        raise ValueError('APT cache requires exactly the runtime group')
+    if (not directory.is_absolute() or directory.is_symlink() or not directory.is_dir()
+            or not workspace.is_absolute() or workspace.is_symlink() or not workspace.is_dir()
+            or any(workspace.iterdir())
+            or {p.name for p in directory.iterdir()} != {p['filename'] for p in runtime}):
+        raise ValueError('unexpected APT staging paths or package set')
+    archives = workspace / 'archives'
+    archives.mkdir()
+    (archives / 'partial').mkdir()
+    (workspace / 'lists').mkdir()
+    (workspace / 'sourceparts').mkdir()
+    (workspace / 'sources.list').write_text('', encoding='ascii')
+    records, paths = [], []
+    for item in runtime:
+        # For our validated names/amd64 and restricted version alphabet, only
+        # the epoch colon needs APT 3.0.3's lowercase percent encoding.
+        version = item['Version']
+        if not re.fullmatch(r'[0-9][0-9A-Za-z.+:~\-]*', version):
+            raise ValueError('unsupported APT archive version spelling')
+        filename = item['Package'] + '_' + version.replace(':', '%3a') + '_amd64.deb'
+        source = directory / item['filename']
+        if source.is_symlink() or not source.is_file():
+            raise ValueError('missing or linked APT package input')
+        raw = source.read_bytes()
+        if len(raw) != item['bytes'] or sha(raw) != item['sha256']:
+            raise ValueError('APT package input bytes differ')
+        target = archives / filename
+        with target.open('xb') as stream:
+            stream.write(raw)
+        target.chmod(0o600)
+        if target.stat().st_size != item['bytes'] or sha(target.read_bytes()) != item['sha256']:
+            raise ValueError('staged APT archive bytes differ')
+        records.append({'source': item['filename'], 'archive': filename,
+                        'bytes': item['bytes'], 'sha256': item['sha256']})
+        paths.append(str(source))
+    command = ['apt-get', '--no-download', '--no-remove', '--no-install-recommends', '--yes']
+    for key, value in (
+            ('Dir::Cache::archives', str(archives)),
+            ('Dir::State::lists', str(workspace / 'lists')),
+            ('Dir::Etc::sourcelist', str(workspace / 'sources.list')),
+            ('Dir::Etc::sourceparts', str(workspace / 'sourceparts')),
+            ('Dir::Cache::pkgcache', ''), ('Dir::Cache::srcpkgcache', '')):
+        command.extend(['-o', key + '=' + value])
+    return [*command, 'install', *paths], records
 
 
 def protected_files(roots):
@@ -162,7 +213,6 @@ def main():
         directory = inputs / 'runtime-packages'
         if directory.is_symlink() or {p.name for p in directory.iterdir()} != {p['filename'] for p in runtime}:
             raise ValueError('candidate package files differ')
-        package_paths = []
         for item in runtime:
             path = directory / item['filename']
             relative = str(path.relative_to(inputs))
@@ -174,7 +224,6 @@ def main():
                 'Package', 'Version', 'Architecture', 'Source', 'Depends', 'Pre-Depends'], text=True))
             if actual != {k: v for k, v in item.items() if k not in ('filename', 'bytes', 'sha256')}:
                 raise ValueError('candidate package header differs')
-            package_paths.append(str(path))
         before = inventory()
         for name, version in expected.items():
             if name not in before or before[name]['Architecture'] != 'amd64':
@@ -189,10 +238,15 @@ def main():
         previous_mode = stat.S_IMODE(policy.stat().st_mode) if previous_policy is not None else None
         policy.write_text('#!/bin/sh\nexit 101\n')
         policy.chmod(0o755)
-        command = ['apt-get', '--no-download', '--no-remove', '--no-install-recommends',
-                   '--yes', 'install', *package_paths]
-        report['plan'] = check_plan(run([*command, '--simulate'], output / 'apt-plan.log'), expected)
-        run(command, output / 'apt-install.log')
+        # --no-download does not acquire even command-line local debs into APT's
+        # archive cache. Populate it explicitly, including both version epochs.
+        # BuildKit's network=none remains the independent network boundary.
+        with tempfile.TemporaryDirectory(prefix='openid-util-linux-trial-') as name:
+            command, staged = prepare_apt_cache(directory, runtime, Path(name))
+            report['archiveCache'] = {'verifiedArchives': staged, 'inheritedSources': False,
+                                      'inheritedIndexes': False, 'downloadsAllowed': False}
+            report['plan'] = check_plan(run([*command, '--simulate'], output / 'apt-plan.log'), expected)
+            run(command, output / 'apt-install.log')
         if subprocess.check_output(['dpkg', '--audit']):
             raise ValueError('incomplete package state after installation')
         after = inventory()

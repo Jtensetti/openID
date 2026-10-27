@@ -341,6 +341,11 @@ skip; dessa redovisas. Ett paketbygge räknas inte som runtimeinstallation.
 länkade sökvägar och överskrivning av befintlig kontext. `test_trial_install.py`
 nekar andra imagelager, ändrad runtimekonfiguration, avvikande APT-plan,
 extra/borttagna/ändrade paket och ändrade skyddade filer. Installationshjälparen
+provas också med ändrade bytes av samma storlek, saknade/länkade/extra paket
+och befintlig eller länkad APT-arbetskatalog. Cachefilnamnen måste bevara båda
+Debian-epokerna; de kopierade byten måste behålla sina hashvärden. Källor,
+index och arkivcache är separata från imagens befintliga APT-underlag.
+Installationshjälparen
 måste avvisa utvecklingsdatorn före skrivning. Dessa lokala prov installerar
 inga paket. CI provinstallerar separat hela runtimegruppen utan nät, granskar
 slutligt paketläge och filprivilegier, laddar biblioteken och upprepar

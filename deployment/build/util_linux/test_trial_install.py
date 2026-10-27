@@ -5,10 +5,96 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from trial_install import check_image, check_plan, check_transition, installed_packages, protected_files, main
+from bootstrap import sha
+from build import RUNTIME_PACKAGES, load_lock
+from trial_install import (check_image, check_plan, check_transition, installed_packages,
+                           protected_files, prepare_apt_cache, main)
 
 
 class TrialInstallationTests(unittest.TestCase):
+    def cache_fixture(self, root):
+        directory = root / 'inputs';directory.mkdir()
+        workspace = root / 'apt';workspace.mkdir()
+        runtime = []
+        version = load_lock()['candidateVersion']
+        for name in sorted(RUNTIME_PACKAGES):
+            selected = {'bsdutils': '1:', 'login': '1:4.16.0-2+really'}.get(name, '') + version
+            filename = name + '_' + selected.split(':')[-1] + '_amd64.deb'
+            raw = ('Generated package bytes, not installable: ' + name).encode()
+            (directory / filename).write_bytes(raw)
+            runtime.append({'Package': name, 'Version': selected, 'Architecture': 'amd64',
+                            'Source': 'util-linux (' + version + ')', 'filename': filename,
+                            'bytes': len(raw), 'sha256': sha(raw)})
+        return directory, workspace, runtime
+
+    def test_local_archives_are_staged_with_epochs_and_isolated_from_system_apt_sources(self):
+        with tempfile.TemporaryDirectory() as name:
+            directory, workspace, runtime = self.cache_fixture(Path(name))
+            command, records = prepare_apt_cache(directory, runtime, workspace)
+            expected = {p['Package'] + '_' + p['Version'].replace(':', '%3a') + '_amd64.deb'
+                        for p in runtime}
+            self.assertEqual({p.name for p in (workspace / 'archives').iterdir()}, expected | {'partial'})
+            # These exact names address the real APT 3.0.3 CI85 failure; dpkg's
+            # exported filenames omit epochs and cannot serve as cache names.
+            self.assertIn('bsdutils_1%3a2.41.6-0openid1_amd64.deb', expected)
+            self.assertIn('login_1%3a4.16.0-2+really2.41.6-0openid1_amd64.deb', expected)
+            for record in records:
+                cached = workspace / 'archives' / record['archive']
+                self.assertEqual(cached.read_bytes(), (directory / record['source']).read_bytes())
+                self.assertEqual(sha(cached.read_bytes()), record['sha256'])
+            self.assertIn('--no-download', command)
+            self.assertIn('--no-remove', command)
+            self.assertIn('Dir::Cache::archives=' + str(workspace / 'archives'), command)
+            self.assertIn('Dir::State::lists=' + str(workspace / 'lists'), command)
+            self.assertIn('Dir::Etc::sourcelist=' + str(workspace / 'sources.list'), command)
+            self.assertIn('Dir::Etc::sourceparts=' + str(workspace / 'sourceparts'), command)
+            self.assertEqual((workspace / 'sources.list').read_bytes(), b'')
+            self.assertEqual(list((workspace / 'sourceparts').iterdir()), [])
+            self.assertEqual(list((workspace / 'lists').iterdir()), [])
+            self.assertEqual(command[command.index('install') + 1:],
+                             [str(directory / p['filename']) for p in runtime])
+
+    def test_apt_cache_rejects_modified_missing_linked_or_extra_package_bytes(self):
+        for change in ('same-size', 'truncated', 'missing', 'linked', 'extra', 'missing-member', 'duplicate'):
+            with self.subTest(change=change), tempfile.TemporaryDirectory() as name:
+                root = Path(name)
+                directory, workspace, runtime = self.cache_fixture(root)
+                path = directory / runtime[0]['filename']
+                if change == 'same-size':
+                    path.write_bytes(b'X' * path.stat().st_size)
+                elif change == 'truncated':
+                    path.write_bytes(path.read_bytes()[:-1])
+                elif change == 'missing':
+                    path.unlink()
+                elif change == 'linked':
+                    outside = root / 'outside';path.rename(outside);path.symlink_to(outside)
+                elif change == 'extra':
+                    (directory / 'unselected.deb').write_bytes(b'extra')
+                elif change == 'missing-member':
+                    runtime.pop()
+                else:
+                    runtime.append(copy.deepcopy(runtime[0]))
+                with self.assertRaises(ValueError):
+                    prepare_apt_cache(directory, runtime, workspace)
+
+    def test_apt_cache_never_reuses_or_overwrites_existing_staging_content(self):
+        for change in ('populated', 'linked-workspace', 'linked-inputs'):
+            with self.subTest(change=change), tempfile.TemporaryDirectory() as name:
+                root = Path(name)
+                directory, workspace, runtime = self.cache_fixture(root)
+                outside = root / 'existing';outside.mkdir()
+                sentinel = outside / 'sources.list';sentinel.write_bytes(b'preserve')
+                if change == 'populated':
+                    (workspace / 'sources.list').symlink_to(sentinel)
+                elif change == 'linked-workspace':
+                    workspace.rmdir();workspace.symlink_to(outside, target_is_directory=True)
+                else:
+                    linked = root / 'linked';linked.symlink_to(directory, target_is_directory=True)
+                    directory = linked
+                with self.assertRaises(ValueError):
+                    prepare_apt_cache(directory, runtime, workspace)
+                self.assertEqual(sentinel.read_bytes(), b'preserve')
+
     def test_image_requires_exact_parent_layers_and_unchanged_runtime_configuration(self):
         reference = {'Id': 'sha256:' + '1' * 64, 'Os': 'linux', 'Architecture': 'amd64',
                      'RootFS': {'Type': 'layers', 'Layers': ['sha256:' + 'a' * 64]},

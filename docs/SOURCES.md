@@ -380,3 +380,18 @@ den jämfördes med ett nytt svar 2026-10-28 svensk tid. Statuskontrollen i ett
 nätlöst bygge gäller kopians innehåll, inte senare spärrar. Kernel.orgs
 signaturbeskrivning ovan beskriver nyckelspärr vid kompromettering.
 Aktuell nyckel-/säkerhetskontroll krävs därför separat före införande.
+
+## APT:s lokala paketcache, 2026-10-28
+
+[APT 3.0.3 `pkgAcqArchive`](https://github.com/Debian/apt/blob/3.0.3/apt-pkg/acquire-item.cc)
+bildar cachefilnamnet av paketnamn, full version och arkitektur. Versionsepokens
+kolon kodas som `%3a` enligt
+[`QuoteString`](https://github.com/Debian/apt/blob/3.0.3/apt-pkg/contrib/strutl.cc).
+En redan förberedd cachefil ger en absolut installationssökväg. APT:s egen
+cachekontroll jämför storlek; vår kopiering kräver dessutom låst SHA-256.
+[`--no-download`](https://manpages.debian.org/trixie/apt/apt-get.8.en.html)
+ska användas med redan hämtade arkiv. Provinstallationen förbereder därför
+en egen cache före båda APT-anropen, med tomma källor/index enligt
+[`apt.conf`](https://manpages.debian.org/trixie/apt/apt.conf.5.en.html).
+Detta är format-/beteendeunderlag, ingen kopierad APT-implementation och
+inget undantag från nätisolering, paketlås eller efterkontroll.

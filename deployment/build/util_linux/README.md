@@ -108,7 +108,14 @@ paketen, deras byggbedömning, låset och installationshjälparna.
 
 `Trial.Dockerfile` utgår från referensens verifierade image-ID. Installation
 körs som root under ett isolerat bygge utan nät, med förbud mot nedladdning,
-paketborttagning och tjänstestart. APT-plan, verkliga pakethuvuden och slutlig
+paketborttagning och tjänstestart. De nio verifierade paketen kopieras till en
+ny tillfällig APT-cache och omhashas där före simulering/installation.
+APT:s cachefilnamn behåller versionsepoken med kodningen `%3a`; de skiljer sig
+från dpkg-byggexportens filnamn. `--no-download` förutsätter denna förberedelse
+även när lokala deb-filer anges. Inga befintliga arkiv eller paketindex används;
+källista och källkatalog är tomma för båda APT-anropen. Cachemappningen sparas
+i installationsrapporten och den tillfälliga katalogen tas bort efteråt.
+APT-plan, verkliga pakethuvuden och slutlig
 dpkg-inventering måste visa exakt de nio uppgraderingarna. Övriga paket och
 applikations-/Python-/Java-träden måste bevaras; filjämförelsen omfattar inte
 utökade attribut. Nya setuid/setgid-bitar tas bort och kontrolleras med samma
@@ -148,7 +155,7 @@ Lokala negativa prov; de utför inte Linux-bygge eller verklig GnuPG-verifiering
 python3 -m unittest discover -s deployment/build/util_linux -p 'test_*.py' -v
 ```
 
-Primärkällor kontrollerade 2026-10-27:
+Primärkällor kontrollerade 2026-10-27–28:
 
 - [Upstreams källutgåva och signatur](https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/v2.41/)
 - [Låst uppföljning](https://github.com/util-linux/util-linux/compare/02822c9374fc72d38baf8a1f859eb0813970bf3f...56e83de535ae1df9228d3b1cbf978b3e36b5d959)
@@ -156,5 +163,7 @@ Primärkällor kontrollerade 2026-10-27:
 - [Debians daterade arkiv](https://snapshot.debian.org/archive/debian/20261027T000000Z/)
 - [Debians arkivautentisering](https://manpages.debian.org/trixie/apt/apt-secure.8.en.html)
 - [APT 3.0.3: simulerade paketoperationer och beroendeannoteringar](https://sources.debian.org/src/apt/3.0.3/apt-pkg/algorithms.cc/)
+- [APT 3.0.3: cachefilnamn och kontroll av redan hämtade paket](https://github.com/Debian/apt/blob/3.0.3/apt-pkg/acquire-item.cc)
+- [APT-konfiguration: separata källor, index och arkivcache](https://manpages.debian.org/trixie/apt/apt.conf.5.en.html)
 - [Sequoias signaturverifierare i Trixie](https://manpages.debian.org/trixie/sqv/sqv.1.en.html)
 - [Kernel.org: signatur över okomprimerat arkiv](https://www.kernel.org/signature.html)
