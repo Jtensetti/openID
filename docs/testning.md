@@ -307,3 +307,12 @@ ska neka ändrade indata, andra native-moduler, återaktiverade bildformat,
 NaN, modell- och prestandaregressioner. Kandidaten och referensen får inte
 sammanblandas i paket- eller sårbarhetsbevis; standardimagen är oförändrad.
 Detta är kompatibilitetsprov, inte full biometrisk kalibrering.
+
+## Util-linux-paketkandidat
+
+`deployment/build/util_linux/test_candidate.py` nekar ändrade/länkade indata,
+osäkra arkiv, tvetydiga/ogiltiga signaturstatusar och byggberoenden utanför det
+låsta indexet. Genererade lokala prov ersätter inte verklig signaturkontroll
+eller det isolerade [Linux-bygget](../deployment/build/util_linux/README.md).
+Bygg-/regressionsbevis sparas även vid fel. Upstreams PASSED-tal kan innehålla
+skip; dessa redovisas. Ingen runtimeinstallation, ABI- eller CVE-stängning antas.

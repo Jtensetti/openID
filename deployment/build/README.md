@@ -290,3 +290,10 @@ Det befintliga pilotjobbet jämför det med standardimagen och sparar käll-,
 licens-, modell- och binärbevis. Standardmålet använder fortsatt det låsta
 upstreamhjulet. Ett godkänt jämförelseprov medger inte automatiskt byte
 eller release: full integration och slutimagets egna kontroller återstår.
+
+## Sammanhängande util-linux-paket
+
+[Det separata kandidatbygget](util_linux/README.md) autentiserar låsta källor,
+bygger Debians paketserie och bevarar regressioner, licenser och motsvarande
+källkod. Kandidaten installeras ännu inte i leveransimagen. Provinstallation,
+ABI, applikationsregression och sårbarhetsbedömning återstår.

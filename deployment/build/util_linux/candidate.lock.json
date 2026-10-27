@@ -1,0 +1,297 @@
+{
+  "format": 1,
+  "checkedAt": "2026-10-27",
+  "purpose": "Isolated package-build evaluation; not installed in release images",
+  "builderImage": "python:3.12.15-trixie@sha256:0d0db5b17f11b1b7d1aafa74ceadaa64ba0944b267ff6fc22008a197acd6b9ad",
+  "snapshot": {
+    "url": "https://snapshot.debian.org/archive/debian/20261027T000000Z/",
+    "suite": "trixie",
+    "inReleaseSHA256": "0584fba32e13e0ab8285fb16c27adea1ec03a73669c18702821094fd6ca86675",
+    "packagesCompressedSHA256": "7778d3e3f303b7ddb8ce0fe7c8d57473a076c6bf2e8f241f75421d2396352498",
+    "packagesSHA256": "4f2c68d67001d595fbd343f6dbad44468953a51c4d9dec3a4803249f6e295940"
+  },
+  "buildPackages": [
+    {
+      "name": "build-essential",
+      "version": "12.12"
+    },
+    {
+      "name": "debhelper",
+      "version": "13.24.2"
+    },
+    {
+      "name": "dh-exec",
+      "version": "0.30"
+    },
+    {
+      "name": "dh-package-notes",
+      "version": "0.15"
+    },
+    {
+      "name": "dh-debputy",
+      "version": "0.1.67.1"
+    },
+    {
+      "name": "asciidoctor",
+      "version": "2.0.23-1"
+    },
+    {
+      "name": "bc",
+      "version": "1.07.1-4"
+    },
+    {
+      "name": "bison",
+      "version": "2:3.8.2+dfsg-1+b2"
+    },
+    {
+      "name": "flex",
+      "version": "2.6.4-8.2+b4"
+    },
+    {
+      "name": "gettext",
+      "version": "0.23.1-2"
+    },
+    {
+      "name": "libaudit-dev",
+      "version": "1:4.0.2-2+deb13u1"
+    },
+    {
+      "name": "libcap-ng-dev",
+      "version": "0.8.5-4+b1"
+    },
+    {
+      "name": "libcrypt-dev",
+      "version": "1:4.4.38-1"
+    },
+    {
+      "name": "libcryptsetup-dev",
+      "version": "2:2.7.5-2"
+    },
+    {
+      "name": "libncurses-dev",
+      "version": "6.5+20250216-2"
+    },
+    {
+      "name": "libpam0g-dev",
+      "version": "1.7.0-5"
+    },
+    {
+      "name": "libreadline-dev",
+      "version": "8.2-6"
+    },
+    {
+      "name": "libselinux1-dev",
+      "version": "3.8.1-1"
+    },
+    {
+      "name": "libsqlite3-dev",
+      "version": "3.46.1-7+deb13u2"
+    },
+    {
+      "name": "libsystemd-dev",
+      "version": "257.13-1~deb13u1"
+    },
+    {
+      "name": "libtool",
+      "version": "2.5.4-4"
+    },
+    {
+      "name": "libudev-dev",
+      "version": "257.13-1~deb13u1"
+    },
+    {
+      "name": "netbase",
+      "version": "6.5"
+    },
+    {
+      "name": "pkgconf",
+      "version": "1.8.1-4"
+    },
+    {
+      "name": "po-debconf",
+      "version": "1.0.21+nmu1"
+    },
+    {
+      "name": "po4a",
+      "version": "0.73-2"
+    },
+    {
+      "name": "socat",
+      "version": "1.8.0.3-1+deb13u1"
+    },
+    {
+      "name": "systemd",
+      "version": "257.13-1~deb13u1"
+    },
+    {
+      "name": "systemd-dev",
+      "version": "257.13-1~deb13u1"
+    },
+    {
+      "name": "zlib1g-dev",
+      "version": "1:1.3.dfsg+really1.3.1-1+b1"
+    },
+    {
+      "name": "debian-keyring",
+      "version": "2025.07.26"
+    },
+    {
+      "name": "dpkg-dev",
+      "version": "1.22.22"
+    },
+    {
+      "name": "gnupg",
+      "version": "2.4.7-21+deb13u1"
+    },
+    {
+      "name": "quilt",
+      "version": "0.68-1"
+    },
+    {
+      "name": "autoconf",
+      "version": "2.72-3.1"
+    },
+    {
+      "name": "automake",
+      "version": "1:1.17-4"
+    },
+    {
+      "name": "git",
+      "version": "1:2.47.3-0+deb13u1"
+    },
+    {
+      "name": "patch",
+      "version": "2.8-2"
+    }
+  ],
+  "sourceVersion": "2.41.6",
+  "candidateVersion": "2.41.6-0openid1",
+  "releaseCommit": "02822c9374fc72d38baf8a1f859eb0813970bf3f",
+  "stableCommit": "56e83de535ae1df9228d3b1cbf978b3e36b5d959",
+  "packagingVersion": "2.41.5-0+deb13u1",
+  "sourceDateEpoch": 1793059200,
+  "inputs": [
+    {
+      "filename": "util-linux-2.41.6.tar.xz",
+      "url": "https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/v2.41/util-linux-2.41.6.tar.xz",
+      "bytes": 9470680,
+      "sha256": "e596083744e746be7d2823b62b43f4418dd7bf56303b4dc09e6fe8112fe3d7ed"
+    },
+    {
+      "filename": "util-linux-2.41.6.tar.sign",
+      "url": "https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/v2.41/util-linux-2.41.6.tar.sign",
+      "bytes": 833,
+      "sha256": "83987ffd5dcaca4f63954af3194abaf5ca2ea1ced627d7628dc2c6259205fad5"
+    },
+    {
+      "filename": "util-linux_2.41.5-0+deb13u1.debian.tar.xz",
+      "url": "https://deb.debian.org/debian/pool/main/u/util-linux/util-linux_2.41.5-0+deb13u1.debian.tar.xz",
+      "bytes": 107604,
+      "sha256": "5b327ccd22f0f4ed28a389870aa51d04ecedb8693e52a1d122850f2b3188cbf6"
+    },
+    {
+      "filename": "util-linux_2.41.5-0+deb13u1.dsc",
+      "url": "https://deb.debian.org/debian/pool/main/u/util-linux/util-linux_2.41.5-0+deb13u1.dsc",
+      "bytes": 4988,
+      "sha256": "43e9b2cbebd10fdc598c4ad10217c8202c28de53af6eafc892c8e9b5cbf3a3a5"
+    },
+    {
+      "filename": "stable-post-2.41.6.diff",
+      "url": "https://github.com/util-linux/util-linux/compare/02822c9374fc72d38baf8a1f859eb0813970bf3f...56e83de535ae1df9228d3b1cbf978b3e36b5d959.diff",
+      "bytes": 6392,
+      "sha256": "26c43eefab899be36e0c71af5e11f2f931d427118e5f9172ab8b434b509b1811"
+    }
+  ],
+  "upstreamKeySHA256": "00f98634547af7d591c1e1821848df3099ba48c716b8129887770cfe15be2e08",
+  "licenseFiles": {
+    "COPYING": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
+    "README.licensing": "4c2db318192bda62f3f8fcf71488bb5e602ae4385eba281d711b46cc13a40bb3",
+    "debian/copyright": "56b67e2eb8bac5a15d91e261d558d73f1f029113cced229753138194997366b6",
+    "Documentation/licenses/COPYING.BSD-2-Clause": "527f738966ca396cd5a68c1509390de2a780c6b614d9ee57f7544a6161938ed1",
+    "Documentation/licenses/COPYING.BSD-3-Clause": "9b718a9460fed5952466421235bc79eb49d4e9eacc920d7a9dd6285ab8fd6c6d",
+    "Documentation/licenses/COPYING.BSD-4-Clause-UC": "ba7640f00d93e72e92b94b9d71f25ec53bac2f1682f5c4adcccb0018359f60f8",
+    "Documentation/licenses/COPYING.EUPL-1.2": "6fc9e709ccbfe0d77fbffa2427a983282be2eb88e47b1cdb49f21a83b4d1e665",
+    "Documentation/licenses/COPYING.GPL-2.0-only": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
+    "Documentation/licenses/COPYING.GPL-2.0-or-later": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
+    "Documentation/licenses/COPYING.GPL-3.0-or-later": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+    "Documentation/licenses/COPYING.ISC": "e53348ce276358e9997014071c5294b36a18c4b34f32f00ee57b9acce0aafd63",
+    "Documentation/licenses/COPYING.LGPL-2.1-or-later": "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551",
+    "Documentation/licenses/COPYING.MIT": "8555341619542abb48c102afd954e42d4478e5be16ad3d5af7b0ff71009e7348",
+    "libblkid/COPYING": "f03b01c1251bc3bfee959aea99ed7906a0b08a2ff132d55a1ece18ee573a52a1",
+    "libfdisk/COPYING": "f03b01c1251bc3bfee959aea99ed7906a0b08a2ff132d55a1ece18ee573a52a1",
+    "liblastlog2/COPYING": "d0a359f02d74adc85263c88a1f2e9911e96619fef67067e832ef7936b0606863",
+    "libmount/COPYING": "5f12c2408a84be40fbff8ad7e281aa4e884fb92ee3f9a61aedf886a9503d3500",
+    "libsmartcols/COPYING": "f03b01c1251bc3bfee959aea99ed7906a0b08a2ff132d55a1ece18ee573a52a1",
+    "libuuid/COPYING": "5068749ee9c2f2c545af4a4de9fde3c39dc8d90af47cc0b3a42700116f9b7e71",
+    "pam_lastlog2/COPYING": "d0a359f02d74adc85263c88a1f2e9911e96619fef67067e832ef7936b0606863"
+  },
+  "debianPatches": [
+    {
+      "patch": "debian/man-getopt-examples.patch",
+      "sha256": "7193ca41f861d1535684e4fb5020bd52ca3c9c4f2f4cb17ddf31de042964af28"
+    },
+    {
+      "patch": "debian/verbose-tests.patch",
+      "sha256": "fa5081c64bf805ac11da75e16420e523c823da6c0b793fadc1be911e4a0e545d"
+    },
+    {
+      "patch": "debian/hardlink-tests-known-failed.patch",
+      "sha256": "74cf3bafdf0a5023f13bc23cb6e0c83a30e35b23338de3631cc8e8f2a5980ac7"
+    },
+    {
+      "patch": "debian/lsfd-usrbin.patch",
+      "sha256": "3855ccf229151d6df6646d82a27dc78fa0303dbc4f9272bce9607fb311cb025c"
+    },
+    {
+      "patch": "debian/sensible-pager.patch",
+      "sha256": "74e085f9570489969cc9a8a326f80c9c55060fe32094c50a315cd18e95b40579"
+    },
+    {
+      "patch": "debian/login-support-LOG_OK_LOGINS.patch",
+      "sha256": "5ffc665634966fd0502081b9d9a53eb92bc59a47f8090b0827cc78bae370702c"
+    },
+    {
+      "patch": "debian/login-do-not-print-motd-done-by-PAM.patch",
+      "sha256": "49950c9678570625ef3da59b4789c306ec25e2e0378e0eeb94fc123689520f8c"
+    },
+    {
+      "patch": "debian/login-turn-off-btmp-utmp-lastlog-writing.patch",
+      "sha256": "c5c32909c7c1a44b4b18225077446250938eb634508f608d5f343db7c44be626"
+    },
+    {
+      "patch": "debian/salsa-ci-skip-tests.patch",
+      "sha256": "822251fd89c4e58c2c9d854b04a24ab5245357d613b577553cb4cc94f814e1f0"
+    },
+    {
+      "patch": "upstream/loopdev-use-openat2-RESOLVE_NO_SYMLINKS-for-backing-file.patch",
+      "sha256": "9276c07a00380c76512cecdf1521489b403201ec0f15d63a831795365c46acf6"
+    },
+    {
+      "patch": "upstream/libmount-restrict-source-path-canonicalization-for-non-ro.patch",
+      "sha256": "543fe497aaa63410af1053e52724cb8bfae9d7e0660fd86c490b4ec43fde8133"
+    }
+  ],
+  "alreadyUpstreamPatches": [
+    "upstream/loopdev-use-openat2-RESOLVE_NO_SYMLINKS-for-backing-file.patch",
+    "upstream/libmount-restrict-source-path-canonicalization-for-non-ro.patch"
+  ],
+  "removeKnownFailurePatch": "debian/hardlink-tests-known-failed.patch",
+  "stableFiles": {
+    "include/fileutils.h": "f76cb2a5483a7e3727f817034abb53bd5a575964ed5beb4c87aee5102d2ef7ca",
+    "lib/fileutils.c": "9e4e5c348d0623993ec01b58ddf1ca9bfa761946a3d566b79601e8984d11b153",
+    "libmount/src/hook_idmap.c": "cf4fe91151139a2d25e6bbd1f5970f9ee6c64f6f2089a365d6f37da6ab17da0a",
+    "libmount/src/hooks.c": "4812f8c0f49042de35c518accecd83b27436ba4a99f18a27e226b7fce32d4c63",
+    "libmount/src/version.c": "531f58d21b8ef1284bf819a736deb0be75ccc93843b721c075b39a99ac17db6f",
+    "sys-utils/mount.8.adoc": "7b07d371567a8ba0a42d3454682a17d2b5e85e3b27ea0d588280d0eea12eacf8",
+    "sys-utils/nsenter.c": "070fb7c5fac3dfcebaff3ae008999fac21bf4d1e5e01ee4dfb0aa225555a2d0c",
+    "term-utils/wall.c": "d05b3c39660924b48ab3845578207090b3013f5e8235900831b0a0adc6d90499",
+    "tools/config-gen.d/non-newmount.conf": "306e25f440113bf9ab8fd5d29cffb082c0a8150bbdce3afe8a503ae7993793c5"
+  },
+  "updateOwner": "Repository maintainer; no release approval implied",
+  "limits": [
+    "Stable follow-up is a pinned unreleased upstream revision.",
+    "A successful package build is not application compatibility, an advisory exemption or production approval.",
+    "Privileged kernel/namespace tests may be unavailable inside the restricted build container; skips must remain visible.",
+    "Debian packaging and upstream license notices are preserved; distribution requires the corresponding prepared source."
+  ]
+}

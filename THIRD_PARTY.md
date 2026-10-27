@@ -358,3 +358,20 @@ Den fullständiga applikationen och byggverktygets transitiva bibliotek är
 inte täckta av detta enskilda SBOM. Repoförvaltaren äger fortsatt bevakning.
 Kandidaten ersätter ännu inte standardimagen och stänger inga driftsfynd.
 [Jämförelsemetod och primärkällor](deployment/build/opencv/README.md).
+
+## Util-linux-paketkandidat, 2026-10-27
+
+[Käll-/verktygslåset](deployment/build/util_linux/candidate.lock.json) anger
+util-linux 2.41.6, Debian-paketering 2.41.5-0+deb13u1 och oreleasad upstream-
+revision 56e83de535ae1df9228d3b1cbf978b3e36b5d959. Lokal utvärderingsversion
+är 2.41.6-0openid1. Debianverktyg kommer från signerad, hashlåst snapshot.
+
+Util-linux har flera licenser: bland annat GPL-2.0-only/or-later,
+LGPL-2.1-or-later, BSD, MIT, EUPL och public domain enligt respektive fil.
+COPYING är standardvillkor för kod utan egen licens. Källarkivets notiser,
+20 licens-/copyrightfiler och Debians paketcopyright bevaras. En motsvarande
+beredd källkodskopia följer med de sparade kandidatpaketen; det är inte en
+produktionsleverans. Debianpatchar och upstreamdiff har separat attribution.
+
+Repoförvaltaren ansvarar för källor, säkerhetsbevakning, licensvillkor och
+omprov. [Omfattning och kvarstående införandeprov](deployment/build/util_linux/README.md).

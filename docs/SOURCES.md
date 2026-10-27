@@ -343,3 +343,15 @@ fälten är valfria. Detta bevisar inte förekomst i ett visst svenskt pass.
 - [AlmaLinux ALSA-2026-85968](https://errata.almalinux.org/8/ALSA-2026-85968.html),
   2026-10-21: OpenSSL-fix `1.1.1k-18.el8_6`. Hjulets SBOM anger `-17`,
   så denna versionsmatchade lucka är fortfarande öppen.
+
+## Util-linux-källbygge, 2026-10-27
+
+[Officiell 2.41.6-källa/signatur](https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/v2.41/),
+[Debians säkerhetsstatus](https://security-tracker.debian.org/tracker/source-package/util-linux)
+och [låst underhållsrevision](https://github.com/util-linux/util-linux/commit/56e83de535ae1df9228d3b1cbf978b3e36b5d959)
+ligger till grund för den separata paketkandidaten. Den senare diffen är inte
+omfattad av releasesignaturen. [Kernel.orgs signaturbeskrivning](https://www.kernel.org/signature.html)
+anger verifiering över okomprimerad tar; checksumme-autosigneringen ersätter
+inte utvecklarens signatur. [Debian-snapshoten](https://snapshot.debian.org/archive/debian/20261027T000000Z/)
+har separat lås för InRelease och paketindex. Aktuella hash-/licensuppgifter
+finns i [kandidatlåset](../deployment/build/util_linux/candidate.lock.json).

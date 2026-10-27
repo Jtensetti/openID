@@ -312,3 +312,11 @@ och faktisk installation kontrolleras mot samma låsta krav och filursprung.
 Det begränsar pips nätverksexponering i imagebygget; övrig CI omfattas inte.
 Övriga OS-/runtimefynd, inbäddade pip-beroenden, oberoende granskning och införande
 kvarstår som separata krav; uppdateringen höjer ingen formell tillitsstatus.
+
+## Paketkandidat och SEC-03/INT-06
+
+[Util-linux-kandidatens byggflöde](../deployment/build/util_linux/README.md)
+kräver låst Debian-snapshot, autentiserade källor, licenser, motsvarande källkod
+och bygg-/regressionsbevis. Den installeras ännu inte i applikationsimagernas
+runtime. ABI, provinstallation, full regression, CVE-bedömning och oberoende
+införandebeslut återstår; formell kravstatus ändras inte av ett kandidatbygge.
