@@ -330,6 +330,10 @@ primärnycklar, privata nycklar och saknad primärnyckel i GnuPG-utmatningen.
 Utgångna/spärrade signaturstatusar nekas även tillsammans med `VALIDSIG`.
 Även en giltig signatur nekas om dess fullständiga signerarfingeravtryck
 avviker från den låsta upstreamnyckeln.
+Den versionsbundna publika nyckeln provas utan nätåtkomst. Saknad, ändrad,
+länkad eller felbenämnd kopia nekas utan nätfallback, även när bara ett extra
+radslut tillkommit. Övriga HTTPS-indata måste fortfarande ha exakt storlek
+och hash. Dessa prov är ingen aktuell kontroll av senare nyckelspärrar.
 Bygg-/regressionsbevis sparas även vid fel. Upstreams PASSED-tal kan innehålla
 skip; dessa redovisas. Ett paketbygge räknas inte som runtimeinstallation.
 

@@ -37,12 +37,24 @@ byggmiljöns versionslåsta Debian-keyring innan paketeringen används.
 Den signerade filen binder paketeringens bytes. Upstreams nyckel i paketeringen
 har eget hashlås och förankrar det fullständiga primärfingeravtrycket.
 Den äldre nyckelkopian saknar förnyad giltighet. En uppdaterad publik kopia
-hämtas därför med samma fullständiga fingeravtryck från Ubuntus nyckelserver;
-även dess storlek och SHA-256 är låsta. GnuPG måste visa exakt en publik
+har hämtats med samma fullständiga fingeravtryck från Ubuntus nyckelserver.
+`upstream-signing-key-refreshed.asc` bevarar dessa publika bytes i repot;
+ursprungsadressen, storleken och SHA-256 finns kvar i låset. Bygget kontrollerar
+kopian innan den förs till indata och igen före signaturverifieringen.
+Saknad, länkad eller ändrad kopia stoppar bygget utan nätfallback. Inga bytes
+normaliseras och inget hashlås ändras. Övriga källfiler hämtas fortfarande
+över HTTPS och måste matcha sina lås. Faktisk storlek och hash loggas vid fel.
+GnuPG måste visa exakt en publik
 primärnyckel med samma fingeravtryck i båda kopiorna. Nyckelservern är endast
 distributionskanal. GnuPG verifierar signaturen över det okomprimerade
 källarkivet med den uppdaterade nyckeln, och signeraren måste matcha låset.
 Utgångna/spärrade signaturer och saknad entydig `VALIDSIG` nekar beredning.
+Detta avser status i den versionsbundna nyckelkopian; ett nätlöst bygge
+upptäcker inte senare publicerade spärrcertifikat. Repoförvaltaren ska därför
+kontrollera aktuell upstreamnyckel och säkerhetsinformation före införande,
+bevara daterat underlag och granska varje nyckeländring separat. Om den
+kontrollen saknas eller indikerar spärr får kandidaten inte införas.
+Nyckeln är offentlig verifieringsdata, inte en privat signeringsnyckel.
 Den senare upstreamdiffen är separat revisions-/hashlåst; releasesignaturen
 täcker inte diffen. Detta är ingen oberoende bygg- eller releaseattest.
 

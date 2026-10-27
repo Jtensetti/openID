@@ -366,6 +366,16 @@ util-linux 2.41.6, Debian-paketering 2.41.5-0+deb13u1 och oreleasad upstream-
 revision 56e83de535ae1df9228d3b1cbf978b3e36b5d959. Lokal utvärderingsversion
 är 2.41.6-0openid1. Debianverktyg kommer från signerad, hashlåst snapshot.
 
+Den offentliga verifieringsnyckeln i
+`deployment/build/util_linux/upstream-signing-key-refreshed.asc` är en
+oförändrad kopia från Ubuntus nyckelserver, hämtad 2026-10-27 och omjämförd
+2026-10-28 svensk tid. Fullständigt primärfingeravtryck är
+`B0C64D14301CC6EFAEDF60E4E4B71D5EEC39C284`; ursprungs-URL, storlek och hash
+finns i kandidatlåset. Detta är offentlig signaturverifieringsdata;
+ingen privat nyckel ingår. Fingeravtrycket
+förankras fortfarande i signerad Debian-paketering. Kopian ersätter inte
+förvaltarens kontroll av senare nyckelspärr före införande.
+
 Util-linux har flera licenser: bland annat GPL-2.0-only/or-later,
 LGPL-2.1-or-later, BSD, MIT, EUPL och public domain enligt respektive fil.
 COPYING är standardvillkor för kod utan egen licens. Källarkivets notiser,

@@ -321,6 +321,10 @@ och bygg-/regressionsbevis. Provinstallation sker i en separat kopia av den
 testade pilotimagen, bunden till dess lager och runtimekonfiguration.
 Exakt paketövergång, filprivilegier, biblioteks-/applikations-/protokollprov
 och en egen OS-bedömning krävs. Den ordinarie runtimeimagen ändras inte.
+Den versionsbundna publika verifieringsnyckeln måste matcha samma storleks-/
+hashlås och Debian-förankrade primärfingeravtryck som tidigare. Kopian ger
+ingen aktuell spärrkontroll; daterad upstreamnyckel-/säkerhetskontroll krävs
+separat före införande och får inte ersättas av ett lyckat kandidatbygge.
 Full ABI-/kärntäckning, CVE-bedömning och oberoende införandebeslut kvarstår;
 formell kravstatus ändras inte av ett kandidatbygge eller en provinstallation.
 

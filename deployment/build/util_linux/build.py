@@ -20,6 +20,7 @@ RUNTIME_PACKAGES = {'bsdutils', 'libblkid1', 'liblastlog2-2', 'libmount1',
                     'libsmartcols1', 'libuuid1', 'login', 'mount', 'util-linux'}
 UPSTREAM_KEY_URL = ('https://keyserver.ubuntu.com/pks/lookup?op=get&search='
                     '0xB0C64D14301CC6EFAEDF60E4E4B71D5EEC39C284')
+UPSTREAM_KEY_FILE = Path(__file__).with_name('upstream-signing-key-refreshed.asc')
 
 
 def validate_packages(packages, version):
@@ -61,8 +62,11 @@ def load_lock():
 def check_input(path, item):
     if path.is_symlink() or not path.is_file():
         raise ValueError('missing or linked candidate input')
-    if path.stat().st_size != item['bytes'] or sha(path.read_bytes()) != item['sha256']:
-        raise ValueError('candidate input checksum mismatch: ' + item['filename'])
+    size, digest = path.stat().st_size, sha(path.read_bytes())
+    if size != item['bytes'] or digest != item['sha256']:
+        raise ValueError('candidate input checksum mismatch: ' + item['filename']
+                         + '; expected bytes=' + str(item['bytes']) + ' sha256=' + item['sha256']
+                         + '; actual bytes=' + str(size) + ' sha256=' + digest)
 
 
 def fetch_inputs(directory, lock):
@@ -76,11 +80,23 @@ def fetch_inputs(directory, lock):
         name = item['filename']
         if PurePosixPath(name).name != name:
             raise ValueError('input name must be a basename')
-        with urllib.request.urlopen(url, timeout=90) as response:
-            raw = response.read(item['bytes'] + 1)
+        if url == UPSTREAM_KEY_URL:
+            # Reviewed public bytes, not a new trust anchor. prepare() still
+            # binds the primary key to signed Debian packaging and verifies
+            # the actual upstream signature. Never fall back to a live key.
+            if name != UPSTREAM_KEY_FILE.name:
+                raise ValueError('unexpected versioned public key name')
+            check_input(UPSTREAM_KEY_FILE, item)
+            raw = UPSTREAM_KEY_FILE.read_bytes()
+        else:
+            with urllib.request.urlopen(url, timeout=90) as response:
+                raw = response.read(item['bytes'] + 1)
         path = directory / name
         path.write_bytes(raw)
         check_input(path, item)
+        print(json.dumps({'input': name, 'bytes': len(raw), 'sha256': sha(raw),
+                          'retrieval': 'repository' if url == UPSTREAM_KEY_URL else 'https'}),
+              flush=True)
 
 
 def extract_regular(archive, destination, prefix):

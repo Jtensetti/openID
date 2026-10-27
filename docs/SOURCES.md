@@ -375,3 +375,8 @@ löpte ut 2019. [Ubuntus nyckelserver](https://keyserver.ubuntu.com/)
 distribuerar en uppdaterad publik kopia. Den behandlas som hashlåsta indata,
 inte som ny tillitskälla: primärfingeravtrycken måste vara identiska och
 GnuPG måste fortfarande godkänna källsignaturen utan utgången/spärrad status.
+Kopian är versionsbunden i repot med ursprungsadress och oförändrat hashlås;
+den jämfördes med ett nytt svar 2026-10-28 svensk tid. Statuskontrollen i ett
+nätlöst bygge gäller kopians innehåll, inte senare spärrar. Kernel.orgs
+signaturbeskrivning ovan beskriver nyckelspärr vid kompromettering.
+Aktuell nyckel-/säkerhetskontroll krävs därför separat före införande.

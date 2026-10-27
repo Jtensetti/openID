@@ -11,7 +11,8 @@ from unittest.mock import patch
 
 from bootstrap import check_deb, fields, package_index, sha, verify_archive
 from build import (RUNTIME_PACKAGES, check_input, extract_regular, valid_signature,
-                   validate_packages, primary_fingerprint, validate_key_refresh)
+                   validate_packages, primary_fingerprint, validate_key_refresh,
+                   UPSTREAM_KEY_FILE, UPSTREAM_KEY_URL, fetch_inputs, load_lock)
 
 
 class CandidateInputTests(unittest.TestCase):
@@ -119,6 +120,51 @@ class CandidateInputTests(unittest.TestCase):
             link.symlink_to(path)
             with self.assertRaises(ValueError):
                 check_input(link, item)
+
+    def test_locked_public_key_is_available_without_keyserver(self):
+        item = next(item for item in load_lock()['inputs'] if item['url'] == UPSTREAM_KEY_URL)
+        with tempfile.TemporaryDirectory() as name, patch('build.urllib.request.urlopen') as network:
+            destination = Path(name) / 'inputs'
+            fetch_inputs(destination, {'inputs': [item]})
+            self.assertEqual((destination / item['filename']).read_bytes(), UPSTREAM_KEY_FILE.read_bytes())
+            network.assert_not_called()
+
+    def test_missing_changed_or_linked_public_key_has_no_network_fallback(self):
+        item = next(item for item in load_lock()['inputs'] if item['url'] == UPSTREAM_KEY_URL)
+        original = UPSTREAM_KEY_FILE.read_bytes()
+        for kind in ('missing', 'changed', 'extra-newline', 'symlink', 'wrong-name'):
+            with self.subTest(kind=kind), tempfile.TemporaryDirectory() as name:
+                root = Path(name)
+                key = root / item['filename']
+                bad_item = dict(item)
+                if kind == 'changed':
+                    key.write_bytes(b'X' + original[1:])
+                elif kind == 'extra-newline':
+                    key.write_bytes(original + b'\n')
+                elif kind == 'symlink':
+                    key.symlink_to(UPSTREAM_KEY_FILE)
+                elif kind == 'wrong-name':
+                    key.write_bytes(original)
+                    bad_item['filename'] = 'unreviewed.asc'
+                with patch('build.UPSTREAM_KEY_FILE', key), patch('build.urllib.request.urlopen') as network:
+                    with self.assertRaises(ValueError):
+                        fetch_inputs(root / 'inputs', {'inputs': [bad_item]})
+                    network.assert_not_called()
+                self.assertEqual(list((root / 'inputs').iterdir()), [])
+
+    def test_network_sources_still_require_exact_bytes(self):
+        raw = b'generated source'
+        item = {'filename': 'source.tar', 'url':
+                'https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/source.tar',
+                'bytes': len(raw), 'sha256': sha(raw)}
+        for content in (raw, raw[:-1], b'X' + raw[1:], raw + b'\n'):
+            with self.subTest(content=content), tempfile.TemporaryDirectory() as name:
+                with patch('build.urllib.request.urlopen', return_value=io.BytesIO(content)):
+                    if content == raw:
+                        fetch_inputs(Path(name) / 'inputs', {'inputs': [item]})
+                    else:
+                        with self.assertRaisesRegex(ValueError, 'actual bytes=.* sha256='):
+                            fetch_inputs(Path(name) / 'inputs', {'inputs': [item]})
 
     def test_only_valid_unexpired_signature_accepted(self):
         fingerprint = 'A' * 40
