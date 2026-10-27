@@ -42,7 +42,9 @@ Endast läsning tillåts för:
 
 Arbetskatalogen, `/srv`, `/tmp`, hemkataloger och andra processers `/proc`-
 filer får ingen generell läsrättighet. `PYTHONPATH` skapar inga nya
-Landlock-undantag. Ingen katalog får skrivrättighet.
+Landlock-undantag. Vid processstart ärvs endast den exakta fasta
+kandidatsökvägen; godtyckliga föräldrasökvägar får inte påverka importer
+före skyddsaktiveringen. Ingen katalog får skrivrättighet.
 
 ## Systemanrop
 
@@ -70,6 +72,13 @@ andra processers `/proc`, ärvda filbeskrivare och befintliga trådar.
 Separata policyprov kontrollerar BPF-grenar, höga argumentbitar och andra
 ABI:er; de ersätter inte Linux-körningen. Arbetarnas felvägar måste stoppa
 före inläsning utan att återge känsliga felmeddelanden.
+
+Ett separat Linux-barn laddar även de riktiga YuNet-, SFace- och PAD-modellerna
+och utför beräkningar med genererade pixlar efter aktiverat skydd.
+Det kontrollerar faktisk inferens och eventuella sent laddade bibliotek,
+utöver startens modellkontroll. Det är inget prov på identifieringsnoggrannhet
+eller godkännande av en verklig person. Proven körs på både ordinarie image
+och den separata OpenCV-kandidaten, med kontroll av kandidatens faktiska importväg.
 
 Befintliga codec-, profil-, modell- och tjänsteprov körs med skyddet i CI.
 Testresultat knyts till testad revision; en kodändring är inte ett bevis på

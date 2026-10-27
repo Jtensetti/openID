@@ -59,7 +59,8 @@ krascher, inte en spärr mot en komprometterad arbetare eller administratör.
 Övriga processer och värdens kraschinsamling behöver separat driftkontroll.
 
 Bildarbetarna får bara fasta tråd-/lokalinställningar, standardsökväg och
-konfigurerad PYTHONPATH; användarens Python-site inaktiveras. Serverns övriga
+den fasta granskade OpenCV-kandidatens PYTHONPATH, om exakt den är vald.
+Andra PYTHONPATH-värden ärvs inte; användarens Python-site inaktiveras. Serverns övriga
 miljövariabler ärvs inte, även vid modellkontrollen under start.
 På Linux x86-64 begränsar [Landlock och seccomp](../docs/bildarbetare.md)
 filinnehållsläsning till kod/modeller/runtime och nekar skrivning, nätverk,

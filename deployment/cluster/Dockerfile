@@ -49,7 +49,7 @@ COPY deployment/cluster/probe.py ./probe.py
 COPY verification/cluster_recovery.py verification/audit_archive.py ./
 COPY verification/ingress_client.py ./
 COPY verification/image_input.py ./
-COPY verification/bounded_process.py verification/profile_worker.py ./
+COPY verification/bounded_process.py verification/profile_worker.py verification/worker_confinement.py ./
 COPY deployment/cluster/schema.sql /app/deployment/cluster/schema.sql
 COPY deployment/build/remove_build_pip.py /tmp/remove_build_pip.py
 RUN --network=none python /tmp/remove_build_pip.py && rm /tmp/remove_build_pip.py

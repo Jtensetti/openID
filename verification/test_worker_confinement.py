@@ -133,13 +133,13 @@ class ConfinementPolicyTests(unittest.TestCase):
 
 @unittest.skipUnless(sys.platform == 'linux', 'actual confinement requires Linux')
 class LinuxConfinementTests(unittest.TestCase):
-    def run_child(self, code, *args, pass_fds=()):
+    def run_child(self, code, *args, pass_fds=(), timeout=10):
         environment = image_worker_environment()
         # Packaged tests can live outside /app/verification; import the installed policy.
         module_path = str(Path(policy.__file__).resolve().parent)
         environment['PYTHONPATH'] = module_path + os.pathsep + environment.get('PYTHONPATH', '')
         return subprocess.run([sys.executable, '-c', code, *map(str, args)],
-            input=b'', capture_output=True, timeout=10, env=environment, pass_fds=pass_fds)
+            input=b'', capture_output=True, timeout=timeout, env=environment, pass_fds=pass_fds)
 
     def test_real_files_network_process_access_and_unknown_syscalls_are_denied(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -212,6 +212,41 @@ finally:
     thread.join()
 ''')
         self.assertEqual((result.returncode, result.stdout), (0, b'rejected\n'), result.stderr.decode())
+
+    def test_actual_face_and_pad_inference_after_confinement(self):
+        result = self.run_child('''
+import json
+from pathlib import Path
+from bounded_process import disable_worker_core_dumps
+from worker_confinement import confine_image_worker
+disable_worker_core_dumps()
+assert confine_image_worker() is True
+import numpy as np
+import cv2
+import face
+from pad import PresentationAttackDetector
+candidate = Path('/opt/openid-opencv/python')
+if candidate.exists():
+    assert Path(cv2.__file__).resolve().parent == candidate
+models = Path(face.__file__).parent / 'models'
+matcher = face.FaceMatcher(models)
+pad = PresentationAttackDetector(models)
+rng = np.random.default_rng(2026)
+pixels = rng.integers(0, 256, (240, 320, 3), dtype=np.uint8)
+matcher.detector.setInputSize((320, 240))
+_, detected = matcher.detector.detect(np.zeros_like(pixels))
+assert detected is None or len(detected) == 0
+aligned = rng.integers(0, 256, (112, 112, 3), dtype=np.uint8)
+feature = matcher.recognizer.feature(aligned).copy()
+assert np.isfinite(feature).all()
+assert matcher.compare_features(feature, feature) > .999
+for image in (pixels, np.zeros_like(pixels)):
+    score = pad.score(image, np.array([60, 50, 120, 120]))
+    assert np.isfinite(score) and 0 <= score <= 1
+print(json.dumps({'yunet':True,'sface':True,'pad':True}))
+''', timeout=45)
+        self.assertEqual(result.returncode, 0, result.stderr.decode())
+        self.assertEqual(json.loads(result.stdout), {'yunet': True, 'sface': True, 'pad': True})
 
 
 if __name__ == '__main__':

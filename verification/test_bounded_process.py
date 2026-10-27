@@ -16,6 +16,9 @@ class BoundedProcessTests(unittest.TestCase):
         self.assertEqual(set(environment),{'PATH','LANG','LC_ALL','OMP_NUM_THREADS','OPENBLAS_NUM_THREADS','PYTHONDONTWRITEBYTECODE','PYTHONNOUSERSITE','PYTHONPATH'})
         self.assertEqual(environment['PYTHONPATH'],'/opt/openid-opencv/python:/app/verification')
         self.assertEqual(environment['OMP_NUM_THREADS'],'1')
+        for path in ('/tmp/untrusted', '/opt/openid-opencv/python:/tmp/untrusted', ''):
+            with self.subTest(path=path), patch.dict(os.environ, {'PYTHONPATH': path}):
+                self.assertNotIn('PYTHONPATH', image_worker_environment())
 
     def run_worker(self, code, data=b'', timeout=5, limit=4096):
         return run_bounded([sys.executable, '-c', code], input=data,
