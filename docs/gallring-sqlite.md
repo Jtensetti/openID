@@ -82,8 +82,11 @@ Blockerande kernel-I/O är ingen hård realtidsgaranti.
 `retention_runs` innehåller tid, deklarerad policyreferens, hash av den
 kanoniska policyn, tider och antal per tabell. Kvittensen på stdout innehåller
 journal-ID. Bevara den i den beslutade driftjournalen. Databasjournalen följer
-backupen men ingår ännu inte i det separata arkivuttaget; oberoende mottagning
-och skyddad förvaring behöver genomföras operativt.
+backupen och ingår i [arkivexportens format 2](arkivexport.md), tillsammans
+med profilmetadata och övriga registerjournaler i samma läsögonblicksbild.
+Mottagningsklienten inkluderar journalen i versionsbunden leverans, kvittens
+och återläsning; journalens tid omfattas av bevarandeberäkningen.
+Oberoende mottagning och skyddad förvaring behöver genomföras operativt.
 
 ## Kvarstående datalivscykel
 

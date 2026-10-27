@@ -1,7 +1,7 @@
 # Privat export av registerjournaler
 
 `verification/audit_archive.py` exporterar en sammanhängande läsögonblicksbild
-av befintliga registerjournaler. Format 1 är JSON Lines med fasta kolumner,
+av befintliga registerjournaler. Format 1 och 2 är JSON Lines med fasta kolumner,
 radantal, byteantal och SHA-256 per fil i ett manifest. Verktyget skriver
 aldrig tillbaka till registret och anropar ingen nyckeltjänst.
 
@@ -13,7 +13,7 @@ Leverans och mottagning är separata steg under olika konton/roller.
 
 | Körläge | Innehåll |
 |---|---|
-| SQLite | Credentials: ID, publik nyckel, tillstånd, skapande, giltighet och beslutsreferens. Profilmetadata: credential, version, verifieringstid och dokumentets sista giltighet. Samtliga befintliga händelser. |
+| SQLite | Credentials: ID, publik nyckel, tillstånd, skapande, giltighet och beslutsreferens. Profilmetadata: credential, version, verifieringstid och dokumentets sista giltighet. Samtliga befintliga händelser. Format 2 inkluderar även gallringsjournalen. |
 | PostgreSQL schema 2 | Samma tre populationer samt aktiveringsförslag med begärare/godkännare och operatörshändelser. Operatörstid bevaras i UTC med mikrosekunder. |
 
 Alla rader som är synliga i ögonblicksbilden ingår; ingen tidsfiltrering eller
@@ -24,7 +24,18 @@ får därmed inte blandas in i bara en av exportens tabeller.
 Efter [SQLite-gallring](gallring-sqlite.md) inkluderar profilpopulationen även
 bevarade metadata från `profile_evidence`, med samma kolumner och format.
 Motstridiga levande/bevarade rader avvisas. Profilinnehållet återinförs inte.
-Den separata körjournalen `retention_runs` ingår ännu inte i detta uttag.
+SQLite med gallringsschema exporteras som format 2. `retention_runs.jsonl`
+ingår även när journalen är tom: körnings-ID, tid, deklarerad policyreferens,
+policyhash, de två lagringstiderna och antal per gallringstabell. Journalens
+typer, intervall, räknarfält och hash mot den deklarerade policyn kontrolleras
+både vid export och offlineverifiering. Referensen eller hashen bevisar inte
+att policyn är beslutad eller att journalens uppgifter är sanna.
+
+Journal och profilmetadata läses i samma snapshot. Ett ofullständigt
+gallringsschema eller vyer i stället för dess tabeller nekar exporten;
+verktyget får inte tyst utelämna journalen. Äldre SQLite utan gallringsschema
+och PostgreSQL schema 2 behåller format 1. Offlineverifieringen stöder båda
+formaten. Äldre verifierare nekar format 2 och behöver uppdateras före mottagning.
 
 Personprofiler, bilder, person-/dokumenttaggar, pairwise subjects,
 PIN-verifierare och sessionshemligheter exporteras inte. Exporten innehåller

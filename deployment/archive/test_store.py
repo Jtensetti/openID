@@ -3,6 +3,7 @@ import base64
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 import hashlib
+import json
 import io
 from pathlib import Path
 import sys
@@ -99,6 +100,30 @@ class StoreTests(unittest.TestCase):
         self.assertEqual('READABLE',result['state']);self.assertEqual(3,result['rows'])
         self.assertTrue(all(body.closed for body in self.s3.bodies))
         self.assertTrue(self.s3.calls[-1].startswith(CFG['prefix']+'/receipts/'+self.digest+'/'))
+
+    def test_v2_journal_delivery_receipt_readback_and_retention_boundary(self):
+        baseline = store.required_until(self.source, CFG, NOW)
+        policy = {'version': 1, 'reference': 'TEST_POLICY_001', 'profileDays': 7,
+                  'authenticationRequestDays': 1}
+        policy_hash = hashlib.sha256(json.dumps(policy, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+        counts = json.dumps(dict(profiles=1, security_codes=1, requests=0, federation_requests=0))
+        row = [1, int((NOW+timedelta(hours=48)).timestamp()), policy['reference'], policy_hash, 7, 1, counts]
+        path = self.source/'retention_runs.jsonl'; raw = store.archive.encoded(row)
+        store.archive.write_file(path, raw)
+        manifest_path = self.source/'manifest.json'; manifest = json.loads(manifest_path.read_bytes())
+        manifest['format'] = 2
+        manifest['files'][path.name] = {'columns': list(store.archive.TABLES['retention_runs']),
+            'rows': 1, 'bytes': len(raw), 'sha256': hashlib.sha256(raw).hexdigest()}
+        raw_manifest = store.archive.encoded(manifest); manifest_path.write_bytes(raw_manifest)
+        self.digest = hashlib.sha256(raw_manifest).hexdigest()
+        self.assertGreater(store.required_until(self.source, CFG, NOW), baseline)
+        location = self.confirm(self.deliver())
+        result = store.check(location, self.digest, CFG, self.s3, STS(True), now=NOW+timedelta(days=30))
+        self.assertEqual('READABLE', result['state']); self.assertEqual(4, result['rows'])
+        self.assertTrue(any(key.endswith('/retention_runs.jsonl') for key in self.s3.calls))
+        row[1] = int((NOW+timedelta(hours=73)).timestamp()); path.write_bytes(store.archive.encoded(row))
+        with self.assertRaisesRegex(ValueError, 'future register time'):
+            store.required_until(self.source, CFG, NOW)
 
     def test_issuer_cannot_confirm_or_check_and_wrong_account_cannot_upload(self):
         delivery=self.deliver()

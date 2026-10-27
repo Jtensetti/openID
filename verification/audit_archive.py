@@ -24,6 +24,8 @@ TABLES = {
     'activation_proposals': ('id', 'credential', 'profile_version', 'requester', 'decision',
                              'hours', 'created', 'expires', 'approved_by', 'approved_at'),
     'operator_events': ('id', 'actor', 'kind', 'credential', 'proposal', 'time'),
+    'retention_runs': ('id', 'time', 'policy_ref', 'policy_sha256', 'profile_days',
+                       'request_days', 'counts'),
 }
 MAX_BYTES = 1024 ** 3
 MAX_ROWS = 1_000_000
@@ -49,9 +51,44 @@ def decode(data):
         parse_constant=lambda _: (_ for _ in ()).throw(ValueError('non-finite number')))
 
 
-def tables(backend):
+def tables(backend, version=1):
     if backend not in ('sqlite', 'postgresql'): raise ValueError('archive backend')
-    return tuple(TABLES) if backend == 'postgresql' else tuple(TABLES)[:3]
+    if type(version) is not int or version not in (1, 2) or (version == 2 and backend != 'sqlite'):
+        raise ValueError('archive version')
+    names = tuple(TABLES)[:5] if backend == 'postgresql' else tuple(TABLES)[:3]
+    return names+('retention_runs',) if version == 2 else names
+
+
+def sqlite_format(db):
+    # A partial retention schema must not silently omit the journal.
+    retention = dict(db.execute("SELECT name,type FROM sqlite_master WHERE name IN ('retention_runs','profile_evidence')"))
+    if retention and (set(retention) != {'retention_runs', 'profile_evidence'}
+                      or any(kind != 'table' for kind in retention.values())):
+        raise ValueError('incomplete retention schema')
+    return 2 if retention else 1
+
+
+def validate_row(name, row):
+    if (len(row) != len(TABLES[name])
+            or any(v is not None and type(v) not in (int, str) for v in row)):
+        raise ValueError('archive row format')
+    if name != 'retention_runs': return
+    ident, at, reference, digest, profile_days, request_days, counts = row
+    if (type(ident) is not int or not 1 <= ident <= 2**63-1
+            or type(at) is not int or not 0 <= at <= 253402300799
+            or not isinstance(reference, str) or not re.fullmatch('[A-Za-z0-9_-]{8,96}', reference)
+            or any(type(v) is not int or not 1 <= v <= 3650 for v in (profile_days, request_days))
+            or not isinstance(counts, str)):
+        raise ValueError('retention journal format')
+    policy = {'version': 1, 'reference': reference, 'profileDays': profile_days,
+              'authenticationRequestDays': request_days}
+    canonical = json.dumps(policy, sort_keys=True, separators=(',', ':')).encode()
+    if digest != hashlib.sha256(canonical).hexdigest(): raise ValueError('retention policy mismatch')
+    values = decode(counts)
+    if (type(values) is not dict
+            or set(values) != {'profiles', 'security_codes', 'requests', 'federation_requests'}
+            or any(type(v) is not int or not 0 <= v <= 1000 for v in values.values())):
+        raise ValueError('retention journal counts')
 
 
 def limit(value):
@@ -90,8 +127,7 @@ def write_table(db, backend, name, path, available, end):
             os.chmod(path, 0o600)
             for row in cursor:
                 deadline(end)
-                if any(v is not None and type(v) not in (int, str) for v in row):
-                    raise ValueError('unsupported database value; no partial export')
+                validate_row(name, row)
                 data = encoded(list(row))
                 count += 1; size += len(data)
                 if count > MAX_ROWS or len(data) > MAX_LINE or size > available:
@@ -107,18 +143,20 @@ def export_snapshot(source, destination, backend, revision, *, max_bytes=MAX_BYT
     limit(max_bytes)
     if not isinstance(revision, str) or not re.fullmatch('[a-f0-9]{40}', revision):
         raise ValueError('full source revision required')
-    names = tables(backend); destination = Path(destination).absolute()
+    tables(backend); destination = Path(destination).absolute()
     # Claim a new private directory first; a pre-existing destination is never changed.
     destination.mkdir(mode=0o700)
     try:
         end = time.monotonic()+DEADLINE; files = {}; total = 0
         with source as (db, snapshot):
+            version = sqlite_format(db) if backend == 'sqlite' else 1
+            names = tables(backend, version)
             for name in names:
                 deadline(end)
                 info = write_table(db, backend, name, destination/(name+'.jsonl'), max_bytes-total, end)
                 total += info['bytes']; files[name+'.jsonl'] = info
         # Publish the manifest only after the read transaction completes successfully.
-        manifest = encoded({'format': 1, 'backend': backend, 'source_revision': revision,
+        manifest = encoded({'format': version, 'backend': backend, 'source_revision': revision,
             'snapshot': snapshot, 'files': files})
         if total+len(manifest) > max_bytes: raise ValueError('archive exceeds limit')
         deadline(end); write_file(destination/'manifest.json', manifest)
@@ -182,11 +220,11 @@ def verify(source, expected_digest, *, max_bytes=MAX_BYTES):
             raise ValueError('manifest does not match trusted digest')
         manifest = decode(raw)
         if (type(manifest) is not dict or set(manifest) != {'format','backend','source_revision','snapshot','files'}
-                or type(manifest['format']) is not int or manifest['format'] != 1
+                or type(manifest['format']) is not int or manifest['format'] not in (1, 2)
                 or not isinstance(manifest['source_revision'], str)
                 or not re.fullmatch('[a-f0-9]{40}', manifest['source_revision'])):
             raise ValueError('archive manifest format')
-        names = tables(manifest['backend'])
+        names = tables(manifest['backend'], manifest['format'])
         snapshot = manifest['snapshot']
         if (type(snapshot) is not dict or set(snapshot) != {'database_schema','read_at'}
                 or (snapshot['database_schema'] is not None if manifest['backend'] == 'sqlite'
@@ -215,9 +253,8 @@ def verify(source, expected_digest, *, max_bytes=MAX_BYTES):
                     if len(line) > MAX_LINE or total+size > max_bytes or count > info['rows']:
                         raise ValueError('archive limit')
                     row = decode(line)
-                    if (type(row) is not list or len(row) != len(TABLES[name])
-                            or any(v is not None and type(v) not in (int, str) for v in row)):
-                        raise ValueError('archive row format')
+                    if type(row) is not list: raise ValueError('archive row format')
+                    validate_row(name, row)
                     digest.update(line)
             if size != info['bytes'] or count != info['rows'] or digest.hexdigest() != info['sha256']:
                 raise ValueError('archive content mismatch')

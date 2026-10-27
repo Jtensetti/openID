@@ -374,7 +374,8 @@ För ett separat, privat uttag av befintliga registerjournaler används
 [`audit_archive.py`](../docs/arkivexport.md). Det stöder SQLite och PostgreSQL,
 fungerar utan profilnycklar och kan verifieras offline mot en separat
 bevarad manifestkontrollsumma. Det ersätter inte återställningsbackup eller
-fullständigt utgivningsbevis.
+fullständigt utgivningsbevis. SQLite med gallringsschema använder format 2
+och inkluderar körjournalen; äldre arkiv i format 1 kan fortfarande verifieras.
 
 | Del | Kontroll |
 |---|---|

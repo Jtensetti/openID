@@ -59,12 +59,20 @@ PIN-verifierare, sessionshemligheter och skrivning. Containerbygget provar
 exportörens paketerade CLI. Detta är syntetiska utvecklingsprov; extern
 arkivmottagning och fullständiga utgivningsbevis ingår inte.
 
+Arkivproven täcker även gallringsjournal i format 2: äldre format 1,
+tom journal, samtidig journalförändring, saknad fil, partiellt schema/vyer,
+felaktiga policyhashar/räknare och okända format. `test_sqlite_retention`
+kontrollerar journalens verkliga innehåll efter gallring och att profilmetadata
+är oförändrad. Samma arkivprov körs i den paketerade Linux-imagen.
+
 `deployment/archive/test_store.py` provar leverans, separat mottagarroll och
 senare återläsning med versionsbunden kvittens. Felaktig data, fel konto,
 fel roll, ändrade versioner, bristande bevarande och kryptering nekar
 bekräftelse. Stubber kontrollerar S3-API-kontrakt; CI kontrollerar även den
 genererade CloudFormation-mallens säkerhetsregler. Ingen riktig AWS-stack
 eller faktisk extern mottagning används i dessa prov.
+Format 2 provas genom leverans, separat kvittens och återläsning; journalens
+tid måste påverka bevarandegränsen och orimligt framtida tid avvisas.
 
 `deployment/security/test_security_template.py` kör samma Guard-regler som
 infrastrukturjobbet mot mallen och avsiktligt osäkra varianter. Proven nekar

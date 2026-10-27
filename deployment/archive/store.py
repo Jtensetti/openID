@@ -103,7 +103,7 @@ def read_private(path, maximum=65536):
 def required_until(source, cfg, now):
     latest = now
     for name, columns in archive.TABLES.items():
-        if name not in ('credentials','events','activation_proposals','operator_events'): continue
+        if name not in ('credentials','events','activation_proposals','operator_events','retention_runs'): continue
         path = Path(source)/(name+'.jsonl')
         if not path.exists(): continue
         with path.open('rb') as stream:
