@@ -77,14 +77,15 @@ class ImageDecoderTests(unittest.TestCase):
     def test_oversize_dimensions_and_native_errors_never_make_profile(self):
         # Fake decoded metadata avoids allocating oversized test images.
         from types import SimpleNamespace
+        from profile_worker import create_thumbnail
         for shape in ((4097, 1, 3), (1, 4097, 3), (3000, 3000, 3), (0, 1, 3), (96, 96, 4)):
             image = SimpleNamespace(ndim=3, shape=shape)
             with self.subTest(shape=shape), patch.object(self.cv2, 'imdecode', return_value=image), patch.object(self.cv2, 'imencode') as encoder:
-                with self.assertRaises(ValueError): self.document(b'\xff\xd8\xff').profile()
+                with self.assertRaises(ValueError): create_thumbnail(b'\xff\xd8\xff')
                 encoder.assert_not_called()
         with patch.object(self.cv2, 'imdecode', side_effect=self.cv2.error('synthetic decoder failure')):
             with self.assertRaisesRegex(ValueError, 'IMAGE_REJECTED'):
-                self.document(b'\xff\xd8\xff').profile()
+                create_thumbnail(b'\xff\xd8\xff')
 
 
 if __name__ == '__main__': unittest.main()

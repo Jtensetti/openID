@@ -62,14 +62,8 @@ class VerifiedDocument:
         return cls(portrait, dict(identity), status, valid_until)
 
     def profile(self):
-        from image_input import decode_bounded_image
-        import cv2
-        image = decode_bounded_image(self.portrait)
-        height, width = image.shape[:2]
-        scale = min(1, 224 / max(height, width))
-        image = cv2.resize(image, (max(1, round(width*scale)), max(1, round(height*scale))))
-        success, encoded = cv2.imencode('.jpg', image, [cv2.IMWRITE_JPEG_QUALITY, 75])
-        if not success or len(encoded) > 24_000: raise ValueError('portrait size')
+        from profile_worker import thumbnail
+        encoded = thumbnail(self.portrait)
         return {k: v for k, v in self.identity.items() if k != 'documentNumber'} | {
             'displayName': ' '.join(filter(None, (self.identity['givenNames'], self.identity['familyName']))),
             'portraitJpeg': base64.b64encode(encoded).decode()}

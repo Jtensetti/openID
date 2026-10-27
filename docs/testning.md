@@ -122,6 +122,14 @@ Tabellen är ett daterat resultat för revisionen ovan.
 
 ## Negativa säkerhetsfall
 
+`test_bounded_process` kör riktiga kortlivade processer som blockerar,
+stänger pipes tidigt, avslutas med fel eller skickar för stor utdata.
+`test_profile_worker` provar att bara bildbytes skickas och att begränsningar
+och arbetarfel nekar profilskapande. `test_passport_revocation` kontrollerar
+att sådana fel rullar tillbaka samtliga registreringsposter. Verkliga JPEG-,
+JP2- och råa JPEG 2000-prov går genom profilprocessen i Linux-CI; negativa
+avkodarmetadata provas i själva omkodningsfunktionen med testdubblar.
+
 - Fel signatur, mottagare, ursprung, session eller signerad avsikt.
 - Återspelning, dubbla godkännanden och samtidiga försök att använda samma begäran.
 - Nekande, avbrott, utgång och spärr före och efter inloggning.

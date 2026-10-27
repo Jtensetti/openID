@@ -267,6 +267,14 @@ OpenCV 4.14.0.94 och ansiktsmodeller provas även i den byggda serverimagen.
 Detta minskar parserytan, utan att ändra tillitsnivå eller utgöra bevis på
 biometrisk kvalitet, fysisk PAD eller säkerhet hos alla inbäddade bibliotek.
 
+ID-05/INT-02/SEC-03: profilminiatyren avkodas i en separat process med
+15 sekunders väntetid, 10 CPU-sekunder, avstängda core-dumpar och 1 GiB
+adressrymd på Linux. Bildarbetarnas pipes begränsar utdata under läsningen,
+24 000 byte för miniatyren och 4096 byte för biometri. Personfält skickas
+inte i bildarbetarens indata, och serverns övriga miljövariabler ärvs inte.
+Fel, timeout och partiella svar får inte lämna registreringsposter kvar.
+Separat fil-/nätbehörighet och behandling av avkodarsårbarheter återstår.
+
 SEC-03 / OPS-07: server- och registerimage använder låst Debian 13-bas.
 Byggsteget kräver rättade OpenSSL-/SQLite-paket och fullständigt installerade
 versioner. OS-grinden kräver Debian 13 och nekar även låg/okänd eller ofixad

@@ -107,6 +107,7 @@ RUN --network=none printf '%s\n' pilot > /usr/share/doc/openid-python/wheel-prof
 COPY --from=node-build /app/verification/node_modules ./node_modules
 COPY --from=java-verified /check/target/isolated-eid-lab.jar /app/prototype/target/isolated-eid-lab.jar
 COPY verification/face.py verification/image_input.py verification/pad.py verification/download_models.py ./
+COPY verification/bounded_process.py verification/profile_worker.py ./
 COPY verification/vendor ./vendor
 COPY verification/licenses ./licenses
 COPY prototype/licenses /app/licenses/java

@@ -40,8 +40,22 @@ Detta analysgränssnitt registrerar ingen nyckel.
 ## Appens privata pilotregister
 
 För telefonprov med paketerad server används [pilotmiljön](../deployment/README.md).
-Den kör Gunicorn med separata kapacitetsgränser och processisolering för
-bildanalys. Kommandot nedan startar den äldre seriella testservern.
+Den kör Gunicorn med separata kapacitetsgränser och kortlivade processer för
+bildanalys och profilminiatyrer. Kommandot nedan startar den äldre seriella testservern.
+
+Profilavkodning/omkodning körs med 15 sekunders väntetid, högst 10 sekunders
+CPU-tid och 1 GiB virtuellt minne på Linux. Core-dumpar stängs av. Endast
+porträttets bildbytes skickas på stdin; personfälten stannar i föräldern.
+Utdata begränsas medan den läses: högst 24 000 byte JPEG för profilen och
+4096 byte diagnostik/poäng från biometriarbetaren, som har 45 sekunders
+väntetid. Timeout, för stor utdata och krasch får inte skapa någon profil;
+registreringstransaktionen och dess CRL-efterkontroll består.
+
+Bildarbetarna får bara fasta tråd-/lokalinställningar, standardsökväg och
+konfigurerad PYTHONPATH. Serverns övriga miljövariabler ärvs inte.
+Processerna delar fortfarande operativsystemskonto och fil-/nätåtkomst med
+tjänsten. Detta är resurs- och kraschskydd, inte en säkerhetssandbox eller
+bevis på rättade avkodarsårbarheter. Operativ separation återstår.
 
 [iPhone-appen](../ios/README.md) läser passet, tar tre kamerabilder och binder
 underlaget till telefonens publika nyckel med App Attest. Starta servern med

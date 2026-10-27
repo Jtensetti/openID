@@ -1,5 +1,12 @@
 # Källregister
 
+Bildprocessernas begränsningar: Python 3.12
+[subprocess](https://docs.python.org/3.12/library/subprocess.html) och
+[resource](https://docs.python.org/3.12/library/resource.html), lästa 2026-10-27.
+Pipe-utdata måste begränsas under läsningen; communicate-buffring ger ingen
+minnesgräns. Processstart kan inte avbrytas på alla plattformar. Resursgränser
+är operativsystemsberoende och utgör inte fil-/nätisolering.
+
 Containerhärdning: [Linux no_new_privs](https://docs.kernel.org/userspace-api/no_new_privs.html)
 och [Docker Engine security](https://docs.docker.com/engine/security/), lästa
 2026-10-27. `no_new_privs` hindrar exec från att ge nya set-ID-/filcapability-

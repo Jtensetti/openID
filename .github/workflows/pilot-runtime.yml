@@ -35,7 +35,9 @@ jobs:
             --tmpfs /tmp:size=128m,mode=1777 \
             -v "$PWD/verification/test_verification.py:/app/verification/test_verification.py:ro" \
             -v "$PWD/verification/test_image_input.py:/app/verification/test_image_input.py:ro" \
-            --entrypoint python openid-pilot:ci -m unittest -v test_verification.FaceTests test_image_input
+            -v "$PWD/verification/test_bounded_process.py:/app/verification/test_bounded_process.py:ro" \
+            -v "$PWD/verification/test_profile_worker.py:/app/verification/test_profile_worker.py:ro" \
+            --entrypoint python openid-pilot:ci -m unittest -v test_verification.FaceTests test_image_input test_bounded_process test_profile_worker
       - name: Read a previous SQLite database and restore its stale backup safely
         run: |
           mkdir -m 700 "$RUNNER_TEMP/sqlite-transition"

@@ -24,6 +24,13 @@ Versioner och licenser finns i [komponentregistret](../THIRD_PARTY.md).
 `verification/serve.py` kör pilotens native-/wallet-API över TLS med Gunicorn.
 En worker äger NFC-sessionerna. Kapacitetsgränser skiljer native-anrop från
 inloggning och spärr; bildanalysen körs i en separat process med tidsgräns.
+Även profilminiatyren avkodas och kodas i en egen kortlivad process, med
+15 sekunders väntetid, CPU-/minnesgräns på Linux och avstängda core-dumpar.
+Pipes för in-/utdata har storleksgränser som kontrolleras under överföringen.
+Biometrins utdata begränsas på samma sätt. Bildarbetarna ärver inte serverns
+hemliga miljövariabler; konfigurerad PYTHONPATH behålls för låsta native-byggen.
+Samma operativsystemskonto och fil-/nätåtkomst innebär fortsatt gemensam
+säkerhetszon; processgränsen är inte en sandbox.
 Databasens transaktioner avgör samtidiga godkännanden och spärrar. Ett fillås
 hindrar flera runtime-processer på samma databas. Detta är en ensam nod,
 inte en distribuerad tjänst. [Start och drift](../deployment/README.md).

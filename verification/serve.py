@@ -16,6 +16,7 @@ import sys
 
 from runtime import Runtime, validate_origin
 from ingress_client import proxy_config
+from bounded_process import image_worker_environment, run_bounded
 
 ROOT = Path(__file__).resolve().parent
 
@@ -35,8 +36,8 @@ def score_frames(portrait, frames):
     payload = json.dumps({'portrait': base64.b64encode(portrait).decode(),
         'frames': [base64.b64encode(frame).decode() for frame in frames]}).encode()
     try:
-        result = subprocess.run([sys.executable, str(ROOT/'biometric_worker.py')], input=payload,
-            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=45, check=False)
+        result = run_bounded([sys.executable, str(ROOT/'biometric_worker.py')], input=payload,
+            timeout=45, max_input=11_000_000, max_output=4096, env=image_worker_environment())
     except subprocess.TimeoutExpired:
         print(json.dumps({'event': 'biometric_failure', 'stage': 'WORKER', 'reason': 'TIMEOUT'}), file=sys.stderr, flush=True)
         raise

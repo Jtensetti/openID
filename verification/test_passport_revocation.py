@@ -57,6 +57,24 @@ class EnrollmentRevocationTests(unittest.TestCase):
         self.key=base64.b64encode(b'synthetic-public-key').decode()
         self.doc=VerifiedDocument.from_verifier(verifier_result())
 
+    def test_profile_worker_failures_roll_back_registration(self):
+        from dataclasses import replace
+        import subprocess
+        from bounded_process import WorkerOutputLimit
+        doc=replace(self.doc,portrait=b'\xff\xd8\xffsynthetic')
+        failures=[subprocess.TimeoutExpired('worker',15), WorkerOutputLimit('output limit'),
+                  subprocess.CompletedProcess([], -9, b''),
+                  subprocess.CompletedProcess([], 0, b'\xff\xd8\xfftruncated')]
+        for failure in failures:
+            kwargs={'side_effect':failure} if isinstance(failure,Exception) else {'return_value':failure}
+            with self.subTest(kind=type(failure).__name__), patch('profile_worker.run_bounded',**kwargs) as run:
+                with self.assertRaises((ValueError,OSError,subprocess.TimeoutExpired)):
+                    self.wallet.enroll(self.key,doc)
+                run.assert_called_once()
+            with self.wallet.transaction() as db:
+                for table in ('credentials','profiles','persons','events'):
+                    self.assertEqual(0,db.execute('SELECT count(*) FROM '+table).fetchone()[0])
+
     def test_unchecked_and_expired_documents_never_write_or_validate_a_key(self):
         for doc in (replace(self.doc,revocation='NOT_CHECKED',revocation_valid_until=0),
                     replace(self.doc,revocation_valid_until=1000)):
