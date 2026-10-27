@@ -5,6 +5,13 @@ PostgreSQL och OpenBao Transit. Registrering körs separat med en process;
 ett avbrott i en pågående NFC-session kräver att registreringen startas om.
 Det befintliga SQLite-läget finns kvar för en lokal pilot.
 
+Det befintliga CI-jobbet bygger autentiseringsimagen, provar dess integration
+och skannar därefter samtliga dpkg-paket mot en aktuell, hashlåst Trivy-körning.
+Kontrollen binds till den byggda imagens exakta ID och nekar fynd eller
+ofullständig täckning. OS-resultat bevaras i `cluster-os-inventory` även när
+grinden underkänns. Detta omfattar inte PostgreSQL-/OpenBao-tjänsternas
+egna paket eller driftsatta värdar. Se [byggkontrollerna](../build/README.md).
+
 ## Förutsättningar
 
 - PostgreSQL 18.6, en ny dedikerad databas och administratör för schema/roller.

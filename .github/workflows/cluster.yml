@@ -34,9 +34,11 @@ jobs:
           mkdir "$RUNNER_TEMP/bao"
           tar -xzf "$RUNNER_TEMP/bao.tar.gz" -C "$RUNNER_TEMP/bao"
       - name: Build authentication image without biometric models
+        id: registry_image
         run: |
           docker build --tag openid-wallet:ci --file deployment/cluster/Dockerfile .
           image_id=$(docker image inspect openid-wallet:ci --format '{{.Id}}')
+          printf 'image_id=%s\n' "$image_id" >> "$GITHUB_OUTPUT"
           timeout 120s docker run --rm --network none --read-only --cap-drop ALL --cap-add DAC_READ_SEARCH --user 0:0 \
             --security-opt no-new-privileges --pids-limit 32 --memory 128m --cpus 1 \
             -v "$PWD/deployment/build/file_privileges.py:/checks/file_privileges.py:ro" \
@@ -83,3 +85,20 @@ jobs:
             ${{ runner.temp }}/cluster-python-packages.json
             ${{ runner.temp }}/cluster-file-privileges.json
           retention-days: 14
+      - name: Audit every installed Debian package in the registry image
+        if: ${{ !cancelled() && steps.registry_image.outputs.image_id != '' }}
+        timeout-minutes: 10
+        env:
+          IMAGE_ID: ${{ steps.registry_image.outputs.image_id }}
+        run: |
+          python3 .github/scripts/audit_image_os.py \
+            --image "$IMAGE_ID" \
+            --output "$RUNNER_TEMP/cluster-os-audit"
+      - name: Save registry OS assessment including failures
+        if: ${{ always() && steps.registry_image.outputs.image_id != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cluster-os-inventory
+          path: ${{ runner.temp }}/cluster-os-audit/
+          if-no-files-found: error
+          retention-days: 90

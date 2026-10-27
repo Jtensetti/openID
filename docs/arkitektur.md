@@ -31,9 +31,12 @@ krävs även verifierad dumpable=0; annars nekas start. Detta skyddar deras
 vanliga kraschförlopp, inte andra processer eller privilegierad minnesåtkomst.
 Pipes för in-/utdata har storleksgränser som kontrolleras under överföringen.
 Biometrins utdata begränsas på samma sätt. Bildarbetarna ärver inte serverns
-hemliga miljövariabler; konfigurerad PYTHONPATH behålls för låsta native-byggen.
-Samma operativsystemskonto och fil-/nätåtkomst innebär fortsatt gemensam
-säkerhetszon; processgränsen är inte en sandbox.
+hemliga miljövariabler; endast den exakta granskade OpenCV-kandidatsökvägen
+får ärvas som PYTHONPATH. På Linux x86-64 begränsar Landlock och seccomp
+barnets fil-, nätverks- och processåtkomst före native-importer och indata.
+Saknat kärnstöd nekar körning. Samma OS-konto, värdens administratör och
+betrodd runtime är fortsatt gemensamma beroenden. På macOS finns inte
+detta Linux-skydd. Se [policy, prov och gränser](bildarbetare.md).
 Databasens transaktioner avgör samtidiga godkännanden och spärrar. Ett fillås
 hindrar flera runtime-processer på samma databas. Detta är en ensam nod,
 inte en distribuerad tjänst. [Start och drift](../deployment/README.md).

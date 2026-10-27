@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 LOCK = ROOT / 'deployment/build/trivy.lock.json'
 DB_REPOSITORY = 'ghcr.io/aquasecurity/trivy-db:2'
 LIMITS = [
-    'Only dpkg-managed packages in the exact pilot image are covered by this gate.',
+    'Only dpkg-managed packages in the exact scanned image are covered by this gate.',
     'Copied/built Python, Node and Temurin runtimes, embedded libraries, models, '
     'host OS, other images and deployed configuration need separate assessment.',
     'An advisory database is not exhaustive and this report is not an independent attestation.',

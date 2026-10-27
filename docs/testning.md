@@ -282,15 +282,19 @@ exporterade CMS-dokument och avvisar förändring av innehåll/radslut,
 fel CA, utgånget certifikat och manipulerad signatur. En skild
 kryptografisk implementation är inte en oberoende organisatorisk revision.
 
-## Systempaket i pilotens image
+## Systempaket i pilotens och registrets images
 
 `.github/scripts/test_audit_image_os.py` provar negativa paket-, databas-,
-rapport- och distributionsfall. Containerjobbet installerar hash-låsta
+rapport- och distributionsfall. Containerjobben installerar hash-låsta
 Debian-rättningar och jämför faktisk dpkg-inventering med Trivys täckning
-på exakt image-ID. Fynd och ofullständiga underlag stoppar exporten;
-`pilot-image-inventory` sparar även underkända underlag, OS-SBOM och
-täckningsgränser i 90 dagar. Körda resultat hör till vald CI-revision.
-Kopierade runtime-binärer och värd-OS ingår inte i denna kontroll.
+på respektive exakt image-ID. Fynd och ofullständiga underlag underkänner
+komponentjobbet och därmed helhetsgrinden. Pilotens export stoppas också.
+`pilot-image-inventory` och `cluster-os-inventory` sparar även underkända
+underlag, OS-SBOM och täckningsgränser i 90 dagar. Registerskanningen körs
+även efter andra testfel om imagen har byggts, men startas inte vid avbruten
+körning. Kapacitetsbevis laddas upp före OS-grinden. Körda resultat hör till
+vald CI-revision. Kopierade runtime-binärer, PostgreSQL-/OpenBao-tjänsterna,
+driftimagen i `ops/` och värd-OS ingår inte i denna kontroll.
 
 ## Jämförelse av begränsat bildbibliotek
 

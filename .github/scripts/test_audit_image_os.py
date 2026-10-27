@@ -168,6 +168,60 @@ class ImageAuditTests(unittest.TestCase):
             self.assertFalse(assessment['passed'])
             self.assertIn('system-packages.tsv', assessment['files'])
 
+    def test_audit_exit_and_saved_evidence_for_a_second_image(self):
+        """The orchestration must not convert findings or wrong-image data to success."""
+        second_image = 'sha256:' + 'b' * 64
+
+        class FixedClock(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return NOW
+
+        for case, expected in [('clean', 0), ('finding', 1), ('wrong-image', 2)]:
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as directory:
+                out = Path(directory) / 'evidence'
+                value = report()
+                value['Metadata']['ImageID'] = IMAGE if case == 'wrong-image' else second_image
+                if case == 'finding':
+                    value['Results'][0]['Vulnerabilities'] = [{
+                        'VulnerabilityID': 'CVE-TEST-REGISTRY', 'PkgName': 'libc6',
+                        'InstalledVersion': '2.41-12+deb13u4', 'Severity': 'LOW'}]
+
+                def run(command, **kwargs):
+                    if '--download-db-only' in command:
+                        database = Path(command[command.index('--cache-dir') + 1]) / 'db'
+                        database.mkdir(parents=True)
+                        (database / 'trivy.db').write_bytes(b'generated database fixture')
+                        audit.save(database / 'metadata.json', {
+                            'Version': 2, 'UpdatedAt': NOW.isoformat(),
+                            'DownloadedAt': NOW.isoformat(),
+                            'NextUpdate': (NOW + timedelta(hours=6)).isoformat()})
+                    elif 'convert' in command:
+                        audit.save(Path(command[command.index('--output') + 1]), {})
+                    else:
+                        self.assertEqual(command[-1], second_image)
+                        self.assertEqual(command[command.index('--image-src') + 1], 'docker')
+                        audit.save(Path(command[command.index('--output') + 1]), value)
+
+                with patch.object(audit, 'datetime', FixedClock), \
+                     patch.object(audit.platform, 'system', return_value='Linux'), \
+                     patch.object(audit.platform, 'machine', return_value='x86_64'), \
+                     patch.object(audit.subprocess, 'check_output', side_effect=[('a'*40)+'\n', TSV]), \
+                     patch.object(audit, 'install', side_effect=lambda lock, work, output: work/'trivy'), \
+                     patch.object(audit.subprocess, 'run', side_effect=run):
+                    self.assertEqual(audit.audit(second_image, out), expected)
+                assessment = json.loads((out / 'assessment.json').read_text())
+                self.assertEqual(assessment['imageID'], second_image)
+                self.assertEqual(assessment['complete'], case != 'wrong-image')
+                self.assertEqual(assessment['passed'], case == 'clean')
+                self.assertEqual(json.loads((out / 'trivy-os.json').read_text()), value)
+                for name, sha in assessment['files'].items():
+                    self.assertEqual(hashlib.sha256((out / name).read_bytes()).hexdigest(), sha)
+                if case == 'finding':
+                    self.assertEqual(assessment['findingCount'], 1)
+                if case == 'wrong-image':
+                    self.assertEqual(assessment['error'], 'report belongs to another image')
+
     def test_debian_patch_download_requires_exact_hash_and_official_source(self):
         item = {'url': 'https://security.debian.org/debian-security/pool/updates/main/test.deb',
                 'sha256': hashlib.sha256(b'package').hexdigest()}

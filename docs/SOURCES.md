@@ -61,6 +61,13 @@ skiljer dpkg-paket från egenbyggda binärer och använder Debians säkerhetsbed
 anger officiell OCI-källa och uppdateringsflöde. Projektet kräver aktuell
 databas och jämför hela dpkg-inventeringen med skannerns paketlista.
 
+Komplettering 2026-10-27: [Trivys containerkällor](https://trivy.dev/docs/latest/target/container_image/)
+beskriver den lokala Docker-källan. Båda applikationsimagernas OS-kontroll
+begränsas till denna källa och validerar fullständigt image-ID.
+[GitHubs statusuttryck](https://docs.github.com/en/actions/reference/workflows-and-actions/expressions#status-check-functions)
+ligger till grund för registerskanning efter testfel med `!cancelled()` och
+bevisuppladdning med `always()`. Skanningsfel får inte omvandlas till godkänt jobb.
+
 [Debian Securitys Trixie-index](https://security.debian.org/debian-security/dists/trixie-security/main/binary-amd64/Packages.xz)
 anger OpenSSL `3.5.7-1~deb13u3`.
 [Trixie-updates](https://deb.debian.org/debian/dists/trixie-updates/main/binary-amd64/Packages.xz)

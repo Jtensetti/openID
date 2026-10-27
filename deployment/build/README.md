@@ -140,7 +140,7 @@ byggmaskinen, med samma läsbehörighet som jobbet, utan molnbehörigheter eller
 behövs för distributionsfiler och aktuell säkerhetsdatabas; skanning sker
 lokalt med avstängd telemetri. Skannern installeras inte i serverimagen.
 
-`pilot-image-inventory` sparar även vid fynd paketlistan, full Trivy-rapport,
+`pilot-image-inventory` och registrets `cluster-os-inventory` sparar även vid fynd paketlistan, full Trivy-rapport,
 CycloneDX för OS-paketen, databasdatum och databasens SHA-256, verktygslås/SBOM
 och `assessment.json` med filhashar och täckningsgränser i 90 dagar. Behåll
 denna artefakt från samma godkända helhetskörning tillsammans med releasebevisen.
@@ -160,8 +160,13 @@ Det får bara köras inne i det isolerade Linux/amd64-imagebygget.
 OS-grinden accepterar endast Debian 13 och jämför fortfarande varje
 installerat paket mot skannerns fullständiga inventering. Den accepterar
 inte en återgång till Debian 12, ett okänt OS eller rapporterad slutad
-support. Inga nya sårbarhetsundantag tillkommer. Hela OS-grinden omfattar
-tills vidare pilotimagen; registerimagen har egna funktionsprov.
+support. Inga nya sårbarhetsundantag tillkommer. OS-grinden körs separat på
+pilotimagen och den byggda autentiseringsimagen för registret. Ett godkänt
+pilotresultat kan inte ersätta registerimagens egen paketinventering och
+skanning. Fynd eller ofullständig kontroll underkänner komponentjobbet och
+helhetsgrinden; det finns inget `continue-on-error`. Registerjobbet bevarar
+funktions-/kapacitetsbevis före skanningen och OS-underlag även vid fel.
+PostgreSQL, OpenBao, `ops/` och värdarnas OS behöver fortfarande egna kontroller.
 
 `sqlite_transition.py` är ett **CI-prov med genererade data**. Det skapar
 Wallet-register och äldre backup med den tidigare, låsta basens SQLite
