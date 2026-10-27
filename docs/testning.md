@@ -138,6 +138,13 @@ fel revision/plattform, saknat protokollbevis och otillräckligt utrymme.
 Ingressprovet omfattar också stora SAML-POST utan temporärfillagring och
 avvisar överstora anrop; det använder enbart egna temporära nginx-kataloger.
 
+`python3 deployment/build/test_file_privileges.py -v` provar borttagning av
+setuid/setgid på syntetiska filer, bevarat innehåll, hårdlänkar, symlänkar,
+läs-/skrivfel och avvisning av ändrade filer eller nya privilegierade filer.
+Det kör inga sådana program och ändrar bara temporära testkataloger. CI
+kontrollerar dessutom de färdiga pilot-, register- och OpenCV-imagena;
+lokala filprov ersätter inte denna kontroll eller verifiering av driftvärden.
+
 - [Pass, modeller, register och federation](../verification/README.md#tester).
 - [SAML, WebAuthn, lagring och återläsning](../prototype/README.md#tester-och-beroenden).
 - [iOS-bygge och simulator](../ios/README.md#bygg-och-testa).

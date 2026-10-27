@@ -275,6 +275,13 @@ backup till 3.46.1; spärrar och nekad återaktivering måste bestå. Verkliga
 Wallet-/signatur-/återställningsprov körs också i den byggda pilotimagen.
 Detta ändrar inte formell status och ersätter inte införande eller driftövning.
 
+SEC-03 / OPS-07: pilot- och registerimage tar bort setuid/setgid från reguljära
+filer under bygget. Den färdiga imagen kontrolleras separat mot nya sådana
+rättigheter och mot ändrat innehåll i de härdade filerna. Prov täcker även
+symlänkar, läsfel, misslyckade rättighetsbyten och manipulerat underlag.
+Virtuella `/dev`, `/proc`, `/sys`, katalogers setgid och filcapabilities ingår
+inte. Paketens advisories kvarstår; runtimebegränsningar och driftprov behövs.
+
 SEC-03: Python 3.12.16 byggs från hashlåst officiell källa med
 Expat 2.9.0, sparade licenser/SPDX och obligatoriska upstream-säkerhetsprov.
 Hela äldre installationen ersätts. Den faktiska serverimagen provas separat

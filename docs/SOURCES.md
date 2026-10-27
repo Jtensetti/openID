@@ -1,5 +1,12 @@
 # Källregister
 
+Containerhärdning: [Linux no_new_privs](https://docs.kernel.org/userspace-api/no_new_privs.html)
+och [Docker Engine security](https://docs.docker.com/engine/security/), lästa
+2026-10-27. `no_new_privs` hindrar exec från att ge nya set-ID-/filcapability-
+privilegier men begränsar inte alla andra privilegieövergångar. Borttagna
+setuid/setgid-filrättigheter i våra images är ett kompletterande designval,
+inte ett påstående om att paketens sårbarheter är rättade.
+
 ## Avgränsad klientadress genom betans ingress, 2026-10-26
 
 [nginx proxy_set_header](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_set_header)

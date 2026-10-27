@@ -52,6 +52,8 @@ COPY verification/image_input.py ./
 COPY deployment/cluster/schema.sql /app/deployment/cluster/schema.sql
 COPY deployment/build/remove_build_pip.py /tmp/remove_build_pip.py
 RUN --network=none python /tmp/remove_build_pip.py && rm /tmp/remove_build_pip.py
+COPY deployment/build/file_privileges.py /tmp/file_privileges.py
+RUN --network=none python /tmp/file_privileges.py apply && rm /tmp/file_privileges.py
 USER 10001:10001
 HEALTHCHECK --interval=15s --timeout=6s --start-period=30s --retries=3 CMD ["python","probe.py","/srv/openid/runtime.json"]
 ENTRYPOINT ["python","cluster_serve.py"]

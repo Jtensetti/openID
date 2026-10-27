@@ -21,6 +21,7 @@ jobs:
           python3 deployment/build/test_python_wheels.py -v
           python3 deployment/build/opencv/test_compare.py -v
           python3 deployment/build/test_image_surface.py -v
+          python3 deployment/build/test_file_privileges.py -v
       - name: Export tracked source only
         run: |
           mkdir "$RUNNER_TEMP/image-source"
@@ -151,6 +152,12 @@ jobs:
           docker cp openid-pilot:/opt/java/openjdk/upstream-sbom.cdx.json "$RUNNER_TEMP/temurin-upstream-sbom.cdx.json"
           docker cp openid-pilot:/usr/share/doc/openid-python "$RUNNER_TEMP/python-runtime-evidence"
           docker image inspect openid-pilot:ci --format '{{.Id}}' > "$RUNNER_TEMP/image-id.txt"
+          timeout 120s docker run --rm --network none --read-only --cap-drop ALL --user 0:0 \
+            --security-opt no-new-privileges --pids-limit 32 --memory 128m --cpus 1 \
+            -v "$PWD/deployment/build/file_privileges.py:/checks/file_privileges.py:ro" \
+            --entrypoint python "$(cat "$RUNNER_TEMP/image-id.txt")" -B /checks/file_privileges.py check \
+            --image-id "$(cat "$RUNNER_TEMP/image-id.txt")" --revision "$(git rev-parse HEAD)" \
+            > "$RUNNER_TEMP/file-privileges.json"
           timeout 120s docker run --rm --name openid-image-surface --network none --read-only --cap-drop ALL \
             --security-opt no-new-privileges --pids-limit 32 --memory 128m --cpus 1 \
             -v "$PWD/deployment/build/image_surface.py:/checks/image_surface.py:ro" \
@@ -190,6 +197,14 @@ jobs:
             image=openid-pilot:ci
             if [ "$kind" = candidate ]; then image=openid-opencv:ci; fi
             docker image inspect "$image" --format '{{.Id}}' > "$RUNNER_TEMP/opencv-evaluation/$kind-image-id.txt"
+            if [ "$kind" = candidate ]; then
+              timeout 120s docker run --rm --network none --read-only --cap-drop ALL --user 0:0 \
+                --security-opt no-new-privileges --pids-limit 32 --memory 128m --cpus 1 \
+                -v "$PWD/deployment/build/file_privileges.py:/checks/file_privileges.py:ro" \
+                --entrypoint python "$(cat "$RUNNER_TEMP/opencv-evaluation/$kind-image-id.txt")" -B /checks/file_privileges.py check \
+                --image-id "$(cat "$RUNNER_TEMP/opencv-evaluation/$kind-image-id.txt")" --revision "$(git rev-parse HEAD)" \
+                > "$RUNNER_TEMP/opencv-evaluation/candidate-file-privileges.json"
+            fi
             docker run --rm --network none --read-only --cap-drop ALL \
               --security-opt no-new-privileges --pids-limit 128 --memory 2g --cpus 2 \
               --user "$(id -u):$(id -g)" --tmpfs /tmp:size=128m,mode=1777 \
@@ -213,6 +228,7 @@ jobs:
             ${{ runner.temp }}/python-packages.json
             ${{ runner.temp }}/image-id.txt
             ${{ runner.temp }}/image-surface.json
+            ${{ runner.temp }}/file-privileges.json
             ${{ runner.temp }}/runtime-versions.txt
             ${{ runner.temp }}/runtime-components.json
             ${{ runner.temp }}/sqlite-transition.json

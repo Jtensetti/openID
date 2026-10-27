@@ -105,6 +105,23 @@ redovisas som ofullständig täckning. Verktygen exekveras inte. Detta är inte
 driftkonfiguration, full kodnåbarhetsanalys, VEX eller ett sårbarhetsundantag.
 Den ordinarie OS-grinden påverkas inte av inventeringens innehåll.
 
+Pilot- och registerbygget tar bort setuid/setgid från reguljära filer efter
+installationerna. Tjänsterna behöver inga filbaserade byten till root eller
+andra användare/grupper. Filinnehåll, ägare och övriga rättigheter bevaras;
+paket, licenser och advisories finns kvar. `/dev`, `/proc` och `/sys` undantas,
+symlänkar följs inte och katalogers setgid ändras inte. Byggningen sparar
+före-/efterrättigheter och filhashar i `file-privileges.json`.
+
+CI kontrollerar den färdiga pilotimagen, registerimagen och OpenCV-kandidaten:
+inga reguljära filer inom detta omfång får ha setuid/setgid, och ändrade filer
+måste matcha byggrapporten. Läsfel, nya privilegierade filer eller förändrat
+innehåll stoppar provet. Kontrollen använder root enbart för att läsa hela
+imagefilsystemet, med avstängt nät, skrivskydd och borttagna capabilities.
+Imagernas förvalda driftanvändare behåller UID 10001. Filcapabilities, volymer, historiska lager
+och värdsystemet ingår inte i denna kontroll; `no-new-privileges`, `cap_drop`
+och separat driftverifiering behövs fortfarande. Det är härdning, ingen
+rättning av de rapporterade paketfynden.
+
 Alla rapporterade fynd, även låg/okänd allvarlighetsgrad och fynd utan publicerad
 rättning, stoppar exporten och den gemensamma grinden. Ingen ignore-fil,
 statusfiltrering eller automatisk riskacceptans används. Fynd behöver rättas
