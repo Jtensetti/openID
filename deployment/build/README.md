@@ -97,6 +97,14 @@ arkitektur för samtliga paket måste också stämma mellan de två inventeringa
 Okänt OS, saknad täckning, fel image-ID, verktygsfel och en databas äldre än
 24 timmar nekar kontrollen. Ingen gammal lyckad rapport återanvänds.
 
+`image-surface.json` kompletterar advisorybedömningen med paketens fillistor,
+hashar/rättigheter för kända administrativa komponenter och avlästa privilegier
+för en separat nätlös, skrivskyddad CI-process. Bild-ID, revision och insamlarens
+hash följer med. Saknade läsrättigheter och länkar utanför undersökta kodkataloger
+redovisas som ofullständig täckning. Verktygen exekveras inte. Detta är inte
+driftkonfiguration, full kodnåbarhetsanalys, VEX eller ett sårbarhetsundantag.
+Den ordinarie OS-grinden påverkas inte av inventeringens innehåll.
+
 Alla rapporterade fynd, även låg/okänd allvarlighetsgrad och fynd utan publicerad
 rättning, stoppar exporten och den gemensamma grinden. Ingen ignore-fil,
 statusfiltrering eller automatisk riskacceptans används. Fynd behöver rättas

@@ -20,6 +20,7 @@ jobs:
         run: |
           python3 deployment/build/test_python_wheels.py -v
           python3 deployment/build/opencv/test_compare.py -v
+          python3 deployment/build/test_image_surface.py -v
       - name: Export tracked source only
         run: |
           mkdir "$RUNNER_TEMP/image-source"
@@ -150,6 +151,12 @@ jobs:
           docker cp openid-pilot:/opt/java/openjdk/upstream-sbom.cdx.json "$RUNNER_TEMP/temurin-upstream-sbom.cdx.json"
           docker cp openid-pilot:/usr/share/doc/openid-python "$RUNNER_TEMP/python-runtime-evidence"
           docker image inspect openid-pilot:ci --format '{{.Id}}' > "$RUNNER_TEMP/image-id.txt"
+          timeout 120s docker run --rm --name openid-image-surface --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --pids-limit 32 --memory 128m --cpus 1 \
+            -v "$PWD/deployment/build/image_surface.py:/checks/image_surface.py:ro" \
+            --entrypoint python "$(cat "$RUNNER_TEMP/image-id.txt")" -B /checks/image_surface.py \
+            --image-id "$(cat "$RUNNER_TEMP/image-id.txt")" --revision "$(git rev-parse HEAD)" \
+            > "$RUNNER_TEMP/image-surface.json"
           docker stop --time 10 openid-rp
           docker stop --time 70 openid-pilot
           test "$(docker inspect openid-pilot --format '{{.State.ExitCode}}')" = 0
@@ -205,6 +212,7 @@ jobs:
           path: |
             ${{ runner.temp }}/python-packages.json
             ${{ runner.temp }}/image-id.txt
+            ${{ runner.temp }}/image-surface.json
             ${{ runner.temp }}/runtime-versions.txt
             ${{ runner.temp }}/runtime-components.json
             ${{ runner.temp }}/sqlite-transition.json
@@ -219,7 +227,7 @@ jobs:
         run: |
           docker logs openid-pilot || true
           docker logs openid-rp || true
-          docker rm --force openid-pilot openid-rp || true
+          docker rm --force openid-pilot openid-rp openid-image-surface || true
       - name: Package the tested image and provenance
         run: |
           python3 deployment/image_bundle.py package --image openid-pilot:ci \
