@@ -337,3 +337,24 @@ och checksummor är oförändrade. CycloneDX-SBOM och daterad OSV-kontroll
 det är inte bevis för frånvaro av sårbarheter. Nya integrationen är
 begränsad till privat pilot. Produktionsförvaltare och oberoende granskare
 återstår enligt förvaltningsavsnittet ovan.
+
+## Begränsad OpenCV-kandidat, 2026-10-27
+
+Ett uttryckligt provbygge kombinerar OpenCV **4.14.0**, libjpeg-turbo **3.2.0**
+och OpenJPEG **2.5.4+git.8314119**, med CMake **4.4.4** som byggverktyg.
+OpenJPEG är en oreleasad upstreamrevision efter 2.5.4. Projektet anger att
+det saknar regelbundet underhåll; produktionsförvaltning är ännu olöst.
+[Native-låset](deployment/build/opencv/native.lock.json) anger fulla upstream-
+revisioner, officiella arkiv, SHA-256 och varje bevarad licensfil.
+OpenCV är Apache-2.0 med bevarade komponentnotiser, libjpeg-turbo IJG/BSD med komponentlicenser, OpenJPEG
+BSD-2-Clause och CMake BSD-3-Clause med egna inbäddade komponenter.
+Upstreamkod ändras inte. Protobuf 3.19.1 behålls från OpenCV med BSD-licens.
+
+This software is based in part on the work of the Independent JPEG Group.
+
+Fullständiga licenser, IJG-attribution, byggkonfiguration, testloggar, ELF-
+beroenden och avgränsad CycloneDX-inventering bevaras i kandidatens byggbevis.
+Den fullständiga applikationen och byggverktygets transitiva bibliotek är
+inte täckta av detta enskilda SBOM. Repoförvaltaren äger fortsatt bevakning.
+Kandidaten ersätter ännu inte standardimagen och stänger inga driftsfynd.
+[Jämförelsemetod och primärkällor](deployment/build/opencv/README.md).

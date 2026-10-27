@@ -238,3 +238,15 @@ på exakt image-ID. Fynd och ofullständiga underlag stoppar exporten;
 `pilot-image-inventory` sparar även underkända underlag, OS-SBOM och
 täckningsgränser i 90 dagar. Körda resultat hör till vald CI-revision.
 Kopierade runtime-binärer och värd-OS ingår inte i denna kontroll.
+
+## Jämförelse av begränsat bildbibliotek
+
+Pilotjobbet kan bygga det uttryckliga målet `opencv-candidate` från låsta
+källor och jämföra det med standardimagen. Genererade bildfixturer och
+samma hashverifierade YuNet/SFace/PAD-modeller används utan nät.
+Codec-/profilgränser, numeriska resultat och avkodningstid ska klara
+[angivna toleranser](../deployment/build/opencv/README.md). Negativa prov
+ska neka ändrade indata, andra native-moduler, återaktiverade bildformat,
+NaN, modell- och prestandaregressioner. Kandidaten och referensen får inte
+sammanblandas i paket- eller sårbarhetsbevis; standardimagen är oförändrad.
+Detta är kompatibilitetsprov, inte full biometrisk kalibrering.

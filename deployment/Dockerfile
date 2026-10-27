@@ -87,7 +87,7 @@ RUN test "$(dpkg --print-architecture)" = amd64 && mkdir -p /opt/java/openjdk \
     && /opt/java/openjdk/bin/java -version
 ADD --checksum=sha256:5431b6d3ad286a41d9e20b9b0d37355f430046e333b4954c0814a8c3014bd4f4 https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13%2B9/OpenJDK21U-sbom_x64_linux_hotspot_21.0.13_9.json /opt/java/openjdk/upstream-sbom.cdx.json
 RUN chmod 644 /opt/java/openjdk/upstream-sbom.cdx.json
-FROM python-base
+FROM python-base AS pilot
 LABEL org.opencontainers.image.source="https://github.com/Jtensetti/openID"
 LABEL org.opencontainers.image.description="Private iPhone verification pilot"
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 JAVA_HOME=/opt/java/openjdk
@@ -127,3 +127,25 @@ USER 10001:10001
 HEALTHCHECK --interval=15s --timeout=5s --start-period=90s --retries=3 CMD ["python", "probe.py", "/srv/openid/runtime.json"]
 ENTRYPOINT ["python", "serve.py"]
 CMD ["--config", "/srv/openid/runtime.json"]
+
+# Explicit comparison target; it is not the default runtime image.
+FROM python:3.12.15-trixie@sha256:0d0db5b17f11b1b7d1aafa74ceadaa64ba0944b267ff6fc22008a197acd6b9ad AS opencv-build
+RUN rm -rf /usr/local
+COPY --from=python-build /stage/usr/local /usr/local
+RUN ldconfig
+ADD --checksum=sha256:7a75663094ebd50bf212928423a24394e29d751db878044ad015ba28546a59db https://github.com/opencv/opencv/archive/0654a42e19215ef25b1d367d822f3c630447e7c7.tar.gz /inputs/opencv.tar.gz
+ADD --checksum=sha256:e5bb807f7728cb60cd8b27ebc97a2edb469b68655f21e844a600c3575b76f5bb https://github.com/Kitware/CMake/releases/download/v4.4.4/cmake-4.4.4-linux-x86_64.tar.gz /inputs/cmake.tar.gz
+ADD --checksum=sha256:6f30092cef9fb839779646608f4ee14ae3cbac989c47fa05e841b0841f09878e https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/3.2.0/libjpeg-turbo-3.2.0.tar.gz /inputs/jpeg.tar.gz
+ADD --checksum=sha256:e723e8babb2188e8743308842bb1bfc9809f0375cd964cfeac2fb17285094321 https://github.com/uclouvain/openjpeg/archive/8314119b067c0fc77834731168daaebd379fdb12.tar.gz /inputs/openjpeg.tar.gz
+COPY --from=python-wheels /wheels/numpy-2.2.6-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl /inputs/numpy.whl
+COPY deployment/build/opencv/native.lock.json /inputs/native.lock.json
+COPY deployment/build/opencv/build.py /build-opencv.py
+RUN --network=none python /build-opencv.py
+
+FROM pilot AS opencv-candidate
+COPY --from=opencv-build /native /opt/openid-opencv
+ENV PYTHONPATH=/opt/openid-opencv/python:/app/verification
+LABEL io.openid.candidate-only="true"
+
+# Preserve the reviewed default while the native replacement is evaluated.
+FROM pilot AS release

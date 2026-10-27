@@ -249,3 +249,11 @@ för de kvarvarande inbäddade biblioteksfynd som OS- och PyPI-skanning inte tä
 
 Registerjobbets tidsgräns är 30 minuter för källbygget och de efterföljande
 integrationsproven; det inför inget nytt jobb, schema eller molnbehörighet.
+
+## Kandidat för färre inbäddade bildbibliotek
+
+[OpenCV-provbygget](opencv/README.md) är ett uttryckligt separat byggmål.
+Det befintliga pilotjobbet jämför det med standardimagen och sparar käll-,
+licens-, modell- och binärbevis. Standardmålet använder fortsatt det låsta
+upstreamhjulet. Ett godkänt jämförelseprov medger inte automatiskt byte
+eller release: full integration och slutimagets egna kontroller återstår.

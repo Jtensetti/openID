@@ -7,7 +7,7 @@ permissions:
 jobs:
   container:
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -16,8 +16,10 @@ jobs:
         run: python3 -m unittest discover -s deployment -p test_image_bundle.py -v
       - name: Test OS scan coverage, stale databases and rejected evidence
         run: python3 .github/scripts/test_audit_image_os.py -v
-      - name: Reject altered wheel origins and network-enabled package installs
-        run: python3 deployment/build/test_python_wheels.py -v
+      - name: Reject altered package origins and invalid native comparison evidence
+        run: |
+          python3 deployment/build/test_python_wheels.py -v
+          python3 deployment/build/opencv/test_compare.py -v
       - name: Export tracked source only
         run: |
           mkdir "$RUNNER_TEMP/image-source"
@@ -170,6 +172,26 @@ jobs:
           name: protocol-evidence
           path: '${{ runner.temp }}/protocol-evidence'
           retention-days: 90
+      - name: Build and compare restricted OpenCV candidate without changing the release image
+        run: |
+          docker build --platform linux/amd64 --target opencv-candidate --tag openid-opencv:ci --file "$RUNNER_TEMP/image-source/deployment/Dockerfile" "$RUNNER_TEMP/image-source"
+          mkdir "$RUNNER_TEMP/opencv-evaluation"
+          native_container=$(docker create --entrypoint true openid-opencv:ci)
+          docker cp "$native_container:/opt/openid-opencv/evidence" "$RUNNER_TEMP/opencv-evaluation/native"
+          docker rm "$native_container"
+          for kind in reference candidate; do
+            image=openid-pilot:ci
+            if [ "$kind" = candidate ]; then image=openid-opencv:ci; fi
+            docker image inspect "$image" --format '{{.Id}}' > "$RUNNER_TEMP/opencv-evaluation/$kind-image-id.txt"
+            docker run --rm --network none --read-only --cap-drop ALL \
+              --security-opt no-new-privileges --pids-limit 128 --memory 2g --cpus 2 \
+              --user "$(id -u):$(id -g)" --tmpfs /tmp:size=128m,mode=1777 \
+              -v "$PWD/deployment/build/opencv/probe.py:/checks/probe.py:ro" \
+              -v "$RUNNER_TEMP/opencv-evaluation:/evidence" \
+              --entrypoint python "$image" /checks/probe.py "$kind" /evidence
+          done
+          git rev-parse HEAD > "$RUNNER_TEMP/opencv-evaluation/tested-revision.txt"
+          python3 deployment/build/opencv/compare.py "$RUNNER_TEMP/opencv-evaluation"
       - name: Audit every installed Debian package in the built image
         run: |
           python3 .github/scripts/audit_image_os.py \
@@ -189,6 +211,7 @@ jobs:
             ${{ runner.temp }}/python-runtime-evidence
             ${{ runner.temp }}/temurin-upstream-sbom.cdx.json
             ${{ runner.temp }}/image-os-audit/
+            ${{ runner.temp }}/opencv-evaluation/
           if-no-files-found: error
           retention-days: 90
       - name: Logs and cleanup
