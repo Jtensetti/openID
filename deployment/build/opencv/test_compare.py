@@ -5,7 +5,36 @@ from pathlib import Path
 import unittest
 
 from compare import compare
-from build import validate_elf
+from build import HARDENING_FLAGS, validate_compile_commands, validate_elf
+
+
+class CompilerPolicyTests(unittest.TestCase):
+    def setUp(self):
+        self.entry = {'file': '/source/decoder.c',
+                      'command': 'cc '+' '.join(HARDENING_FLAGS)+' -O3 -fPIC -c /source/decoder.c'}
+
+    def test_hardened_c_and_cpp_commands_are_checked(self):
+        cpp = {'file': '/source/binding.cpp', 'command': self.entry['command'].replace('cc ', 'c++ ')}
+        self.assertEqual(validate_compile_commands([self.entry, cpp])['commandsChecked'], 2)
+
+    def test_unhardened_or_missing_static_library_commands_are_rejected(self):
+        for entries in ([], [{'file': '/source/jcapimin.c', 'command': 'cc -O3 -DNDEBUG -fPIC -c /source/jcapimin.c'}],
+                        [self.entry, {'file': '/source/jp2.c', 'command': 'cc -O3 -fPIC -c /source/jp2.c'}]):
+            with self.subTest(entries=entries), self.assertRaises(AssertionError):
+                validate_compile_commands(entries)
+        for flag in HARDENING_FLAGS:
+            entry = dict(self.entry, command=self.entry['command'].replace(flag, ''))
+            with self.subTest(flag=flag), self.assertRaises(AssertionError):
+                validate_compile_commands([entry])
+
+    def test_later_overrides_and_uninspected_flags_are_rejected(self):
+        for override in ('-fno-stack-protector', '-fstack-protector', '-fstack-protector-explicit',
+                         '-fno-stack-clash-protection', '-U_FORTIFY_SOURCE', '-U _FORTIFY_SOURCE',
+                         '-D_FORTIFY_SOURCE=1', '-D _FORTIFY_SOURCE=0', '-O0',
+                         '-Wno-format-security', '-Wno-error=format-security', '@/tmp/options'):
+            entry = dict(self.entry, command=self.entry['command']+' '+override)
+            with self.subTest(override=override), self.assertRaises(AssertionError):
+                validate_compile_commands([entry])
 
 
 class ElfPolicyTests(unittest.TestCase):

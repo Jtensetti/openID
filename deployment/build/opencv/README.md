@@ -29,6 +29,13 @@ avgränsad CycloneDX-inventering. OpenCV:s fulla upstreamkorpus ingår inte.
 ELF-kontrollen nekar oväntade dynamiska bibliotek, textrelokering och
 exekverbar stack. Relro och omedelbar symbolbindning krävs. Systembibliotek
 och byggverktygets inbäddade komponenter kräver fortsatt separat bedömning.
+Alla tre källbyggen får dessutom stackskydd, stack-clash-skydd,
+`_FORTIFY_SOURCE=2` och formatkontroller för C/C++. De faktiska genererade
+kompileringskommandona kontrolleras före bygge, även för statiska JPEG-objekt.
+Saknade skydd, senare försvagande flaggor, avstängd optimering och oinspekterade
+response-filer stoppar bygget. `compiler-hardening.json` bevarar täckningen.
+Detta kompletterar ELF-provet; slutbibliotekets länkarflaggor bevisar inte
+hur varje ingående objekt kompilerades. Skydden rättar inte kända kodfel.
 Den tillåtna x86-64-systemladdaren `ld-linux-x86-64.so.2` tillhör Debians
 `libc6`; den kan också förekomma som direkt ELF-beroende. Den separata
 OS-bedömningen kvarstår. Negativa prov nekar extra codec-/kryptobibliotek,
@@ -78,3 +85,6 @@ Primärkällor kontrollerade 2026-10-27:
 - [OpenCV OSV-2023-444](https://osv.dev/vulnerability/OSV-2023-444)
 - [CMake 4.4.4](https://github.com/Kitware/CMake/releases/tag/v4.4.4)
 - [Debian libc6: installerade filer på amd64](https://packages.debian.org/trixie/amd64/libc6/filelist)
+- [GCC: stackskydd och stack-clash-skydd](https://gcc.gnu.org/onlinedocs/gcc/Instrumentation-Options.html)
+- [glibc: kontroll av buffertåtkomst](https://sourceware.org/glibc/manual/latest/html_node/Source-Fortification.html)
+- [CMake: språkens kompileringsflaggor](https://cmake.org/cmake/help/latest/variable/CMAKE_LANG_FLAGS.html)

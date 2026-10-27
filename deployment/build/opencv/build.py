@@ -5,11 +5,40 @@ import os
 from pathlib import Path
 import platform
 import re
+import shlex
 import shutil
 import subprocess
 import sys
 import tarfile
 import zipfile
+
+
+HARDENING_FLAGS = ('-fstack-protector-strong', '-fstack-clash-protection',
+                   '-D_FORTIFY_SOURCE=2', '-Wformat', '-Werror=format-security')
+
+
+def validate_compile_commands(entries):
+    """Check every generated C/C++ command, including static JPEG objects."""
+    assert entries, 'missing compiler evidence'
+    for entry in entries:
+        args = shlex.split(entry['command'])
+        assert not any(arg.startswith('@') for arg in args), 'uninspected response file'
+        # CMake emits joined -D/-U flags; also handle their separated forms.
+        normalized = []
+        iterator = iter(args)
+        for arg in iterator:
+            normalized.append(arg+next(iterator, '') if arg in ('-D', '-U') else arg)
+        assert set(HARDENING_FLAGS) <= set(normalized), ('missing compiler hardening', entry['file'])
+        assert not any(arg in normalized for arg in
+                       ('-fno-stack-protector', '-fstack-protector', '-fstack-protector-explicit',
+                        '-fno-stack-clash-protection', '-Wno-format', '-Wno-format-security',
+                        '-Wno-error=format-security')), ('weakened compiler hardening', entry['file'])
+        fortify = [arg for arg in normalized if arg.startswith('-D_FORTIFY_SOURCE')
+                   or arg.startswith('-U_FORTIFY_SOURCE')]
+        assert fortify[-1] in ('-D_FORTIFY_SOURCE=2', '-D_FORTIFY_SOURCE=3'), entry['file']
+        optimization = [arg for arg in normalized if re.fullmatch(r'-O(?:[0-3sgz]|fast)', arg)]
+        assert optimization and optimization[-1] != '-O0', ('fortification requires optimization', entry['file'])
+    return {'commandsChecked': len(entries), 'requiredFlags': list(HARDENING_FLAGS)}
 
 
 def digest(path):
@@ -82,8 +111,11 @@ def main():
     ctest = str(sources['cmake']/'bin/ctest')
     common = ['-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_POSITION_INDEPENDENT_CODE=ON',
               '-DCMAKE_INSTALL_PREFIX=/native-deps', '-DCMAKE_INSTALL_LIBDIR=lib',
-              '-DCMAKE_POLICY_VERSION_MINIMUM=3.10', '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON']
+              '-DCMAKE_POLICY_VERSION_MINIMUM=3.10', '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON',
+              '-DCMAKE_C_FLAGS='+' '.join(HARDENING_FLAGS),
+              '-DCMAKE_CXX_FLAGS='+' '.join(HARDENING_FLAGS)]
     builds = {}
+    compiler_checks = {}
     for name in ('libjpeg-turbo', 'openjpeg', 'opencv'):
         build = Path('/work')/(name+'-build')
         options = common + lock['cmakeOptions'][name]
@@ -95,6 +127,8 @@ def main():
         command = [cmake, '-S', str(sources[name]), '-B', str(build), *options]
         run(command, evidence/(name+'-configure.log'))
         builds[name] = command
+        compiler_checks[name] = validate_compile_commands(
+            json.loads((build/'compile_commands.json').read_text()))
         run([cmake, '--build', str(build), '--parallel', '2'], evidence/(name+'-build.log'))
         if name == 'libjpeg-turbo':
             run([ctest, '--test-dir', str(build), '--output-on-failure', '--no-tests=error',
@@ -110,7 +144,7 @@ def main():
             # Unmodified upstream issue-1558 regression creates its own image.
             # Build only this test, without the external conformance corpus/tools.
             test_binary = build/'test_tile_part_interleaved'
-            test_command = ['cc', '-O2', '-I/native-deps/include/openjpeg-2.5',
+            test_command = ['cc', '-O2', *HARDENING_FLAGS, '-I/native-deps/include/openjpeg-2.5',
                             str(sources[name]/'tests/test_tile_part_interleaved.c'),
                             '/native-deps/lib/libopenjp2.a', '-lm', '-pthread',
                             '-o', str(test_binary)]
@@ -130,6 +164,7 @@ def main():
     (evidence/'elf-dynamic.txt').write_text(dynamic)
     (evidence/'elf-program-headers.txt').write_text(headers)
     (evidence/'commands.json').write_text(json.dumps(builds, indent=2)+'\n')
+    (evidence/'compiler-hardening.json').write_text(json.dumps(compiler_checks, indent=2)+'\n')
     (evidence/'native.lock.json').write_text(json.dumps(lock, indent=2)+'\n')
     components = []
     for item in lock['archives']:
