@@ -106,7 +106,7 @@ RUN --network=none --mount=type=bind,from=python-wheels,source=/wheels,target=/w
 RUN --network=none printf '%s\n' pilot > /usr/share/doc/openid-python/wheel-profile.txt
 COPY --from=node-build /app/verification/node_modules ./node_modules
 COPY --from=java-verified /check/target/isolated-eid-lab.jar /app/prototype/target/isolated-eid-lab.jar
-COPY verification/face.py verification/pad.py verification/download_models.py ./
+COPY verification/face.py verification/image_input.py verification/pad.py verification/download_models.py ./
 COPY verification/vendor ./vendor
 COPY verification/licenses ./licenses
 COPY prototype/licenses /app/licenses/java

@@ -259,6 +259,10 @@ förblir OPEN; dokumenten är ännu inte fastställda eller operativt verifierad
 ID-05/INT-02: bildverifiering accepterar endast JPEG, JPEG 2000 i JP2-container
 och rå JPEG 2000-kodström. Formatkontrollen sker före den inbyggda avkodaren;
 korrupta tillåtna format, övriga format och befintliga storleksgränser provas.
+Samma gräns används när passporträttet görs om till profilminiatyr: högst
+2 MB indata, 4096 pixlar per sida och åtta miljoner bildpunkter. Även den
+vägen nekar andra format före avkodning. Detta är ett gemensamt ingångsskydd,
+inte bevis på att de medlevererade native-biblioteken saknar sårbarheter.
 OpenCV 4.14.0.94 och ansiktsmodeller provas även i den byggda serverimagen.
 Detta minskar parserytan, utan att ändra tillitsnivå eller utgöra bevis på
 biometrisk kvalitet, fysisk PAD eller säkerhet hos alla inbäddade bibliotek.

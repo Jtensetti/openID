@@ -27,6 +27,13 @@ på Ubuntu 24.04 används utan att starta eller ändra värdens systemtjänst.
 
 ## Aktuell verifiering
 
+`test_image_input` provar den gemensamma gränsen för ansiktsbilder och
+profilminiatyrer: verklig JPEG/JP2/rå JPEG 2000, nekad PNG före native-anrop,
+trunkerade tillåtna format, bytegräns, avkodarfel och avkodade dimensioner.
+Överdimensionerad metadata simuleras utan stora minnesallokeringar. Proven
+körs både i serverjobbet och i den färdiga pilotimagen utan nät. Detta är
+tekniska bildprov med genererade data, inte fysisk biometrisk acceptans.
+
 `deployment/build/test_python_wheels.py` provar att de båda imagebyggens
 applikationshjul täcker de befintliga requirements-filerna exakt. Förändrade
 hashar, osäkert ursprung, saknade/extra hjul, direktlänkar i krav och förlorad

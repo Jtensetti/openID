@@ -1,12 +1,8 @@
 import hashlib
 import math
-import os
 from pathlib import Path
 
-# Set before loading OpenCV: decoded-image allocation limits, including JPEG2000.
-os.environ['OPENCV_IO_MAX_IMAGE_PIXELS'] = '8000000'
-os.environ['OPENCV_IO_MAX_IMAGE_WIDTH'] = '4096'
-os.environ['OPENCV_IO_MAX_IMAGE_HEIGHT'] = '4096'
+from image_input import decode_bounded_image
 import cv2
 import numpy as np
 
@@ -46,16 +42,12 @@ class FaceMatcher:
         self.recognizer = cv2.FaceRecognizerSF.create(str(directory / 'face_recognition_sface_2021dec.onnx'), '')
 
     def decode_face(self, encoded):
-        if not isinstance(encoded, bytes) or not 0 < len(encoded) <= 2_000_000:
-            raise FaceRejected('IMAGE_SIZE_REJECTED')
-        # Camera JPEG and passport JPEG/JPEG 2000 only. Reject other formats
-        # before dispatching to native codecs. This is a format gate, not a
-        # validity check: malformed allowed formats must still fail decoding.
-        if not encoded.startswith((b'\xff\xd8\xff', b'\x00\x00\x00\x0cjP  \r\n\x87\n', b'\xff\x4f\xff\x51')):
-            raise FaceRejected('IMAGE_REJECTED')
         try:
-            image = cv2.imdecode(np.frombuffer(encoded, dtype=np.uint8), cv2.IMREAD_COLOR)
-            if image is None or min(image.shape[:2]) < 80 or max(image.shape[:2]) > 4096:
+            image = decode_bounded_image(encoded)
+        except ValueError as error:
+            raise FaceRejected(str(error)) from None
+        try:
+            if min(image.shape[:2]) < 80:
                 raise FaceRejected('IMAGE_REJECTED')
             # YuNet's training covers faces around 10–300 pixels. Check both
             # full frame scales; never crop away another face to obtain a match.

@@ -581,6 +581,13 @@ Ansiktsdetektionen görs i originalskala och, för bilder större än 480 pixlar
 
 ### Beräkning per registreringsförsök
 
+`image_input.py` är den gemensamma bildgränsen för ansiktskontrollen och
+profilens miniatyr. Endast JPEG, JP2 och rå JPEG 2000 tillåts före native-
+avkodning, med högst 2 MB indata, 4096 pixlar per sida och åtta miljoner
+bildpunkter. Profilen kan därför inte välja andra avkodare genom sin separata
+konvertering. Trunkerade tillåtna format måste fortfarande avvisas av
+avkodaren. Detta ersätter inte uppdatering av inbäddade bildbibliotek.
+
 Den isolerade biometriarbetaren avkodar och detekterar varje bild en gång
 per registreringsförsök. Passporträttets SFace-vektor beräknas en gång och
 används för de tre jämförelserna; PAD får samma kontrollerade kamerabild och
