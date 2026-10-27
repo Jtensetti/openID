@@ -34,7 +34,13 @@ loggas för att ett avvikande resultat ska kunna undersökas.
 Källfilerna har storleks- och hashlås. GnuPG ska verifiera Debians `.dsc` mot
 byggmiljöns versionslåsta Debian-keyring innan paketeringen används.
 Den signerade filen binder paketeringens bytes. Upstreams nyckel i paketeringen
-har eget hashlås och används för signaturen över det okomprimerade källarkivet.
+har eget hashlås och förankrar det fullständiga primärfingeravtrycket.
+Den äldre nyckelkopian saknar förnyad giltighet. En uppdaterad publik kopia
+hämtas därför med samma fullständiga fingeravtryck från Ubuntus nyckelserver;
+även dess storlek och SHA-256 är låsta. GnuPG måste visa exakt en publik
+primärnyckel med samma fingeravtryck i båda kopiorna. Nyckelservern är endast
+distributionskanal. GnuPG verifierar signaturen över det okomprimerade
+källarkivet med den uppdaterade nyckeln, och signeraren måste matcha låset.
 Utgångna/spärrade signaturer och saknad entydig `VALIDSIG` nekar beredning.
 Den senare upstreamdiffen är separat revisions-/hashlåst; releasesignaturen
 täcker inte diffen. Detta är ingen oberoende bygg- eller releaseattest.

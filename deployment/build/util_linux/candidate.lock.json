@@ -205,9 +205,16 @@
       "url": "https://github.com/util-linux/util-linux/compare/02822c9374fc72d38baf8a1f859eb0813970bf3f...56e83de535ae1df9228d3b1cbf978b3e36b5d959.diff",
       "bytes": 6392,
       "sha256": "26c43eefab899be36e0c71af5e11f2f931d427118e5f9172ab8b434b509b1811"
+    },
+    {
+      "filename": "upstream-signing-key-refreshed.asc",
+      "url": "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xB0C64D14301CC6EFAEDF60E4E4B71D5EEC39C284",
+      "bytes": 11555,
+      "sha256": "ab6fb7fab1351270d0520e8ee090e3b8d3e174023e8c18634801d8d16c4a6115"
     }
   ],
   "upstreamKeySHA256": "00f98634547af7d591c1e1821848df3099ba48c716b8129887770cfe15be2e08",
+  "upstreamPrimaryFingerprint": "B0C64D14301CC6EFAEDF60E4E4B71D5EEC39C284",
   "licenseFiles": {
     "COPYING": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
     "README.licensing": "4c2db318192bda62f3f8fcf71488bb5e602ae4385eba281d711b46cc13a40bb3",

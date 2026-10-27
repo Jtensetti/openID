@@ -10,7 +10,8 @@ import unittest
 from unittest.mock import patch
 
 from bootstrap import check_deb, fields, package_index, sha, verify_archive
-from build import RUNTIME_PACKAGES, check_input, extract_regular, valid_signature, validate_packages
+from build import (RUNTIME_PACKAGES, check_input, extract_regular, valid_signature,
+                   validate_packages, primary_fingerprint, validate_key_refresh)
 
 
 class CandidateInputTests(unittest.TestCase):
@@ -137,6 +138,39 @@ class CandidateInputTests(unittest.TestCase):
         for bad in (b'', record + b'\n' + record):
             with self.assertRaises(ValueError):
                 package_index(bad)
+
+    def test_key_refresh_preserves_authenticated_primary_fingerprint(self):
+        fingerprint = 'A' * 40
+        listing = 'pub:e:4096:1:AAAAAAAAAAAAAAAA:1000:2000::::::\nfpr:::::::::' + fingerprint + ':\n'
+        refreshed = listing.replace('pub:e:', 'pub:-:').replace(':2000:', ':3000:')
+        self.assertEqual(primary_fingerprint(listing), fingerprint)
+        validate_key_refresh(listing, refreshed, fingerprint)
+        for original, new, expected in [(listing.replace(fingerprint, 'B' * 40), refreshed, fingerprint),
+                                       (listing, refreshed.replace(fingerprint, 'B' * 40), fingerprint),
+                                       (listing, refreshed, fingerprint[-16:])]:
+            with self.subTest(original=original, new=new), self.assertRaises(ValueError):
+                validate_key_refresh(original, new, expected)
+        # Listing an expired original key is not signature approval.
+        for status in ['KEYEXPIRED 2000', 'EXPKEYSIG AAAAAAAA Developer',
+                       'REVKEYSIG AAAAAAAA Developer', 'KEYREVOKED', 'SIGEXPIRED 2000']:
+            with self.subTest(status=status), self.assertRaises(ValueError):
+                valid_signature('[GNUPG:] ' + status + '\n[GNUPG:] VALIDSIG ' + fingerprint + ' 2026-10-27\n')
+
+    def test_valid_signature_cannot_substitute_another_signer(self):
+        fingerprint = 'A' * 40
+        status = '[GNUPG:] VALIDSIG ' + fingerprint + ' 2026-10-27\n'
+        self.assertEqual(valid_signature(status, fingerprint), fingerprint)
+        for expected in ('B' * 40, fingerprint[-16:], ''):
+            with self.subTest(expected=expected), self.assertRaises(ValueError):
+                valid_signature(status, expected)
+
+    def test_key_listing_rejects_multiple_secret_or_missing_primary_keys(self):
+        good = 'pub:-:4096:1:AAAAAAAAAAAAAAAA:1000:3000::::::\nfpr:::::::::' + 'A' * 40 + ':\n'
+        for bad in ['', good + good, good.replace('pub:', 'sec:'), good.replace('pub:', 'sub:'),
+                    good.replace('A' * 40, 'A' * 16), good.splitlines()[0],
+                    good.replace('fpr:', 'uid:'), good + 'ssb:::\n']:
+            with self.subTest(listing=bad), self.assertRaises(ValueError):
+                primary_fingerprint(bad)
 
     def test_transitive_dependency_requires_exact_index_identity_and_hash(self):
         with tempfile.TemporaryDirectory() as name:

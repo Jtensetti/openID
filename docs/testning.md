@@ -318,5 +318,10 @@ radslutsformat. Paketexporten nekar saknade/dubbla paket,
 versionssuffix, borttappade Debian-prefix, fel källversion och arkitektur.
 Genererade lokala prov ersätter inte verklig signaturkontroll
 eller det isolerade [Linux-bygget](../deployment/build/util_linux/README.md).
+Nyckelförnyelsen nekar andra eller förkortade fingeravtryck, flera
+primärnycklar, privata nycklar och saknad primärnyckel i GnuPG-utmatningen.
+Utgångna/spärrade signaturstatusar nekas även tillsammans med `VALIDSIG`.
+Även en giltig signatur nekas om dess fullständiga signerarfingeravtryck
+avviker från den låsta upstreamnyckeln.
 Bygg-/regressionsbevis sparas även vid fel. Upstreams PASSED-tal kan innehålla
 skip; dessa redovisas. Ingen runtimeinstallation, ABI- eller CVE-stängning antas.

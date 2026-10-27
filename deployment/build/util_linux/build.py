@@ -18,6 +18,8 @@ from bootstrap import fields, sha
 
 RUNTIME_PACKAGES = {'bsdutils', 'libblkid1', 'liblastlog2-2', 'libmount1',
                     'libsmartcols1', 'libuuid1', 'login', 'mount', 'util-linux'}
+UPSTREAM_KEY_URL = ('https://keyserver.ubuntu.com/pks/lookup?op=get&search='
+                    '0xB0C64D14301CC6EFAEDF60E4E4B71D5EEC39C284')
 
 
 def validate_packages(packages, version):
@@ -67,7 +69,7 @@ def fetch_inputs(directory, lock):
     directory.mkdir(parents=True, exist_ok=False)
     for item in lock['inputs']:
         url = item['url']
-        if not url.startswith(('https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/',
+        if url != UPSTREAM_KEY_URL and not url.startswith(('https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/',
                                'https://deb.debian.org/debian/pool/main/u/util-linux/',
                                'https://github.com/util-linux/util-linux/compare/')):
             raise ValueError('unexpected candidate input origin')
@@ -108,7 +110,7 @@ def extract_regular(archive, destination, prefix):
     return destination / prefix
 
 
-def valid_signature(status):
+def valid_signature(status, expected_signer=None):
     lines = [line.split() for line in status.splitlines() if line.startswith('[GNUPG:] ')]
     forbidden = {'BADSIG', 'ERRSIG', 'EXPSIG', 'EXPKEYSIG', 'REVKEYSIG', 'KEYEXPIRED',
                  'SIGEXPIRED', 'KEYREVOKED', 'NO_PUBKEY', 'FAILURE'}
@@ -117,7 +119,29 @@ def valid_signature(status):
     valid = [line for line in lines if line[1] == 'VALIDSIG']
     if len(valid) != 1 or not re.fullmatch(r'(?:[A-F0-9]{40}|[A-F0-9]{64})', valid[0][2]):
         raise ValueError('missing unambiguous source signature')
+    if expected_signer is not None and valid[0][2] != expected_signer:
+        raise ValueError('source signature uses an unexpected signing key')
     return valid[0][2]
+
+
+def primary_fingerprint(listing):
+    """Read GnuPG's machine format, never infer trust from a name or key ID."""
+    rows = [line.split(':') for line in listing.splitlines()]
+    primary = [i for i, row in enumerate(rows) if row[0] == 'pub']
+    if len(primary) != 1 or any(row[0] in ('sec', 'ssb') for row in rows):
+        raise ValueError('expected one public primary key')
+    following = rows[primary[0] + 1:primary[0] + 2]
+    if (not following or len(following[0]) < 10 or following[0][0] != 'fpr'
+            or not re.fullmatch(r'(?:[A-F0-9]{40}|[A-F0-9]{64})', following[0][9])):
+        raise ValueError('missing full primary fingerprint')
+    return following[0][9]
+
+
+def validate_key_refresh(original, refreshed, expected):
+    # The original key is bound by Debian's authenticated packaging. The
+    # keyserver distributes updated self-signatures; it supplies no new trust.
+    if primary_fingerprint(original) != expected or primary_fingerprint(refreshed) != expected:
+        raise ValueError('key refresh changes the trusted primary key')
 
 
 def run(command, log, cwd=None, env=None):
@@ -129,12 +153,12 @@ def run(command, log, cwd=None, env=None):
         result.check_returncode()
 
 
-def verify_signature(signature, content, keyring, home, log):
+def verify_signature(signature, content, keyring, home, log, expected_signer=None):
     command = ['gpgv', '--homedir', str(home), '--status-fd=1', '--keyring', str(keyring), str(signature)]
     if content is not None:
         command.append(str(content))
     run(command, log)
-    return valid_signature(log.read_text())
+    return valid_signature(log.read_text(), expected_signer)
 
 
 def source_bundle(source, path, epoch):
@@ -196,14 +220,24 @@ def prepare(inputs, work, evidence, lock):
     key = packaging / 'upstream/signing-key.asc'
     if sha(key.read_bytes()) != lock['upstreamKeySHA256']:
         raise ValueError('upstream signing key differs')
+    refreshed = inputs / 'upstream-signing-key-refreshed.asc'
+    shutil.copyfile(refreshed, evidence / refreshed.name)
+    for label, path in [('packaging', key), ('refreshed', refreshed)]:
+        run(['gpg', '--batch', '--no-options', '--homedir', str(home),
+             '--with-colons', '--with-fingerprint', '--show-keys', str(path)],
+            evidence / ('upstream-key-' + label + '.log'))
+    validate_key_refresh((evidence / 'upstream-key-packaging.log').read_text(),
+                         (evidence / 'upstream-key-refreshed.log').read_text(),
+                         lock['upstreamPrimaryFingerprint'])
     keyring = home / 'upstream.gpg'
     run(['gpg', '--batch', '--no-options', '--homedir', str(home), '--dearmor',
-         '--output', str(keyring), str(key)], evidence / 'upstream-key-import.log')
+         '--output', str(keyring), str(refreshed)], evidence / 'upstream-key-import.log')
     source_name = 'util-linux-' + lock['sourceVersion']
     uncompressed = work / 'upstream.tar'
     uncompressed.write_bytes(lzma.decompress((inputs / (source_name + '.tar.xz')).read_bytes()))
     upstream_signer = verify_signature(inputs / (source_name + '.tar.sign'), uncompressed,
-                                      keyring, home, evidence / 'upstream-signature.log')
+                                      keyring, home, evidence / 'upstream-signature.log',
+                                      expected_signer=lock['upstreamPrimaryFingerprint'])
     source = extract_regular(uncompressed, work / 'source', source_name)
     shutil.copytree(packaging, source / 'debian')
     for relative, expected_hash in lock['licenseFiles'].items():

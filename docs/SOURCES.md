@@ -366,3 +366,12 @@ skiljer sista separatorradslutet från signerad klartext.
 (`src/armor.rs`) tar bort detta radslut vid läsning; Trixies `sqv` 1.3.0
 använder denna biblioteksversion enligt snapshotens `Built-Using`.
 Release-textens hashlås gäller de utmatade byten, utan egen normalisering.
+
+[GnuPG:s in-/utmatningsformat](https://www.gnupg.org/documentation/manuals/gnupg/GPG-Input-and-Output.html)
+beskriver `--show-keys`, `--with-colons` och nyckeluppdateringar.
+Den låsta Debian-paketeringen förankrar Karel Zaks fullständiga fingeravtryck
+`B0C64D14301CC6EFAEDF60E4E4B71D5EEC39C284`, men dess nyckelkopias giltighet
+löpte ut 2019. [Ubuntus nyckelserver](https://keyserver.ubuntu.com/)
+distribuerar en uppdaterad publik kopia. Den behandlas som hashlåsta indata,
+inte som ny tillitskälla: primärfingeravtrycken måste vara identiska och
+GnuPG måste fortfarande godkänna källsignaturen utan utgången/spärrad status.
