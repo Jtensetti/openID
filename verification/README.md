@@ -362,9 +362,12 @@ blockerar ny registrering och biometrisk analys i minst 24 timmar. Spärren
 lagras i databasen och överlever omstart. Den skyddar mot att en äldre
 backup saknar senare biometriförsök. Identitetsnyckeln måste bevaras separat
 även när det bara finns försökshistorik, personkopplingar eller spärrkoder
-och inga profiler. Återläsningen verifierar nyckeln mot varje kvarvarande
-krypterad profil. Utan profiler behövs ett separat verifierat underlag som
-binder rätt originalnyckel till backupen; enbart nyckelformat bevisar inte detta.
+och inga profiler. [Återställningsbindningen](../docs/aterstallningsbindning.md)
+kräver originalnyckelns oberoende inventerade fingeravtryck och binder det
+till exakt backuphash. Återläsning kräver bindningsfil och externt förankrad
+kontrollsumma, även för kopior utan nyckeldata. Kvarvarande profiler dekrypteras
+och kontrolleras också. Saknat originalunderlag får inte ersättas med ett
+nyberäknat fingeravtryck från en godtycklig nyckel.
 Den publika betan kontrollerar dessutom den separata aktuella spärrtabellen;
 dess konfiguration och migrationsmarkör måste bevaras. `recovery.py backup`
 kopierar markören utan att starta Wallet; `restore` bevarar den och kan dessutom

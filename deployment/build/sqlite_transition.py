@@ -6,11 +6,12 @@ by test_wallet against the actual new image.
 """
 import argparse
 import base64
+from contextlib import closing
 import json
 from pathlib import Path
 import sqlite3
 from wallet import Wallet
-from recovery import backup, restore
+from recovery import backup, bind_backup, restore
 
 ORIGIN = 'https://generated.example.invalid'
 
@@ -32,13 +33,15 @@ def seed(root):
     wallet.activate(ident, 'GENERATED-MIGRATION-REVIEW')
     request = wallet.start_request(ident)
     snapshot = backup(wallet, root/'backup')
+    anchor = bind_backup(snapshot, None, None, root/'binding.json')
     wallet.revoke(ident)
     # Assert that the fixture really distinguishes live revocation from an older backup.
-    with sqlite3.connect(snapshot) as db:
+    with closing(sqlite3.connect(snapshot)) as db:
         assert db.execute('SELECT state FROM credentials WHERE id=?', (ident,)).fetchone() == ('ACTIVE',)
         assert db.execute('SELECT state FROM requests WHERE id=?', (request['id'],)).fetchone() == ('PENDING',)
     (root/'fixture.json').write_text(json.dumps({'sqlite': sqlite3.sqlite_version,
-                                               'credential': ident, 'request': request['id']}))
+                                               'credential': ident, 'request': request['id'],
+                                               'bindingSHA256': anchor}))
     (root/'fixture.json').chmod(0o600)
     print('Created generated Wallet and stale backup with SQLite ' + sqlite3.sqlite_version)
 
@@ -54,7 +57,8 @@ def check(root, expected_source='3.40.1'):
         assert db.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
     require_rejection(lambda: current.activate(ident, 'GENERATED-REACTIVATION'))
     require_rejection(lambda: current.start_request(ident))
-    target = restore(root/'backup'/'wallet.sqlite', root/'restored')
+    target = restore(root/'backup'/'wallet.sqlite', root/'restored',
+                     binding=root/'binding.json', binding_sha256=state['bindingSHA256'])
     recovered = Wallet(target, ORIGIN)
     with recovered.transaction() as db:
         assert recovered.credential(db, ident)['state'] == 'REVOKED'

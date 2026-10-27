@@ -253,7 +253,9 @@ class RecoveryTests(unittest.TestCase):
         request = self.wallet.start_request(self.ident)
         snap = backup(self.wallet, self.root/'backup')
         self.wallet.revoke(self.ident)
-        target = restore(snap, self.root/'restored')
+        from recovery import bind_backup
+        binding = self.root/'binding.json'; anchor = bind_backup(snap, None, None, binding)
+        target = restore(snap, self.root/'restored', binding=binding, binding_sha256=anchor)
         recovered = Wallet(target, self.wallet.origin)
         with self.assertRaises(ValueError): recovered.check_session(self.ident, 'anything')
         with recovered.transaction() as db:
@@ -263,12 +265,20 @@ class RecoveryTests(unittest.TestCase):
 
     def test_never_overwrites_live_database(self):
         snap = backup(self.wallet, self.root/'backup')
-        with self.assertRaises(ValueError): restore(snap, self.root/'live')
+        from recovery import bind_backup
+        binding = self.root/'binding.json'; anchor = bind_backup(snap, None, None, binding)
+        with self.assertRaises(ValueError): restore(snap, self.root/'live', binding=binding, binding_sha256=anchor)
         with self.wallet.transaction() as db: self.assertEqual('ACTIVE', self.wallet.state(self.wallet.credential(db,self.ident)))
 
     def test_corrupt_backup_leaves_no_destination(self):
         source = self.root/'bad'; source.write_bytes(b'bad SQLite')
-        with self.assertRaises(Exception): restore(source, self.root/'restored')
+        source.chmod(0o600)
+        from recovery_binding import FORMAT, write_binding
+        import hashlib
+        binding = self.root/'binding.json'
+        anchor = write_binding(binding, {'format':FORMAT, 'backupSHA256':hashlib.sha256(source.read_bytes()).hexdigest(),
+            'backupBytes':source.stat().st_size, 'identityKeySHA256':None, 'continuityRequired':False})
+        with self.assertRaises(Exception): restore(source, self.root/'restored', binding=binding, binding_sha256=anchor)
         self.assertFalse((self.root/'restored').exists())
 
     def test_only_one_runtime_lease_and_released_after_close(self):
@@ -305,11 +315,17 @@ class EncryptedRecoveryTests(unittest.TestCase):
             ident = wallet.enroll(key['publicKey'], document())['id']
             wallet.activate(ident, 'TEST-PRIVATE-REVIEW')
             saved = backup(wallet, root/'backup')
+            from recovery import bind_backup
+            import hashlib
+            binding = root/'binding.json'
+            anchor = bind_backup(saved, wallet.vault.path, hashlib.sha256(wallet.vault.key()).hexdigest(), binding)
             with self.assertRaises(ValueError): restore(saved, root/'missing-key')
             wrong = root/'wrong-key'; wrong.write_bytes(b'x'*64); wrong.chmod(0o600)
-            with self.assertRaises(ValueError): restore(saved, root/'wrong', wrong)
+            with self.assertRaises(ValueError): restore(saved, root/'wrong', wrong,
+                binding=binding, binding_sha256=anchor)
             self.assertFalse((root/'wrong').exists())
-            target = restore(saved, root/'restored', wallet.vault.path)
+            target = restore(saved, root/'restored', wallet.vault.path,
+                binding=binding, binding_sha256=anchor)
             recovered = Wallet(target, wallet.origin)
             with recovered.transaction() as db:
                 snapshot = recovered.snapshot(db, ident)

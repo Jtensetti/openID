@@ -97,9 +97,10 @@ Efter gallring behövs originalnyckeln fortfarande för kvarvarande skyddade
 person-/dokumentkopplingar. Saknad nyckel stoppar readiness, biometrisk
 försöksreservation och nyregistrering; en ny nyckel skapas inte för att ersätta
 den gamla historiken. Återläsning kräver också separat nyckel för kvarvarande
-spärrkoder. När inga krypterade profiler finns kvar kan återläsningen inte
-bevisa att en tillförd nyckel är originalnyckeln genom profilavkryptering;
-kontrollerad nyckelförvaring och verifierad koppling till backupen krävs.
+spärrkoder. [Återställningsbindningen](aterstallningsbindning.md) binder
+backuphash till hela originalnyckelns fingeravtryck från oberoende inventering.
+Utan profiler räcker inte profilavkryptering; ett separat förankrat
+bindningsunderlag krävs och saknat originalunderlag stoppar återläsning.
 
 Fullständig gallring av personkopplingar, journaler, signeringsunderlag,
 aviseringar och nycklar kräver egna bevarande-/avvecklingsbeslut. F14 förblir

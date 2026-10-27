@@ -125,7 +125,9 @@ sparas inte. Publika nycklar, status och händelser är okrypterade.
 
 SQLite-databasen och `wallet.identity-key` ligger i en privat katalog.
 Saknad eller fel nyckel stoppar profilåtkomst. Automatisk gallring och
-nyckelrotation saknas i SQLite-läget. `recovery.py restore` återläser till en ny katalog och
+nyckelrotation saknas i SQLite-läget. `recovery.py restore` kräver
+[separat förankrad backup-/nyckelbindning](aterstallningsbindning.md),
+återläser till en ny katalog och
 spärrar alla återställda nycklar. Manuell återläsning som bevarar aktiva nycklar
 stöds inte, eftersom en äldre kopia kan sakna senare spärrar.
 

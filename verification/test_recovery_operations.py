@@ -11,7 +11,7 @@ import unittest
 
 import recovery
 import notices
-from recovery import backup_database, restore
+from recovery import backup_database, bind_backup, restore
 from wallet import Wallet
 
 
@@ -59,7 +59,9 @@ class RecoveryOperationsTests(unittest.TestCase):
 
     def test_restore_preserves_requirement_and_cannot_start_without_independent_services(self):
         self.mark()
-        target = restore(backup_database(self.source, self.root/'snapshot'), self.root/'restored')
+        source = backup_database(self.source, self.root/'snapshot')
+        binding = self.root/'binding.json'; anchor = bind_backup(source, None, None, binding)
+        target = restore(source, self.root/'restored', binding=binding, binding_sha256=anchor)
         self.assertEqual(b'v1\n', target.with_suffix('.continuity-required').read_bytes())
         self.assertEqual(0o600, target.with_suffix('.continuity-required').stat().st_mode & 0o777)
         with self.assertRaises(ValueError): Wallet(target, 'https://example.invalid')
@@ -67,7 +69,9 @@ class RecoveryOperationsTests(unittest.TestCase):
 
     def test_cli_requires_continuity_for_older_backup(self):
         source = backup_database(self.source, self.root/'snapshot')
-        result = self.cli('restore', '--backup', source, '--destination', self.root/'restored', '--require-continuity')
+        binding = self.root/'binding.json'; anchor = bind_backup(source, None, None, binding)
+        result = self.cli('restore', '--backup', source, '--destination', self.root/'restored',
+                         '--binding', binding, '--binding-sha256', anchor, '--require-continuity')
         target = Path(result.stdout.strip())
         with self.assertRaises(ValueError): Wallet(target, 'https://example.invalid')
 
@@ -79,24 +83,31 @@ class RecoveryOperationsTests(unittest.TestCase):
             db.execute('INSERT INTO revocation_codes VALUES(?,?,?,?)',
                 ('a'*64, 'SYNTHETIC_SEALED_CODE', 'test-contact-reference', 'test-evidence-reference'))
         source = backup_database(self.source, self.root/'snapshot')
+        key = self.wallet.vault.key(create=True)
+        binding = self.root/'binding.json'
+        anchor = bind_backup(source, self.wallet.vault.path, hashlib.sha256(key).hexdigest(), binding)
+        self.wallet.vault.path.unlink()
         destination = self.root/'restored'
         with self.assertRaisesRegex(ValueError, 'Separate identity key required'):
-            restore(source, destination)
+            restore(source, destination, binding=binding, binding_sha256=anchor)
         self.assertFalse(destination.exists())
         self.assertFalse(self.wallet.vault.path.exists())
 
     def test_invalid_marker_and_marker_symlink_reject_without_destination(self):
+        binding = self.root/'binding.json'; anchor = bind_backup(self.source, None, None, binding)
         for index, content in enumerate((b'', b'v2\n', b'v1\nextra', b'x'*8192)):
             self.mark(content)
             for operation in (backup_database, restore):
                 destination = self.root/(operation.__name__+str(index))
-                with self.assertRaises(ValueError): operation(self.source, destination)
+                kwargs = {'binding':binding, 'binding_sha256':anchor} if operation is restore else {}
+                with self.assertRaises(ValueError): operation(self.source, destination, **kwargs)
                 self.assertFalse(destination.exists())
         self.marker.unlink()
         other = self.root/'other'; other.write_bytes(b'v1\n')
         self.marker.symlink_to(other)
         for operation in (backup_database, restore):
-            with self.assertRaises(OSError): operation(self.source, self.root/operation.__name__)
+            kwargs = {'binding':binding, 'binding_sha256':anchor} if operation is restore else {}
+            with self.assertRaises(OSError): operation(self.source, self.root/operation.__name__, **kwargs)
             self.assertFalse((self.root/operation.__name__).exists())
 
     def test_marker_named_pipe_rejects_without_waiting(self):

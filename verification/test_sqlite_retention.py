@@ -1,5 +1,6 @@
 """Synthetic SQLite retention: no live database, identity documents or policy decisions."""
 import base64
+import hashlib
 from contextlib import closing
 import json
 import os
@@ -158,14 +159,18 @@ class RetentionTests(unittest.TestCase):
         self.assertEqual(before, {t: self.rows(t) for t in before})
 
     def test_backup_restore_after_last_profile_purge_still_requires_original_key(self):
-        from recovery import backup_database, restore
+        from recovery import backup_database, bind_backup, restore
         with self.wallet.transaction() as db:
             db.execute("UPDATE credentials SET state='REVOKED',expires=?", (NOW-8*DAY,))
         self.assertEqual(5, self.run_retention(apply=True)['selected']['profiles'])
         backup = backup_database(self.path, self.root/'backup')
         with self.assertRaises(ValueError): restore(backup, self.root/'without-key')
         self.assertFalse((self.root/'without-key').exists())
-        restored = restore(backup, self.root/'restored', self.wallet.vault.path)
+        binding = self.root/'binding.json'
+        anchor = bind_backup(backup, self.wallet.vault.path,
+            hashlib.sha256(self.original_key).hexdigest(), binding)
+        restored = restore(backup, self.root/'restored', self.wallet.vault.path,
+                           binding=binding, binding_sha256=anchor)
         self.assertEqual(self.original_key, restored.with_suffix('.identity-key').read_bytes())
         with closing(sqlite3.connect(restored)) as db:
             self.assertEqual(0, db.execute('SELECT count(*) FROM profiles').fetchone()[0])

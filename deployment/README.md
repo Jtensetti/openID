@@ -172,8 +172,15 @@ cd verification
   --destination /privat/backups/kopia-001
 .venv/bin/python recovery.py restore --backup /privat/backups/kopia-001/wallet.sqlite \
   --destination /privat/aterstalld \
-  --identity-key /separat/nyckelforvaring/wallet.identity-key --require-continuity
+  --identity-key /separat/nyckelforvaring/wallet.identity-key \
+  --binding /privat/aterstallningsunderlag/kopia-001.json \
+  --binding-sha256 "$RECOVERY_BINDING_SHA256" --require-continuity
 ```
+
+Före återläsning måste förvararen skapa och oberoende förankra
+[återställningsbindningen](../docs/aterstallningsbindning.md) med `recovery.py bind`.
+Den binder exakta backupbyte till originalnyckelns båda halvor; den krävs
+även när inga profiler finns kvar. Variabeln ovan hämtas från det externa ankaret.
 
 Säkerhetskopian använder SQLite backup-API i läsläge, utan Wallet-start,
 schemaändring eller nätverksanrop, och innehåller ingen profilnyckel. En befintlig

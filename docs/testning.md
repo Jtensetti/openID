@@ -141,6 +141,12 @@ krypterade spärrkoder återstår. CLI-provet kör den importerade driftmodulen
 även när testfilerna ligger separat från den paketerade programvaran.
 Proven använder syntetiska register och är inga operativa gallringsbeslut.
 
+`test_recovery_binding` provar rätt/fel nyckel utan profiler, byte av vardera
+nyckelhalvan, ändrad databas, omskriven bindning med gammalt ankare, borttagen
+nyckelhistorik, nyckelfria kopior, förlorad kontinuitetsmarkör, fel inventering,
+filangrepp, tids-/storleksgränser och riktig AES-GCM-profilkontroll.
+Testankare skapas av testkoden och bevisar ingen verklig förvararseparation.
+
 `test_bounded_process` kör riktiga kortlivade processer som blockerar,
 stänger pipes tidigt, avslutas med fel eller skickar för stor utdata.
 En riktig barnprocess återläser core-gränsen och på Linux dumpbarheten;
