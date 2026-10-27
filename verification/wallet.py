@@ -1,6 +1,6 @@
 """Device credentials, signed operations and revocation in SQLite."""
 import base64
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 import hashlib
 import json
 import os
@@ -76,6 +76,16 @@ def identifier(value):
         raise ValueError('identifier')
     return value
 
+
+def sqlite_key_history(db):
+    # Key-derived person links survive profile retention and must keep the key
+    # mandatory. Losing the key must never silently establish a new namespace.
+    names = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    return any(db.execute('SELECT 1 FROM '+name+' LIMIT 1').fetchone() for name in
+        ('profiles', 'persons', 'document_links', 'retired_documents', 'biometric_failures',
+         'security_codes', 'revocation_codes') if name in names)
+
+
 class Wallet:
     def __init__(self, path, origin, clock=time.time, crypto=device_crypto, vault_runner=None, revocation=None, notifications=False):
         self.path, self.origin, self.clock, self.crypto = Path(path).absolute(), origin, clock, crypto
@@ -140,6 +150,15 @@ class Wallet:
                 CREATE INDEX IF NOT EXISTS event_recent ON events(credential,id DESC);
                 CREATE INDEX IF NOT EXISTS profile_person ON profiles(person);
                 CREATE INDEX IF NOT EXISTS federation_pending ON federation_requests(state,expires);
+                CREATE TABLE IF NOT EXISTS retention_runs (
+                    id INTEGER PRIMARY KEY, time INTEGER NOT NULL,
+                    policy_ref TEXT NOT NULL, policy_sha256 TEXT NOT NULL,
+                    profile_days INTEGER NOT NULL, request_days INTEGER NOT NULL,
+                    counts TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS profile_evidence (
+                    credential TEXT PRIMARY KEY REFERENCES credentials(id),
+                    version TEXT NOT NULL, verified INTEGER NOT NULL,
+                    document_expires INTEGER NOT NULL, purged INTEGER NOT NULL);
             ''')
             db.execute('CREATE TABLE IF NOT EXISTS biometric_failures (document_tag TEXT NOT NULL, time INTEGER NOT NULL)')
             db.execute('CREATE TABLE IF NOT EXISTS enrollment_quarantine (id INTEGER PRIMARY KEY CHECK(id=1), until_epoch INTEGER NOT NULL CHECK(until_epoch>=0))')
@@ -176,9 +195,8 @@ class Wallet:
     def health(self):
         # Readiness must not wait behind a writer or create a missing database.
         if not self.path.is_file() or self.path.is_symlink(): raise ValueError('database unavailable')
-        with sqlite3.connect(self.path.as_uri()+'?mode=ro', uri=True, timeout=0.1) as db:
-            if (db.execute('SELECT 1 FROM profiles LIMIT 1').fetchone()
-                    or db.execute('SELECT 1 FROM biometric_failures LIMIT 1').fetchone()): self.vault.key()
+        with closing(sqlite3.connect(self.path.as_uri()+'?mode=ro', uri=True, timeout=0.1)) as db:
+            if sqlite_key_history(db): self.vault.key()
             db.execute('SELECT 1 FROM credentials LIMIT 1').fetchone()
 
     def event(self, db, credential, kind, request=None):
@@ -224,7 +242,7 @@ class Wallet:
                 if expiry <= self.clock(): raise ValueError('expired document')
                 history = db.execute('SELECT 1 FROM profiles LIMIT 1').fetchone()
                 if getattr(self, 'document_links_enabled', False):
-                    history = history or db.execute('SELECT 1 FROM biometric_failures LIMIT 1').fetchone()
+                    history = sqlite_key_history(db)
                 self.vault.key(create=not history)
                 tag = self.vault.document_tag(document)
                 if getattr(self, 'document_links_enabled', False) and db.execute(

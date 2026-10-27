@@ -1,5 +1,11 @@
 # Källregister
 
+SQLite-gallring: [URI mode=ro/rw](https://sqlite.org/uri.html),
+[secure_delete](https://sqlite.org/pragma.html#pragma_secure_delete) och
+[transaktioner](https://sqlite.org/lang_transaction.html), kontrollerade
+2026-10-27. Funktionens konfigurationsgränser är projektdesign, inte fastställda
+lagringstider eller rättsligt beslut. Backup/WAL och avveckling bedöms separat.
+
 Bildprocessernas begränsningar: Python 3.12
 [subprocess](https://docs.python.org/3.12/library/subprocess.html) och
 [resource](https://docs.python.org/3.12/library/resource.html), lästa 2026-10-27.

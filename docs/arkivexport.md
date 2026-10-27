@@ -21,6 +21,11 @@ automatisk gallring görs. PostgreSQL använder `REPEATABLE READ READ ONLY` och
 servercursor; SQLite använder en explicit lästransaktion. En samtidig spärr
 får därmed inte blandas in i bara en av exportens tabeller.
 
+Efter [SQLite-gallring](gallring-sqlite.md) inkluderar profilpopulationen även
+bevarade metadata från `profile_evidence`, med samma kolumner och format.
+Motstridiga levande/bevarade rader avvisas. Profilinnehållet återinförs inte.
+Den separata körjournalen `retention_runs` ingår ännu inte i detta uttag.
+
 Personprofiler, bilder, person-/dokumenttaggar, pairwise subjects,
 PIN-verifierare och sessionshemligheter exporteras inte. Exporten innehåller
 ändå känsliga identifierare, händelser och operatörsnamn. Katalogen skapas

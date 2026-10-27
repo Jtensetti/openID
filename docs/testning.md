@@ -122,6 +122,13 @@ Tabellen är ett daterat resultat för revisionen ovan.
 
 ## Negativa säkerhetsfall
 
+`test_sqlite_retention` provar läsande förhandsvisning, tidsgränser, begränsade
+batcher, återupptagning, trigger-/deadlinefel med rollback, samtidig ändrad
+giltighet och bevarade spärr-/signerings-/revisionsdata. Profilmetadata ska
+vara identiska i arkivuttag före/efter gallring. Saknad nyckel efter sista
+profilen får inte ersättas; backup/restore behöver fortfarande originalnyckeln.
+Proven använder syntetiska register och är inga operativa gallringsbeslut.
+
 `test_bounded_process` kör riktiga kortlivade processer som blockerar,
 stänger pipes tidigt, avslutas med fel eller skickar för stor utdata.
 En riktig barnprocess återläser core-gränsen och på Linux dumpbarheten;

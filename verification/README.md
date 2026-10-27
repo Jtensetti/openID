@@ -348,9 +348,12 @@ profilåtkomst; den ersätts inte automatiskt när profiler finns.
 Nyckeln ligger i samma privata katalog som databasen, utan HSM. Detta
 skyddar en separat databasfil men inte ett övertaget serverkonto eller en
 kopia av hela katalogen. Metadata och händelser är okrypterade. Profiler
-behålls efter spärr men lämnas inte ut till appen eller tjänsten. Automatisk
-gallring och nyckelrotation saknas; operatören måste fastställa lagringstid
-och radera pilotens data och nyckel efter provet.
+behålls efter spärr men lämnas inte ut till appen eller tjänsten.
+[SQLite-gallring](../docs/gallring-sqlite.md) har läsande förhandsvisning,
+uttrycklig policy, begränsade transaktioner och journal. Profilmetadata och
+spärr-/nyckelhistorik bevaras. Schemaläggning, beslutade tider, nyckelrotation
+och fullständig avveckling återstår; radera inte nyckeln så länge skyddade
+person-/dokumentkopplingar behöver fungera.
 **Återläsning av gamla databasfiler stöds inte**: den kan återställa en spärrad
 nyckel. Använd `recovery.py restore`, som spärrar återställda nycklar och
 blockerar ny registrering och biometrisk analys i minst 24 timmar. Spärren

@@ -38,6 +38,12 @@ Databasens transaktioner avgör samtidiga godkännanden och spärrar. Ett fillå
 hindrar flera runtime-processer på samma databas. Detta är en ensam nod,
 inte en distribuerad tjänst. [Start och drift](../deployment/README.md).
 
+[SQLite-gallring](gallring-sqlite.md) körs separat med deklarerad policy,
+förhandsvisning och begränsad atomisk journal. Profilinnehåll kan gallras medan
+utgivningsmetadata, spärrar och skyddade personkopplingar bevaras. Originalnyckeln
+förblir nödvändig även efter att sista profilen gallrats. Införande och
+bevarandebeslut är separata från verktygets tekniska funktion.
+
 Betans nginx ersätter `X-OpenID-Client-IP` med anslutningens adress. Endast
 en explicit betrodd loopbackproxy får förmedla den till trafikbegränsningen;
 runtime nekar saknad, tvetydig eller oväntad adress. Direktläge litar bara på

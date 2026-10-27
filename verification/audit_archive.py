@@ -78,7 +78,12 @@ def write_table(db, backend, name, path, available, end):
         cursor.itersize = 256
         cursor.execute('SELECT '+fields+' FROM openid.'+name+' ORDER BY 1')
     else:
-        cursor = db.execute('SELECT '+fields+' FROM '+name+' ORDER BY 1')
+        query = 'SELECT '+fields+' FROM '+name
+        if name == 'profiles' and db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='profile_evidence'").fetchone():
+            if db.execute('SELECT 1 FROM profiles p JOIN profile_evidence e ON e.credential=p.credential LIMIT 1').fetchone():
+                raise ValueError('conflicting profile evidence')
+            query += ' UNION ALL SELECT '+fields+' FROM profile_evidence'
+        cursor = db.execute(query+' ORDER BY 1')
     count = size = 0; digest = hashlib.sha256()
     try:
         with path.open('xb') as stream:
