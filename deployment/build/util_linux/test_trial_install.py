@@ -65,6 +65,21 @@ class TrialInstallationTests(unittest.TestCase):
             with self.subTest(candidate=candidate), self.assertRaises(ValueError):
                 check_transition(before, candidate, expected)
 
+    def test_apt_transient_annotations_do_not_change_selected_versions(self):
+        expected = {'libblkid1': '2.41.6-0openid1', 'libmount1': '2.41.6-0openid1'}
+        # Formats emitted by APT 3.0.3 RealInstall and ShortBreaks, not a CI83 transcript.
+        lines = ('Inst libblkid1 [2.41.5-0+deb13u1] (2.41.6-0openid1 local-deb [amd64]) '
+                 '[libmount1:amd64 on libblkid1:amd64] [libmount1:amd64 ]\n'
+                 'Inst libmount1:amd64 [2.41.5-0+deb13u1] (2.41.6-0openid1 local-deb [amd64]) []\n')
+        self.assertEqual(check_plan(lines, expected), expected)
+        for bad in (lines + lines, lines + 'Conf libmount1:amd64 broken\n',
+                    lines + 'Inst extra (1 local-deb [amd64]) []\n',
+                    lines.replace(' []', ' [unterminated'),
+                    lines.replace(' []', ' [] Inst extra (1)'),
+                    lines.replace('2.41.6-0openid1', '2.41.6-0openid1-extra')):
+            with self.subTest(output=bad), self.assertRaises(ValueError):
+                check_plan(bad, expected)
+
     def test_protected_files_detect_content_mode_addition_removal_and_link_changes(self):
         with tempfile.TemporaryDirectory() as name:
             root = Path(name) / 'app';root.mkdir()

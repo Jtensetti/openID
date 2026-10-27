@@ -105,6 +105,23 @@ redovisas som ofullständig täckning. Verktygen exekveras inte. Detta är inte
 driftkonfiguration, full kodnåbarhetsanalys, VEX eller ett sårbarhetsundantag.
 Den ordinarie OS-grinden påverkas inte av inventeringens innehåll.
 
+En separat inspektion med `--whole-image` kompletterar den vanliga
+användarens avgränsade kodinventering. Den läser fysiska imagekataloger även
+utanför `/usr`, `/opt` och `/app`, inklusive SSL-länkarnas mål under `/etc`.
+`/dev`, `/proc` och `/sys` undantas. Symlänkar traverseras inte; deras mål
+måste finnas i det fysiskt inspekterade omfånget. Läsfel eller mål utanför
+omfånget ger ofullständigt resultat och felkod. Endast filinnehåll för de
+namngivna komponenterna hashas; godtyckliga certifikat-/nyckelfiler läses inte.
+Omdöpt eller inbäddad kod täcks fortfarande inte av namnsökningen.
+
+CI kör den separata inspektionen som root med enbart `DAC_READ_SEARCH`,
+utan nät, med skrivskyddad rot, `no-new-privileges` och resursgränser.
+Den gäller en engångscontainer med exakt image-ID, utan verksamhetsdata
+eller driftsvolymer. Inspektörens UID/capabilities följer med och får inte
+tas som tjänstens rättigheter. Pilot, register och util-linux-provinstallation
+sparar egna rapporter även vid fel. Att en komponent saknas i denna
+inventering stänger inte automatiskt ett advisoryfynd.
+
 Pilot- och registerbygget tar bort setuid/setgid från reguljära filer efter
 installationerna. Tjänsterna behöver inga filbaserade byten till root eller
 andra användare/grupper. Filinnehåll, ägare och övriga rättigheter bevaras;

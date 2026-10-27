@@ -55,11 +55,18 @@ def check_plan(output, expected):
     for line in output.splitlines():
         if line.startswith(('Remv ', 'Purg ')):
             raise ValueError('trial would remove a package')
+        if re.match(r'Conf \S+ broken(?:\s|$)', line):
+            raise ValueError('APT simulation leaves a broken configuration')
         if not line.startswith('Inst '):
             continue
-        match = re.fullmatch(r'Inst ([a-z0-9][a-z0-9+.-]*)(?::amd64)?(?: \[[^\]]+\])? \((\S+)(?: .*)?\)', line)
-        if not match or match[1] in selected:
-            raise ValueError('unrecognized or duplicate APT installation')
+        # APT 3.0.3 appends bracketed transient dependency states during unpack.
+        # These are annotations, not additional package/version selections.
+        match = re.fullmatch(r'Inst ([a-z0-9][a-z0-9+.-]*)(?::amd64)?(?: \[[^\]]+\])? '
+                             r'\(([^()\s]+)(?: [^()]*)?\)(?: \[[a-z0-9+.: -]*\])*', line)
+        if not match:
+            raise ValueError('unrecognized APT installation line: ' + line[:1000])
+        if match[1] in selected:
+            raise ValueError('duplicate APT installation: ' + match[1])
         selected[match[1]] = match[2]
     if selected != expected:
         raise ValueError('APT plan differs from the complete candidate group')
@@ -215,6 +222,12 @@ def main():
         report['errorType'] = type(error).__name__
         if isinstance(error, ValueError):
             report['error'] = str(error)
+        # A failed Docker RUN does not export this layer. Retain bounded APT
+        # diagnostics in the captured build log before propagating the failure.
+        for name in ('apt-plan.log', 'apt-install.log'):
+            log = output / name
+            if log.is_file():
+                print(json.dumps({'failureLog': name, 'tail': log.read_text(errors='replace')[-16000:]}), flush=True)
         raise
     finally:
         (output / 'installation.json').write_text(json.dumps(report, indent=2) + '\n')

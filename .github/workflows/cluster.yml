@@ -45,6 +45,13 @@ jobs:
             --entrypoint python "$image_id" -B /checks/file_privileges.py check \
             --image-id "$image_id" --revision "$(git rev-parse HEAD)" \
             > "$RUNNER_TEMP/cluster-file-privileges.json"
+          timeout 120s docker run --rm --name openid-registry-surface --network none --read-only \
+            --cap-drop ALL --cap-add DAC_READ_SEARCH --user 0:0 --security-opt no-new-privileges \
+            --pids-limit 32 --memory 128m --cpus 1 \
+            -v "$PWD/deployment/build/image_surface.py:/checks/image_surface.py:ro" \
+            --entrypoint python "$image_id" -B /checks/image_surface.py \
+            --whole-image --image-id "$image_id" --revision "$(git rev-parse HEAD)" \
+            > "$RUNNER_TEMP/cluster-image-surface.json"
           docker run --rm -i --network none --read-only --cap-drop ALL --entrypoint python openid-wallet:ci - < deployment/build/python_inventory.py > "$RUNNER_TEMP/cluster-python-packages.json"
           docker run --rm --network none --read-only --cap-drop ALL \
             --security-opt no-new-privileges --pids-limit 32 --memory 256m --cpus 1 \
@@ -78,12 +85,14 @@ jobs:
           .venv/bin/python -m unittest test_operations -v
           .venv/bin/python -m unittest test_key_recovery -v
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
         with:
           name: cluster-capacity
           path: |
             ${{ runner.temp }}/cluster-capacity.json
             ${{ runner.temp }}/cluster-python-packages.json
             ${{ runner.temp }}/cluster-file-privileges.json
+            ${{ runner.temp }}/cluster-image-surface.json
           retention-days: 14
       - name: Audit every installed Debian package in the registry image
         if: ${{ !cancelled() && steps.registry_image.outputs.image_id != '' }}
@@ -102,3 +111,6 @@ jobs:
           path: ${{ runner.temp }}/cluster-os-audit/
           if-no-files-found: error
           retention-days: 90
+      - name: Stop any remaining component inspector
+        if: always()
+        run: docker rm --force openid-registry-surface >/dev/null 2>&1 || true

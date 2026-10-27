@@ -99,8 +99,17 @@ körs som root under ett isolerat bygge utan nät, med förbud mot nedladdning,
 paketborttagning och tjänstestart. APT-plan, verkliga pakethuvuden och slutlig
 dpkg-inventering måste visa exakt de nio uppgraderingarna. Övriga paket och
 applikations-/Python-/Java-träden måste bevaras; filjämförelsen omfattar inte
-utökade attribut. Nya setuid/setgid-bitar och fil-capabilities tas bort och
-kontrolleras med samma hjälpare som för referensen.
+utökade attribut. Nya setuid/setgid-bitar tas bort och kontrolleras med samma
+hjälpare som för referensen. Fil-capabilities ingår inte i den inventeringen;
+runtimeproven använder capability-drop och no-new-privileges.
+
+APT:s simulering kan lägga till hakparenteser med tillfälliga beroendetillstånd
+efter en `Inst`-rad. De ändrar inte det valda paketets namn/version. Parsern
+accepterar detta dokumenterade format men nekar extra/dubbla installationer,
+borttagning, fel version och `Conf ... broken`. Den verkliga slutliga
+paketövergången och `dpkg --audit` kontrolleras fortfarande. Vid fel sparas
+begränsade APT-loggslut i Docker-byggloggen eftersom ett misslyckat bygglager
+inte exporteras.
 
 Efter bygget jämförs lagerkedja och runtimekonfiguration mot referensen.
 Prov körs mot det oföränderliga kandidat-ID:t: paketstatus, sju kommandons
@@ -134,5 +143,6 @@ Primärkällor kontrollerade 2026-10-27:
 - [Debians paket- och säkerhetsstatus](https://security-tracker.debian.org/tracker/source-package/util-linux)
 - [Debians daterade arkiv](https://snapshot.debian.org/archive/debian/20261027T000000Z/)
 - [Debians arkivautentisering](https://manpages.debian.org/trixie/apt/apt-secure.8.en.html)
+- [APT 3.0.3: simulerade paketoperationer och beroendeannoteringar](https://sources.debian.org/src/apt/3.0.3/apt-pkg/algorithms.cc/)
 - [Sequoias signaturverifierare i Trixie](https://manpages.debian.org/trixie/sqv/sqv.1.en.html)
 - [Kernel.org: signatur över okomprimerat arkiv](https://www.kernel.org/signature.html)

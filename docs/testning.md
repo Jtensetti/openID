@@ -191,6 +191,13 @@ Det kör inga sådana program och ändrar bara temporära testkataloger. CI
 kontrollerar dessutom de färdiga pilot-, register- och OpenCV-imagena;
 lokala filprov ersätter inte denna kontroll eller verifiering av driftvärden.
 
+`python3 deployment/build/test_image_surface.py -v` provar komponenthashar,
+symlänkar och ofullständig täckning vid läsfel. Den utvidgade imageinspektionen
+ska hitta namngivna komponenter även i SSL-länkarnas mål och andra kataloger
+utanför kodrötterna. Den får inte läsa via länkar utanför imageomfånget eller
+in i undantagna `/dev`, `/proc` och `/sys`. CI kör detta separat med läsande
+root-rättighet; rapportens kontrollprocess är inte applikationsprocessen.
+
 - [Pass, modeller, register och federation](../verification/README.md#tester).
 - [SAML, WebAuthn, lagring och återläsning](../prototype/README.md#tester-och-beroenden).
 - [iOS-bygge och simulator](../ios/README.md#bygg-och-testa).

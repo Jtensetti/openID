@@ -9,6 +9,57 @@ from image_surface import filesystem_evidence
 
 
 class SurfaceEvidenceTests(unittest.TestCase):
+    def test_whole_image_inspects_ssl_targets_and_components_outside_code_roots(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            (root/'usr/lib/ssl').mkdir(parents=True)
+            for name in ('certs', 'private'):
+                target = root/'etc/ssl'/name;target.mkdir(parents=True)
+                (root/'usr/lib/ssl'/name).symlink_to(target, target_is_directory=True)
+            (root/'etc/ssl/private/Archive').mkdir()
+            module = root/'etc/ssl/private/Archive/Tar.pm'
+            module.write_text('synthetic module outside conventional code roots')
+            self.assertFalse(filesystem_evidence(root)['completeWithinStatedScope'])
+            result = filesystem_evidence(root, whole_image=True)
+            self.assertTrue(result['completeWithinStatedScope'])
+            self.assertEqual(result['roots'], ['/'])
+            self.assertEqual(result['excludedRoots'], ['/dev', '/proc', '/sys'])
+            self.assertEqual(list(result['knownComponents']), ['/etc/ssl/private/Archive/Tar.pm'])
+            self.assertEqual(result['knownComponents']['/etc/ssl/private/Archive/Tar.pm']['sha256'],
+                             hashlib.sha256(module.read_bytes()).hexdigest())
+
+    def test_whole_image_excludes_ephemeral_trees_and_rejects_aliases_into_them(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve();(root/'usr').mkdir()
+            for name in ('dev', 'proc', 'sys'):
+                (root/name).mkdir();(root/name/'nsenter').write_text('must not be read')
+            with patch('image_surface.Path.open', side_effect=AssertionError('must not open')):
+                result = filesystem_evidence(root, whole_image=True)
+                self.assertTrue(result['completeWithinStatedScope'])
+                self.assertEqual(result['knownComponents'], {})
+                (root/'usr/nsenter').symlink_to(root/'proc/nsenter')
+                (root/'usr/kernel').symlink_to(root/'sys', target_is_directory=True)
+                result = filesystem_evidence(root, whole_image=True)
+                self.assertFalse(result['completeWithinStatedScope'])
+                self.assertEqual(len(result['errors']), 2)
+                self.assertEqual(result['knownComponents'], {})
+
+    def test_whole_image_does_not_hide_access_failures_or_follow_external_links(self):
+        with tempfile.TemporaryDirectory() as temp, tempfile.TemporaryDirectory() as outside:
+            root = Path(temp).resolve();(root/'etc').mkdir()
+            external = Path(outside)/'nsenter';external.write_text('must not be read')
+            (root/'etc/nsenter').symlink_to(external)
+            with patch('image_surface.Path.open', side_effect=AssertionError('must not open')):
+                result = filesystem_evidence(root, whole_image=True)
+            self.assertFalse(result['completeWithinStatedScope'])
+            self.assertEqual(result['knownComponents'], {})
+            def denied(base, followlinks, onerror):
+                onerror(PermissionError(13, 'denied', str(base)));return iter(())
+            with patch('image_surface.os.walk', side_effect=denied):
+                result = filesystem_evidence(root, whole_image=True)
+            self.assertFalse(result['completeWithinStatedScope'])
+            self.assertEqual(result['errors'][0]['error'], 'PermissionError')
+
     def test_component_hash_permissions_and_merged_usr_alias(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()

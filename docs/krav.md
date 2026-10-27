@@ -323,3 +323,11 @@ Exakt paketövergång, filprivilegier, biblioteks-/applikations-/protokollprov
 och en egen OS-bedömning krävs. Den ordinarie runtimeimagen ändras inte.
 Full ABI-/kärntäckning, CVE-bedömning och oberoende införandebeslut kvarstår;
 formell kravstatus ändras inte av ett kandidatbygge eller en provinstallation.
+
+SEC-03:s komponentunderlag kompletteras med en separat läsande inspektör över
+fysiska imagekataloger, även SSL-länkarnas mål. Den ursprungliga inventeringen
+som vanlig användare bevaras. Läsfel och mål utanför det angivna omfånget
+måste synas och stoppa den utvidgade kontrollen. Inspektörens root-rättighet
+gäller endast CI-containern; den är varken tjänstens behörighet eller bevis
+för driftvärden. Känd filförekomst eller frånvaro ersätter inte
+tillämplighetsbedömning, riskbeslut eller behandling av scannerfynd.

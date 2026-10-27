@@ -13,6 +13,7 @@ import subprocess
 
 COMPONENTS = {'mount', 'umount', 'nsenter', 'infocmp', 'systemd-homed',
               'systemd-homework', 'homectl', 'systemd-homed.service', 'getfacl', 'setfacl'}
+EPHEMERAL_ROOTS = ('dev', 'proc', 'sys')
 LIMITS = [
     'Evidence from one isolated CI probe process, not the deployed service or host.',
     'Known filenames and package manifests do not prove absence of renamed, embedded or dynamically supplied code.',
@@ -31,14 +32,14 @@ def within(path, roots):
     return any(path == base or base in path.parents for base in roots)
 
 
-def file_evidence(path, root, roots):
+def file_evidence(path, root, roots, excluded=()):
     info = path.lstat()
     result = {'mode': oct(stat.S_IMODE(info.st_mode)), 'uid': info.st_uid,
               'gid': info.st_gid, 'symlink': path.is_symlink()}
     if path.is_symlink():
         result['target'] = os.readlink(path)
     resolved = path.resolve(strict=True)
-    if not within(resolved, roots):
+    if not within(resolved, roots) or within(resolved, excluded):
         raise ValueError('component target outside inspected roots')
     target = resolved.stat()
     if not stat.S_ISREG(target.st_mode):
@@ -54,11 +55,15 @@ def file_evidence(path, root, roots):
     return result
 
 
-def filesystem_evidence(root):
-    """Inspect conventional code roots; record omissions instead of hiding them."""
+def filesystem_evidence(root, *, whole_image=False):
+    """Inspect physical directories without following aliases or hiding omissions."""
     root = root.resolve(strict=True)
     errors, roots, hits = [], [], {}
-    for name in ('usr', 'lib', 'lib64', 'bin', 'sbin', 'opt', 'app'):
+    excluded = [root/name for name in EPHEMERAL_ROOTS] if whole_image else []
+    names = ('',) if whole_image else ('usr', 'lib', 'lib64', 'bin', 'sbin', 'opt', 'app')
+    def logical(path):
+        return '/' if path == root else '/'+str(path.relative_to(root))
+    for name in names:
         path = root/name
         try:
             try:
@@ -78,12 +83,15 @@ def filesystem_evidence(root):
         errors.append({'path': str(error.filename), 'error': type(error).__name__})
     for base in roots:
         for directory, dirs, files in os.walk(base, followlinks=False, onerror=failed):
+            if whole_image and Path(directory) == root:
+                dirs[:] = [name for name in dirs if name not in EPHEMERAL_ROOTS]
+                files = [name for name in files if name not in EPHEMERAL_ROOTS]
             for name in dirs:
                 path = Path(directory)/name
                 if path.is_symlink():
                     try:
                         target = path.resolve(strict=True)
-                        if not within(target, roots):
+                        if not within(target, roots) or within(target, excluded):
                             errors.append({'path': '/'+str(path.relative_to(root)),
                                            'error': 'directory symlink outside inspected roots'})
                     except (OSError, RuntimeError) as error:
@@ -93,11 +101,13 @@ def filesystem_evidence(root):
                 path = Path(directory)/name
                 if relevant(path):
                     try:
-                        hits['/'+str(path.relative_to(root))] = file_evidence(path, root, roots)
+                        hits['/'+str(path.relative_to(root))] = file_evidence(path, root, roots, excluded)
                     except (OSError, RuntimeError, ValueError) as error:
                         errors.append({'path': '/'+str(path.relative_to(root)), 'error': type(error).__name__,
                                        'reason': str(error) if isinstance(error, ValueError) else None})
-    return {'roots': ['/'+str(b.relative_to(root)) for b in roots],
+    return {'roots': [logical(b) for b in roots],
+            'scope': 'physical image paths' if whole_image else 'conventional code roots',
+            'excludedRoots': [logical(b) for b in excluded],
             'filesVisited': visited, 'knownComponents': hits, 'errors': errors,
             'completeWithinStatedScope': bool(roots) and not errors}
 
@@ -106,10 +116,14 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--image-id', required=True)
     parser.add_argument('--revision', required=True)
+    parser.add_argument('--whole-image', action='store_true',
+                        help='Inspect physical image directories as root; excludes /dev, /proc and /sys.')
     args = parser.parse_args()
     assert re.fullmatch(r'sha256:[a-f0-9]{64}', args.image_id)
     assert re.fullmatch(r'[a-f0-9]{40}', args.revision)
     assert platform.system() == 'Linux'
+    if args.whole_image and os.geteuid() != 0:
+        raise ValueError('whole-image inspection requires the isolated root inspector')
     report = {'format': 1, 'checkedAt': datetime.now(timezone.utc).isoformat(),
               'imageID': args.image_id, 'testedRevision': args.revision,
               'collectorSHA256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
@@ -130,7 +144,7 @@ def main():
     report['packageFilePaths'] = sorted({line for line in files.splitlines() if line.startswith('/')})
     report['packageFileNotes'] = [line for line in files.splitlines() if line and not line.startswith('/')]
     assert report['packageFilePaths']
-    report['filesystem'] = filesystem_evidence(Path('/'))
+    report['filesystem'] = filesystem_evidence(Path('/'), whole_image=args.whole_image)
     selected = {'NoNewPrivs', 'CapInh', 'CapPrm', 'CapEff', 'CapBnd', 'CapAmb', 'Seccomp'}
     report['probeProcess'] = {'uid': os.getuid(), 'euid': os.geteuid(), 'gid': os.getgid(),
         'status': {line.split(':', 1)[0]: line.split(':', 1)[1].strip()
@@ -145,6 +159,8 @@ def main():
     else:
         report['fstab'] = {'present': False}
     print(json.dumps(report, indent=2, sort_keys=True))
+    if args.whole_image and not report['filesystem']['completeWithinStatedScope']:
+        raise SystemExit(1)
 
 
 if __name__ == '__main__':

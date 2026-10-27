@@ -205,6 +205,13 @@ jobs:
             --entrypoint python "$(cat "$RUNNER_TEMP/image-id.txt")" -B /checks/image_surface.py \
             --image-id "$(cat "$RUNNER_TEMP/image-id.txt")" --revision "$(git rev-parse HEAD)" \
             > "$RUNNER_TEMP/image-surface.json"
+          timeout 120s docker run --rm --name openid-image-surface-root --network none --read-only \
+            --cap-drop ALL --cap-add DAC_READ_SEARCH --user 0:0 --security-opt no-new-privileges \
+            --pids-limit 32 --memory 128m --cpus 1 \
+            -v "$PWD/deployment/build/image_surface.py:/checks/image_surface.py:ro" \
+            --entrypoint python "$(cat "$RUNNER_TEMP/image-id.txt")" -B /checks/image_surface.py \
+            --whole-image --image-id "$(cat "$RUNNER_TEMP/image-id.txt")" --revision "$(git rev-parse HEAD)" \
+            > "$RUNNER_TEMP/image-surface-root.json"
           docker stop --time 10 openid-rp
           docker stop --time 70 openid-pilot
           test "$(docker inspect openid-pilot --format '{{.State.ExitCode}}')" = 0
@@ -296,6 +303,13 @@ jobs:
             -v "$RUNNER_TEMP/image-source/deployment/build/file_privileges.py:/checks/file_privileges.py:ro" \
             --entrypoint python "$candidate_id" -B /checks/file_privileges.py check \
             --image-id "$candidate_id" --revision "$(git rev-parse HEAD)" > "$trial_output/file-privileges.json"
+          timeout 120s docker run --rm --name openid-util-linux-surface --network none --read-only \
+            --cap-drop ALL --cap-add DAC_READ_SEARCH --user 0:0 --security-opt no-new-privileges \
+            --pids-limit 32 --memory 128m --cpus 1 \
+            -v "$RUNNER_TEMP/image-source/deployment/build/image_surface.py:/checks/image_surface.py:ro" \
+            --entrypoint python "$candidate_id" -B /checks/image_surface.py \
+            --whole-image --image-id "$candidate_id" --revision "$(git rev-parse HEAD)" \
+            > "$trial_output/image-surface-root.json"
           cp "$RUNNER_TEMP/image-source/verification/"{test_verification.py,test_image_input.py,test_bounded_process.py,test_profile_worker.py,test_worker_confinement.py} "$RUNNER_TEMP/protocol-tests/"
           timeout 180s docker run --rm --name openid-util-linux-image-tests --network none --read-only \
             --cap-drop ALL --security-opt no-new-privileges --pids-limit 128 --memory 2g --cpus 2 \
@@ -367,7 +381,7 @@ jobs:
         if: always()
         run: |
           docker rm --force openid-util-linux-report openid-util-linux-probe openid-util-linux-privileges \
-            openid-util-linux-image-tests openid-util-linux-security-tests openid-util-linux-protocol \
+            openid-util-linux-surface openid-util-linux-image-tests openid-util-linux-security-tests openid-util-linux-protocol \
             >/dev/null 2>&1 || true
       - name: Save util-linux installation and runtime evidence including failures
         if: ${{ always() && steps.util_linux_trial.outcome != 'skipped' }}
@@ -386,6 +400,7 @@ jobs:
             ${{ runner.temp }}/python-packages.json
             ${{ runner.temp }}/image-id.txt
             ${{ runner.temp }}/image-surface.json
+            ${{ runner.temp }}/image-surface-root.json
             ${{ runner.temp }}/file-privileges.json
             ${{ runner.temp }}/runtime-versions.txt
             ${{ runner.temp }}/runtime-components.json
@@ -401,7 +416,7 @@ jobs:
         run: |
           docker logs openid-pilot || true
           docker logs openid-rp || true
-          docker rm --force openid-pilot openid-rp openid-image-surface || true
+          docker rm --force openid-pilot openid-rp openid-image-surface openid-image-surface-root || true
       - name: Package the tested image and provenance
         run: |
           python3 deployment/image_bundle.py package --image openid-pilot:ci \
