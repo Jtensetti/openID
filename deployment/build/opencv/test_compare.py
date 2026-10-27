@@ -5,6 +5,34 @@ from pathlib import Path
 import unittest
 
 from compare import compare
+from build import validate_elf
+
+
+class ElfPolicyTests(unittest.TestCase):
+    def setUp(self):
+        self.dynamic = '\n'.join(' 0x0000000000000001 (NEEDED) Shared library: ['+name+']'
+            for name in ('libz.so.1', 'libstdc++.so.6', 'libm.so.6', 'libgcc_s.so.1',
+                         'libc.so.6', 'ld-linux-x86-64.so.2')) + '\n 0x000000000000001e (FLAGS) BIND_NOW\n'
+        self.headers = ' GNU_STACK 0x0 0x0 0x0 0x0 0x0 RW 0x10\n GNU_RELRO 0x0 0x0 0x0 0x10 0x10 R 0x1\n'
+
+    def test_system_loader_is_allowed(self):
+        self.assertEqual(len(validate_elf(self.dynamic, self.headers)), 6)
+
+    def test_extra_codecs_crypto_and_arbitrary_library_paths_are_rejected(self):
+        for name in ('libavcodec.so.62', 'libssl.so.1.1', 'libopenjp2.so.7', '/tmp/libc.so.6'):
+            with self.subTest(name=name), self.assertRaises(AssertionError):
+                validate_elf(self.dynamic+' (NEEDED) Shared library: ['+name+']\n', self.headers)
+
+    def test_missing_dependencies_or_memory_protections_are_rejected(self):
+        for dynamic, headers in (
+                ('BIND_NOW', self.headers),
+                (self.dynamic.replace('BIND_NOW', ''), self.headers),
+                (self.dynamic+' (TEXTREL) 0x0', self.headers),
+                (self.dynamic, self.headers.replace(' RW ', ' RWE ')),
+                (self.dynamic, self.headers.replace('GNU_RELRO', 'LOAD')),
+                (self.dynamic, self.headers.replace('GNU_STACK', 'LOAD'))):
+            with self.subTest(dynamic=dynamic, headers=headers), self.assertRaises(AssertionError):
+                validate_elf(dynamic, headers)
 
 
 class ComparisonTests(unittest.TestCase):

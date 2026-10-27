@@ -24,6 +24,21 @@ def run(args, log):
         result.check_returncode()
 
 
+def validate_elf(dynamic, headers):
+    needed = re.findall(r'\(NEEDED\).*\[([^]]+)\]', dynamic)
+    # The x86-64 glibc loader is a libc6 system component, including when
+    # recorded as a direct dependency. It is not an extra image/video codec.
+    allowed = {'libz.so.1', 'libstdc++.so.6', 'libm.so.6', 'libgcc_s.so.1',
+               'libc.so.6', 'libpthread.so.0', 'libdl.so.2', 'librt.so.1',
+               'ld-linux-x86-64.so.2'}
+    assert needed and set(needed) <= allowed, ('unexpected ELF dependencies', needed)
+    assert 'TEXTREL' not in dynamic and 'BIND_NOW' in dynamic, 'ELF binding/relocation policy'
+    stacks = [line for line in headers.splitlines() if 'GNU_STACK' in line]
+    assert len(stacks) == 1 and 'RWE' not in stacks[0], 'ELF stack policy'
+    assert 'GNU_RELRO' in headers, 'ELF RELRO policy'
+    return needed
+
+
 def main():
     assert platform.system() == 'Linux' and platform.machine() == 'x86_64'
     assert sys.version_info[:3] == (3, 12, 16)
@@ -110,14 +125,8 @@ def main():
     binary = binaries[0]
     subprocess.run(['strip', '--strip-unneeded', str(binary)], check=True)
     dynamic = subprocess.check_output(['readelf', '-dW', str(binary)], text=True)
-    needed = re.findall(r'\(NEEDED\).*\[([^]]+)\]', dynamic)
-    allowed = {'libz.so.1', 'libstdc++.so.6', 'libm.so.6', 'libgcc_s.so.1',
-               'libc.so.6', 'libpthread.so.0', 'libdl.so.2', 'librt.so.1'}
-    assert needed and set(needed) <= allowed, needed
-    assert 'TEXTREL' not in dynamic and 'BIND_NOW' in dynamic
     headers = subprocess.check_output(['readelf', '-lW', str(binary)], text=True)
-    stack = next(line for line in headers.splitlines() if 'GNU_STACK' in line)
-    assert 'RWE' not in stack and 'GNU_RELRO' in headers
+    needed = validate_elf(dynamic, headers)
     (evidence/'elf-dynamic.txt').write_text(dynamic)
     (evidence/'elf-program-headers.txt').write_text(headers)
     (evidence/'commands.json').write_text(json.dumps(builds, indent=2)+'\n')

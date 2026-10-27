@@ -29,6 +29,10 @@ avgränsad CycloneDX-inventering. OpenCV:s fulla upstreamkorpus ingår inte.
 ELF-kontrollen nekar oväntade dynamiska bibliotek, textrelokering och
 exekverbar stack. Relro och omedelbar symbolbindning krävs. Systembibliotek
 och byggverktygets inbäddade komponenter kräver fortsatt separat bedömning.
+Den tillåtna x86-64-systemladdaren `ld-linux-x86-64.so.2` tillhör Debians
+`libc6`; den kan också förekomma som direkt ELF-beroende. Den separata
+OS-bedömningen kvarstår. Negativa prov nekar extra codec-/kryptobibliotek,
+godtyckliga bibliotekssökvägar och saknade minnesskydd.
 
 Det befintliga pilotjobbet bygger referensimagen och den uttryckliga kandidaten.
 Båda kör `probe.py` utan nät, skrivbar rot eller Linux-capabilities och med
@@ -73,3 +77,4 @@ Primärkällor kontrollerade 2026-10-27:
 - [libjpeg-turbo OSV-2026-1068](https://osv.dev/vulnerability/OSV-2026-1068)
 - [OpenCV OSV-2023-444](https://osv.dev/vulnerability/OSV-2023-444)
 - [CMake 4.4.4](https://github.com/Kitware/CMake/releases/tag/v4.4.4)
+- [Debian libc6: installerade filer på amd64](https://packages.debian.org/trixie/amd64/libc6/filelist)
