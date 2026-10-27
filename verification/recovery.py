@@ -7,6 +7,7 @@ import shutil
 import sqlite3
 import stat
 import time
+from identity import IdentityVault, sqlite_key_history
 
 
 def private_directory(path):
@@ -100,15 +101,10 @@ def restore(source, destination, identity_key=None, *, require_continuity=False)
             if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='registry_bindings'").fetchone():
                 # A backup cannot establish that a registry check is still current.
                 db.execute('DELETE FROM registry_bindings')
-            has_profiles = bool(db.execute('SELECT 1 FROM profiles LIMIT 1').fetchone())
-            key_history = has_profiles
-            for table in ('persons','document_links','retired_documents','biometric_failures','security_codes'):
-                if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)).fetchone():
-                    key_history = key_history or bool(db.execute('SELECT 1 FROM '+table+' LIMIT 1').fetchone())
+            key_history = sqlite_key_history(db)
             db.commit()
         if key_history:
             if identity_key is None: raise ValueError('Separate identity key required')
-            from identity import IdentityVault
             key = IdentityVault(identity_key).key()
             fd = os.open(target.with_suffix('.identity-key'), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
             with os.fdopen(fd, 'wb') as stream:

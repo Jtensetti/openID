@@ -134,7 +134,11 @@ Tabellen är ett daterat resultat för revisionen ovan.
 batcher, återupptagning, trigger-/deadlinefel med rollback, samtidig ändrad
 giltighet och bevarade spärr-/signerings-/revisionsdata. Profilmetadata ska
 vara identiska i arkivuttag före/efter gallring. Saknad nyckel efter sista
-profilen får inte ersättas; backup/restore behöver fortfarande originalnyckeln.
+profilen får inte ersättas vid readiness, biometrisk försöksreservation eller
+nyregistrering; backup/restore behöver fortfarande originalnyckeln.
+`test_recovery_operations` nekar också återläsning utan nyckel när endast
+krypterade spärrkoder återstår. CLI-provet kör den importerade driftmodulen
+även när testfilerna ligger separat från den paketerade programvaran.
 Proven använder syntetiska register och är inga operativa gallringsbeslut.
 
 `test_bounded_process` kör riktiga kortlivade processer som blockerar,

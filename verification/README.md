@@ -343,7 +343,9 @@ Katalog och fil kräver 0700/0600. Personprofiler krypteras med Node 24.19.0 AES
 nonce och credential/person-ID som autentiserade kontextdata. Separata
 256-bitars nycklar används för kryptering och HMAC-SHA-256. Nyckelfilen
 `wallet.identity-key` skapas med 0600. Saknad eller fel nyckel stoppar
-profilåtkomst; den ersätts inte automatiskt när profiler finns.
+profilåtkomst. Om profiler, person-/dokumentkopplingar, försökshistorik, PIN
+eller spärrkoder finns kvar skapar readiness, biometrisk försöksreservation
+och nyregistrering ingen ersättningsnyckel.
 
 Nyckeln ligger i samma privata katalog som databasen, utan HSM. Detta
 skyddar en separat databasfil men inte ett övertaget serverkonto eller en
@@ -359,7 +361,10 @@ nyckel. Använd `recovery.py restore`, som spärrar återställda nycklar och
 blockerar ny registrering och biometrisk analys i minst 24 timmar. Spärren
 lagras i databasen och överlever omstart. Den skyddar mot att en äldre
 backup saknar senare biometriförsök. Identitetsnyckeln måste bevaras separat
-även när det bara finns försökshistorik och inga profiler.
+även när det bara finns försökshistorik, personkopplingar eller spärrkoder
+och inga profiler. Återläsningen verifierar nyckeln mot varje kvarvarande
+krypterad profil. Utan profiler behövs ett separat verifierat underlag som
+binder rätt originalnyckel till backupen; enbart nyckelformat bevisar inte detta.
 Den publika betan kontrollerar dessutom den separata aktuella spärrtabellen;
 dess konfiguration och migrationsmarkör måste bevaras. `recovery.py backup`
 kopierar markören utan att starta Wallet; `restore` bevarar den och kan dessutom

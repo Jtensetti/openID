@@ -94,8 +94,12 @@ Oberoende mottagning och skyddad förvaring behöver genomföras operativt.
 utplåning ur WAL, tidigare kopior, snapshots, backupmedier eller fysisk lagring.
 Policy för dessa kopior, spärrad återställning och återtillämpad gallring krävs.
 Efter gallring behövs originalnyckeln fortfarande för kvarvarande skyddade
-person-/dokumentkopplingar. Saknad nyckel stoppar readiness och nyregistrering;
-en ny nyckel skapas inte för att ersätta den gamla historiken.
+person-/dokumentkopplingar. Saknad nyckel stoppar readiness, biometrisk
+försöksreservation och nyregistrering; en ny nyckel skapas inte för att ersätta
+den gamla historiken. Återläsning kräver också separat nyckel för kvarvarande
+spärrkoder. När inga krypterade profiler finns kvar kan återläsningen inte
+bevisa att en tillförd nyckel är originalnyckeln genom profilavkryptering;
+kontrollerad nyckelförvaring och verifierad koppling till backupen krävs.
 
 Fullständig gallring av personkopplingar, journaler, signeringsunderlag,
 aviseringar och nycklar kräver egna bevarande-/avvecklingsbeslut. F14 förblir

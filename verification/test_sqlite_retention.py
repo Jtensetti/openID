@@ -13,6 +13,7 @@ import unittest
 from unittest.mock import patch
 
 from identity import VerifiedDocument
+import sqlite_retention
 from sqlite_retention import maintain, policy, read_policy
 from wallet import Wallet
 
@@ -183,7 +184,12 @@ class RetentionTests(unittest.TestCase):
             db.execute('DELETE FROM biometric_failures')
         self.wallet.vault.path.unlink()
         with self.assertRaises(FileNotFoundError): self.wallet.health()
-        doc = VerifiedDocument(b'synthetic', {'documentExpires':'2039-01-01'}, 'CHECKED_CRL', NOW+DAY)
+        doc = VerifiedDocument(b'synthetic', {'documentExpires':'2039-01-01',
+            'issuingState':'UTO', 'documentNumber':'TEST123', 'birthDateMrz':'900101'},
+            'CHECKED_CRL', NOW+DAY)
+        with self.assertRaises(FileNotFoundError): self.wallet.biometric_attempt(doc)
+        self.assertEqual([], self.rows('biometric_failures'))
+        self.assertFalse(self.wallet.vault.path.exists())
         with self.assertRaises(FileNotFoundError):
             self.wallet.enroll(base64.b64encode(b'new synthetic public key').decode(), doc)
         self.assertFalse(self.wallet.vault.path.exists())
@@ -223,11 +229,11 @@ class RetentionTests(unittest.TestCase):
 
     def test_cli_plan_and_sanitized_error(self):
         path = self.root/'policy.json';path.write_text(json.dumps(POLICY));path.chmod(0o600)
-        result = subprocess.run([sys.executable, str(Path(__file__).with_name('sqlite_retention.py')),
+        result = subprocess.run([sys.executable, str(Path(sqlite_retention.__file__)),
             'plan','--db',str(self.path),'--policy',str(path)],capture_output=True,timeout=5)
         self.assertEqual(0,result.returncode); self.assertEqual('plan',json.loads(result.stdout)['mode'])
         path.write_text('PRIVATE invalid policy')
-        result = subprocess.run([sys.executable,str(Path(__file__).with_name('sqlite_retention.py')),
+        result = subprocess.run([sys.executable,str(Path(sqlite_retention.__file__)),
             'apply','--db',str(self.path),'--policy',str(path)],capture_output=True,timeout=5)
         self.assertEqual(2,result.returncode);self.assertEqual(b'',result.stdout)
         self.assertEqual(b'Retention failed; no sensitive details logged.\n',result.stderr)

@@ -14,6 +14,15 @@ import subprocess
 
 FIELDS = {'givenNames', 'familyName', 'birthDateMrz', 'nationality', 'issuingState', 'documentNumber', 'documentExpires'}
 
+
+def sqlite_key_history(db):
+    """Retained HMAC links and sealed values require the original pilot key."""
+    names = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    return any(db.execute('SELECT 1 FROM '+name+' LIMIT 1').fetchone() for name in
+        ('profiles', 'persons', 'document_links', 'retired_documents', 'biometric_failures',
+         'security_codes', 'revocation_codes') if name in names)
+
+
 @dataclass(frozen=True)
 class VerifiedDocument:
     portrait: bytes

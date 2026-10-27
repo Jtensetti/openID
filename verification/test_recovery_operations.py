@@ -10,6 +10,7 @@ import tempfile
 import unittest
 
 import recovery
+import notices
 from recovery import backup_database, restore
 from wallet import Wallet
 
@@ -69,6 +70,20 @@ class RecoveryOperationsTests(unittest.TestCase):
         result = self.cli('restore', '--backup', source, '--destination', self.root/'restored', '--require-continuity')
         target = Path(result.stdout.strip())
         with self.assertRaises(ValueError): Wallet(target, 'https://example.invalid')
+
+    def test_restore_requires_key_when_only_sealed_revocation_code_remains(self):
+        with self.wallet.transaction() as db:
+            notices.install(db)
+            db.execute('INSERT INTO credentials VALUES(?,?,?,?,?,?,?)',
+                ('a'*64, 'synthetic-public-key', 'REVOKED', 1, 2, 'TEST', 'test-subject'))
+            db.execute('INSERT INTO revocation_codes VALUES(?,?,?,?)',
+                ('a'*64, 'SYNTHETIC_SEALED_CODE', 'test-contact-reference', 'test-evidence-reference'))
+        source = backup_database(self.source, self.root/'snapshot')
+        destination = self.root/'restored'
+        with self.assertRaisesRegex(ValueError, 'Separate identity key required'):
+            restore(source, destination)
+        self.assertFalse(destination.exists())
+        self.assertFalse(self.wallet.vault.path.exists())
 
     def test_invalid_marker_and_marker_symlink_reject_without_destination(self):
         for index, content in enumerate((b'', b'v2\n', b'v1\nextra', b'x'*8192)):

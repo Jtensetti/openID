@@ -12,7 +12,7 @@ import subprocess
 import threading
 import time
 from datetime import date, datetime, timedelta, timezone
-from identity import IdentityVault, VerifiedDocument
+from identity import IdentityVault, VerifiedDocument, sqlite_key_history
 
 ROOT = Path(__file__).parent
 RP_NAME = 'openID lokal testtjänst'
@@ -75,15 +75,6 @@ def identifier(value):
     if not isinstance(value, str) or not re.fullmatch('[a-f0-9]{64}', value):
         raise ValueError('identifier')
     return value
-
-
-def sqlite_key_history(db):
-    # Key-derived person links survive profile retention and must keep the key
-    # mandatory. Losing the key must never silently establish a new namespace.
-    names = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-    return any(db.execute('SELECT 1 FROM '+name+' LIMIT 1').fetchone() for name in
-        ('profiles', 'persons', 'document_links', 'retired_documents', 'biometric_failures',
-         'security_codes', 'revocation_codes') if name in names)
 
 
 class Wallet:
@@ -322,8 +313,7 @@ class Wallet:
         document.require_current_revocation(self.clock())
         with self.transaction() as db:
             self.enrollment_open(db)
-            self.vault.key(create=not (db.execute('SELECT 1 FROM profiles LIMIT 1').fetchone()
-                or db.execute('SELECT 1 FROM biometric_failures LIMIT 1').fetchone()))
+            self.vault.key(create=not sqlite_key_history(db))
             tag = self.vault.document_tag(document)
             db.execute('DELETE FROM biometric_failures WHERE time<=?', (int(self.clock())-BIOMETRIC_WINDOW,))
             used = db.execute('SELECT count(*) FROM biometric_failures WHERE document_tag=?', (tag,)).fetchone()[0]
