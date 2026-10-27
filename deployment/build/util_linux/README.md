@@ -1,9 +1,10 @@
 # Util-linux: separat paketkandidat
 
 Kandidatbygget tar fram hela Debians paketserie för util-linux som ett steg
-mot en sammanhängande uppdatering av systempaketen. Paketen installeras ännu
-inte i pilot, register eller drift. OS-skannerns fyndlista och ordinarie
-imageexport använder fortsatt de befintliga runtimepaketen.
+mot en sammanhängande uppdatering av systempaketen. CI provinstallerar de nio
+runtimepaketen i en separat avbildning av den testade pilotimagen. Ordinarie
+pilot, register och drift använder fortsatt de befintliga runtimepaketen.
+Referensens OS-fynd och imageexport hålls skilda från provinstallationens.
 
 `candidate.lock.json` låser upstream **2.41.6**, Debians paketering
 **2.41.5-0+deb13u1** och underhållsrevision
@@ -66,6 +67,9 @@ signatur-/patch-/byggloggar, lås, licenser, motsvarande beredd källkod och
 hashmanifest. Vid lyckat bygge sparas en avgränsad CycloneDX-förteckning,
 de nio runtimepaketen och metadata om
 alla byggda deb-paket. Övriga binärpaket och arbetskatalogen laddas inte upp.
+Installerpaket av typen `udeb` representeras endast av checksumrader i
+`.buildinfo`/`.changes`; de ingår inte i `.deb`-förteckningen, dess SBOM
+eller runtimeexporten.
 Alla pakethuvuden måste ha exakt käll-/binärversion, arkitektur och filnamn;
 Debians historiska versionsprefix för `bsdutils` och `login` bevaras.
 Saknade eller dubbla runtimepaket nekar hela exporten innan något kopieras.
@@ -82,14 +86,45 @@ Inga nya jobb, actions, behörigheter eller AWS-resurser införs. Byggminuter
 och artefakter använder GitHub-kvoten. Repoförvaltaren ansvarar för
 versionsbevakning, licenser och omprov.
 
-Efter ett lyckat bygge återstår provinstallation av hela beroendegruppen,
-ABI/paketkonsistens, applikationens säkerhets-/protokollprov, aktuell
-sårbarhetsbedömning och oberoende granskning. Inga CVE-fynd stängs av bygget.
+## Provinstallation i CI
+
+`prepare_trial.py` kräver ett lyckat paketbygge för exakt testad revision och
+samma käll-/verktygslås. Alla manifestfiler kontrolleras, även sådana som inte
+kopieras till Docker-kontexten. Länkade sökvägar, ändrade bytes, saknade/extra
+runtimepaket och en befintlig målkatalog nekas. Kontexten innehåller endast
+paketen, deras byggbedömning, låset och installationshjälparna.
+
+`Trial.Dockerfile` utgår från referensens verifierade image-ID. Installation
+körs som root under ett isolerat bygge utan nät, med förbud mot nedladdning,
+paketborttagning och tjänstestart. APT-plan, verkliga pakethuvuden och slutlig
+dpkg-inventering måste visa exakt de nio uppgraderingarna. Övriga paket och
+applikations-/Python-/Java-träden måste bevaras; filjämförelsen omfattar inte
+utökade attribut. Nya setuid/setgid-bitar och fil-capabilities tas bort och
+kontrolleras med samma hjälpare som för referensen.
+
+Efter bygget jämförs lagerkedja och runtimekonfiguration mot referensen.
+Prov körs mot det oföränderliga kandidat-ID:t: paketstatus, sju kommandons
+versioner, laddning av fem bibliotek, bild-/processisolering, livscykel,
+återställning, SAML och OIDC. Körningarna har skrivskyddad rot, avstängt nät,
+resursgränser och inga capabilities. Endast filprivilegieinventeringen körs
+som root med `DAC_READ_SEARCH`; protokollprovet använder CI-användarens UID
+för sin skrivbara beviskatalog. Biblioteksladdning är inte fullständig
+ABI-verifiering, och privilegierade mount-/namespace-/kärnprov utförs inte.
+
+Kandidatens installerade systempaket får en egen OS-skanning. Dess fynd
+undantas inte från säkerhetsgrinden. `util-linux-installation-evidence`
+sparar imagebindning, kontextmanifest, installationsrapport, biblioteks-
+och testresultat samt OS-bedömning i 30 dagar, även vid fel. Byggfel kan ge
+endast kontext och bygglogg; uteblivna senare prov räknas inte som lyckade.
+Provinstallationen har högst fem minuter och runtimeproven sju minuter inom
+det befintliga jobbets tidsgräns. Ingen kandidat publiceras som runtimeimage.
+Aktuell CVE-bedömning, full kompatibilitetsbedömning och oberoende granskning
+krävs före införande. Inga CVE-fynd stängs av ett lyckat bygge eller prov.
 
 Lokala negativa prov; de utför inte Linux-bygge eller verklig GnuPG-verifiering:
 
 ```sh
-python3 deployment/build/util_linux/test_candidate.py -v
+python3 -m unittest discover -s deployment/build/util_linux -p 'test_*.py' -v
 ```
 
 Primärkällor kontrollerade 2026-10-27:

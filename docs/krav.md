@@ -317,6 +317,9 @@ kvarstår som separata krav; uppdateringen höjer ingen formell tillitsstatus.
 
 [Util-linux-kandidatens byggflöde](../deployment/build/util_linux/README.md)
 kräver låst Debian-snapshot, autentiserade källor, licenser, motsvarande källkod
-och bygg-/regressionsbevis. Den installeras ännu inte i applikationsimagernas
-runtime. ABI, provinstallation, full regression, CVE-bedömning och oberoende
-införandebeslut återstår; formell kravstatus ändras inte av ett kandidatbygge.
+och bygg-/regressionsbevis. Provinstallation sker i en separat kopia av den
+testade pilotimagen, bunden till dess lager och runtimekonfiguration.
+Exakt paketövergång, filprivilegier, biblioteks-/applikations-/protokollprov
+och en egen OS-bedömning krävs. Den ordinarie runtimeimagen ändras inte.
+Full ABI-/kärntäckning, CVE-bedömning och oberoende införandebeslut kvarstår;
+formell kravstatus ändras inte av ett kandidatbygge eller en provinstallation.

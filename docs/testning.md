@@ -324,4 +324,15 @@ Utgångna/spärrade signaturstatusar nekas även tillsammans med `VALIDSIG`.
 Även en giltig signatur nekas om dess fullständiga signerarfingeravtryck
 avviker från den låsta upstreamnyckeln.
 Bygg-/regressionsbevis sparas även vid fel. Upstreams PASSED-tal kan innehålla
-skip; dessa redovisas. Ingen runtimeinstallation, ABI- eller CVE-stängning antas.
+skip; dessa redovisas. Ett paketbygge räknas inte som runtimeinstallation.
+
+`test_prepare_trial.py` nekar fel revision, ofullständiga/ändrade bevis,
+länkade sökvägar och överskrivning av befintlig kontext. `test_trial_install.py`
+nekar andra imagelager, ändrad runtimekonfiguration, avvikande APT-plan,
+extra/borttagna/ändrade paket och ändrade skyddade filer. Installationshjälparen
+måste avvisa utvecklingsdatorn före skrivning. Dessa lokala prov installerar
+inga paket. CI provinstallerar separat hela runtimegruppen utan nät, granskar
+slutligt paketläge och filprivilegier, laddar biblioteken och upprepar
+applikations-/protokollprov mot kandidatens exakta image-ID. Separata loggar
+och OS-fynd sparas även vid fel; uteblivna prov eller saknade rapporter får
+inte räknas som lyckade. Full ABI-/kärntäckning och CVE-stängning antas inte.
