@@ -4,11 +4,27 @@ import os
 import selectors
 import signal
 import subprocess
+import sys
 import time
 
 
 class WorkerOutputLimit(OSError):
     pass
+
+
+def disable_worker_core_dumps():
+    """Call in the image child before loading codecs/models or reading input."""
+    import resource
+    resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+    if sys.platform == 'linux':
+        # RLIMIT_CORE alone does not block Linux's piped crash collectors.
+        import ctypes
+        prctl = ctypes.CDLL(None, use_errno=True).prctl
+        prctl.argtypes = [ctypes.c_int] + [ctypes.c_ulong] * 4
+        prctl.restype = ctypes.c_int
+        # Linux UAPI: PR_SET_DUMPABLE=4, PR_GET_DUMPABLE=3.
+        if prctl(4, 0, 0, 0, 0) != 0 or prctl(3, 0, 0, 0, 0) != 0:
+            raise OSError('image worker dump protection unavailable')
 
 
 def image_worker_environment():

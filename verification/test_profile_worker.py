@@ -46,9 +46,8 @@ class ProfileWorkerTests(unittest.TestCase):
         import resource
         with patch('profile_worker.sys.platform','linux'), patch('profile_worker.resource.getrlimit', return_value=(5,8)), patch('profile_worker.resource.setrlimit') as setlimit:
             limit_resources()
-        self.assertEqual(setlimit.call_args_list[0].args,(resource.RLIMIT_CORE,(0,0)))
-        self.assertEqual(setlimit.call_args_list[1].args,(resource.RLIMIT_CPU,(5,5)))
-        self.assertEqual(setlimit.call_args_list[2].args,(resource.RLIMIT_AS,(5,5)))
+        self.assertEqual(setlimit.call_args_list[0].args,(resource.RLIMIT_CPU,(5,5)))
+        self.assertEqual(setlimit.call_args_list[1].args,(resource.RLIMIT_AS,(5,5)))
 
     def test_real_worker_rejects_invalid_input_without_output(self):
         import profile_worker

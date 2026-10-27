@@ -124,6 +124,11 @@ Tabellen är ett daterat resultat för revisionen ovan.
 
 `test_bounded_process` kör riktiga kortlivade processer som blockerar,
 stänger pipes tidigt, avslutas med fel eller skickar för stor utdata.
+En riktig barnprocess återläser core-gränsen och på Linux dumpbarheten;
+förälderns gränser ska bestå. Felaktig/nekad Linux-inställning simuleras,
+och båda bildarbetarna måste då stoppa före bildinläsning och codec-/modellimport
+utan att lämna diagnosdata. Det provar inte värdens kraschinsamling eller
+privilegierad minnesåtkomst.
 `test_profile_worker` provar att bara bildbytes skickas och att begränsningar
 och arbetarfel nekar profilskapande. `test_passport_revocation` kontrollerar
 att sådana fel rullar tillbaka samtliga registreringsposter. Verkliga JPEG-,

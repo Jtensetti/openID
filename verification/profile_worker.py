@@ -3,7 +3,7 @@ from pathlib import Path
 import resource
 import sys
 
-from bounded_process import image_worker_environment, run_bounded
+from bounded_process import disable_worker_core_dumps, image_worker_environment, run_bounded
 from image_input import MAX_ENCODED_BYTES, decode_bounded_image, validate_encoded_image
 
 
@@ -35,7 +35,7 @@ def create_thumbnail(encoded):
 
 
 def limit_resources():
-    bounds = [(resource.RLIMIT_CORE, 0), (resource.RLIMIT_CPU, 10)]
+    bounds = [(resource.RLIMIT_CPU, 10)]
     if sys.platform == 'linux':
         bounds.append((resource.RLIMIT_AS, 1024 * 1024 * 1024))
     for kind, ceiling in bounds:
@@ -46,6 +46,7 @@ def limit_resources():
 
 if __name__ == '__main__':
     try:
+        disable_worker_core_dumps()
         limit_resources()
         raw = sys.stdin.buffer.read(MAX_ENCODED_BYTES + 1)
         sys.stdout.buffer.write(create_thumbnail(raw))

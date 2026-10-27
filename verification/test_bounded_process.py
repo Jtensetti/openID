@@ -4,7 +4,7 @@ import sys
 import unittest
 from unittest.mock import patch
 
-from bounded_process import WorkerOutputLimit, image_worker_environment, run_bounded
+from bounded_process import WorkerOutputLimit, disable_worker_core_dumps, image_worker_environment, run_bounded
 
 
 class BoundedProcessTests(unittest.TestCase):
@@ -69,6 +69,52 @@ class BoundedProcessTests(unittest.TestCase):
             with self.subTest(changes=list(changes)), patch('bounded_process.subprocess.Popen') as start:
                 with self.assertRaises(ValueError): run_bounded([sys.executable], **values)
                 start.assert_not_called()
+
+
+class CoreDumpTests(unittest.TestCase):
+    def test_real_child_disables_dumps_without_changing_parent_limits(self):
+        import json
+        import resource
+        before = resource.getrlimit(resource.RLIMIT_CORE)
+        code = """import ctypes,json,resource,sys
+from bounded_process import disable_worker_core_dumps
+disable_worker_core_dumps()
+dumpable = ctypes.CDLL(None).prctl(3,0,0,0,0) if sys.platform == 'linux' else None
+print(json.dumps([resource.getrlimit(resource.RLIMIT_CORE), dumpable]))
+"""
+        result = run_bounded([sys.executable, '-c', code], input=b'', timeout=5,
+            max_input=0, max_output=128)
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(json.loads(result.stdout), [[0, 0], 0 if sys.platform == 'linux' else None])
+        self.assertEqual(resource.getrlimit(resource.RLIMIT_CORE), before)
+
+    def test_linux_rejects_failed_or_ineffective_protection(self):
+        from unittest.mock import Mock
+        for results in ((-1,), (0, 1), (0, -1)):
+            libc = Mock(); libc.prctl.side_effect = results
+            with self.subTest(results=results), patch('bounded_process.sys.platform', 'linux'), \
+                    patch('resource.setrlimit'), patch('ctypes.CDLL', return_value=libc):
+                with self.assertRaisesRegex(OSError, 'dump protection unavailable'):
+                    disable_worker_core_dumps()
+
+    def test_both_entrypoints_stop_before_input_or_codecs_when_protection_fails(self):
+        import builtins
+        import contextlib
+        import io
+        import runpy
+        for name in ('profile_worker', 'biometric_worker'):
+            output, errors = io.StringIO(), io.StringIO()
+            with self.subTest(worker=name), \
+                    patch('bounded_process.disable_worker_core_dumps', side_effect=OSError('PRIVATE')), \
+                    patch('sys.stdin') as input_stream, \
+                    patch('builtins.__import__', wraps=builtins.__import__) as imports, \
+                    contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
+                with self.assertRaises(SystemExit) as caught:
+                    runpy.run_module(name, run_name='__main__')
+            self.assertEqual(caught.exception.code, 2)
+            input_stream.buffer.read.assert_not_called()
+            self.assertFalse(any(call.args[0] in ('cv2', 'face', 'pad', 'numpy') for call in imports.call_args_list))
+            self.assertEqual((output.getvalue(), errors.getvalue()), ('', ''))
 
 
 if __name__ == '__main__': unittest.main()

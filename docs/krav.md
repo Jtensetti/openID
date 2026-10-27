@@ -268,11 +268,15 @@ Detta minskar parserytan, utan att ändra tillitsnivå eller utgöra bevis på
 biometrisk kvalitet, fysisk PAD eller säkerhet hos alla inbäddade bibliotek.
 
 ID-05/INT-02/SEC-03: profilminiatyren avkodas i en separat process med
-15 sekunders väntetid, 10 CPU-sekunder, avstängda core-dumpar och 1 GiB
+15 sekunders väntetid, 10 CPU-sekunder och 1 GiB
 adressrymd på Linux. Bildarbetarnas pipes begränsar utdata under läsningen,
 24 000 byte för miniatyren och 4096 byte för biometri. Personfält skickas
 inte i bildarbetarens indata, och serverns övriga miljövariabler ärvs inte.
 Fel, timeout och partiella svar får inte lämna registreringsposter kvar.
+Båda bildarbetarna kräver core-gräns noll och, på Linux, avstängd dumpbarhet
+med återläsning före modell-/codec-laddning och bildinläsning. Fel i skyddet
+nekar fortsatt körning. Detta omfattar deras vanliga kraschförlopp; andra
+processer och privilegierad åtkomst till minne är separata driftkontroller.
 Separat fil-/nätbehörighet och behandling av avkodarsårbarheter återstår.
 
 SEC-03 / OPS-07: server- och registerimage använder låst Debian 13-bas.

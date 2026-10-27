@@ -7,6 +7,15 @@ Pipe-utdata måste begränsas under läsningen; communicate-buffring ger ingen
 minnesgräns. Processstart kan inte avbrytas på alla plattformar. Resursgränser
 är operativsystemsberoende och utgör inte fil-/nätisolering.
 
+Bildarbetarnas kraschdumpar: Linux man-pages
+[core(5)](https://man7.org/linux/man-pages/man5/core.5.html),
+[PR_SET_DUMPABLE](https://man7.org/linux/man-pages/man2/PR_SET_DUMPABLE.2const.html)
+och [PR_GET_DUMPABLE](https://man7.org/linux/man-pages/man2/PR_GET_DUMPABLE.2const.html),
+lästa 2026-10-27. RLIMIT_CORE=0 räcker inte vid en pipad kraschinsamlare.
+Bildarbetarna sätter även dumpable=0 på Linux och kräver lyckad återläsning
+innan de läser bilddata. Detta gäller arbetarnas vanliga kraschförlopp,
+inte skydd mot en komprometterad kärna, administratör eller arbetarkod.
+
 Containerhärdning: [Linux no_new_privs](https://docs.kernel.org/userspace-api/no_new_privs.html)
 och [Docker Engine security](https://docs.docker.com/engine/security/), lästa
 2026-10-27. `no_new_privs` hindrar exec från att ge nya set-ID-/filcapability-

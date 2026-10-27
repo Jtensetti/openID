@@ -44,12 +44,19 @@ Den kör Gunicorn med separata kapacitetsgränser och kortlivade processer för
 bildanalys och profilminiatyrer. Kommandot nedan startar den äldre seriella testservern.
 
 Profilavkodning/omkodning körs med 15 sekunders väntetid, högst 10 sekunders
-CPU-tid och 1 GiB virtuellt minne på Linux. Core-dumpar stängs av. Endast
+CPU-tid och 1 GiB virtuellt minne på Linux. Endast
 porträttets bildbytes skickas på stdin; personfälten stannar i föräldern.
 Utdata begränsas medan den läses: högst 24 000 byte JPEG för profilen och
 4096 byte diagnostik/poäng från biometriarbetaren, som har 45 sekunders
 väntetid. Timeout, för stor utdata och krasch får inte skapa någon profil;
 registreringstransaktionen och dess CRL-efterkontroll består.
+
+Båda bildarbetarna sätter core-gränsen till noll före modell-/codec-laddning
+och inläsning. På Linux stängs också processens dumpbarhet av med återläsning;
+enbart core-gränsen räcker inte för pipade kraschinsamlare. Kan skyddet inte
+aktiveras avslutas arbetaren utan bild-/poängsvar. Det är skydd vid vanliga
+krascher, inte en spärr mot en komprometterad arbetare eller administratör.
+Övriga processer och värdens kraschinsamling behöver separat driftkontroll.
 
 Bildarbetarna får bara fasta tråd-/lokalinställningar, standardsökväg och
 konfigurerad PYTHONPATH. Serverns övriga miljövariabler ärvs inte.

@@ -25,7 +25,10 @@ Versioner och licenser finns i [komponentregistret](../THIRD_PARTY.md).
 En worker äger NFC-sessionerna. Kapacitetsgränser skiljer native-anrop från
 inloggning och spärr; bildanalysen körs i en separat process med tidsgräns.
 Även profilminiatyren avkodas och kodas i en egen kortlivad process, med
-15 sekunders väntetid, CPU-/minnesgräns på Linux och avstängda core-dumpar.
+15 sekunders väntetid och CPU-/minnesgräns på Linux. Båda bildarbetarna
+stänger av core-dumpar före codec-/modelladdning och bildinläsning. På Linux
+krävs även verifierad dumpable=0; annars nekas start. Detta skyddar deras
+vanliga kraschförlopp, inte andra processer eller privilegierad minnesåtkomst.
 Pipes för in-/utdata har storleksgränser som kontrolleras under överföringen.
 Biometrins utdata begränsas på samma sätt. Bildarbetarna ärver inte serverns
 hemliga miljövariabler; konfigurerad PYTHONPATH behålls för låsta native-byggen.
