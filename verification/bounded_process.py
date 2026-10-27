@@ -31,7 +31,8 @@ def image_worker_environment():
     # Preserve the reviewed native-candidate import path, not service secrets
     # or dynamic-loader overrides from the parent environment.
     environment = {'PATH': os.defpath, 'LANG': 'C.UTF-8', 'LC_ALL': 'C.UTF-8',
-        'OMP_NUM_THREADS': '1', 'OPENBLAS_NUM_THREADS': '1', 'PYTHONDONTWRITEBYTECODE': '1'}
+        'OMP_NUM_THREADS': '1', 'OPENBLAS_NUM_THREADS': '1', 'PYTHONDONTWRITEBYTECODE': '1',
+        'PYTHONNOUSERSITE': '1'}
     if 'PYTHONPATH' in os.environ:
         environment['PYTHONPATH'] = os.environ['PYTHONPATH']
     return environment

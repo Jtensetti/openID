@@ -110,6 +110,13 @@ och en anslutningskö på 32. En fillåsning hindrar två runtime-processer frå
 att använda samma databas. Flera repliker stöds inte: NFC-sessioner och
 signeringsutmaningar finns i processminnet.
 
+Linux x86-64-värden måste stödja Landlock ABI minst 3 och seccomp-filter.
+Bildarbetarna aktiverar [fil-/systemanropspolicyn](../docs/bildarbetare.md)
+före bildinläsning. Saknat skydd stoppar även modellkontrollen vid start.
+Kod, modeller och runtime ska vara skrivskyddade och hållas åtskilda från
+personakter, säkerhetskopior och nycklar. Värdens stöd behöver verifieras
+innan denna kandidat driftsätts.
+
 - Högst ett native-anrop och åtta wallet-anrop behandlas samtidigt. Extra
   anrop får 503 och `Retry-After: 2`, utan att läsas in eller köas för analys.
 - TLS/HTTP-huvuden har en tidsgräns på 10 sekunder, request-body 15 sekunder.

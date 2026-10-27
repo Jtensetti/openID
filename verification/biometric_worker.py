@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import sys
 from bounded_process import disable_worker_core_dumps
+from worker_confinement import confine_image_worker
 
 
 STAGES = {'MODEL_LOAD', 'INPUT', 'FACE_MATCH', 'PORTRAIT_FACE', 'CAMERA_FACE', 'CAMERA_FACE_1', 'CAMERA_FACE_2', 'CAMERA_FACE_3', 'PAD'}
@@ -62,5 +63,6 @@ def main():
 if __name__ == '__main__':
     try:
         disable_worker_core_dumps()
+        confine_image_worker()
         main()
     except Exception: raise SystemExit(2)

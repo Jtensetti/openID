@@ -182,7 +182,8 @@ def main():
     # Reject overrides which could split in-memory NFC sessions across workers.
     if os.environ.get('GUNICORN_CMD_ARGS'): raise ValueError('GUNICORN_CMD_ARGS is not supported')
     subprocess.run([sys.executable, str(ROOT/'biometric_worker.py'), '--check'],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=60)
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=60,
+        env=image_worker_environment())
     lease = Lease(config['database'])
     wallet = open_wallet(config['database'], config['origin'])
     if args.check:

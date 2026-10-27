@@ -5,6 +5,7 @@ from pathlib import Path
 from image_input import decode_bounded_image
 import cv2
 import numpy as np
+cv2.setNumThreads(1)
 
 MODELS = {
     'face_detection_yunet_2023mar.onnx': '8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4',

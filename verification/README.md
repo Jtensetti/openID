@@ -59,10 +59,14 @@ krascher, inte en spärr mot en komprometterad arbetare eller administratör.
 Övriga processer och värdens kraschinsamling behöver separat driftkontroll.
 
 Bildarbetarna får bara fasta tråd-/lokalinställningar, standardsökväg och
-konfigurerad PYTHONPATH. Serverns övriga miljövariabler ärvs inte.
-Processerna delar fortfarande operativsystemskonto och fil-/nätåtkomst med
-tjänsten. Detta är resurs- och kraschskydd, inte en säkerhetssandbox eller
-bevis på rättade avkodarsårbarheter. Operativ separation återstår.
+konfigurerad PYTHONPATH; användarens Python-site inaktiveras. Serverns övriga
+miljövariabler ärvs inte, även vid modellkontrollen under start.
+På Linux x86-64 begränsar [Landlock och seccomp](../docs/bildarbetare.md)
+filinnehållsläsning till kod/modeller/runtime och nekar skrivning, nätverk,
+nya processer och åtkomst till förälderns minne. Landlock ABI minst 3 krävs;
+saknat skydd stoppar arbetaren. Kontot delas fortfarande med tjänsten.
+Isoleringen är inget bevis på rättade avkodarsårbarheter eller korrekt
+driftskonfiguration. macOS-utveckling har inte detta Linux-skydd.
 
 [iPhone-appen](../ios/README.md) läser passet, tar tre kamerabilder och binder
 underlaget till telefonens publika nyckel med App Attest. Starta servern med

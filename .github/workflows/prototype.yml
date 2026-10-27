@@ -92,7 +92,7 @@ jobs:
           .venv/bin/python -m unittest -v test_sqlite_retention
           .venv/bin/python -m unittest -v test_crl_maintenance
           .venv/bin/python -m unittest -v test_ingress_client
-          .venv/bin/python -m unittest -v test_bounded_process test_profile_worker
+          .venv/bin/python -m unittest -v test_bounded_process test_profile_worker test_worker_confinement
           .venv/bin/python -m unittest discover -s ../deployment/continuity -p 'test_*.py' -v
           .venv/bin/python runtime_smoke.py
           .venv/bin/python load_runtime.py --requests 400 --concurrency 32 --output "$RUNNER_TEMP/runtime-load.json"

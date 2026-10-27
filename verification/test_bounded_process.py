@@ -13,7 +13,7 @@ class BoundedProcessTests(unittest.TestCase):
                 'SERVICE_TOKEN':'synthetic-token','LD_PRELOAD':'untrusted.so',
                 'PYTHONPATH':'/opt/openid-opencv/python:/app/verification'}, clear=True):
             environment=image_worker_environment()
-        self.assertEqual(set(environment),{'PATH','LANG','LC_ALL','OMP_NUM_THREADS','OPENBLAS_NUM_THREADS','PYTHONDONTWRITEBYTECODE','PYTHONPATH'})
+        self.assertEqual(set(environment),{'PATH','LANG','LC_ALL','OMP_NUM_THREADS','OPENBLAS_NUM_THREADS','PYTHONDONTWRITEBYTECODE','PYTHONNOUSERSITE','PYTHONPATH'})
         self.assertEqual(environment['PYTHONPATH'],'/opt/openid-opencv/python:/app/verification')
         self.assertEqual(environment['OMP_NUM_THREADS'],'1')
 

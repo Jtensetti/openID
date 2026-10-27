@@ -4,6 +4,7 @@ import resource
 import sys
 
 from bounded_process import disable_worker_core_dumps, image_worker_environment, run_bounded
+from worker_confinement import confine_image_worker
 from image_input import MAX_ENCODED_BYTES, decode_bounded_image, validate_encoded_image
 
 
@@ -48,6 +49,7 @@ if __name__ == '__main__':
     try:
         disable_worker_core_dumps()
         limit_resources()
+        confine_image_worker()
         raw = sys.stdin.buffer.read(MAX_ENCODED_BYTES + 1)
         sys.stdout.buffer.write(create_thumbnail(raw))
     except Exception:

@@ -1,5 +1,16 @@
 # Källregister
 
+Bildarbetarnas fil-/systemanropspolicy: Linux
+[Landlock](https://docs.kernel.org/userspace-api/landlock.html),
+[seccomp-filter](https://www.kernel.org/doc/html/v6.12/userspace-api/seccomp_filter.html),
+[Landlock UAPI](https://github.com/torvalds/linux/blob/v6.12/include/uapi/linux/landlock.h)
+och [x86-64-systemanrop](https://github.com/torvalds/linux/blob/v6.12/arch/x86/entry/syscalls/syscall_64.tbl),
+lästa 2026-10-27. Policyn kräver ABI 3, kontrollerar seccomp-arkitekturen
+och nekar nya/okända systemanrop. Egna register/layout-definitioner används
+för anrop från Python; ingen Linux-implementation kopieras. Policyns
+tillåtna filer/anrop är projektdesign och kräver separat kompatibilitets-
+och säkerhetsgranskning. Se [bildarbetare](bildarbetare.md).
+
 SQLite-gallring: [URI mode=ro/rw](https://sqlite.org/uri.html),
 [secure_delete](https://sqlite.org/pragma.html#pragma_secure_delete) och
 [transaktioner](https://sqlite.org/lang_transaction.html), kontrollerade

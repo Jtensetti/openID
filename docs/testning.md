@@ -160,6 +160,14 @@ att sådana fel rullar tillbaka samtliga registreringsposter. Verkliga JPEG-,
 JP2- och råa JPEG 2000-prov går genom profilprocessen i Linux-CI; negativa
 avkodarmetadata provas i själva omkodningsfunktionen med testdubblar.
 
+`test_worker_confinement` provar Landlock/seccomp i verkliga Linux-barn:
+privata filer och symlänkar, förälderns `/proc`, filändring, sockets, fork,
+processinspektion, io_uring och okända systemanrop. Det provar även att
+ärvda öppna filer/befintliga trådar stoppar aktiveringen. BPF-policyprov
+kontrollerar andra ABI:er och argumentgränser. På macOS hoppas de faktiska
+Linux-proven över; det ska inte rapporteras som verifierad isolering där.
+Se [policy och förutsättningar](bildarbetare.md).
+
 - Fel signatur, mottagare, ursprung, session eller signerad avsikt.
 - Återspelning, dubbla godkännanden och samtidiga försök att använda samma begäran.
 - Nekande, avbrott, utgång och spärr före och efter inloggning.

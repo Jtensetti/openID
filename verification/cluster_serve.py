@@ -9,6 +9,7 @@ import ssl
 import sys
 from runtime import Runtime, validate_origin
 from serve import private_file, bounded_worker, close_worker, reject_duplicate_headers, score_frames, proofing_commands
+from bounded_process import image_worker_environment
 
 
 def config_file(path):
@@ -89,7 +90,8 @@ def main():
     if config['role']=='proofing':
         import subprocess
         subprocess.run([sys.executable,str(Path(__file__).with_name('biometric_worker.py')),'--check'],
-            check=True,timeout=60,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+            check=True,timeout=60,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,
+            env=image_worker_environment())
     run(config)
 
 
