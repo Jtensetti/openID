@@ -30,6 +30,39 @@ jobs:
         run: |
           mkdir "$RUNNER_TEMP/image-source"
           git archive HEAD | tar -x -C "$RUNNER_TEMP/image-source"
+      - name: Build the authenticated util-linux package candidate without installing it
+        id: util_linux_candidate
+        if: ${{ !cancelled() && steps.util_linux_inputs.outcome == 'success' && steps.source_export.outcome == 'success' }}
+        timeout-minutes: 25
+        run: |
+          set -euo pipefail
+          candidate_source="$RUNNER_TEMP/image-source/deployment/build/util_linux"
+          candidate_output="$RUNNER_TEMP/util-linux-evaluation"
+          mkdir -m 700 "$candidate_output"
+          git rev-parse HEAD > "$candidate_output/tested-revision.txt"
+          python3 "$candidate_source/build.py" fetch --directory "$RUNNER_TEMP/util-linux-inputs" 2>&1 | tee "$candidate_output/fetch.log"
+          docker build --platform linux/amd64 --tag openid-util-linux-builder:ci \
+            --build-arg "BUILDER_UID=$(id -u)" --build-arg "BUILDER_GID=$(id -g)" \
+            --file "$candidate_source/Dockerfile" "$candidate_source" 2>&1 | tee "$candidate_output/builder.log"
+          docker run --rm --name openid-util-linux-candidate --network none --read-only \
+            --cap-drop ALL --security-opt no-new-privileges --pids-limit 512 \
+            --memory 4g --cpus 2 --tmpfs /tmp:size=512m,mode=1777 \
+            -v "$RUNNER_TEMP/util-linux-inputs:/inputs:ro" \
+            -v "$candidate_output:/output" openid-util-linux-builder:ci 2>&1 | tee "$candidate_output/runner.log"
+      - name: Stop any remaining candidate process before saving evidence
+        if: always()
+        run: docker rm --force openid-util-linux-candidate >/dev/null 2>&1 || true
+      - name: Save package candidate evidence including failures
+        if: ${{ always() && steps.util_linux_candidate.outcome != 'skipped' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: util-linux-build-candidate
+          path: |
+            ${{ runner.temp }}/util-linux-evaluation/*.log
+            ${{ runner.temp }}/util-linux-evaluation/tested-revision.txt
+            ${{ runner.temp }}/util-linux-evaluation/evidence/
+          if-no-files-found: error
+          retention-days: 30
       - name: Build pinned private pilot image
         run: docker build --platform linux/amd64 --tag openid-pilot:ci --file "$RUNNER_TEMP/image-source/deployment/Dockerfile" "$RUNNER_TEMP/image-source"
       - name: Test actual packaged image codecs and face models without network
@@ -257,39 +290,6 @@ jobs:
           docker logs openid-pilot || true
           docker logs openid-rp || true
           docker rm --force openid-pilot openid-rp openid-image-surface || true
-      - name: Build the authenticated util-linux package candidate without installing it
-        id: util_linux_candidate
-        if: ${{ !cancelled() && steps.util_linux_inputs.outcome == 'success' && steps.source_export.outcome == 'success' }}
-        timeout-minutes: 25
-        run: |
-          set -euo pipefail
-          candidate_source="$RUNNER_TEMP/image-source/deployment/build/util_linux"
-          candidate_output="$RUNNER_TEMP/util-linux-evaluation"
-          mkdir -m 700 "$candidate_output"
-          git rev-parse HEAD > "$candidate_output/tested-revision.txt"
-          python3 "$candidate_source/build.py" fetch --directory "$RUNNER_TEMP/util-linux-inputs" 2>&1 | tee "$candidate_output/fetch.log"
-          docker build --platform linux/amd64 --tag openid-util-linux-builder:ci \
-            --build-arg "BUILDER_UID=$(id -u)" --build-arg "BUILDER_GID=$(id -g)" \
-            --file "$candidate_source/Dockerfile" "$candidate_source" 2>&1 | tee "$candidate_output/builder.log"
-          docker run --rm --name openid-util-linux-candidate --network none --read-only \
-            --cap-drop ALL --security-opt no-new-privileges --pids-limit 512 \
-            --memory 4g --cpus 2 --tmpfs /tmp:size=512m,mode=1777 \
-            -v "$RUNNER_TEMP/util-linux-inputs:/inputs:ro" \
-            -v "$candidate_output:/output" openid-util-linux-builder:ci 2>&1 | tee "$candidate_output/runner.log"
-      - name: Stop any remaining candidate process before saving evidence
-        if: always()
-        run: docker rm --force openid-util-linux-candidate >/dev/null 2>&1 || true
-      - name: Save package candidate evidence including failures
-        if: ${{ always() && steps.util_linux_candidate.outcome != 'skipped' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: util-linux-build-candidate
-          path: |
-            ${{ runner.temp }}/util-linux-evaluation/*.log
-            ${{ runner.temp }}/util-linux-evaluation/tested-revision.txt
-            ${{ runner.temp }}/util-linux-evaluation/evidence/
-          if-no-files-found: error
-          retention-days: 30
       - name: Package the tested image and provenance
         run: |
           python3 deployment/image_bundle.py package --image openid-pilot:ci \

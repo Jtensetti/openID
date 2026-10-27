@@ -86,6 +86,24 @@ class CandidateInputTests(unittest.TestCase):
         self.assertEqual([v.split() for v in actual['Checksums-Sha256'].splitlines() if v.strip()],
                          [['abc', '123', 'upstream.tar'], ['def', '456', 'debian.tar']])
 
+    def test_authenticated_release_bytes_are_not_normalized(self):
+        expected = b'Suite: stable\nSHA256:\n abc 12 main/Packages.xz'
+        with tempfile.TemporaryDirectory() as name:
+            evidence = Path(name)
+            payload = evidence / 'Release.authenticated'
+            with patch('bootstrap.subprocess.run', return_value=subprocess.CompletedProcess(['sqv'], 0)):
+                payload.write_bytes(expected)
+                verify_archive(evidence, sha(expected))
+                for changed in (expected + b'\n', expected + b'\n\n', expected + b' ',
+                                expected.replace(b'\n', b'\r\n'),
+                                expected.replace(b'abc', b'def')):
+                    with self.subTest(payload=changed), self.assertRaises(ValueError):
+                        payload.write_bytes(changed)
+                        verify_archive(evidence, sha(expected))
+                payload.unlink()
+                with self.assertRaises(FileNotFoundError):
+                    verify_archive(evidence, sha(expected))
+
     def test_altered_or_linked_input_rejected(self):
         with tempfile.TemporaryDirectory() as name:
             path = Path(name) / 'input'

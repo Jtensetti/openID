@@ -63,6 +63,8 @@ def check_deb(path, index):
 
 def verify_archive(evidence, expected_payload_sha256):
     # Trixie's APT uses Sequoia; gpgv is installed only after this bootstrap.
+    # sqv removes the CSF separator newline (RFC 9580 section 7.1).
+    # Hash its exact output; do not strip or normalize authenticated bytes here.
     payload = evidence / 'Release.authenticated'
     log = evidence / 'archive-signature.log'
     with log.open('w') as stream:
@@ -72,7 +74,10 @@ def verify_archive(evidence, expected_payload_sha256):
     if result.returncode:
         print(log.read_text(errors='replace'), flush=True)
         result.check_returncode()
-    if sha(payload.read_bytes()) != expected_payload_sha256:
+    raw = payload.read_bytes()
+    actual = {'bytes': len(raw), 'sha256': sha(raw)}
+    print('Authenticated Release: ' + json.dumps(actual, sort_keys=True), flush=True)
+    if actual['sha256'] != expected_payload_sha256:
         raise ValueError('authenticated Release payload differs')
 
 

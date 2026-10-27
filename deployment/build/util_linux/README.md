@@ -25,6 +25,11 @@ Trixie-basens befintliga `sqv` verifierar InRelease före paketinstallation.
 Även den autentiserade Release-texten måste matcha sitt hashlås. APT gör
 sedan sin ordinarie arkivkontroll. `gpgv` installeras uttryckligen med låst
 version genom denna kedja; det förutsätts inte finnas i basimagen.
+Hashlåset avser `sqv`-utmatningen: det sista radslutet före signaturblocket
+är en formatseparator och ingår inte i klartexten enligt RFC 9580 §7.1.
+Vår kontroll normaliserar inga bytes. Även extra radslut, mellanslag eller
+CRLF i verifierarens utmatning ger därför avslag. Storlek och faktisk hash
+loggas för att ett avvikande resultat ska kunna undersökas.
 
 Källfilerna har storleks- och hashlås. GnuPG ska verifiera Debians `.dsc` mot
 byggmiljöns versionslåsta Debian-keyring innan paketeringen används.
@@ -63,7 +68,10 @@ omfattar källindata, byggda paket och byggmiljöns dpkg-paket; den är ingen
 fullständig inventering av inbäddad kod eller av applikationens runtime.
 
 Steget har högst 25 minuter inom pilotjobbets befintliga 55-minutersgräns.
-Det körs även efter tidigare OS-fynd och kan inte upphäva tidigare fel.
+Det ligger före de stora applikationsbyggena, så förberedelsefel stoppar
+pilotjobbet tidigt. Vid fel saknas senare image-/OS-prov för revisionen;
+de får inte tillskrivas ett resultat från en tidigare körning. Paketbygget
+kan inte upphäva OS-fynd eller andra fel.
 Inga nya jobb, actions, behörigheter eller AWS-resurser införs. Byggminuter
 och artefakter använder GitHub-kvoten. Repoförvaltaren ansvarar för
 versionsbevakning, licenser och omprov.

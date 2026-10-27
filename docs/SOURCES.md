@@ -360,3 +360,9 @@ arkivets signerade klartext med basens Debian-nyckelring före installation;
 den autentiserade texten har eget hashlås.
 [APT:s arkivautentisering](https://manpages.debian.org/trixie/apt/apt-secure.8.en.html)
 behålls när den versionslåsta GnuPG-verifieraren installeras.
+[RFC 9580 §7.1](https://www.rfc-editor.org/rfc/rfc9580.html#section-7.1)
+skiljer sista separatorradslutet från signerad klartext.
+[Sequoia OpenPGP 2.0.0](https://crates.io/crates/sequoia-openpgp/2.0.0)
+(`src/armor.rs`) tar bort detta radslut vid läsning; Trixies `sqv` 1.3.0
+använder denna biblioteksversion enligt snapshotens `Built-Using`.
+Release-textens hashlås gäller de utmatade byten, utan egen normalisering.
