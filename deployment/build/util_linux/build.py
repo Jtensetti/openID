@@ -20,6 +20,38 @@ RUNTIME_PACKAGES = {'bsdutils', 'libblkid1', 'liblastlog2-2', 'libmount1',
                     'libsmartcols1', 'libuuid1', 'login', 'mount', 'util-linux'}
 
 
+def validate_packages(packages, version):
+    """Check the whole build before exporting any installable package."""
+    names, filenames, runtime = set(), set(), []
+    for item in packages:
+        name = item['Package']
+        base = name.removesuffix('-dbgsym')
+        # Debian's reviewed debputy.manifest preserves these historical epochs.
+        prefix = {'bsdutils': '1:', 'login': '1:4.16.0-2+really'}.get(base, '')
+        expected_version = prefix + version
+        source = item.get('Source', name)
+        architecture = item['Architecture']
+        filename = name + '_' + expected_version.split(':')[-1] + '_' + architecture + '.deb'
+        if (not re.fullmatch(r'[a-z0-9][a-z0-9+.-]+', name)
+                or name in names or item['filename'] in filenames
+                or item['Version'] != expected_version
+                or source not in ('util-linux', 'util-linux (' + version + ')')
+                or architecture not in ('amd64', 'all')
+                or item['filename'] != filename
+                or type(item['bytes']) is not int or item['bytes'] <= 0
+                or not re.fullmatch(r'[a-f0-9]{64}', item['sha256'])):
+            raise ValueError('unexpected or duplicate built package identity')
+        names.add(name)
+        filenames.add(item['filename'])
+        if name in RUNTIME_PACKAGES:
+            if architecture != 'amd64':
+                raise ValueError('runtime package architecture differs')
+            runtime.append(item)
+    if {item['Package'] for item in runtime} != RUNTIME_PACKAGES:
+        raise ValueError('incomplete runtime package set')
+    return runtime
+
+
 def load_lock():
     return json.loads(Path(__file__).with_name('candidate.lock.json').read_text())
 
@@ -254,26 +286,21 @@ def build(inputs, output, lock):
                                 'skipLines': [line for line in log.splitlines() if re.search(r'\bSKIP(?:PED)?\b', line, re.I)],
                                 'limit': 'Upstream PASS totals can include skips; raw logs remain authoritative.'}
         packages = []
-        exported = set()
         for path in sorted(source.parent.glob('*.deb')):
             item = fields(subprocess.check_output(['dpkg-deb', '-f', str(path),
                 'Package', 'Version', 'Architecture', 'Source', 'Depends', 'Pre-Depends'], text=True))
-            if item.get('Source', 'util-linux').split()[0] != 'util-linux' or lock['candidateVersion'] not in item['Version']:
-                raise ValueError('unexpected built package identity')
             item.update({'filename': path.name, 'bytes': path.stat().st_size, 'sha256': sha(path.read_bytes())})
             packages.append(item)
-            if item['Package'] in RUNTIME_PACKAGES:
-                target = evidence / 'runtime-packages' / path.name
-                target.parent.mkdir(exist_ok=True)
-                shutil.copyfile(path, target)
-                exported.add(item['Package'])
-        if exported != RUNTIME_PACKAGES:
-            raise ValueError('incomplete runtime package set')
+        runtime = validate_packages(packages, lock['candidateVersion'])
+        for item in runtime:
+            target = evidence / 'runtime-packages' / item['filename']
+            target.parent.mkdir(exist_ok=True)
+            shutil.copyfile(source.parent / item['filename'], target)
         for pattern in ('*.buildinfo', '*.changes'):
             for path in source.parent.glob(pattern):
                 shutil.copyfile(path, evidence / path.name)
         report['packages'] = packages
-        report['exportedRuntimePackages'] = sorted(exported)
+        report['exportedRuntimePackages'] = sorted(item['Package'] for item in runtime)
         (evidence / 'sbom.cdx.json').write_text(json.dumps(sbom(lock, packages,
             (evidence / 'toolchain/installed-packages.tsv').read_text()), indent=2) + '\n')
         report['complete'] = report['passed'] = True

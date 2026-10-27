@@ -312,7 +312,10 @@ Detta är kompatibilitetsprov, inte full biometrisk kalibrering.
 
 `deployment/build/util_linux/test_candidate.py` nekar ändrade/länkade indata,
 osäkra arkiv, tvetydiga/ogiltiga signaturstatusar och byggberoenden utanför det
-låsta indexet. Genererade lokala prov ersätter inte verklig signaturkontroll
+låsta indexet. Prov för arkivverifieraren nekar verktygsfel och ändrad
+autentiserad Release-text. Paketexporten nekar saknade/dubbla paket,
+versionssuffix, borttappade Debian-prefix, fel källversion och arkitektur.
+Genererade lokala prov ersätter inte verklig signaturkontroll
 eller det isolerade [Linux-bygget](../deployment/build/util_linux/README.md).
 Bygg-/regressionsbevis sparas även vid fel. Upstreams PASSED-tal kan innehålla
 skip; dessa redovisas. Ingen runtimeinstallation, ABI- eller CVE-stängning antas.

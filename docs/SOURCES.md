@@ -355,3 +355,8 @@ anger verifiering över okomprimerad tar; checksumme-autosigneringen ersätter
 inte utvecklarens signatur. [Debian-snapshoten](https://snapshot.debian.org/archive/debian/20261027T000000Z/)
 har separat lås för InRelease och paketindex. Aktuella hash-/licensuppgifter
 finns i [kandidatlåset](../deployment/build/util_linux/candidate.lock.json).
+[Trixies sqv](https://manpages.debian.org/trixie/sqv/sqv.1.en.html) verifierar
+arkivets signerade klartext med basens Debian-nyckelring före installation;
+den autentiserade texten har eget hashlås.
+[APT:s arkivautentisering](https://manpages.debian.org/trixie/apt/apt-secure.8.en.html)
+behålls när den versionslåsta GnuPG-verifieraren installeras.

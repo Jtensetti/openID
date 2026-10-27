@@ -61,6 +61,21 @@ def check_deb(path, index):
             'sha256': origin['SHA256'], 'filename': origin['Filename']}
 
 
+def verify_archive(evidence, expected_payload_sha256):
+    # Trixie's APT uses Sequoia; gpgv is installed only after this bootstrap.
+    payload = evidence / 'Release.authenticated'
+    log = evidence / 'archive-signature.log'
+    with log.open('w') as stream:
+        result = subprocess.run(['sqv', '--keyring=/usr/share/keyrings/debian-archive-keyring.gpg',
+                                 '--output=' + str(payload), '--cleartext', str(evidence / 'InRelease')],
+                                stdout=stream, stderr=subprocess.STDOUT)
+    if result.returncode:
+        print(log.read_text(errors='replace'), flush=True)
+        result.check_returncode()
+    if sha(payload.read_bytes()) != expected_payload_sha256:
+        raise ValueError('authenticated Release payload differs')
+
+
 def main():
     if (platform.system(), platform.machine(), os.geteuid()) != ('Linux', 'x86_64', 0):
         raise ValueError('requires the isolated Linux amd64 builder')
@@ -79,10 +94,7 @@ def main():
         raise ValueError('expanded package index differs')
     index = package_index(raw)
     (evidence / 'InRelease').write_bytes(release)
-    with (evidence / 'archive-signature.log').open('w') as log:
-        subprocess.run(['gpgv', '--status-fd=1', '--keyring',
-                        '/usr/share/keyrings/debian-archive-keyring.gpg',
-                        str(evidence / 'InRelease')], stdout=log, stderr=subprocess.STDOUT, check=True)
+    verify_archive(evidence, snapshot['releasePayloadSHA256'])
     # This directory belongs to the disposable image, not to the CI host.
     Path('/etc/apt/sources.list').write_text('')
     for path in Path('/etc/apt/sources.list.d').iterdir():

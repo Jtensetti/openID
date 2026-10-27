@@ -15,11 +15,16 @@ bryter dessutom nuvarande exakta paketberoenden.
 ## Låsning och källkontroll
 
 Verktygen installeras endast i en engångsimage från en digestlåst Trixie-bas.
-De 38 direkt valda paketen har exakta versioner. APT använder bara Debian-
+De 39 direkt valda paketen har exakta versioner. APT använder bara Debian-
 snapshoten `20261027T000000Z`. Dess signerade InRelease och hela amd64-index
 har låsta SHA-256. Varje transitiv nedladdning måste matcha indexets identitet
 och hash före installation. Extra paketkällor, ändrade index, nedgraderingsflaggor
 och ignorerade signaturfel tillåts inte. Alla installerade byggpaket inventeras.
+
+Trixie-basens befintliga `sqv` verifierar InRelease före paketinstallation.
+Även den autentiserade Release-texten måste matcha sitt hashlås. APT gör
+sedan sin ordinarie arkivkontroll. `gpgv` installeras uttryckligen med låst
+version genom denna kedja; det förutsätts inte finnas i basimagen.
 
 Källfilerna har storleks- och hashlås. GnuPG ska verifiera Debians `.dsc` mot
 byggmiljöns versionslåsta Debian-keyring innan paketeringen används.
@@ -50,6 +55,9 @@ signatur-/patch-/byggloggar, lås, licenser, motsvarande beredd källkod och
 hashmanifest. Vid lyckat bygge sparas en avgränsad CycloneDX-förteckning,
 de nio runtimepaketen och metadata om
 alla byggda deb-paket. Övriga binärpaket och arbetskatalogen laddas inte upp.
+Alla pakethuvuden måste ha exakt käll-/binärversion, arkitektur och filnamn;
+Debians historiska versionsprefix för `bsdutils` och `login` bevaras.
+Saknade eller dubbla runtimepaket nekar hela exporten innan något kopieras.
 Källarkivet tas före kompilering och följer med kandidatpaketen. Förteckningen
 omfattar källindata, byggda paket och byggmiljöns dpkg-paket; den är ingen
 fullständig inventering av inbäddad kod eller av applikationens runtime.
@@ -76,4 +84,6 @@ Primärkällor kontrollerade 2026-10-27:
 - [Låst uppföljning](https://github.com/util-linux/util-linux/compare/02822c9374fc72d38baf8a1f859eb0813970bf3f...56e83de535ae1df9228d3b1cbf978b3e36b5d959)
 - [Debians paket- och säkerhetsstatus](https://security-tracker.debian.org/tracker/source-package/util-linux)
 - [Debians daterade arkiv](https://snapshot.debian.org/archive/debian/20261027T000000Z/)
+- [Debians arkivautentisering](https://manpages.debian.org/trixie/apt/apt-secure.8.en.html)
+- [Sequoias signaturverifierare i Trixie](https://manpages.debian.org/trixie/sqv/sqv.1.en.html)
 - [Kernel.org: signatur över okomprimerat arkiv](https://www.kernel.org/signature.html)
