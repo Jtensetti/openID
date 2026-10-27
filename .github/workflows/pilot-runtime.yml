@@ -152,7 +152,7 @@ jobs:
           docker cp openid-pilot:/opt/java/openjdk/upstream-sbom.cdx.json "$RUNNER_TEMP/temurin-upstream-sbom.cdx.json"
           docker cp openid-pilot:/usr/share/doc/openid-python "$RUNNER_TEMP/python-runtime-evidence"
           docker image inspect openid-pilot:ci --format '{{.Id}}' > "$RUNNER_TEMP/image-id.txt"
-          timeout 120s docker run --rm --network none --read-only --cap-drop ALL --user 0:0 \
+          timeout 120s docker run --rm --network none --read-only --cap-drop ALL --cap-add DAC_READ_SEARCH --user 0:0 \
             --security-opt no-new-privileges --pids-limit 32 --memory 128m --cpus 1 \
             -v "$PWD/deployment/build/file_privileges.py:/checks/file_privileges.py:ro" \
             --entrypoint python "$(cat "$RUNNER_TEMP/image-id.txt")" -B /checks/file_privileges.py check \
@@ -198,7 +198,7 @@ jobs:
             if [ "$kind" = candidate ]; then image=openid-opencv:ci; fi
             docker image inspect "$image" --format '{{.Id}}' > "$RUNNER_TEMP/opencv-evaluation/$kind-image-id.txt"
             if [ "$kind" = candidate ]; then
-              timeout 120s docker run --rm --network none --read-only --cap-drop ALL --user 0:0 \
+              timeout 120s docker run --rm --network none --read-only --cap-drop ALL --cap-add DAC_READ_SEARCH --user 0:0 \
                 --security-opt no-new-privileges --pids-limit 32 --memory 128m --cpus 1 \
                 -v "$PWD/deployment/build/file_privileges.py:/checks/file_privileges.py:ro" \
                 --entrypoint python "$(cat "$RUNNER_TEMP/opencv-evaluation/$kind-image-id.txt")" -B /checks/file_privileges.py check \

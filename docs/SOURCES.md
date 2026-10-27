@@ -6,6 +6,9 @@ och [Docker Engine security](https://docs.docker.com/engine/security/), lästa
 privilegier men begränsar inte alla andra privilegieövergångar. Borttagna
 setuid/setgid-filrättigheter i våra images är ett kompletterande designval,
 inte ett påstående om att paketens sårbarheter är rättade.
+Inspektionsbehörigheten följer [Docker: Linux capabilities](https://docs.docker.com/engine/containers/run/#runtime-privilege-and-linux-capabilities),
+läst 2026-10-27: `DAC_READ_SEARCH` används bara i den skrivskyddade CI-kontrollen
+för att läsa imagekataloger som ägs av andra systemkonton.
 
 ## Avgränsad klientadress genom betans ingress, 2026-10-26
 

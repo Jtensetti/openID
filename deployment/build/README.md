@@ -116,7 +116,10 @@ CI kontrollerar den färdiga pilotimagen, registerimagen och OpenCV-kandidaten:
 inga reguljära filer inom detta omfång får ha setuid/setgid, och ändrade filer
 måste matcha byggrapporten. Läsfel, nya privilegierade filer eller förändrat
 innehåll stoppar provet. Kontrollen använder root enbart för att läsa hela
-imagefilsystemet, med avstängt nät, skrivskydd och borttagna capabilities.
+imagefilsystemet, med avstängt nät, skrivskydd och enbart capability
+`DAC_READ_SEARCH` för kataloger som ägs av andra systemkonton. Den avlästa
+kontrollprocessens privilegier följer med rapporten. Ingen runtimebehörighet
+utökas och inga oläsbara kataloger undantas för att få ett godkänt resultat.
 Imagernas förvalda driftanvändare behåller UID 10001. Filcapabilities, volymer, historiska lager
 och värdsystemet ingår inte i denna kontroll; `no-new-privileges`, `cap_drop`
 och separat driftverifiering behövs fortfarande. Det är härdning, ingen

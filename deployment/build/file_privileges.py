@@ -118,6 +118,11 @@ def main():
         result = verify(Path('/'), report)
         result.update({'imageID': args.image_id, 'testedRevision': args.revision,
                        'buildReport': report, 'scope': LIMIT})
+        selected = {'CapEff', 'CapBnd', 'NoNewPrivs', 'Seccomp'}
+        result['inspectionProcess'] = {'uid': os.getuid(), 'euid': os.geteuid(),
+            'status': {line.split(':', 1)[0]: line.split(':', 1)[1].strip()
+                       for line in Path('/proc/self/status').read_text().splitlines()
+                       if line.split(':', 1)[0] in selected}}
         print(json.dumps(result, indent=2))
 
 

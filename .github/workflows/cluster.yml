@@ -37,7 +37,7 @@ jobs:
         run: |
           docker build --tag openid-wallet:ci --file deployment/cluster/Dockerfile .
           image_id=$(docker image inspect openid-wallet:ci --format '{{.Id}}')
-          timeout 120s docker run --rm --network none --read-only --cap-drop ALL --user 0:0 \
+          timeout 120s docker run --rm --network none --read-only --cap-drop ALL --cap-add DAC_READ_SEARCH --user 0:0 \
             --security-opt no-new-privileges --pids-limit 32 --memory 128m --cpus 1 \
             -v "$PWD/deployment/build/file_privileges.py:/checks/file_privileges.py:ro" \
             --entrypoint python "$image_id" -B /checks/file_privileges.py check \
