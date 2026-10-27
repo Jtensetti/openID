@@ -194,7 +194,11 @@ class ImageAuditTests(unittest.TestCase):
         for name in ('deployment/Dockerfile', 'deployment/cluster/Dockerfile'):
             python_bases = [line.split()[1] for line in (audit.ROOT/name).read_text().splitlines()
                             if line.startswith('FROM python:')]
-            self.assertEqual([python['builder'], lock['base']['image']], python_bases)
+            expected = [python['builder'], lock['base']['image']]
+            if name == 'deployment/Dockerfile':
+                # The explicit native comparison uses the same pinned toolchain.
+                expected.append(python['builder'])
+            self.assertEqual(expected, python_bases)
             dockerfile = (audit.ROOT/name).read_text()
             for artifact in ('source', 'sbom', 'pip'):
                 item = python[artifact]
