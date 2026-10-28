@@ -71,12 +71,14 @@ def os_passed(directory, image_id, revision, bundle_created):
     require(-timedelta(minutes=5) <= created - checked <= timedelta(hours=1),
             "OS assessment is stale or future-dated at packaging")
     require(assessment.get("format") == 1 and assessment.get("complete") is True
-            and assessment.get("passed") is True and assessment.get("findingCount") == 0
-            and assessment.get("uniqueAdvisoryCount") == 0
+            and assessment.get("passed") is True
+            and type(assessment.get("findingCount")) is int and assessment["findingCount"] == 0
+            and type(assessment.get("uniqueAdvisoryCount")) is int
+            and assessment["uniqueAdvisoryCount"] == 0
             and assessment.get("imageID") == image_id
             and assessment.get("sourceRevision") == revision,
             "Complete passing OS assessment for this image and revision required")
-    require(isinstance(assessment.get("packageCount"), int) and assessment["packageCount"] > 0
+    require(type(assessment.get("packageCount")) is int and assessment["packageCount"] > 0
             and re.fullmatch(r"[0-9a-f]{64}", assessment.get("databaseSha256", ""))
             and re.fullmatch(r"[0-9a-f]{64}", assessment.get("scannerLockSha256", ""))
             and scan.get("SchemaVersion") == 2
@@ -109,8 +111,11 @@ def os_passed(directory, image_id, revision, bundle_created):
         scanned.add((package["Name"], version, package["Arch"]))
     require(len(installed) == len(scanned) == assessment["packageCount"] and installed == scanned,
             "OS package inventory differs from scanner report")
-    require(sbom.get("bomFormat") == "CycloneDX" and len(sbom.get("components", [])) > 0,
-            "Missing OS SBOM")
+    components = sbom.get("components")
+    require(sbom.get("bomFormat") == "CycloneDX" and isinstance(components, list)
+            and {(c.get("name"), c.get("version")) for c in components if c.get("type") == "library"}
+            == {(name, version) for name, version, _ in installed},
+            "OS SBOM does not cover installed packages")
     require(metadata.get("Version") == 2
             and -timedelta(minutes=5) <= checked - instant(metadata.get("UpdatedAt")) <= timedelta(hours=24)
             and -timedelta(minutes=5) <= checked - instant(metadata.get("DownloadedAt")) <= timedelta(hours=1),
