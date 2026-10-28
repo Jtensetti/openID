@@ -130,6 +130,13 @@ Tabellen är ett daterat resultat för revisionen ovan.
 
 ## Negativa säkerhetsfall
 
+`test_native_retention` provar att övergiven registrering under chiputbyte
+eller väntan på kamerafångst rensas utan nya anrop, att giltiga sessioner behålls, att långsam
+attestering/passkontroll/chipstart inte återinför en utgången session,
+att rensning väntar på aktivt chiputbyte och att fel i en transportstängning
+inte lämnar andra utgångna sessioner kvar. Svaga objektreferenser visar att
+dokumentet avlänkats; provet påstår inte fysisk minnesöverskrivning.
+
 `test_consent_retention` provar separat kvittogallring: läsande plan,
 giltighet och tidsgräns, ärendeundantag, nya återkallelser, parallella
 körningar, främmande triggers/kaskader och återgång vid journalfel eller

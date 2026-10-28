@@ -77,6 +77,19 @@ upphör att auktorisera registrering efter högst fem minuter. Ingressen kan
 ta emot en anropskropp innan applikationen nekar den; kontrollerna innebär
 inte att felaktiga klienter omöjligen kan sända byte till servern.
 
+Servern kontrollerar även väntande sessioner var femte sekund utan ny
+trafik och efter varje registreringsoperation. Utgångna sessioner tas bort;
+chiputbyte har en separat 75-sekundersgräns och övrig session fem minuter.
+Passprofil och porträtt avlänkas från sessionsregistret och eventuellt
+chipbarn avslutas. Rensningen delar lås med registreringsoperationerna;
+en pågående operation slutförs eller når sin tidsgräns innan dess minne kan
+frigöras. En utgången session får inte återinföras av en långsam kontroll.
+Normal workeravslutning stoppar rensningstråden och tömmer registret.
+
+Detta begränsar referensernas livslängd i applikationen. Det garanterar inte
+fysisk överskrivning av Python-byte, RAM, swap, dump, ingressbuffertar eller
+operativsystemets kopior; dessa kräver separat driftkontroll.
+
 ## Databas och återställning
 
 SQLite lägger till samtyckestabeller och gallringsjournal utan att fabricera kvitton för äldre ID:n.
