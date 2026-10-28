@@ -1,0 +1,126 @@
+{
+  "format": 1,
+  "checkedAt": "2026-10-28",
+  "purpose": "Isolated complete ACL source/package build and generated compatibility probes; no installation in application images.",
+  "builderImage": "python:3.12.15-trixie@sha256:0d0db5b17f11b1b7d1aafa74ceadaa64ba0944b267ff6fc22008a197acd6b9ad",
+  "snapshot": {
+    "url": "https://snapshot.debian.org/archive/debian/20261027T000000Z/",
+    "suite": "trixie",
+    "inReleaseSHA256": "0584fba32e13e0ab8285fb16c27adea1ec03a73669c18702821094fd6ca86675",
+    "packagesCompressedSHA256": "7778d3e3f303b7ddb8ce0fe7c8d57473a076c6bf2e8f241f75421d2396352498",
+    "packagesSHA256": "4f2c68d67001d595fbd343f6dbad44468953a51c4d9dec3a4803249f6e295940",
+    "releasePayloadSHA256": "8604eb6fba4e103b48f029f4d945e8c96d07a418b663de8386617d0b78bd3bcf"
+  },
+  "buildPackages": [
+    {
+      "name": "build-essential",
+      "version": "12.12"
+    },
+    {
+      "name": "debhelper",
+      "version": "13.24.2"
+    },
+    {
+      "name": "gettext",
+      "version": "0.23.1-2"
+    },
+    {
+      "name": "libattr1-dev",
+      "version": "1:2.5.2-3"
+    },
+    {
+      "name": "pkgconf",
+      "version": "1.8.1-4"
+    },
+    {
+      "name": "gnupg",
+      "version": "2.4.7-21+deb13u1"
+    },
+    {
+      "name": "gpgv",
+      "version": "2.4.7-21+deb13u1+b5"
+    },
+    {
+      "name": "debian-keyring",
+      "version": "2025.07.26"
+    }
+  ],
+  "sourceVersion": "2.4.0",
+  "packagingVersion": "2.4.0-1",
+  "candidateVersion": "2.4.0-1openid1",
+  "sourceDateEpoch": 1793145600,
+  "inputs": [
+    {
+      "filename": "acl_2.4.0-1.dsc",
+      "url": "https://deb.debian.org/debian/pool/main/a/acl/acl_2.4.0-1.dsc",
+      "bytes": 2624,
+      "sha256": "b987ebbeb3d498794bad29cd65301b77384978493d8765c94dba8bad8fa325b6"
+    },
+    {
+      "filename": "acl_2.4.0.orig.tar.xz",
+      "url": "https://deb.debian.org/debian/pool/main/a/acl/acl_2.4.0.orig.tar.xz",
+      "bytes": 384828,
+      "sha256": "e661131456d2708a01c614a0f400e11d7d1bfaeb6f3e74b75bb980b72f0161a3"
+    },
+    {
+      "filename": "acl_2.4.0.orig.tar.xz.asc",
+      "url": "https://deb.debian.org/debian/pool/main/a/acl/acl_2.4.0.orig.tar.xz.asc",
+      "bytes": 833,
+      "sha256": "5f4f0b9b78821764fe6b88e32aef6ec519628522c211c36706bcb78d6f3f036b"
+    },
+    {
+      "filename": "acl_2.4.0-1.debian.tar.xz",
+      "url": "https://deb.debian.org/debian/pool/main/a/acl/acl_2.4.0-1.debian.tar.xz",
+      "bytes": 47932,
+      "sha256": "65931c2fb3e821bda67f8d8d72d77e99ac61502748dcdf38b6805fe89339085e"
+    }
+  ],
+  "debianSigner": "4F3E74F436050C10F5696574B972BF3EA4AE57A3",
+  "debianKeyringSHA256": "052303f4083e56def3c82a94b16954e41bbd96b81624fc5a275791d2540bef2d",
+  "upstreamSigner": "259B3792B3D6D319212CC4DCD5BF9FEB0313653A",
+  "upstreamKeySHA256": "a2139e1b8a4a180be8695d9789fcb6f58f62f93bc0fe991ec106e474cac6ea3a",
+  "upstreamPrimaryFingerprints": [
+    "259B3792B3D6D319212CC4DCD5BF9FEB0313653A",
+    "600CD204FBCEA418BD2CA74F154343260542DF34",
+    "B902B5271325F892AC251AD441633B9FE837F581"
+  ],
+  "licenseFiles": {
+    "doc/COPYING": "a45a845012742796534f7e91fe623262ccfb99460a2bd04015bd28d66fba95b8",
+    "doc/COPYING.LGPL": "01b1f9f2c8ee648a7a596a1abe8aa4ed7899b1c9e5551bda06da6e422b04aa55",
+    "debian/copyright": "9a2dfb4a5abc7e84be2cc41f1089be665519c9409549296f6c19de57ab1d37c2"
+  },
+  "packagingFiles": {
+    "debian/control": "0024dd8658d40befa67f8fc58d514e323025f307e7e4e06251f5b5ecc4201b16",
+    "debian/rules": "f94cdb641f005a79e74ff36904a4b1587c0dab35d82e8699922f0e601ea4acee",
+    "debian/source/format": "1be7080d72e6b566df3e236ce2c55efdfbbb8fa1c972d825e5b672ff8773be1a",
+    "debian/patches/series": "9e5dc9a7c108b6ce773f318e62a85befcb1998684db9edee6260005a8a302164",
+    "debian/patches/local/0001-build-Use-LDLIBS-instead-of-LDFLAGS-for-example-Make.patch": "049e68935f88f2fd33025c067047b734fe730a669a41bee59ddfb9f24adb9da9",
+    "debian/patches/local/0002-Fix-usage-of-uninitialized-variable.patch": "59d9efbe6f979e3b408208e772aa74f3085233b19c9fb786e55b57857f152e7b"
+  },
+  "requiredPassingTests": [
+    "test/cp.run",
+    "test/getfacl-lfs.run",
+    "test/getfacl-noacl.run",
+    "test/getfacl-recursive.run",
+    "test/malformed-restore.run",
+    "test/misc.run",
+    "test/setfacl-X.run",
+    "test/restore.run",
+    "test/sbits-restore.run",
+    "test/utf8-filenames.run"
+  ],
+  "environmentLimitedTests": [
+    "test/root/getfacl.run",
+    "test/root/permissions.run",
+    "test/root/restore.run",
+    "test/root/setfacl.run",
+    "test/nfs/nfsacl.run",
+    "test/nfs/nfs-dir.run"
+  ],
+  "limits": [
+    "No runtime package is installed by this build.",
+    "Root/NFS-specific upstream outcomes do not demonstrate those environments; raw per-test results must be retained.",
+    "Generated API and tar compatibility checks are not a complete ABI, race, application or vulnerability assessment.",
+    "Versioned keyring copies cannot discover later revocations; fresh source/key review and independent release approval remain required."
+  ]
+}

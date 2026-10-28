@@ -336,6 +336,14 @@ källornas nyckelringar eller innehålla privata nycklar.
 Full ABI-/kärntäckning, CVE-bedömning och oberoende införandebeslut kvarstår;
 formell kravstatus ändras inte av ett kandidatbygge eller en provinstallation.
 
+[ACL-kandidaten](../deployment/build/acl/README.md) kräver samma signerade
+byggursprung och exakt käll-/paketidentitet. Obligatoriska upstreamtester
+får inte ersättas med skip. De färdiga paketens bibliotek och headers
+ska provas med genererade no-follow-/återställningsfall samt befintlig
+tar-binär. Ett lyckat källbygge eller dessa avgränsade prov stänger inte
+SEC-03/INT-06: faktisk separat appinstallation, relevant CVE-/ABI-
+bedömning, fulla app-/protokollprov och oberoende införande återstår.
+
 SEC-03:s komponentunderlag kompletteras med en separat läsande inspektör över
 fysiska imagekataloger, även SSL-länkarnas mål. Den ursprungliga inventeringen
 som vanlig användare bevaras. Läsfel och mål utanför det angivna omfånget

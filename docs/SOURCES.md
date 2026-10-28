@@ -404,3 +404,28 @@ en egen cache före båda APT-anropen, med tomma källor/index enligt
 [`apt.conf`](https://manpages.debian.org/trixie/apt/apt.conf.5.en.html).
 Detta är format-/beteendeunderlag, ingen kopierad APT-implementation och
 inget undantag från nätisolering, paketlås eller efterkontroll.
+
+## ACL-kandidat, 2026-10-28
+
+[Savannahs ACL-projekt](https://savannah.nongnu.org/projects/acl/) är
+upstream; [Debians officiella källpool](https://deb.debian.org/debian/pool/main/a/acl/)
+distribuerar den signerade 2.4.0-1-källgruppen. `.dsc`, upstreamsignatur,
+nyckeluppsättning, fullständiga fingeravtryck och exakta byte binds i
+[kandidatlåset](../deployment/build/acl/candidate.lock.json).
+
+Debians aktuella poster för [CVE-2026-54369](https://security-tracker.debian.org/tracker/CVE-2026-54369)
+och [CVE-2026-54370](https://security-tracker.debian.org/tracker/CVE-2026-54370)
+anger 2.4.0-1 som rättad unstable-version medan Trixie är sårbar.
+[Upstreams säkerhetsmeddelande](https://www.openwall.com/lists/oss-security/2026/06/29/1)
+beskriver nya `_at`-API:er, no-follow och kvarvarande länkbeteende i äldre
+anrop. Biblioteksbyte ensamt bevisar därför inte säkert anroparbeteende.
+[Debian #1141146](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=1141146)
+gäller namnkonflikt när tar 1.35+dfsg-3.1 byggs med de nya headerfilerna;
+det är inte ett uppmätt fel i den befintliga tar-binären.
+
+Den autentiserade källans `doc/COPYING`, `doc/COPYING.LGPL`, filhuvuden,
+`debian/copyright`, patchserie och testlista styr licens-/byggbedömningen.
+Libattr-byggberoendets copyright läses ur exakt hashlåst Debian-paket.
+[Trixies dpkg-manual](https://manpages.debian.org/trixie/dpkg-dev/deb-src-control.5.en.html)
+anger rootlöst standardbygge sedan 1.22.13; den låsta 1.22.22 omfattas.
+Ingen extra fakeroot-inställning eller privilegieutökning behövs.

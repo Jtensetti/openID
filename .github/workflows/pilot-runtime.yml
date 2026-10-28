@@ -22,9 +22,11 @@ jobs:
           python3 deployment/build/opencv/test_compare.py -v
           python3 deployment/build/test_image_surface.py -v
           python3 deployment/build/test_file_privileges.py -v
-      - name: Reject unsafe package source and signature evidence
+      - name: Reject unsafe util-linux and ACL source, signature and test evidence
         id: util_linux_inputs
-        run: python3 -m unittest discover -s deployment/build/util_linux -p 'test_*.py' -v
+        run: |
+          python3 -m unittest discover -s deployment/build/util_linux -p 'test_*.py' -v
+          python3 -m unittest discover -s deployment/build/acl -p 'test_*.py' -v
       - name: Export tracked source only
         id: source_export
         run: |
@@ -421,6 +423,39 @@ jobs:
           docker logs openid-pilot || true
           docker logs openid-rp || true
           docker rm --force openid-pilot openid-rp openid-image-surface openid-image-surface-root || true
+      - name: Build and probe the authenticated ACL candidate without installing it
+        id: acl_candidate
+        if: ${{ !cancelled() && steps.util_linux_inputs.outcome == 'success' && steps.source_export.outcome == 'success' }}
+        timeout-minutes: 10
+        run: |
+          set -euo pipefail
+          candidate_context="$RUNNER_TEMP/image-source/deployment/build"
+          candidate_output="$RUNNER_TEMP/acl-evaluation"
+          mkdir -m 700 "$candidate_output"
+          git rev-parse HEAD > "$candidate_output/tested-revision.txt"
+          python3 "$candidate_context/acl/candidate.py" fetch --directory "$RUNNER_TEMP/acl-inputs" 2>&1 | tee "$candidate_output/fetch.log"
+          timeout 300s docker build --platform linux/amd64 --tag openid-acl-builder:ci \
+            --build-arg "BUILDER_UID=$(id -u)" --build-arg "BUILDER_GID=$(id -g)" \
+            --file "$candidate_context/acl/Dockerfile" "$candidate_context" 2>&1 | tee "$candidate_output/builder.log"
+          timeout 240s docker run --rm --name openid-acl-candidate --network none --read-only \
+            --cap-drop ALL --security-opt no-new-privileges --pids-limit 256 \
+            --memory 1g --cpus 2 --tmpfs /tmp:size=128m,mode=1777 \
+            -v "$RUNNER_TEMP/acl-inputs:/inputs:ro" \
+            -v "$candidate_output:/output" openid-acl-builder:ci 2>&1 | tee "$candidate_output/runner.log"
+      - name: Stop any remaining ACL candidate before saving evidence
+        if: always()
+        run: docker rm --force openid-acl-candidate >/dev/null 2>&1 || true
+      - name: Save ACL build and compatibility evidence including failures
+        if: ${{ always() && steps.acl_candidate.outcome != 'skipped' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: acl-build-candidate
+          path: |
+            ${{ runner.temp }}/acl-evaluation/*.log
+            ${{ runner.temp }}/acl-evaluation/tested-revision.txt
+            ${{ runner.temp }}/acl-evaluation/evidence/
+          if-no-files-found: error
+          retention-days: 30
       - name: Package the tested image and provenance
         run: |
           python3 deployment/image_bundle.py package --image openid-pilot:ci \

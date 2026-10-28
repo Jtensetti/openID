@@ -343,6 +343,25 @@ och hash. Dessa prov är ingen aktuell kontroll av senare nyckelspärrar.
 Bygg-/regressionsbevis sparas även vid fel. Upstreams PASSED-tal kan innehålla
 skip; dessa redovisas. Ett paketbygge räknas inte som runtimeinstallation.
 
+## ACL-paketkandidat
+
+`deployment/build/acl/test_candidate.py` provar avslag för fel signerad
+källidentitet/checksummor, osäkra indatanamn/ursprung, privata eller
+felaktiga publika nyckeluppsättningar, ändrad paketgrupp och saknade,
+länkade, tvetydiga eller underkända upstreamresultat. Alla tio vanliga
+upstreamtester måste ge PASS; fyra root- och två NFS-fall redovisas
+separat och får inte ge FAIL/XPASS/ERROR.
+
+Det nätfria [Linux-bygget](../deployment/build/acl/README.md) kör
+källsignaturregressionerna och hela Debians paketbygge. Det extraherar
+sedan tre färdiga paket utan installation och provar deras faktiska
+bibliotek/headers: access-/default-ACL, no-follow-avslag, fysisk restore
+genom länk samt befintlig tars arkivering/återläsning. Detta testar inte
+samtidiga races, alla kärnor/filsystem eller att tar kan kompileras om.
+Källkod, licenser, pakethashar och råresultat bevaras även vid delvisa fel.
+Ett lyckat kandidatprov är ingen installation i appimagen eller stängning
+av ett driftfynd.
+
 `test_prepare_trial.py` nekar fel revision, ofullständiga/ändrade bevis,
 länkade sökvägar och överskrivning av befintlig kontext. `test_trial_install.py`
 nekar andra imagelager, ändrad runtimekonfiguration, avvikande APT-plan,

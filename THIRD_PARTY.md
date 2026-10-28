@@ -385,3 +385,29 @@ produktionsleverans. Debianpatchar och upstreamdiff har separat attribution.
 
 Repoförvaltaren ansvarar för källor, säkerhetsbevakning, licensvillkor och
 omprov. [Omfattning och kvarstående införandeprov](deployment/build/util_linux/README.md).
+
+## ACL-paketkandidat, 2026-10-28
+
+[ACL-kandidaten](deployment/build/acl/README.md) använder signerad Debian-
+källa 2.4.0-1 och lokal byggversion 2.4.0-1openid1. Källstorlekar/hashar,
+fullständiga signerarfingeravtryck, licensfiler och samma autentiserade
+Trixie-snapshot som övriga paketprov finns i `candidate.lock.json`.
+Endast en daterad changelogpost tillkommer; upstreamkod och Debianpatchar
+bevaras. Inga ACL-paket förs in i ordinarie runtimeimage av detta flöde.
+
+Savannahs ACL-projekt omfattar bland andra Silicon Graphics och Andreas
+Gruenbacher som rättighetshavare. GPL-2.0-or-later är standardvillkor och
+bibliotek/flera hjälpfiler har LGPL-2.1-or-later. Debians etikett `LGPL-2+`
+har granttext för 2.1 eller senare; filernas egna villkor styr. Ytterligare
+filnotiser för exempel, test- och byggstöd bevaras i den kompletta beredda
+källkopian. Full GPL-2-/LGPL-2.1-text, Debian-copyright och byggskript
+följer med de tre exportabla kandidatpaketen. De används för separat
+utvärdering; produktionsdistribution är inte godkänd.
+
+`libattr1-dev` 1:2.5.2-3 är nytt direkt byggberoende från den signerade
+snapshoten; headers/bibliotek har LGPL-2.1-or-later enligt granttext och
+standardkod GPL-2.0-or-later. Dess och `libattr1`:s copyright sparas;
+inget attr-paket exporteras. Transitiv verktygsinventering och nedladdade
+pakethashar sparas. Detta ersätter inte en fullständig licens-/SBOM-
+bedömning av en framtida applikationsleverans. Repoförvaltaren äger
+uppdateringar, säkerhets-/nyckelbevakning, licenser och omprov.
