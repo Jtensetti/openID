@@ -113,6 +113,8 @@ def os_passed(directory, image_id, revision, bundle_created):
             "OS package inventory differs from scanner report")
     components = sbom.get("components")
     require(sbom.get("bomFormat") == "CycloneDX" and isinstance(components, list)
+            and sbom.get("metadata", {}).get("component", {}).get("type") == "container"
+            and sbom["metadata"]["component"].get("name") == image_id
             and {(c.get("name"), c.get("version")) for c in components if c.get("type") == "library"}
             == {(name, version) for name, version, _ in installed},
             "OS SBOM does not cover installed packages")

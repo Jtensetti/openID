@@ -38,7 +38,8 @@ class BundleTests(unittest.TestCase):
                            "databaseSha256": "f" * 64}
         os_files = {
             "database-metadata.json": {"Version": 2, "UpdatedAt": now, "DownloadedAt": now},
-            "os-sbom.cdx.json": {"bomFormat": "CycloneDX", "components": [
+            "os-sbom.cdx.json": {"bomFormat": "CycloneDX", "metadata": {
+                "component": {"type": "container", "name": self.data["image"]["id"]}}, "components": [
                 {"name": "synthetic", "version": "1", "type": "library"}]},
             "scanner-lock.json": {"version": "0.76.1"},
             "scanner-sbom.json": {"components": [{"name": "scanner"}]},
@@ -146,6 +147,11 @@ class BundleTests(unittest.TestCase):
     def test_os_sbom_must_cover_installed_packages(self):
         path = self.root / "os-os-sbom.cdx.json"
         data = json.loads(path.read_text()); data["components"][0]["version"] = "2"
+        path.write_text(json.dumps(data)); self.seal_os(); self.seal()
+        with self.assertRaisesRegex(ValueError, "SBOM does not cover"):
+            self.verify()
+        data["components"][0]["version"] = "1"
+        data["metadata"]["component"]["name"] = "sha256:" + "d" * 64
         path.write_text(json.dumps(data)); self.seal_os(); self.seal()
         with self.assertRaisesRegex(ValueError, "SBOM does not cover"):
             self.verify()
