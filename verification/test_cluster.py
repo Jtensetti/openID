@@ -301,7 +301,9 @@ class ClusterTests(unittest.TestCase):
         self.assertEqual('synthetic-pairwise',data['pairwise_subjects'][0]['subject'])
         self.assertEqual('SYNTHETIC AGREEMENT',data['federation_requests'][0]['sign_message'])
         self.assertEqual(1,len(data['biometric_attempts']))
-        self.assertEqual(2,len(data['operator_events']))
+        second=next(ident for ident in case['credentials'] if ident!=self.ident)
+        self.assertCountEqual([(self.ident,'ACTIVATION_REQUESTED'),(second,'REVOKED'),(self.ident,'ACTIVATED')],
+            [(r['credential'],r['kind']) for r in data['operator_events']])
         self.assertTrue(all(r['time'].endswith('+00:00') for r in data['operator_events']))
         self.assertTrue(data['enrollment_consents'][0]['recordedAcceptance']['biometricsAccepted'])
         self.assertEqual([receipt],data['consent_retention_runs'][0]['protectedReceipts'])
@@ -338,6 +340,12 @@ class ClusterTests(unittest.TestCase):
         import postgres_subject_access as access
         from unittest.mock import patch
         case,_,_,_=self.rights_fixture();select=access.select
+        before={table:self.sql('backup','SELECT id,credential,kind FROM '+table+
+            ' WHERE credential=ANY(%s) ORDER BY id',(case['credentials'],))
+            for table in ('events','operator_events')}
+        # Activating this key already revoked the other registration. Preserve
+        # that earlier history while excluding the new concurrent revocation.
+        self.assertTrue(any(kind=='REVOKED' and ident!=self.ident for _,ident,kind in before['events']))
         def revoke_after_credentials(db,table,*args):
             self.assertEqual('on',db.execute('SHOW transaction_read_only').fetchone()[0])
             self.assertEqual('openid-subject-access',db.execute('SHOW application_name').fetchone()[0])
@@ -347,7 +355,8 @@ class ClusterTests(unittest.TestCase):
         with patch.object(access,'select',side_effect=revoke_after_credentials):
             _,_,value=self.rights_export(case)
         self.assertEqual('ACTIVE',next(r['state'] for r in value['records']['credentials'] if r['id']==self.ident))
-        self.assertNotIn('REVOKED',{r['kind'] for r in value['records']['events']+value['records']['operator_events']})
+        for table,rows in before.items():
+            self.assertEqual(rows,[(r['id'],r['credential'],r['kind']) for r in value['records'][table]])
         self.assertEqual('REVOKED',self.sql('backup','SELECT state FROM credentials WHERE id=%s',(self.ident,))[0][0])
 
     def test_rights_case_unknown_schema_row_filters_or_write_roles_fail_closed(self):
@@ -384,7 +393,10 @@ class ClusterTests(unittest.TestCase):
         with self.assertRaises(VaultUnavailable):
             self.rights_export(case,vault=TransitVault(self.address,self.token_files['enroller'],local_test=True))
         with self.psycopg.connect(DSN) as db:
-            db.execute('UPDATE openid.credentials SET decision=%s WHERE id=%s',('X'*(access.MAX_BYTES+1),self.ident))
+            # A malformed audit row exercises the read bound without bypassing
+            # the credential trigger or rewriting an approved activation decision.
+            db.execute('INSERT INTO openid.events(credential,kind,time) VALUES(%s,%s,%s)',
+                (self.ident,'X'*(access.MAX_BYTES+1),int(time.time())))
         target=self.root/('large-rights-'+secrets.token_hex(8))
         with self.assertRaisesRegex(ValueError,'oversized register row'):
             access.export_case(self.dsns['backup'],target,case,'f'*40,vault=self.a.vault,local_test=True)
