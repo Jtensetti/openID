@@ -11,7 +11,7 @@ import sys
 import tarfile
 import urllib.request
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'util_linux'))
+sys.path.append(str(Path(__file__).resolve().parent.parent / 'util_linux'))
 from bootstrap import fields, sha
 from build import check_input, extract_regular, run, verify_signature
 

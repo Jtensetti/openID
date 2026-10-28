@@ -420,7 +420,10 @@ Debian-källa 6.6+20260608-2 och lokal utvärderingsversion
 fullständiga signerarfingeravtryck, licens-/paketeringsfiler och samma
 autentiserade Trixie-snapshot som övriga paketprov. Endast en daterad
 changelogpost tillförs. Sex interna symbolfilslänkar bevaras med exakt
-namn-/målpolicy. Inga ncurses-paket installeras i app- eller registerimage.
+namn-/målpolicy. Inga ncurses-paket installeras i ordinarie app- eller
+registerimage. Ett manuellt CI-jobb provar de fyra runtimepaketen nätfritt
+i en separat appbild, med egen paket- och OS-inventering; dess utfall är
+ännu inte verifierat.
 
 Debians copyright anger MIT/X11 för huvudkoden, X11 för `install-sh` och
 BSD-3-Clause för `progs/tset.c` och `ncurses/tinfo/read_termcap.c`.

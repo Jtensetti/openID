@@ -373,6 +373,14 @@ byggverktygsinventering och annat än de sex interna symbolfilslänkarna.
 Lokal verklig källberedning kräver giltig Debian-/upstreamsignatur och
 bevarar länkarna. Den ger inget Linux-byggbevis.
 
+Det manuella ncurses-jobbet förbereder dessutom ett nätfritt appbildsprov ur
+den signerade kandidatens hashade råartefakt. `test_trial.py` nekar ändrade
+paketbyte, fel revision, länkade filer och annan referensbild. CI ska kräva
+exakt fyra uppgraderade runtimepaket, oförändrade skyddade app-/JDK-filer,
+oförändrad runtimekonfiguration och bild-/protokollprov mot provbildens exakta
+image-ID. En strikt OS-skanning behåller alla kvarvarande fynd. Något lyckat
+provbildsresultat kan inte påstås förrän det nya jobbet har körts.
+
 Det manuella, separata GitHub-jobbet i `pilot-runtime.yml` ska bygga
 kandidaten utan nät som vanlig användare och bevara råa loggar även vid
 fel. De färdiga paketen extraheras utan installation. Proven kontrollerar

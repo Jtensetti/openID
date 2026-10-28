@@ -350,8 +350,10 @@ Debianpaket, färdiga ELF-bibliotek, SONAME och verklig länkning från
 `tic`/`infocmp` måste verifieras. Genererade terminfo-/termcapfall ska
 inkludera indataformerna från båda öppna ncurses-CVE-rapporterna.
 Kandidaten får inte installeras i ordinarie image som en bieffekt av bygget.
-SEC-03/INT-06 kräver fortsatt separat appinstallation, nya OS- och
-app-/protokollprov, licens-/nyckelaktualitet och oberoende beslut.
+Ett manuellt, separat appbildsprov ska installera de fyra runtimepaketen
+nätfritt, jämföra slutlig paket- och filidentitet samt köra nya OS-, bild-
+och protokollprov. SEC-03/INT-06 kräver verifierat resultat, licens-/
+nyckelaktualitet och oberoende beslut innan formell status ändras.
 
 SEC-03:s komponentunderlag kompletteras med en separat läsande inspektör över
 fysiska imagekataloger, även SSL-länkarnas mål. Den ursprungliga inventeringen
