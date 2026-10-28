@@ -239,7 +239,7 @@ class ArchiveTests(unittest.TestCase):
         del manifest['files']['retention_runs.jsonl']
         raw = archive.encoded(manifest); manifest_path.write_bytes(raw)
         with self.assertRaises(ValueError): archive.verify(self.destination, hashlib.sha256(raw).hexdigest())
-        for version, backend in [(3, 'sqlite'), (True, 'sqlite'), (2, 'postgresql')]:
+        for version, backend in [(5, 'sqlite'), (True, 'sqlite'), (2, 'postgresql')]:
             manifest.update(format=version, backend=backend)
             raw = archive.encoded(manifest); manifest_path.write_bytes(raw)
             with self.assertRaises(ValueError): archive.verify(self.destination, hashlib.sha256(raw).hexdigest())

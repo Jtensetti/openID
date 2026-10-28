@@ -1,7 +1,7 @@
 # Privat export av registerjournaler
 
 `verification/audit_archive.py` exporterar en sammanhängande läsögonblicksbild
-av befintliga registerjournaler. Format 1 och 2 är JSON Lines med fasta kolumner,
+av befintliga registerjournaler. Format 1–4 är JSON Lines med fasta kolumner,
 radantal, byteantal och SHA-256 per fil i ett manifest. Verktyget skriver
 aldrig tillbaka till registret och anropar ingen nyckeltjänst.
 
@@ -35,9 +35,17 @@ Journal och profilmetadata läses i samma snapshot. Ett ofullständigt
 gallringsschema eller vyer i stället för dess tabeller nekar exporten;
 verktyget får inte tyst utelämna journalen. Äldre SQLite utan gallringsschema
 och PostgreSQL schema 2 behåller format 1. Offlineverifieringen stöder båda
-formaten samt format 3 nedan. Äldre verifierare nekar nya format och behöver uppdateras före mottagning.
+formaten samt format 3 och 4 nedan. Äldre verifierare nekar nya format och behöver uppdateras före mottagning.
 
 Format 3 används för SQLite med samtyckestabeller och för PostgreSQL schema 3. Det inkluderar även `enrollment_policies`, `enrollment_consents` och `credential_consents`: exakt information, signerade val, enhetsnyckelns digest, serverns mottagningstid, eventuell återkallelsetid och credentialbindning. SQLite behåller gallringsjournalen. Ett delvis tillagt samtyckesschema nekas. Nya exporter kräver uppdaterad verifierare och PostgreSQLs utökade, läsande `archive-access.sql`. Äldre arkivformat kan fortfarande verifieras.
+
+Format 4 lägger till `consent_retention_runs` för SQLite med kvittogallring
+och PostgreSQL schema 4. Journalen innehåller körnings-ID, tid, exakt
+kanonisk gallringspolicy inklusive skyddslista, SHA-256 och antal per
+samtyckestabell. Policystruktur, tider, räknare och hash kontrolleras även
+offline. Detta bevisar inte att policyn antagits av behörig ansvarig.
+Ett arkiv som anger format 4 men saknar journalen nekas. Arkivformat 1–3 kan fortfarande
+verifieras, men visar bara de uppgifter som faktiskt ingick då.
 
 Personprofiler, bilder, person-/dokumenttaggar, pairwise subjects,
 PIN-verifierare och sessionshemligheter exporteras inte. Exporten innehåller
@@ -62,8 +70,8 @@ behörig databasägare. Skriptet kan köras igen och ger befintliga
 läsrätt till profilers chiffertext, subjects, PIN-verifierare eller
 sessionshemligheter, och ingen skriv-/aktiveringsrätt. Använd ett separat
 personligt revisionskonto med denna roll; dela inte applikationens login.
-Tillämpa åtkomsten separat även i en återställd databas. Ordinarie schema 2
-och befintliga backupformat ändras inte.
+Tillämpa åtkomsten separat även i en återställd databas. Åtkomstskriptet
+migrerar inte applikationsschemat eller äldre backuper.
 
 ```sh
 python verification/audit_archive.py export \

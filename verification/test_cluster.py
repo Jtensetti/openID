@@ -83,7 +83,7 @@ class ClusterTests(unittest.TestCase):
 
     def setUp(self):
         with self.psycopg.connect(DSN, autocommit=True) as db:
-            db.execute('TRUNCATE openid.credentials,openid.persons,openid.operator_events,openid.maintenance_runs,openid.biometric_attempts,openid.enrollment_quarantine,openid.enrollment_policies RESTART IDENTITY CASCADE')
+            db.execute('TRUNCATE openid.credentials,openid.persons,openid.operator_events,openid.maintenance_runs,openid.biometric_attempts,openid.enrollment_quarantine,openid.enrollment_policies,openid.consent_retention_runs RESTART IDENTITY CASCADE')
         self.enroller=self.store('enroller')
         self.a=self.store('wallet'); self.b=self.store('wallet')
         self.ident=self.enroller.enroll(self.keys[0]['publicKey'], document())['id']
@@ -188,6 +188,12 @@ class ClusterTests(unittest.TestCase):
             self.assertEqual([(3,)],db.execute('SELECT version FROM openid.schema_version').fetchall())
             with self.assertRaises(self.psycopg.Error):db.execute(migration3,prepare=False)
             db.execute('ROLLBACK')
+        with self.psycopg.connect(admin_dsn,autocommit=True) as db:
+            migration4=(Path(__file__).parents[1]/'deployment/cluster/migrate-3-to-4.sql').read_text()
+            db.execute(migration4,prepare=False)
+            self.assertEqual([(4,)],db.execute('SELECT version FROM openid.schema_version').fetchall())
+            with self.assertRaises(self.psycopg.Error):db.execute(migration4,prepare=False)
+            db.execute('ROLLBACK')
         migrated=PostgresWallet(dsn('enroller'),self.a.origin,self.enroller.vault,local_test=True)
         self.addCleanup(migrated.close)
         self.assertEqual(4,migrated.biometric_attempt(document()))
@@ -274,12 +280,22 @@ class ClusterTests(unittest.TestCase):
         self.assertEqual(1,sum(result is not None for result in results))
         pending,pending_request=self.enrollment_receipt(key=3)
         self.enroller.withdraw_acceptance(request)
+        from consent_retention import postgres_maintain,validate_journal
+        from test_consent_retention import POLICY
+        postgres_maintain(self.dsns['maintenance'],POLICY,apply=True,local_test=True)
         destination=self.root/('consent-backup-'+secrets.token_hex(8))
         backup(self.dsns['backup'],destination,local_test=True)
         metadata=json.loads((destination/'manifest.json').read_text())
         self.assertEqual(2,metadata['tables']['enrollment_consents']['rows'])
         self.assertEqual(1,metadata['tables']['credential_consents']['rows'])
+        self.assertEqual(1,metadata['tables']['consent_retention_runs']['rows'])
         target=self.restore_target();restore(DSN,destination,target,self.a.vault,local_test=True)
+        with self.psycopg.connect(DSN) as admin:
+            self.assertFalse(admin.execute('SELECT datallowconn FROM pg_database WHERE datname=%s',(target,)).fetchone()[0])
+        admin_dsn=self.restored_database(target,grant=True)
+        with self.psycopg.connect(admin_dsn) as admin:
+            rows=admin.execute('SELECT * FROM openid.consent_retention_runs').fetchall()
+            self.assertEqual(1,len(rows));validate_journal(rows[0])
         restored=PostgresWallet(make_conninfo(**(conninfo_to_dict(self.dsns['enroller'])|{'dbname':target})),
             self.enroller.origin,self.enroller.vault,local_test=True);self.addCleanup(restored.close)
         with restored.transaction() as db:
@@ -289,6 +305,114 @@ class ClusterTests(unittest.TestCase):
     def test_same_login_cannot_approve_even_with_both_roles(self):
         proposal=self.sql('carol','SELECT request_activation(%s,%s,%s)',(self.ident,'REVIEW-test-002',24))[0][0]
         with self.assertRaises(self.psycopg.Error):self.sql('carol','SELECT approve_activation(%s)',(proposal,))
+
+    def consent_retention_fixture(self):
+        from enrollment_policy import canonical
+        from test_enrollment_policy import fixture_policy
+        from test_consent_retention import POLICY,ident,DAY
+        now=int(time.time());notice=fixture_policy()
+        notice['notice'].update(notBefore=now-90*DAY,notAfter=now-DAY)
+        digest=hashlib.sha256(canonical(notice['notice'])).hexdigest()
+        with self.psycopg.connect(DSN) as db:
+            db.execute('INSERT INTO openid.enrollment_policies VALUES(%s,%s)',(digest,canonical(notice).decode()))
+            for number,accepted,withdrawn in ((1,now-9*DAY,None),(2,now-6*DAY,None),
+                    (3,now-9*DAY,now-DAY),(4,now-9*DAY,None),(5,now-60,None)):
+                db.execute('INSERT INTO openid.enrollment_consents VALUES(%s,%s,%s,%s,%s,%s)',
+                    (ident(number),'a'*64,digest,accepted,'SYNTHETIC_PROOF',withdrawn))
+            for number,state,expiry,event in ((10,'REVOKED',now-10*DAY,now-40*DAY),
+                    (11,'ACTIVE',now+DAY,now-40*DAY),(12,'ACTIVE',now-6*DAY,now-40*DAY),
+                    (13,'PENDING_REVIEW',None,now-40*DAY),(14,'REVOKED',now-10*DAY,now-DAY)):
+                who=ident(number)
+                db.execute('INSERT INTO openid.credentials VALUES(%s,%s,%s,%s,%s,%s,%s)',
+                    (who,'SYNTHETIC_KEY_'+who,state,now-40*DAY,expiry,'SYNTHETIC_REVIEW',who))
+                db.execute('INSERT INTO openid.enrollment_consents VALUES(%s,%s,%s,%s,%s,NULL)',
+                    (who,who,digest,now-40*DAY,'SYNTHETIC_PROOF'))
+                db.execute('INSERT INTO openid.credential_consents VALUES(%s,%s)',(who,who))
+                db.execute('INSERT INTO openid.events(credential,kind,time) VALUES(%s,%s,%s)',(who,'SYNTHETIC_EVENT',event))
+            for expiry in (now-DAY,now+DAY):
+                orphan=fixture_policy();orphan['notice']['notAfter']=expiry
+                orphan_digest=hashlib.sha256(canonical(orphan['notice'])).hexdigest()
+                db.execute('INSERT INTO openid.enrollment_policies VALUES(%s,%s)',(orphan_digest,canonical(orphan).decode()))
+        return POLICY|{'protectedReceipts':[ident(4)]}
+
+    def test_consent_retention_plan_apply_roles_and_exact_journal(self):
+        from consent_retention import postgres_maintain,validate_journal
+        from enrollment_policy import canonical
+        from test_consent_retention import ident
+        config=self.consent_retention_fixture()
+        def run(**kw):return postgres_maintain(self.dsns['maintenance'],config,local_test=True,**kw)
+        protected={t:self.sql('backup','SELECT * FROM '+t+' ORDER BY 1') for t in ('credentials','events','profiles')}
+        expected={'credential_consents':2,'enrollment_consents':3,'enrollment_policies':1}
+        self.assertEqual(expected,run()['selected'])
+        self.assertEqual([],self.sql('maintenance','SELECT * FROM consent_retention_runs'))
+        self.assertEqual(10,len(self.sql('backup','SELECT id FROM enrollment_consents')))
+        for query in ('SELECT proof FROM enrollment_consents','DELETE FROM credential_consents',
+                      'DELETE FROM consent_retention_runs',"UPDATE consent_retention_runs SET policy='{}'"):
+            with self.subTest(query=query),self.assertRaises(self.psycopg.Error):self.sql('maintenance',query)
+        first=run(apply=True,batch=1);self.assertTrue(first['moreEligible'])
+        self.assertEqual(1,first['selected']['enrollment_consents'])
+        second=run(apply=True);self.assertEqual(2,second['selected']['enrollment_consents'])
+        self.assertEqual({ident(n) for n in (2,3,4,5,11,12,14)},
+            {r[0] for r in self.sql('backup','SELECT id FROM enrollment_consents')})
+        self.assertEqual(protected,{t:self.sql('backup','SELECT * FROM '+t+' ORDER BY 1') for t in protected})
+        for row in self.sql('maintenance','SELECT * FROM consent_retention_runs ORDER BY id'):
+            validate_journal(row);self.assertEqual(canonical(config).decode(),row[2])
+        self.assertEqual(0,run(apply=True)['selected']['enrollment_consents'])
+        self.assertEqual(2,len(self.sql('backup','SELECT * FROM enrollment_policies')))
+
+    def test_consent_retention_database_rejects_invalid_policy_and_rolls_back_journal_failure(self):
+        from consent_retention import postgres_maintain
+        from enrollment_policy import canonical
+        config=self.consent_retention_fixture()
+        invalid=[config|{'regime':'digg'},config|{'regime':None},config|{'boundDays':True},
+            config|{'protectedReceipts':[None]},config|{'protectedReceipts':config['protectedReceipts']*2},
+            config|{'extra':1}]
+        for value in invalid:
+            with self.subTest(value=value),self.assertRaises(self.psycopg.Error):
+                self.sql('maintenance','SELECT retain_consent_evidence(%s,true,100)',(canonical(value).decode(),))
+        for raw in (json.dumps(config),canonical(config).decode().replace('"version":1','"version":1,"version":1')):
+            with self.assertRaises(self.psycopg.Error):
+                self.sql('maintenance','SELECT retain_consent_evidence(%s,true,100)',(raw,))
+        before=self.sql('backup','SELECT * FROM enrollment_consents ORDER BY id')
+        with self.psycopg.connect(DSN) as db:
+            db.execute('ALTER TABLE openid.consent_retention_runs ADD CONSTRAINT synthetic_journal_failure CHECK(id<0)')
+        try:
+            with self.assertRaises(self.psycopg.Error):
+                postgres_maintain(self.dsns['maintenance'],config,apply=True,local_test=True)
+        finally:
+            with self.psycopg.connect(DSN) as db:
+                db.execute('ALTER TABLE openid.consent_retention_runs DROP CONSTRAINT synthetic_journal_failure')
+        self.assertEqual(before,self.sql('backup','SELECT * FROM enrollment_consents ORDER BY id'))
+        self.assertEqual([],self.sql('maintenance','SELECT * FROM consent_retention_runs'))
+
+    def test_consent_retention_concurrent_batches_do_not_double_delete(self):
+        from consent_retention import postgres_maintain
+        config=self.consent_retention_fixture()
+        with ThreadPoolExecutor(2) as pool:
+            results=list(pool.map(lambda _:postgres_maintain(self.dsns['maintenance'],config,apply=True,local_test=True),range(2)))
+        self.assertEqual(3,sum(r['selected']['enrollment_consents'] for r in results))
+        self.assertEqual(2,len(self.sql('maintenance','SELECT * FROM consent_retention_runs')))
+
+    def test_consent_retention_rechecks_a_revocation_committed_while_waiting(self):
+        from consent_retention import postgres_maintain
+        from test_consent_retention import ident
+        config=self.consent_retention_fixture()
+        with self.psycopg.connect(DSN) as revocation,ThreadPoolExecutor(1) as pool:
+            revocation.execute('SELECT id FROM openid.credentials WHERE id=%s FOR UPDATE',(ident(10),))
+            blocker=revocation.info.backend_pid
+            future=pool.submit(postgres_maintain,self.dsns['maintenance'],config,apply=True,local_test=True)
+            try:
+                end=time.monotonic()+2
+                with self.psycopg.connect(DSN,autocommit=True) as observer:
+                    while time.monotonic()<end:
+                        if observer.execute('SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE %s=ANY(pg_blocking_pids(pid)))',(blocker,)).fetchone()[0]:break
+                        time.sleep(.02)
+                    else:self.fail('retention did not lock the credential against concurrent revocation')
+                revocation.execute('INSERT INTO openid.events(credential,kind,time) VALUES(%s,%s,%s)',
+                    (ident(10),'REVOKED',int(time.time())))
+            finally:revocation.commit()
+            self.assertEqual(2,future.result(timeout=5)['selected']['enrollment_consents'])
+        self.assertEqual([(ident(10),)],self.sql('backup','SELECT id FROM enrollment_consents WHERE id=%s',(ident(10),)))
 
     def test_service_and_auditor_cannot_activate_or_modify_profile(self):
         queries=[("UPDATE credentials SET state='ACTIVE' WHERE id=%s",(self.ident,)),
@@ -305,6 +429,7 @@ class ClusterTests(unittest.TestCase):
         allowed={'request_activation(text,text,integer)':{'alice','carol'},'approve_activation(text)':{'bob','carol'},
             'revoke_credential(text)':{'revoker'},'revoke_all_after_restore()':{'revoker'},
             'purge_expired(integer,integer,integer)':{'maintenance'},
+            'retain_consent_evidence(text,boolean,integer)':{'maintenance'},
             'reserve_biometric_attempt(text)':{'enroller'},'security_code_status(text)':{'wallet'},
             'check_security_code(text,text)':{'wallet'},'set_security_code(text,text,text)':{'wallet'}}
         for function,users in allowed.items():

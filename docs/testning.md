@@ -130,6 +130,14 @@ Tabellen är ett daterat resultat för revisionen ovan.
 
 ## Negativa säkerhetsfall
 
+`test_consent_retention` provar separat kvittogallring: läsande plan,
+giltighet och tidsgräns, ärendeundantag, nya återkallelser, parallella
+körningar, främmande triggers/kaskader och återgång vid journalfel eller
+tidsgräns. Arkivformat 4 kontrollerar samma policyjournal. `test_cluster`
+provar motsvarande PostgreSQL-behörigheter, strikt policy vid direktanrop,
+samtidig spärr under urvalet och återläsning med bevarad journal. Migrering
+1 → 2 → 3 → 4 provas med en separat historisk schema-1-fixture.
+
 `test_sqlite_retention` provar läsande förhandsvisning, tidsgränser, begränsade
 batcher, återupptagning, trigger-/deadlinefel med rollback, samtidig ändrad
 giltighet och bevarade spärr-/signerings-/revisionsdata. Profilmetadata ska

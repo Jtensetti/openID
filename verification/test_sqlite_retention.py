@@ -118,7 +118,7 @@ class RetentionTests(unittest.TestCase):
         receipt = export_snapshot(sqlite_snapshot(self.path), second, 'sqlite', 'a'*40)
         verify(second, receipt['manifestSha256'])
         self.assertEqual((first/'profiles.jsonl').read_bytes(), (second/'profiles.jsonl').read_bytes())
-        self.assertEqual(3, json.loads((second/'manifest.json').read_bytes())['format'])
+        self.assertEqual(4, json.loads((second/'manifest.json').read_bytes())['format'])
         self.assertEqual(b'', (first/'retention_runs.jsonl').read_bytes())
         journal = json.loads((second/'retention_runs.jsonl').read_bytes())
         self.assertEqual(list(self.rows('retention_runs')[0]), journal)

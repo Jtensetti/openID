@@ -244,8 +244,8 @@ jobs:
         run: |
           mkdir "$RUNNER_TEMP/protocol-evidence"
           mkdir "$RUNNER_TEMP/protocol-tests"
-          cp verification/{protocol_evidence.py,oidc-negative-test.py,saml-negative-test.py,test_identity.py,test_wallet.py,test_runtime.py,test_chip_fixture.py,test_recovery_operations.py,test_recovery_binding.py,test_passport_revocation.py,test_ingress_client.py,test_crl_maintenance.py,test_sqlite_retention.py,test_audit_archive.py,federation.py} "$RUNNER_TEMP/protocol-tests/"
-          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 128 --memory 2g --cpus 2 --user "$(id -u):$(id -g)" --tmpfs /tmp:size=256m,mode=1777 -e PYTHONPATH=/tests:/app/verification -v "$RUNNER_TEMP/protocol-tests:/tests:ro" --entrypoint python openid-pilot:ci -m unittest -v test_wallet test_runtime test_recovery_operations test_recovery_binding test_passport_revocation test_ingress_client test_crl_maintenance.MaintenanceTests test_sqlite_retention test_audit_archive
+          cp verification/{protocol_evidence.py,oidc-negative-test.py,saml-negative-test.py,test_identity.py,test_wallet.py,test_runtime.py,test_chip_fixture.py,test_recovery_operations.py,test_recovery_binding.py,test_passport_revocation.py,test_ingress_client.py,test_crl_maintenance.py,test_sqlite_retention.py,test_consent_retention.py,test_enrollment_policy.py,test_audit_archive.py,federation.py} "$RUNNER_TEMP/protocol-tests/"
+          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 128 --memory 2g --cpus 2 --user "$(id -u):$(id -g)" --tmpfs /tmp:size=256m,mode=1777 -e PYTHONPATH=/tests:/app/verification -v "$RUNNER_TEMP/protocol-tests:/tests:ro" --entrypoint python openid-pilot:ci -m unittest -v test_wallet test_runtime test_recovery_operations test_recovery_binding test_passport_revocation test_ingress_client test_crl_maintenance.MaintenanceTests test_sqlite_retention test_consent_retention test_audit_archive
           docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 128 --memory 2g --cpus 2 --user "$(id -u):$(id -g)" --sysctl net.ipv4.ip_unprivileged_port_start=0 --tmpfs /tmp:size=256m,mode=1777 --add-host idp.example.test:127.0.0.1 --add-host sp.example.test:127.0.0.1 -e PYTHONPATH=/tests:/app/verification -v "$RUNNER_TEMP/protocol-tests:/tests:ro" -v "$RUNNER_TEMP/protocol-evidence:/evidence" --entrypoint python openid-pilot:ci /tests/protocol_evidence.py --output /evidence/protocol-results.json
       - name: Package protocol evidence
         if: always()
@@ -350,7 +350,7 @@ jobs:
             --cap-drop ALL --security-opt no-new-privileges --pids-limit 128 --memory 2g --cpus 2 \
             --tmpfs /tmp:size=256m,mode=1777 -e PYTHONPATH=/tests:/app/verification \
             -v "$RUNNER_TEMP/protocol-tests:/tests:ro" --entrypoint python "$candidate_id" \
-            -m unittest -v test_wallet test_runtime test_recovery_operations test_recovery_binding test_passport_revocation test_ingress_client test_crl_maintenance.MaintenanceTests test_sqlite_retention test_audit_archive \
+            -m unittest -v test_wallet test_runtime test_recovery_operations test_recovery_binding test_passport_revocation test_ingress_client test_crl_maintenance.MaintenanceTests test_sqlite_retention test_consent_retention test_audit_archive \
             2>&1 | tee "$trial_output/security-tests.log"
           mkdir "$trial_output/protocol"
           timeout 180s docker run --rm --name openid-util-linux-protocol --network none --read-only \
@@ -635,12 +635,12 @@ jobs:
             -m unittest -v test_verification.FaceTests test_image_input test_bounded_process test_profile_worker test_worker_confinement \
             2>&1 | tee "$trial_output/image-tests.log"
           mkdir "$trial_output/protocol" "$trial_output/protocol-tests"
-          cp "$source_root/verification/"{protocol_evidence.py,oidc-negative-test.py,saml-negative-test.py,test_identity.py,test_wallet.py,test_runtime.py,test_chip_fixture.py,test_recovery_operations.py,test_recovery_binding.py,test_passport_revocation.py,test_ingress_client.py,test_crl_maintenance.py,test_sqlite_retention.py,test_audit_archive.py,federation.py} "$trial_output/protocol-tests/"
+          cp "$source_root/verification/"{protocol_evidence.py,oidc-negative-test.py,saml-negative-test.py,test_identity.py,test_wallet.py,test_runtime.py,test_chip_fixture.py,test_recovery_operations.py,test_recovery_binding.py,test_passport_revocation.py,test_ingress_client.py,test_crl_maintenance.py,test_sqlite_retention.py,test_consent_retention.py,test_enrollment_policy.py,test_audit_archive.py,federation.py} "$trial_output/protocol-tests/"
           timeout 180s docker run --rm --network none --read-only --cap-drop ALL \
             --security-opt no-new-privileges --pids-limit 128 --memory 2g --cpus 2 \
             --tmpfs /tmp:size=256m,mode=1777 -e PYTHONPATH=/tests:/app/verification \
             -v "$trial_output/protocol-tests:/tests:ro" --entrypoint python "$candidate_id" \
-            -m unittest -v test_wallet test_runtime test_recovery_operations test_recovery_binding test_passport_revocation test_ingress_client test_crl_maintenance.MaintenanceTests test_sqlite_retention test_audit_archive \
+            -m unittest -v test_wallet test_runtime test_recovery_operations test_recovery_binding test_passport_revocation test_ingress_client test_crl_maintenance.MaintenanceTests test_sqlite_retention test_consent_retention test_audit_archive \
             2>&1 | tee "$trial_output/security-tests.log"
           timeout 180s docker run --rm --network none --read-only --cap-drop ALL \
             --security-opt no-new-privileges --pids-limit 128 --memory 2g --cpus 2 \
@@ -795,12 +795,12 @@ jobs:
             -m unittest -v test_verification.FaceTests test_image_input test_bounded_process test_profile_worker test_worker_confinement \
             2>&1 | tee "$trial_output/image-tests.log"
           mkdir "$trial_output/protocol" "$trial_output/protocol-tests"
-          cp "$source_root/verification/"{protocol_evidence.py,oidc-negative-test.py,saml-negative-test.py,test_identity.py,test_wallet.py,test_runtime.py,test_chip_fixture.py,test_recovery_operations.py,test_recovery_binding.py,test_passport_revocation.py,test_ingress_client.py,test_crl_maintenance.py,test_sqlite_retention.py,test_audit_archive.py,federation.py} "$trial_output/protocol-tests/"
+          cp "$source_root/verification/"{protocol_evidence.py,oidc-negative-test.py,saml-negative-test.py,test_identity.py,test_wallet.py,test_runtime.py,test_chip_fixture.py,test_recovery_operations.py,test_recovery_binding.py,test_passport_revocation.py,test_ingress_client.py,test_crl_maintenance.py,test_sqlite_retention.py,test_consent_retention.py,test_enrollment_policy.py,test_audit_archive.py,federation.py} "$trial_output/protocol-tests/"
           timeout 180s docker run --rm --network none --read-only --cap-drop ALL \
             --security-opt no-new-privileges --pids-limit 128 --memory 2g --cpus 2 \
             --tmpfs /tmp:size=256m,mode=1777 -e PYTHONPATH=/tests:/app/verification \
             -v "$trial_output/protocol-tests:/tests:ro" --entrypoint python "$candidate_id" \
-            -m unittest -v test_wallet test_runtime test_recovery_operations test_recovery_binding test_passport_revocation test_ingress_client test_crl_maintenance.MaintenanceTests test_sqlite_retention test_audit_archive \
+            -m unittest -v test_wallet test_runtime test_recovery_operations test_recovery_binding test_passport_revocation test_ingress_client test_crl_maintenance.MaintenanceTests test_sqlite_retention test_consent_retention test_audit_archive \
             2>&1 | tee "$trial_output/security-tests.log"
           timeout 180s docker run --rm --network none --read-only --cap-drop ALL \
             --security-opt no-new-privileges --pids-limit 128 --memory 2g --cpus 2 \

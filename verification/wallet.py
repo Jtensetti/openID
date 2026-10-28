@@ -159,6 +159,8 @@ class Wallet:
                 hash TEXT NOT NULL, failures INTEGER NOT NULL, locked INTEGER NOT NULL, updated INTEGER NOT NULL)''')
             db.execute('CREATE INDEX IF NOT EXISTS biometric_failure_document ON biometric_failures(document_tag,time)')
             acceptance_journal.install_sqlite(db)
+            from consent_retention import install_sqlite
+            install_sqlite(db)
             columns = {row['name'] for row in db.execute('PRAGMA table_info(federation_requests)')}
             if 'sign_message' not in columns:
                 db.execute('ALTER TABLE federation_requests ADD COLUMN sign_message TEXT')

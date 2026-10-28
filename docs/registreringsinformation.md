@@ -79,23 +79,25 @@ inte att felaktiga klienter omöjligen kan sända byte till servern.
 
 ## Databas och återställning
 
-SQLite lägger till tre tabeller utan att fabricera kvitton för äldre ID:n.
-PostgreSQL använder schema 3 och `migrate-2-to-3.sql`; ägarkontrollerad
+SQLite lägger till samtyckestabeller och gallringsjournal utan att fabricera kvitton för äldre ID:n.
+PostgreSQL använder schema 4; uppgradering sker med `migrate-2-to-3.sql`
+och därefter `migrate-3-to-4.sql`; ägarkontrollerad
 migrering krävs innan den nya applikationen startas. Enroller får infoga
 kvittot men inte skriva om dess text eller bevis. PostgreSQL låser samma
 kvittorad vid bindning och återkallelse; SQLite använder `BEGIN IMMEDIATE`.
 
-Samtliga tre tabeller ingår i backup och [arkivformat 3](arkivexport.md).
+Samtyckestabeller och gallringsjournal ingår i backup och [arkivformat 4](arkivexport.md).
 Återläsningens befintliga spärr av alla credentials och 24 timmars
 registreringskarantän gäller även här. Gamla kvitton återöppnar därför inte
 registrering från en gammal backup. En återställning kan dock förlora en
 senare återkallelse i själva journalhistoriken; oberoende arkiv/replikering
 och avstämning krävs för att återställa historiken korrekt.
 
-Ingen automatisk gallring av kvittobevis införs här. Ansvarig måste besluta
-bevarandetid och rättslig grund för genomförda respektive avbrutna försök
-och införa provad gallring även för arkiv och backup. Detta är ett öppet
-produktionskrav. Befintliga testpersoners tidigare information och val måste
+[Separat kvittogallring](gallring-samtycken.md) har läsande förhandsvisning,
+begränsade transaktioner och atomisk policyjournal. Ansvarig måste besluta
+bevarandetid och rättslig grund för genomförda respektive avbrutna försök,
+undantagna ärenden och kopiors livscykel. Automatisk schemaläggning,
+driftsättning och faktisk gallring återstår. Befintliga testpersoners tidigare information och val måste
 utredas separat; nya kvitton får inte bakdateras.
 
 ## Verifiering

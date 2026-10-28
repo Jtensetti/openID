@@ -133,6 +133,38 @@ class StoreTests(unittest.TestCase):
         location=self.confirm(delivery)
         with self.assertRaises(ValueError):store.check(location,self.digest,CFG,self.s3,STS(),now=NOW)
 
+    def test_v4_consent_journal_delivery_and_withdrawal_retention_boundary(self):
+        from consent_retention import TABLES
+        from enrollment_policy import canonical
+        baseline=store.required_until(self.source,CFG,NOW)
+        config={'version':1,'reference':'SYNTHETIC_RETENTION_001','regime':'private-beta',
+            'unboundDays':7,'boundDays':7,'protectedReceipts':[]}
+        raw_policy=canonical(config).decode()
+        receipt=['a'*64,'b'*64,'c'*64,int(NOW.timestamp()),'SYNTHETIC_PROOF',int((NOW+timedelta(hours=48)).timestamp())]
+        journal=[1,int((NOW+timedelta(hours=36)).timestamp()),raw_policy,
+            hashlib.sha256(raw_policy.encode()).hexdigest(),canonical(dict.fromkeys(TABLES,0)).decode()]
+        extra={'retention_runs':[],'enrollment_policies':[],'enrollment_consents':[receipt],
+            'credential_consents':[],'consent_retention_runs':[journal]}
+        manifest_path=self.source/'manifest.json';manifest=json.loads(manifest_path.read_bytes())
+        manifest['format']=4
+        for name,values in extra.items():
+            raw=b''.join(store.archive.encoded(row) for row in values)
+            path=self.source/(name+'.jsonl');store.archive.write_file(path,raw)
+            manifest['files'][path.name]={'columns':list(store.archive.TABLES[name]),'rows':len(values),
+                'bytes':len(raw),'sha256':hashlib.sha256(raw).hexdigest()}
+        raw_manifest=store.archive.encoded(manifest);manifest_path.write_bytes(raw_manifest)
+        self.digest=hashlib.sha256(raw_manifest).hexdigest()
+        self.assertGreater(store.required_until(self.source,CFG,NOW),baseline)
+        location=self.confirm(self.deliver())
+        self.assertEqual(5,store.check(location,self.digest,CFG,self.s3,STS(True),now=NOW+timedelta(days=30))['rows'])
+        for name,row,indexes in (('enrollment_consents',receipt,(3,5)),('consent_retention_runs',journal,(1,))):
+            path=self.source/(name+'.jsonl');original=path.read_bytes()
+            for index in indexes:
+                future=list(row);future[index]=int((NOW+timedelta(hours=100)).timestamp())
+                path.write_bytes(store.archive.encoded(future))
+                with self.assertRaisesRegex(ValueError,'future register time'):store.required_until(self.source,CFG,NOW)
+                path.write_bytes(original)
+
     def test_wrong_custodian_role_is_not_accepted(self):
         cfg=CFG|{'custodianRole':'arn:aws:iam::111111111111:role/OtherCustodian'}
         with self.assertRaises(ValueError):store.confirm(self.deliver(),self.digest,cfg,self.s3,STS(True),now=NOW)

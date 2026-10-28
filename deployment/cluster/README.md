@@ -198,7 +198,7 @@ inte i detta bevarande; profilernas gallring styrs separat. Administrativa
 loggar har ingen automatisk gallring. Oberoende arkiv, läsbarhetsprov,
 fastställd lagringspolicy och rättslig grund behöver etableras i driften.
 
-### Uppgradering till schema 2
+### Uppgradering av databasschema
 
 För ett läsbart journaluttag med separat kontrollsumma, använd
 [privat arkivexport](../../docs/arkivexport.md). `archive-access.sql` ger
@@ -215,10 +215,11 @@ Tjänstekontot kan bara läsa kodstatus och anropa begränsade kontroll- och
 bytesfunktioner; det kan inte läsa verifierarna, återställa en låst kod
 eller ändra begärans text, nivå, motpart eller sessionsbindning.
 
-Nya installationer använder `schema.sql`, version 3. Version 1 och 2 nekas av den
+Nya installationer använder `schema.sql`, version 4. Version 1–3 nekas av den
 nya applikationen. Stoppa applikationer och underhåll, ta och verifiera en
 backup med den tidigare, låsta kodrevisionen och kör `migrate-1-to-2.sql`
-med databasens kontrollerade ägarkonto och fortsätt med `migrate-2-to-3.sql`. Migreringarna är transaktionella och
+med databasens kontrollerade ägarkonto och fortsätt med `migrate-2-to-3.sql` och `migrate-3-to-4.sql`. Börja vid
+databasens befintliga version; hoppa inte över steg. Migreringarna är transaktionella och
 nekar annan startversion. Starta därefter den nya revisionen och verifiera
 readiness, rollgränser och försöksspärren innan trafik öppnas.
 
@@ -348,3 +349,14 @@ CI:s OpenBao dev-läge används endast i övriga tillfälliga integrationstester
 ### Schema 3: registreringsinformation
 
 Schema 3 tillför versionsbundna användarval och återkallelse enligt [registreringsprotokollet](../../docs/registreringsinformation.md). För befintligt schema 2: stoppa skrivare, verifiera backup med tidigare låsta verktyg, kör `migrate-2-to-3.sql` som kontrollerad ägare och verifiera den nya revisionens roller och readiness innan trafik återöppnas. Migreringen skapar inga historiska samtycken. Uppdatera den valfria arkivläsarens `archive-access.sql` separat. Backup omfattar nu också de tre samtyckestabellerna; äldre backuper återläses med tidigare verktyg i stängd miljö innan migrering och återställningsspärr. Ingen produktionstext levereras i repot.
+
+### Schema 4: gallringsjournal för registreringskvitton
+
+Schema 4 tillför den separata journalen och den begränsade funktionen
+`retain_consent_evidence`. `openid_maintenance` får anropa funktionen och
+läsa journalen, men får ingen läsrätt till samtyckesbevis eller direkt
+raderingsrätt. `migrate-3-to-4.sql` körs med stoppade skrivare och verifierad
+schema-3-backup från dess låsta verktyg. Uppdatera `archive-access.sql`
+separat för arkivläsaren. Den nya journalen ingår i backup och arkivformat 4.
+[Förhandsvisning och gallring](../../docs/gallring-samtycken.md) kräver en
+explicit policyfil; inget nytt schemalagt jobb aktiveras.
