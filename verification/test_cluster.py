@@ -252,6 +252,152 @@ class ClusterTests(unittest.TestCase):
             'signature':crypt(op='sign',key=self.keys[key]['privateKey'],payload=raw)}
         return receipt,request
 
+    def rights_fixture(self):
+        from enrollment_policy import canonical
+        receipt,_=self.enrollment_receipt(key=2)
+        second=self.enroller.enroll(self.keys[2]['publicKey'],document(),acceptance_receipt=receipt)['id']
+        other_receipt,_=self.enrollment_receipt(key=1)
+        other=self.enroller.enroll(self.keys[1]['publicKey'],
+            document(givenNames='BOB PRIVATE',documentNumber='TEST00002'),acceptance_receipt=other_receipt)['id']
+        self.activate();self.a.start_request(self.ident);self.signed()
+        self.enroller.biometric_attempt(document())
+        now=int(time.time())
+        with self.psycopg.connect(DSN) as db:
+            person=db.execute('SELECT person FROM openid.profiles WHERE credential=%s',(self.ident,)).fetchone()[0]
+            db.execute('INSERT INTO openid.pairwise_subjects VALUES(%s,%s,%s)',(person,'https://test.invalid','synthetic-pairwise'))
+            db.execute('INSERT INTO openid.security_codes VALUES(%s,%s,0,0,%s)',(self.ident,'SECRET_PIN_VERIFIER',now))
+            db.execute('INSERT INTO openid.federation_requests VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)',
+                ('synthetic-federation',self.ident,'SECRET_REQUEST','APPROVED',now,now+60,'123456',
+                 'synthetic-binding','https://test.invalid','SYNTHETIC AGREEMENT','pin'))
+            policy=canonical({'version':1,'reference':'TEST_RETENTION_001','regime':'private-beta',
+                'unboundDays':1,'boundDays':1,'protectedReceipts':sorted([receipt,other_receipt])}).decode()
+            db.execute('INSERT INTO openid.consent_retention_runs(time,policy,policy_sha256,counts) VALUES(%s,%s,%s,%s)',
+                (now,policy,hashlib.sha256(policy.encode()).hexdigest(),
+                 json.dumps({'credential_consents':0,'enrollment_consents':0,'enrollment_policies':0})))
+        case={'version':1,'reference':'TEST_RIGHTS_001','identityCheck':'TEST_CHECK_001',
+              'credentials':sorted([self.ident,second])}
+        return case,receipt,other,other_receipt
+
+    def rights_export(self,case,**changes):
+        from postgres_subject_access import export_case
+        target=self.root/('rights-'+secrets.token_hex(8))
+        result=export_case(self.dsns['backup'],target,case,'f'*40,
+            **({'vault':self.a.vault,'local_test':True}|changes))
+        return target,result,json.loads((target/'case.json').read_bytes())
+
+    def test_rights_case_read_only_role_real_transit_own_history_and_choices(self):
+        from postgres_subject_access import COLUMNS
+        case,receipt,other,other_receipt=self.rights_fixture()
+        before={t:self.sql('backup','SELECT * FROM '+t+' ORDER BY 1') for t in COLUMNS}
+        target,result,value=self.rights_export(case)
+        self.assertEqual(before,{t:self.sql('backup','SELECT * FROM '+t+' ORDER BY 1') for t in COLUMNS})
+        raw=(target/'case.json').read_bytes();data=value['records']
+        self.assertEqual(hashlib.sha256(raw).hexdigest(),result['sha256'])
+        self.assertEqual(0o600,(target/'case.json').stat().st_mode&0o777)
+        self.assertEqual(0o700,target.stat().st_mode&0o777)
+        self.assertEqual([],value['credentialsWithoutRetainedPersonLink'])
+        self.assertEqual({'ALICE SYNTHETIC'},{r['data']['displayName'] for r in data['profiles']})
+        self.assertTrue(all(r['data']['portraitJpeg'] for r in data['profiles']))
+        self.assertEqual('synthetic-pairwise',data['pairwise_subjects'][0]['subject'])
+        self.assertEqual('SYNTHETIC AGREEMENT',data['federation_requests'][0]['sign_message'])
+        self.assertEqual(1,len(data['biometric_attempts']))
+        self.assertEqual(2,len(data['operator_events']))
+        self.assertTrue(all(r['time'].endswith('+00:00') for r in data['operator_events']))
+        self.assertTrue(data['enrollment_consents'][0]['recordedAcceptance']['biometricsAccepted'])
+        self.assertEqual([receipt],data['consent_retention_runs'][0]['protectedReceipts'])
+        self.assertEqual('HANDLER_REVIEW_REQUIRED',value['status'])
+        for forbidden in ('BOB PRIVATE',other,other_receipt,'SECRET_', 'synthetic-assertion-already-checked-by-native'):
+            self.assertNotIn(forbidden,raw.decode())
+        self.assertNotIn('payload',data['challenges'][0])
+        for query in ('DELETE FROM credentials','SELECT revoke_all_after_restore()'):
+            with self.assertRaises(self.psycopg.Error):self.sql('backup',query)
+
+    def test_rights_case_rejects_other_person_missing_related_or_unknown_key(self):
+        from postgres_subject_access import export_case
+        case,_,other,_=self.rights_fixture()
+        for ids in ([self.ident],case['credentials']+[other],['f'*64]):
+            target=self.root/('rejected-rights-'+secrets.token_hex(8))
+            with self.subTest(ids=ids),self.assertRaises(ValueError):
+                export_case(self.dsns['backup'],target,case|{'credentials':ids},'f'*40,vault=self.a.vault,local_test=True)
+            self.assertFalse(target.exists())
+
+    def test_rights_case_flags_purged_person_link_and_receipt_only_key(self):
+        case,_,_,_=self.rights_fixture()
+        with self.psycopg.connect(DSN) as db:
+            db.execute('DELETE FROM openid.profiles WHERE credential=%s',(self.ident,))
+        _,_,value=self.rights_export(case)
+        self.assertEqual([self.ident],value['credentialsWithoutRetainedPersonLink'])
+        receipt,_=self.enrollment_receipt(key=3)
+        ident=hashlib.sha256(base64.b64decode(self.keys[3]['publicKey'])).hexdigest()
+        _,_,value=self.rights_export(case|{'credentials':[ident]},vault=None)
+        self.assertEqual([],value['records']['profiles'])
+        self.assertEqual([ident],value['credentialsWithoutRetainedPersonLink'])
+        self.assertEqual(receipt,value['records']['enrollment_consents'][0]['id'])
+
+    def test_rights_case_snapshot_does_not_mix_concurrent_revocation(self):
+        import postgres_subject_access as access
+        from unittest.mock import patch
+        case,_,_,_=self.rights_fixture();select=access.select
+        def revoke_after_credentials(db,table,*args):
+            self.assertEqual('on',db.execute('SHOW transaction_read_only').fetchone()[0])
+            self.assertEqual('openid-subject-access',db.execute('SHOW application_name').fetchone()[0])
+            result=select(db,table,*args)
+            if table=='credentials':self.sql('revoker','SELECT revoke_credential(%s)',(self.ident,))
+            return result
+        with patch.object(access,'select',side_effect=revoke_after_credentials):
+            _,_,value=self.rights_export(case)
+        self.assertEqual('ACTIVE',next(r['state'] for r in value['records']['credentials'] if r['id']==self.ident))
+        self.assertNotIn('REVOKED',{r['kind'] for r in value['records']['events']+value['records']['operator_events']})
+        self.assertEqual('REVOKED',self.sql('backup','SELECT state FROM credentials WHERE id=%s',(self.ident,))[0][0])
+
+    def test_rights_case_unknown_schema_row_filters_or_write_roles_fail_closed(self):
+        import postgres_subject_access as access
+        case,_,_,_=self.rights_fixture()
+        changes=[('CREATE TABLE openid.unmapped_rights(data text)','DROP TABLE openid.unmapped_rights'),
+            ('ALTER TABLE openid.credentials ADD COLUMN unmapped text','ALTER TABLE openid.credentials DROP COLUMN unmapped'),
+            ('CREATE VIEW openid.unmapped_rights AS SELECT id FROM openid.credentials','DROP VIEW openid.unmapped_rights'),
+            ('ALTER TABLE openid.credentials ENABLE ROW LEVEL SECURITY','ALTER TABLE openid.credentials DISABLE ROW LEVEL SECURITY'),
+            ('GRANT UPDATE(state) ON openid.credentials TO test_backup','REVOKE UPDATE(state) ON openid.credentials FROM test_backup')]
+        for change,undo in changes:
+            with self.psycopg.connect(DSN) as db:db.execute(change)
+            try:
+                with self.subTest(change=change),self.assertRaises(ValueError):self.rights_export(case)
+            finally:
+                with self.psycopg.connect(DSN) as db:db.execute(undo)
+        for role in ('enroller','wallet','maintenance','auditor'):
+            target=self.root/('wrong-reader-'+secrets.token_hex(8))
+            with self.subTest(role=role),self.assertRaises((ValueError,self.psycopg.Error)):
+                access.export_case(self.dsns[role],target,case,'f'*40,vault=self.a.vault,local_test=True)
+            self.assertFalse(target.exists())
+
+    def test_rights_case_limits_decryption_failure_and_cli_leave_no_output(self):
+        import postgres_subject_access as access
+        from transit import TransitVault,VaultUnavailable
+        from unittest.mock import patch
+        case,_,_,_=self.rights_fixture()
+        for field,value in (('MAX_ROWS',1),('MAX_BYTES',1),('DEADLINE',0)):
+            target=self.root/('bounded-rights-'+secrets.token_hex(8))
+            with patch.object(access,field,value),self.assertRaises((ValueError,TimeoutError)):
+                access.export_case(self.dsns['backup'],target,case,'f'*40,vault=self.a.vault,local_test=True)
+            self.assertFalse(target.exists())
+        with self.assertRaises(ValueError):self.rights_export(case,max_bytes=1)
+        with self.assertRaises(VaultUnavailable):
+            self.rights_export(case,vault=TransitVault(self.address,self.token_files['enroller'],local_test=True))
+        with self.psycopg.connect(DSN) as db:
+            db.execute('UPDATE openid.credentials SET decision=%s WHERE id=%s',('X'*(access.MAX_BYTES+1),self.ident))
+        target=self.root/('large-rights-'+secrets.token_hex(8))
+        with self.assertRaisesRegex(ValueError,'oversized register row'):
+            access.export_case(self.dsns['backup'],target,case,'f'*40,vault=self.a.vault,local_test=True)
+        self.assertFalse(target.exists())
+        # Deliberately invalid config must not echo even a synthetic secret.
+        config=self.root/'rights-cli.json';config.write_text('{"PRIVATE_SECRET":"SYNTHETIC"}');config.chmod(0o600)
+        selection=self.root/'rights-case.json';selection.write_text(json.dumps(case));selection.chmod(0o600)
+        result=subprocess.run([sys.executable,str(Path(access.__file__)),'--config',str(config),'--case',str(selection),
+            '--destination',str(target),'--revision','f'*40],capture_output=True,timeout=10)
+        self.assertEqual(2,result.returncode);self.assertEqual(b'',result.stdout)
+        self.assertEqual(b'Private case extraction failed; no sensitive details logged.\n',result.stderr)
+        self.assertFalse(target.exists())
+
     def test_consent_is_key_bound_withdrawal_is_permanent_and_roles_cannot_rewrite_evidence(self):
         receipt,request=self.enrollment_receipt()
         self.enroller.require_acceptance(receipt,self.keys[2]['publicKey'])

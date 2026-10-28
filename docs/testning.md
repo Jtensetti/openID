@@ -433,4 +433,4 @@ och en tabellkopia som ersatts av en namngiven pipe utan skrivare. Registerfalle
 utgår från en verklig databasbackup; inga återställda databaser skapas i detta
 negativa prov.
 
-`test_subject_access` provar privat SQLite-uttag med syntetiska personer och riktig profilkryptering. Separata personer, äldre gallrad profil, journalundantag, historiskt schema, committad WAL, okänd kolumn/tabell, fil-/storleksgränser och fel nyckel provas. Uttagets källdata ska bestå och terminalfel får inte röja persondata. Inget verkligt rättighetsärende eller PostgreSQL-uttag ingår.
+`test_subject_access` provar privat SQLite-uttag med syntetiska personer och riktig profilkryptering. Separata personer, äldre gallrad profil, journalundantag, historiskt schema, committad WAL, okänd kolumn/tabell, fil-/storleksgränser och fel nyckel provas. Uttagets källdata ska bestå och terminalfel får inte röja persondata. `test_cluster` provar motsvarande PostgreSQL-uttag med ett faktiskt läskonto och Transit-dekryptering, inklusive samtidiga spärrar, saknad personlänk, kolumnrättigheter, RLS och nekad dekryptering. Inget verkligt rättighetsärende ingår.

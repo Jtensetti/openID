@@ -75,7 +75,7 @@ def case_record(value):
     return dict(value, credentials=sorted(value['credentials']))
 
 
-def read_case(path):
+def private_input(path):
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     with os.fdopen(fd, 'rb') as stream:
         info = os.fstat(stream.fileno())
@@ -84,7 +84,11 @@ def read_case(path):
             raise ValueError('private owned case file required')
         raw = stream.read(8193)
     if len(raw) > 8192: raise ValueError('case size')
-    return case_record(decode(raw))
+    return raw
+
+
+def read_case(path):
+    return case_record(decode(private_input(path)))
 
 
 def select(db, table, field, values, budget):
@@ -122,6 +126,46 @@ def schema(db):
     return set(found)
 
 
+def review_evidence(data, vault, end):
+    consents = data['enrollment_consents']
+    for row in consents:
+        proof = decode(row.pop('proof'))
+        payload = decode(base64.b64decode(proof['payload'], validate=True))
+        choice = payload['acceptance']
+        if (payload['receipt'] != row['id'] or type(choice) is not dict
+                or set(choice) != {'policyDigest', 'termsAccepted', 'biometricsAccepted'}
+                or choice['policyDigest'] != row['policy_digest']
+                or choice['termsAccepted'] is not True or choice['biometricsAccepted'] is not True):
+            raise ValueError('recorded consent choice binding')
+        row['recordedAcceptance'] = choice
+    receipt_subjects = {r['id']: r['subject'] for r in consents}
+    if any(receipt_subjects.get(r['receipt']) != r['credential'] for r in data['credential_consents']):
+        raise ValueError('credential consent binding mismatch')
+    policies = data['enrollment_policies']
+    if {r['digest'] for r in policies} != {r['policy_digest'] for r in consents}:
+        raise ValueError('missing consent information')
+    for row in data['profiles']:
+        value = vault.crypt('open', row['credential'], row['person'], decode(row.pop('sealed')))
+        if type(value) is not dict: raise ValueError('profile representation')
+        row['data'] = value
+        if time.monotonic() >= end: raise TimeoutError('case deadline')
+    for row in policies:
+        record = decode(row['record'])
+        historical = EnrollmentPolicy(record, clock=lambda: record['notice']['notBefore'])
+        if historical.digest != row['digest']:
+            raise ValueError('consent information integrity')
+        row['record'] = record
+
+
+def exception_entry(row, receipts):
+    from consent_retention import validate_journal
+    validate_journal(tuple(row[k] for k in ('id', 'time', 'policy', 'policy_sha256', 'counts')))
+    record = decode(row['policy']); own = sorted(receipts & set(record['protectedReceipts']))
+    if own:
+        return {'id': row['id'], 'time': row['time'], 'policySHA256': row['policy_sha256'],
+                'reference': record['reference'], 'protectedReceipts': own}
+
+
 def collect(db, case, vault, end):
     present = schema(db); ids = set(case['credentials']); budget = [MAX_ROWS, MAX_BYTES]
     data = {}
@@ -135,16 +179,6 @@ def collect(db, case, vault, end):
         return rows
     credentials = get('credentials', 'id', ids)
     consents = get('enrollment_consents', 'subject', ids)
-    for row in consents:
-        proof = decode(row.pop('proof'))
-        payload = decode(base64.b64decode(proof['payload'], validate=True))
-        choice = payload['acceptance']
-        if (payload['receipt'] != row['id'] or type(choice) is not dict
-                or set(choice) != {'policyDigest', 'termsAccepted', 'biometricsAccepted'}
-                or choice['policyDigest'] != row['policy_digest']
-                or choice['termsAccepted'] is not True or choice['biometricsAccepted'] is not True):
-            raise ValueError('recorded consent choice binding')
-        row['recordedAcceptance'] = choice
     if {r['id'] for r in credentials} | {r['subject'] for r in consents} != ids:
         raise ValueError('case key has no retained registration or consent evidence')
     profiles = get('profiles', 'credential', ids)
@@ -170,23 +204,8 @@ def collect(db, case, vault, end):
         get(table, 'document_tag', tags)
     for table in sorted(OPTIONAL & present): get(table, 'credential', ids)
     receipts = {r['id'] for r in consents}
-    receipt_subjects = {r['id']: r['subject'] for r in consents}
-    if any(receipt_subjects.get(r['receipt']) != r['credential'] for r in data['credential_consents']):
-        raise ValueError('credential consent binding mismatch')
-    policies = get('enrollment_policies', 'digest', {r['policy_digest'] for r in consents})
-    if {r['digest'] for r in policies} != {r['policy_digest'] for r in consents}:
-        raise ValueError('missing consent information')
-    for row in profiles:
-        value = vault.crypt('open', row['credential'], row['person'], decode(row.pop('sealed')))
-        if type(value) is not dict: raise ValueError('profile representation')
-        row['data'] = value
-        if time.monotonic() >= end: raise TimeoutError('case deadline')
-    for row in policies:
-        record = decode(row['record'])
-        historical = EnrollmentPolicy(record, clock=lambda: record['notice']['notBefore'])
-        if historical.digest != row['digest']:
-            raise ValueError('consent information integrity')
-        row['record'] = record
+    get('enrollment_policies', 'digest', {r['policy_digest'] for r in consents})
+    review_evidence(data, vault, end)
     # The journal can contain exception IDs for several people. Keep only this case's IDs.
     data['consent_retention_runs'] = []
     journal = db.execute('SELECT id,time,policy,policy_sha256,counts FROM consent_retention_runs ORDER BY id LIMIT ?',
@@ -195,25 +214,26 @@ def collect(db, case, vault, end):
         budget[0] -= 1
         budget[1] -= len(row['policy'].encode())
         if budget[0] < 0 or budget[1] < 0: raise ValueError('case journal limit')
-        from consent_retention import validate_journal
-        validate_journal(tuple(row))
-        record = decode(row['policy']); own = sorted(receipts & set(record['protectedReceipts']))
-        if own:
-            data['consent_retention_runs'].append({'id': row['id'], 'time': row['time'],
-                'policySHA256': row['policy_sha256'], 'reference': record['reference'], 'protectedReceipts': own})
+        entry = exception_entry(row, receipts)
+        if entry: data['consent_retention_runs'].append(entry)
     return data, sorted(set(COLUMNS) - present)
 
 
-def export_case(path, destination, case, revision, *, vault=None, max_bytes=MAX_BYTES):
-    case = case_record(case)
+def prepare_output(destination, revision, max_bytes):
     if not isinstance(revision, str) or not re.fullmatch('[a-f0-9]{40}', revision): raise ValueError('source revision')
     if type(max_bytes) is not int or not 1 <= max_bytes <= MAX_BYTES: raise ValueError('output size limit')
-    path = Path(path).absolute(); identity = database_identity(path)
     destination = Path(destination).absolute()
     parent = destination.parent.lstat()
     if (not stat.S_ISDIR(parent.st_mode) or parent.st_mode & 0o077 or parent.st_uid != os.geteuid()):
         raise ValueError('private owned destination parent required')
     if destination.exists() or destination.is_symlink(): raise FileExistsError('new destination required')
+    return destination
+
+
+def export_case(path, destination, case, revision, *, vault=None, max_bytes=MAX_BYTES):
+    case = case_record(case)
+    destination = prepare_output(destination, revision, max_bytes)
+    path = Path(path).absolute(); identity = database_identity(path)
     end = time.monotonic()+DEADLINE
     db = sqlite3.connect(path.as_uri()+'?mode=ro', uri=True, isolation_level=None, timeout=3)
     try:
@@ -227,13 +247,17 @@ def export_case(path, destination, case, revision, *, vault=None, max_bytes=MAX_
         db.execute('COMMIT')
     finally:
         db.close()
-    payload = encoded({'format': 1, 'backend': 'sqlite', 'case': case, 'sourceRevision': revision,
+    return write_output(destination, {'format': 1, 'backend': 'sqlite', 'case': case, 'sourceRevision': revision,
         'readAt': datetime.now(timezone.utc).isoformat(), 'status': 'HANDLER_REVIEW_REQUIRED',
         'records': data, 'tablesAbsentFromSource': absent, 'securityFieldsForSeparateReview': EXCLUDED,
         'notCovered': ['Other device keys not linked in this database', 'DynamoDB, SES, queues and mailboxes',
             'Relying parties and their sessions/files', 'Backups, snapshots, archives and earlier exports',
             'Device-local records and current process memory', 'Shared aggregate retention journals and global quarantine'],
-        'limits': 'Case references are operator assertions, not authentication proof. This is not a complete rights response. Review third-party text and disclosure decisions before secure delivery. No deletion or revocation performed.'})
+        'limits': 'Case references are operator assertions, not authentication proof. This is not a complete rights response. Review third-party text and disclosure decisions before secure delivery. No deletion or revocation performed.'}, max_bytes)
+
+
+def write_output(destination, document, max_bytes):
+    payload = encoded(document)
     if len(payload) > max_bytes: raise ValueError('case size; no partial extraction')
     destination.mkdir(mode=0o700)
     try:
