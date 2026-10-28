@@ -12,12 +12,12 @@ services:
     volumes:
       - ${OPENID_BETA_DIRECTORY:?Set OPENID_BETA_DIRECTORY}/continuity.json:/srv/openid/continuity.json:ro
   notice-exporter:
-    image: openid-pilot:beta
+    image: ${OPENID_BETA_IMAGE_ID:?Set OPENID_BETA_IMAGE_ID to the verified sha256 image ID}
     network_mode: host
     user: "10001:10001"
     read_only: true
     cap_drop: [ALL]
-    security_opt: [no-new-privileges:true]
+    security_opt: ["no-new-privileges:true"]
     init: true
     restart: unless-stopped
     stop_grace_period: 70s

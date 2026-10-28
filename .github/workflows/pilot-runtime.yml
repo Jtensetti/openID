@@ -24,6 +24,19 @@ jobs:
           persist-credentials: false
       - name: Test bundle rejection and import safety
         run: python3 -m unittest discover -s deployment -p test_image_bundle.py -v
+      - name: Require one pinned image ID across beta Compose services
+        run: |
+          set -euo pipefail
+          export OPENID_BETA_DIRECTORY=/tmp/openid-beta-compose-check
+          export OPENID_NOTICE_QUEUE_URL=https://example.invalid/queue
+          if env -u OPENID_BETA_IMAGE_ID docker compose -f deployment/beta-compose.yaml \
+            -f deployment/continuity-compose.yaml config --format json >/dev/null 2>&1; then
+            echo 'Beta Compose accepted a missing image ID' >&2
+            exit 1
+          fi
+          export OPENID_BETA_IMAGE_ID="sha256:$(printf 'a%.0s' {1..64})"
+          docker compose -f deployment/beta-compose.yaml -f deployment/continuity-compose.yaml \
+            config --format json | python3 -c 'import json,os,sys; services=json.load(sys.stdin)["services"]; assert set(services)=={"verifier","bridge","idp","sp","notice-exporter"}; assert all(v["image"]==os.environ["OPENID_BETA_IMAGE_ID"] for v in services.values())'
       - name: Test OS scan coverage, stale databases and rejected evidence
         run: python3 .github/scripts/test_audit_image_os.py -v
       - name: Reject altered package origins and invalid native comparison evidence
@@ -471,6 +484,7 @@ jobs:
           python3 deployment/image_bundle.py package --image openid-pilot:ci \
             --protocol "$RUNNER_TEMP/protocol-evidence/protocol-results.json" \
             --inventory "$RUNNER_TEMP/python-packages.json" \
+            --os-audit "$RUNNER_TEMP/image-os-audit" \
             --output "$RUNNER_TEMP/image-bundle"
       - name: Verify export and reload without rebuilding
         run: |

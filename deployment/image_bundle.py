@@ -1,6 +1,6 @@
 """Package and verify a tested image; never build or deploy on the target host."""
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import gzip
 import hashlib
 import json
@@ -11,8 +11,11 @@ import shutil
 import subprocess
 
 
-SCHEMA = "openid-image-bundle-v1"
-PAYLOADS = ("image.tar.gz", "source.tar.gz", "protocol-results.json", "python-packages.json")
+SCHEMA = "openid-image-bundle-v2"
+OS_FILES = ("assessment.json", "database-metadata.json", "os-sbom.cdx.json",
+            "scanner-lock.json", "scanner-sbom.json", "system-packages.tsv", "trivy-os.json")
+PAYLOADS = ("image.tar.gz", "source.tar.gz", "protocol-results.json", "python-packages.json") + tuple(
+    "os-" + name for name in OS_FILES)
 
 
 def digest(path):
@@ -49,6 +52,78 @@ def protocol_passed(path):
                 "Incomplete or failing protocol suite")
 
 
+def instant(value):
+    require(isinstance(value, str), "Missing evidence time")
+    # Trivy emits nanoseconds while Python's ISO parser accepts microseconds.
+    value = re.sub(r"(\.\d{6})\d+", r"\1", value)
+    result = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    require(result.tzinfo is not None, "Evidence time needs a timezone")
+    return result
+
+
+def os_passed(directory, image_id, revision, bundle_created):
+    assessment = json.loads((directory / "os-assessment.json").read_text())
+    scan = json.loads((directory / "os-trivy-os.json").read_text())
+    metadata = json.loads((directory / "os-database-metadata.json").read_text())
+    sbom = json.loads((directory / "os-os-sbom.cdx.json").read_text())
+    checked = instant(assessment.get("checkedAt"))
+    created = instant(bundle_created)
+    require(-timedelta(minutes=5) <= created - checked <= timedelta(hours=1),
+            "OS assessment is stale or future-dated at packaging")
+    require(assessment.get("format") == 1 and assessment.get("complete") is True
+            and assessment.get("passed") is True and assessment.get("findingCount") == 0
+            and assessment.get("uniqueAdvisoryCount") == 0
+            and assessment.get("imageID") == image_id
+            and assessment.get("sourceRevision") == revision,
+            "Complete passing OS assessment for this image and revision required")
+    require(isinstance(assessment.get("packageCount"), int) and assessment["packageCount"] > 0
+            and re.fullmatch(r"[0-9a-f]{64}", assessment.get("databaseSha256", ""))
+            and re.fullmatch(r"[0-9a-f]{64}", assessment.get("scannerLockSha256", ""))
+            and scan.get("SchemaVersion") == 2
+            and scan.get("Metadata", {}).get("ImageID") == image_id
+            and scan.get("Metadata", {}).get("OS", {}).get("Family") == "debian"
+            and re.fullmatch(r"13(?:\.\d+)?", scan.get("Metadata", {}).get("OS", {}).get("Name", ""))
+            and scan.get("Metadata", {}).get("OS", {}).get("EOSL", False) is False
+            and scan.get("Trivy", {}).get("Version") == assessment.get("scannerVersion")
+            and scan.get("ArtifactType") == "container_image",
+            "OS scanner identity or coverage mismatch")
+    require(-timedelta(minutes=5) <= checked - instant(scan.get("CreatedAt")) <= timedelta(hours=1),
+            "OS scan time does not match assessment")
+    results = scan.get("Results")
+    require(isinstance(results, list) and len(results) == 1
+            and results[0].get("Class") == "os-pkgs"
+            and results[0].get("Type") == "debian"
+            and len(results[0].get("Packages", [])) == assessment["packageCount"]
+            and results[0].get("Vulnerabilities", []) == [],
+            "OS scanner report does not support passing assessment")
+    installed = set()
+    for line in (directory / "os-system-packages.tsv").read_text().splitlines():
+        fields = line.split("\t")
+        require(len(fields) == 4 and fields[3] == "installed", "Invalid OS package inventory")
+        installed.add(tuple(fields[:3]))
+    scanned = set()
+    for package in results[0]["Packages"]:
+        version = package["Version"] + ("-" + package["Release"] if package.get("Release") else "")
+        if package.get("Epoch"):
+            version = str(package["Epoch"]) + ":" + version
+        scanned.add((package["Name"], version, package["Arch"]))
+    require(len(installed) == len(scanned) == assessment["packageCount"] and installed == scanned,
+            "OS package inventory differs from scanner report")
+    require(sbom.get("bomFormat") == "CycloneDX" and len(sbom.get("components", [])) > 0,
+            "Missing OS SBOM")
+    require(metadata.get("Version") == 2
+            and -timedelta(minutes=5) <= checked - instant(metadata.get("UpdatedAt")) <= timedelta(hours=24)
+            and -timedelta(minutes=5) <= checked - instant(metadata.get("DownloadedAt")) <= timedelta(hours=1),
+            "OS advisory database was not current at scan time")
+    files = assessment.get("files")
+    require(isinstance(files, dict) and set(files) == set(OS_FILES) - {"assessment.json"},
+            "Incomplete OS evidence manifest")
+    for name in OS_FILES:
+        if name != "assessment.json":
+            require(files[name] == digest(directory / ("os-" + name)),
+                    "OS evidence hash mismatch: " + name)
+
+
 def package(args):
     protocol_passed(args.protocol)
     revision = run("git", "rev-parse", "HEAD")
@@ -60,10 +135,19 @@ def package(args):
     require(info["Os"] == "linux" and info["Architecture"] == "amd64",
             "Only the tested linux/amd64 platform is supported")
     tag = "openid-pilot:commit-" + revision
-    subprocess.run(["docker", "tag", info["Id"], tag], check=True)
+    audit = args.os_audit
+    require(audit.is_dir() and not audit.is_symlink(), "OS audit directory required")
+    for name in OS_FILES:
+        source = audit / name
+        require(source.is_file() and not source.is_symlink(), "Missing OS audit file: " + name)
+    created = datetime.now(timezone.utc).isoformat()
     args.output.mkdir(parents=True, exist_ok=False)
     archive = args.output / "image.tar.gz"
     try:
+        for name in OS_FILES:
+            shutil.copyfile(audit / name, args.output / ("os-" + name))
+        os_passed(args.output, info["Id"], revision, created)
+        subprocess.run(["docker", "tag", info["Id"], tag], check=True)
         with archive.open("wb") as raw, gzip.GzipFile(fileobj=raw, mode="wb", mtime=0) as zipped:
             process = subprocess.Popen(["docker", "save", tag], stdout=subprocess.PIPE)
             try:
@@ -77,7 +161,7 @@ def package(args):
         subprocess.run(["git", "archive", "--format=tar.gz", "--output=" + str(args.output / "source.tar.gz"),
                         revision], check=True)
         manifest = {
-            "schema": SCHEMA, "createdAt": datetime.now(timezone.utc).isoformat(),
+            "schema": SCHEMA, "createdAt": created,
             "source": {"revision": revision, "tree": tree},
             "builder": {"repository": os.environ.get("GITHUB_REPOSITORY"),
                         "runId": os.environ.get("GITHUB_RUN_ID"),
@@ -131,6 +215,7 @@ def verify(directory, expected_revision, expected_manifest):
         require(path.stat().st_size == entry["bytes"] and digest(path) == entry["sha256"],
                 "Payload checksum or size mismatch: " + name)
     protocol_passed(directory / "protocol-results.json")
+    os_passed(directory, info["id"], expected_revision, data.get("createdAt"))
     return data
 
 
@@ -150,6 +235,25 @@ def import_image(directory, data):
     print("Verified image loaded: " + actual["Id"] + "; no service was started or changed")
 
 
+def check_beta_running(image_id):
+    """Read Docker state; reject missing, extra or drifted beta containers."""
+    ids = run("docker", "container", "ls", "--all", "--filter",
+              "label=com.docker.compose.project=openid-beta", "--format", "{{.ID}}").splitlines()
+    require(ids, "No beta containers found")
+    containers = json.loads(run("docker", "container", "inspect", *ids))
+    expected = {"verifier", "bridge", "idp", "sp", "notice-exporter"}
+    services = [c.get("Config", {}).get("Labels", {}).get("com.docker.compose.service")
+                for c in containers]
+    require(len(containers) == len(ids) == len(expected) and set(services) == expected,
+            "Beta service set is incomplete, duplicated or unexpected")
+    for container in containers:
+        require(container.get("State", {}).get("Running") is True
+                and container.get("Image") == image_id
+                and container.get("Config", {}).get("Image") == image_id,
+                "Beta container is stopped, uses a mutable tag or has image drift")
+    print("Verified running beta image: " + image_id + "; no service was changed")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -157,8 +261,9 @@ def main():
     export.add_argument("--image", required=True)
     export.add_argument("--protocol", required=True, type=Path)
     export.add_argument("--inventory", required=True, type=Path)
+    export.add_argument("--os-audit", required=True, type=Path)
     export.add_argument("--output", required=True, type=Path)
-    for command in ("verify", "import"):
+    for command in ("verify", "import", "check-beta"):
         check = sub.add_parser(command)
         check.add_argument("--directory", required=True, type=Path)
         check.add_argument("--expected-revision", required=True)
@@ -170,6 +275,8 @@ def main():
         data = verify(args.directory, args.expected_revision, args.expected_manifest_sha256)
         if args.command == "import":
             import_image(args.directory, data)
+        elif args.command == "check-beta":
+            check_beta_running(data["image"]["id"])
         else:
             print("Verified bundle: " + data["image"]["id"])
 

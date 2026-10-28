@@ -29,9 +29,12 @@ beroenden; verifierar- och protokollproven körs utan externt nät.
    dokumentera kopplingen. En manuell serverkörning ersätter inte den grinden.
 
 Paketet innehåller `image.tar.gz`, `source.tar.gz`, `manifest.json`,
-`python-packages.json` och syntetiska `protocol-results.json`. Manifestet
-binder filernas storlekar och SHA-256 till Git-revision/träd, image-ID,
-plattform och byggkörning. Källarkivet innehåller också låsfiler, SBOM,
+`python-packages.json`, syntetiska `protocol-results.json` och sju `os-*`-filer:
+OS-bedömning, Trivy-rapport, CycloneDX, dpkg-lista, databasmetadata,
+skannerlås och skanner-SBOM. Manifestet binder filernas storlekar och SHA-256
+till Git-revision/träd, image-ID, plattform och byggkörning. Exporten nekar
+ofullständig, gammal eller underkänd OS-skanning, fel image-ID/revision och
+paketlistor som inte stämmer. Källarkivet innehåller också låsfiler, SBOM,
 licenser och de källfiler som betans befintliga Compose-konfiguration monterar.
 Övriga komponenters test- och advisoryartefakter bevaras separat från samma
 helhetskörning enligt [releaseinstruktionen](../../docs/releasekandidat.md).
@@ -63,9 +66,12 @@ python3 deployment/image_bundle.py import \
 Import kräver en lokal Linux/amd64-Dockerdaemon och läsbart Docker-datalager.
 Fritt utrymme i det lagret måste vara minst två gånger image-storleken plus
 512 MiB, utöver det nedladdade paketets plats. Skriptet avvisar fel revision,
-manifest, filhash, saknad fil, symlänk, plattform eller ofullständiga
-protokollresultat innan Docker ändras. Efter laddning måste image-ID och
-plattform stämma. Ingen container startas eller ersätts; inga data återläses.
+manifest, filhash, saknad fil, symlänk, plattform, ofullständiga
+protokollresultat eller OS-bevis innan Docker ändras. OS-skanningens aktualitet
+kontrolleras mot **paketeringstiden**; ett äldre paket kan fortfarande behövas
+för återgång, medan en ny release kräver ett aktuellt säkerhetsbeslut.
+Efter laddning måste image-ID och plattform stämma. Ingen container startas
+eller ersätts; inga data återläses.
 Operatören måste skydda paketkatalogen mot samtidiga ändringar under import.
 
 Om utrymmet inte räcker: välj större lagring eller arkivera/ta bort enbart
@@ -78,8 +84,23 @@ Följ [kandidat och återgång](../../docs/releasekandidat.md). Registrera aktue
 konfiguration och image-ID för varje tjänst. Verifiera att monterade kodfiler
 kommer från samma revision; imagebyte ensamt byter inte bind-mountade filer.
 Bevara register, nycklar, spärrar, privata miljövärden och aktuella volymer.
-Ändra image-referenser till manifestets fullständiga `sha256:...` i den valda
-konfigurationen och använd `up -d --no-build --pull never` med rätt Compose-projekt.
+Sätt `OPENID_BETA_IMAGE_ID` till manifestets fullständiga `sha256:...` efter
+verifiering. Både `beta-compose.yaml` och `continuity-compose.yaml` kräver
+variabeln; kontrollera med `docker compose config` att alla fem tjänster använder
+samma image före ett godkänt byte. Använd `up -d --no-build --pull never` med
+rätt Compose-projekt. Efteråt kan samma verifierade paket användas för en
+läsande driftkontroll:
+
+```sh
+python3 deployment/image_bundle.py check-beta \
+  --directory /privat/kandidat \
+  --expected-revision FULL_COMMIT_SHA \
+  --expected-manifest-sha256 SHA256_FRAN_GITHUB_KORNINGEN
+```
+
+Kontrollen nekar saknad, stoppad, extra eller felaktig container och rörlig
+tagg. Den ändrar ingen tjänst och kontrollerar inte monterade kodfiler eller
+värd-OS.
 Kontrollera readiness, åtkomstskydd och färska telefonflöden efter bytet.
 
 Betavärden behöver fortsatt Docker för drift. Dess operatör kan fortfarande
