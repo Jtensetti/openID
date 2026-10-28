@@ -29,7 +29,9 @@ def main():
         origin = f'https://localhost:{port}'
         config = {'bind':'127.0.0.1','origin':origin,'team':'ABCDEFGHIJ','bundle':'se.openid.PassportCapture',
             'developmentAttestation':True,'tlsCert':str(cert),'tlsKey':str(key),'csca':str(cert),
-            'database':str(root/'data'/'wallet.sqlite'),'pairingFile':str(pairing)}
+            'database':str(root/'data'/'wallet.sqlite'),'pairingFile':str(pairing),
+            # Explicit synthetic-test opt-in. Production configuration defaults to paused.
+            'newRegistrationsEnabled':True}
         path = root/'config.json'; path.write_text(json.dumps(config))
         from wallet import Wallet
         from test_wallet import crypt
