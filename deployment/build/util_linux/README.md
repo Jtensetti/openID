@@ -57,6 +57,10 @@ och oväntad signerare. De körs med byggmiljöns låsta GnuPG före källberedn
 saknade verktyg eller ett underkänt prov stoppar bygget. `signature-policy.log`
 sparar resultatet. Fixturerna innehåller inga privata nycklar och tillförs
 aldrig nyckelringarna som används för att verifiera källorna.
+Byggkontextens tillåtelselista omfattar testmodulen och exakt de åtta publika
+fixturfilerna; övriga tester och lokala filer ingår inte i byggkontexten.
+Föräldrakatalogerna öppnas för traversering, deras innehåll utesluts på nytt
+och endast de namngivna filerna återinkluderas.
 Detta avser status i den versionsbundna nyckelkopian; ett nätlöst bygge
 upptäcker inte senare publicerade spärrcertifikat. Repoförvaltaren ska därför
 kontrollera aktuell upstreamnyckel och säkerhetsinformation före införande,
@@ -181,3 +185,4 @@ Primärkällor kontrollerade 2026-10-27–28:
 - [Sequoias signaturverifierare i Trixie](https://manpages.debian.org/trixie/sqv/sqv.1.en.html)
 - [Kernel.org: signatur över okomprimerat arkiv](https://www.kernel.org/signature.html)
 - [GnuPG: gpgv, nyckeltillit och maskinläsbar status](https://www.gnupg.org/documentation/manuals/gnupg/gpgv.html)
+- [Docker: byggkontext och ordnade dockerignore-undantag](https://docs.docker.com/build/concepts/context/#dockerignore-files)

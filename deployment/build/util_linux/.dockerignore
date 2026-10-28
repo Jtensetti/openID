@@ -3,3 +3,16 @@
 !bootstrap.py
 !build.py
 !candidate.lock.json
+!test_signature_policy.py
+!fixtures/
+fixtures/**
+!fixtures/signature-policy/
+fixtures/signature-policy/**
+!fixtures/signature-policy/manifest.json
+!fixtures/signature-policy/payload.txt
+!fixtures/signature-policy/valid-key.asc
+!fixtures/signature-policy/expired-key.asc
+!fixtures/signature-policy/revoked-key.asc
+!fixtures/signature-policy/valid.sig.asc
+!fixtures/signature-policy/expired-key.sig.asc
+!fixtures/signature-policy/expired-signature.sig.asc
