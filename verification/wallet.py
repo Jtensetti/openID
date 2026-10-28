@@ -13,6 +13,7 @@ import threading
 import time
 from datetime import date, datetime, timedelta, timezone
 from identity import IdentityVault, VerifiedDocument, sqlite_key_history
+import acceptance_journal
 
 ROOT = Path(__file__).parent
 RP_NAME = 'openID lokal testtjänst'
@@ -157,6 +158,7 @@ class Wallet:
             db.execute('''CREATE TABLE IF NOT EXISTS security_codes (credential TEXT PRIMARY KEY REFERENCES credentials(id),
                 hash TEXT NOT NULL, failures INTEGER NOT NULL, locked INTEGER NOT NULL, updated INTEGER NOT NULL)''')
             db.execute('CREATE INDEX IF NOT EXISTS biometric_failure_document ON biometric_failures(document_tag,time)')
+            acceptance_journal.install_sqlite(db)
             columns = {row['name'] for row in db.execute('PRAGMA table_info(federation_requests)')}
             if 'sign_message' not in columns:
                 db.execute('ALTER TABLE federation_requests ADD COLUMN sign_message TEXT')
@@ -212,7 +214,7 @@ class Wallet:
         if self.state(row) != 'ACTIVE': raise ValueError('credential inactive')
         return row
 
-    def enroll(self, public_key, document=None):
+    def enroll(self, public_key, document=None, *, acceptance_receipt=None):
         if document is not None:
             if not isinstance(document, VerifiedDocument): raise ValueError('verified document required')
             document.require_current_revocation(self.clock())
@@ -226,6 +228,8 @@ class Wallet:
                 raise ValueError('key already enrolled')
             db.execute('INSERT INTO credentials VALUES(?,?,?,?,?,?,?)',
                 (ident, public_key, 'PENDING_REVIEW', int(self.clock()), None, None, secrets.token_hex(32)))
+            if acceptance_receipt is not None:
+                acceptance_journal.bind(db, ident, acceptance_receipt, public_key, int(self.clock()))
             if document is not None:
                 if not isinstance(document, VerifiedDocument): raise ValueError('verified document required')
                 expiry = int(datetime.combine(date.fromisoformat(document.identity['documentExpires']) + timedelta(days=1),
@@ -253,6 +257,13 @@ class Wallet:
             # Recheck after profile encryption; expiry during work must roll back
             # the entire enrollment, including PostgreSQL's inherited path.
             if document is not None: document.require_current_revocation(self.clock())
+            if acceptance_receipt is not None:
+                # Policy expiry during profile encryption rolls back issuance too.
+                row = db.execute('SELECT record,c.accepted FROM enrollment_policies p JOIN enrollment_consents c '
+                    'ON c.policy_digest=p.digest WHERE c.id=?', (acceptance_receipt,)).fetchone()
+                if not row[1] <= self.clock() < row[1]+300: raise ValueError('acceptance expired before commit')
+                from enrollment_policy import EnrollmentPolicy
+                EnrollmentPolicy(json.loads(row[0]), clock=self.clock)
             self.event(db, ident, 'CAPTURE_VERIFIED')
         return {'id': ident, 'state': 'PENDING_REVIEW'}
 
@@ -329,6 +340,44 @@ class Wallet:
 
     def enrollment_available(self):
         with self.transaction() as db: self.enrollment_open(db)
+
+    def record_acceptance(self, public_key, policy, proof, receipt):
+        self.crypto('validate', publicKey=public_key)
+        acceptance_journal.identifier(receipt)
+        with self.transaction() as db:
+            self.enrollment_open(db)
+            acceptance_journal.store(db, receipt, public_key, policy, proof, int(self.clock()))
+        return receipt
+
+    def require_acceptance(self, receipt, public_key):
+        with self.transaction() as db:
+            self.enrollment_open(db)
+            acceptance_journal.require_pending(db, receipt, public_key, int(self.clock()))
+
+    def withdraw_acceptance(self, request):
+        # An idempotent, origin-bound device signature works even after process
+        # restart, session expiry or registration pause. It authorizes withdrawal
+        # only: it cannot approve, erase evidence, revoke or reissue a credential.
+        from enrollment_policy import unique_object
+        if not isinstance(request, dict) or set(request) != {'publicKey','payload','signature'}:
+            raise ValueError('withdrawal fields')
+        who = acceptance_journal.subject(request['publicKey'])
+        if (not isinstance(request['payload'], str) or len(request['payload']) > 2048
+                or not isinstance(request['signature'], str) or len(request['signature']) > 256):
+            raise ValueError('withdrawal size')
+        raw = base64.b64decode(request['payload'], validate=True)
+        data = json.loads(raw, object_pairs_hook=unique_object)
+        if (not isinstance(data, dict) or set(data) != {'action','origin','receipt'}
+                or data['action'] != 'withdraw-enrollment-consent' or data['origin'] != self.origin):
+            raise ValueError('withdrawal binding')
+        receipt = acceptance_journal.identifier(data['receipt'])
+        self.crypto('verify', **request)
+        with self.transaction() as db:
+            acceptance_journal.lock(db, receipt)
+            row = db.execute('SELECT subject FROM enrollment_consents WHERE id=?', (receipt,)).fetchone()
+            if row is None or row[0] != who: raise ValueError('withdrawal subject')
+            acceptance_journal.withdraw(db, receipt, int(self.clock()))
+        return {'withdrawn': True, 'receipt': receipt}
 
     def start_request(self, ident):
         # Fixed local RP: caller cannot supply a name, domain, purpose or callback.

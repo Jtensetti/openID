@@ -51,15 +51,17 @@ class AppAttest:
 
 class NativeSessions:
     def __init__(self,attest,passport,matcher,pad,clock=time.monotonic,wallet=None,chip_factory=None,biometrics=None,
-                 pose_order=random_pose_order,pose_direction=False,pose_enforced=True,wall_clock=time.time):
+                 pose_order=random_pose_order,pose_direction=False,pose_enforced=True,wall_clock=time.time,enrollment_policy=None):
         self.attest,self.passport,self.matcher,self.pad,self.clock=attest,passport,matcher,pad,clock
         self.wallet=wallet
+        self.enrollment_policy=enrollment_policy
         self.wall_clock=wall_clock
         self.pose_order,self.pose_direction,self.pose_enforced=pose_order,pose_direction,pose_enforced
         self.biometrics=biometrics
         self.chip_factory=chip_factory
         self.pending={}
     def start(self):
+        if self.enrollment_policy is not None:self.enrollment_policy.require_current()
         guard=getattr(self.wallet,'enrollment_available',None) if self.wallet is not None else None
         if guard is not None:guard()
         for ident in list(self.pending):
@@ -85,7 +87,8 @@ class NativeSessions:
         self.pending.pop(ident) # Consume on all validation failures.
         if not isinstance(request['attestation'],str) or len(request['attestation'])>50000:raise ValueError('size')
         result=self.attest.check('attestation',attestation=request['attestation'],keyId=request['keyId'],challenge=pending['challenge'])
-        pending.update({'phase':'document','publicKey':result['publicKey'],'nonce':secrets.token_urlsafe(32),'signCount':0})
+        pending.update({'phase':'consent' if self.enrollment_policy is not None else 'document',
+            'publicKey':result['publicKey'],'nonce':secrets.token_urlsafe(32),'signCount':0})
         self.pending[ident]=pending
         return {'id':ident,'nonce':pending['nonce']}
     def signed(self,request,pending,limit):
@@ -99,6 +102,32 @@ class NativeSessions:
         if not isinstance(data,dict) or data.get('id')!=request['id'] or data.get('nonce')!=pending['nonce']:
             raise ValueError('capture binding')
         return data
+    def notice(self,request):
+        if request or self.enrollment_policy is None:raise ValueError('enrollment policy required')
+        return self.enrollment_policy.public()
+    def consent(self,request):
+        if set(request)!={'id','payload','assertion'}:raise ValueError('fields')
+        ident=request['id'];pending=self.current(ident,'consent');self.pending.pop(ident)
+        if self.enrollment_policy is None or self.wallet is None:raise ValueError('enrollment policy required')
+        data=self.signed(request,pending,4096)
+        if set(data)!={'id','nonce','devicePublicKey','acceptance','receipt'}:raise ValueError('consent fields')
+        self.enrollment_policy.acceptance(data['acceptance'])
+        receipt=self.wallet.record_acceptance(data['devicePublicKey'],self.enrollment_policy,
+            {'payload':request['payload'],'assertion':request['assertion'],'appPublicKey':pending['publicKey']},data['receipt'])
+        pending.update(phase='document',nonce=secrets.token_urlsafe(32),
+            acceptanceReceipt=receipt,devicePublicKey=data['devicePublicKey'])
+        self.pending[ident]=pending
+        return {'id':ident,'nonce':pending['nonce'],'receipt':receipt}
+    def withdraw(self,request):
+        if self.wallet is None:raise ValueError('wallet required')
+        result=self.wallet.withdraw_acceptance(request)
+        for ident,value in list(self.pending.items()):
+            if value.get('acceptanceReceipt')==result['receipt']:self.discard(ident)
+        return result
+    def require_acceptance(self,pending):
+        if self.enrollment_policy is not None:
+            self.enrollment_policy.require_current()
+            self.wallet.require_acceptance(pending['acceptanceReceipt'],pending['devicePublicKey'])
     def begin_chip(self,request):
         if set(request)!={'id','payload','assertion'}:raise ValueError('fields')
         ident=request['id'];pending=self.current(ident,'document');self.pending.pop(ident)
@@ -109,6 +138,9 @@ class NativeSessions:
             expected.add('devicePublicKey')
             if self.wallet is None:raise ValueError('wallet not configured')
         if set(data)!=expected:raise ValueError('fields')
+        if self.enrollment_policy is not None:
+            if data.get('devicePublicKey')!=pending['devicePublicKey']:raise ValueError('consent key binding')
+            self.require_acceptance(pending)
         for key,limit in [('sod',65536),('dg1',4096),('dg2',2_000_000),('dg14',16384)]:
             if not 0<len(base64.b64decode(data[key],validate=True))<=limit:raise ValueError('document size')
         document=self.passport(data)
@@ -128,6 +160,7 @@ class NativeSessions:
         if set(request)!={'id','chipToken','sequence','response'}:raise ValueError('fields')
         ident=request['id'];pending=self.current(ident,'chip')
         try:
+            self.require_acceptance(pending)
             if (not isinstance(request['chipToken'],str) or not secrets.compare_digest(request['chipToken'],pending['chipToken'])
                     or pending['chipExpires']<=self.clock() or type(request['sequence']) is not int
                     or request['sequence']!=pending['sequence']):raise ValueError('chip binding')
@@ -157,6 +190,7 @@ class NativeSessions:
         if set(request)!={'id','payload','assertion'}:raise ValueError('fields')
         ident=request['id'];pending=self.current(ident,'capture');self.pending.pop(ident)
         data=self.signed(request,pending,10_000_000)
+        self.require_acceptance(pending)
         if set(data)!={'id','nonce','frames'}:raise ValueError('fields')
         if not isinstance(data['frames'],list) or len(data['frames'])!=3:raise ValueError('frames')
         frames=[base64.b64decode(frame,validate=True) for frame in data['frames']]
@@ -191,7 +225,8 @@ class NativeSessions:
         passed=min(face_scores)>=0.5 and min(pad_scores)>=0.8 and (pose_passed or not self.pose_enforced)
         credential=None
         if passed and pending['devicePublicKey'] is not None:
-            credential=self.wallet.enroll(pending['devicePublicKey'], document)
+            credential=self.wallet.enroll(pending['devicePublicKey'], document,
+                **({'acceptance_receipt':pending['acceptanceReceipt']} if self.enrollment_policy is not None else {}))
         # No raw scores to the client: they would be an oracle for tuning a presentation or morphing attack.
         return {'checksPassed':passed,'passiveAuthentication':True,'appAttest':True,
             'chipAuthentication':'SERVER_VERIFIED_CA','revocation':document.revocation,

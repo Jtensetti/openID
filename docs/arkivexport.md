@@ -24,7 +24,7 @@ får därmed inte blandas in i bara en av exportens tabeller.
 Efter [SQLite-gallring](gallring-sqlite.md) inkluderar profilpopulationen även
 bevarade metadata från `profile_evidence`, med samma kolumner och format.
 Motstridiga levande/bevarade rader avvisas. Profilinnehållet återinförs inte.
-SQLite med gallringsschema exporteras som format 2. `retention_runs.jsonl`
+SQLite med enbart gallringsschema exporteras som format 2. `retention_runs.jsonl`
 ingår även när journalen är tom: körnings-ID, tid, deklarerad policyreferens,
 policyhash, de två lagringstiderna och antal per gallringstabell. Journalens
 typer, intervall, räknarfält och hash mot den deklarerade policyn kontrolleras
@@ -35,7 +35,9 @@ Journal och profilmetadata läses i samma snapshot. Ett ofullständigt
 gallringsschema eller vyer i stället för dess tabeller nekar exporten;
 verktyget får inte tyst utelämna journalen. Äldre SQLite utan gallringsschema
 och PostgreSQL schema 2 behåller format 1. Offlineverifieringen stöder båda
-formaten. Äldre verifierare nekar format 2 och behöver uppdateras före mottagning.
+formaten samt format 3 nedan. Äldre verifierare nekar nya format och behöver uppdateras före mottagning.
+
+Format 3 används för SQLite med samtyckestabeller och för PostgreSQL schema 3. Det inkluderar även `enrollment_policies`, `enrollment_consents` och `credential_consents`: exakt information, signerade val, enhetsnyckelns digest, serverns mottagningstid, eventuell återkallelsetid och credentialbindning. SQLite behåller gallringsjournalen. Ett delvis tillagt samtyckesschema nekas. Nya exporter kräver uppdaterad verifierare och PostgreSQLs utökade, läsande `archive-access.sql`. Äldre arkivformat kan fortfarande verifieras.
 
 Personprofiler, bilder, person-/dokumenttaggar, pairwise subjects,
 PIN-verifierare och sessionshemligheter exporteras inte. Exporten innehåller

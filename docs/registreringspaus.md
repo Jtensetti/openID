@@ -15,7 +15,7 @@ HTTP 503 och `REGISTRATION_PAUSED` innan applikationen läser anropskroppen
 eller anropar registreringsfunktionerna. Även påbörjade registreringar
 stoppas. Nätverksingressen kan redan ha tagit emot eller buffrat kroppen;
 pausen är inte ett löfte om att inga byte når infrastrukturen.
-`/native/cancel` kan fortfarande frigöra en session. Befintlig inloggning,
+`/native/cancel` kan fortfarande frigöra en session och `/native/withdraw` kan registrera en nyckelverifierad samtyckesåterkallelse. Befintlig inloggning,
 status och spärr använder wallet-/spärrfunktionerna och påverkas inte av flaggan.
 Övriga säkerhets- och kapacitetskontroller gäller fortfarande.
 
@@ -33,7 +33,7 @@ Vid uppgradering från en äldre version stängs nya registreringar om värdet
 inte uttryckligen anges. `true` kräver ett separat beslut om att insamlingen
 får börja. Flaggan bevisar varken laglig grund, information till deltagaren,
 biometriskt samtycke eller accepterad villkorsversion. Versionsbundet
-acceptbevis och en fullständig återkallelseprocess återstår att genomföra.
+acceptbevis och återkallelse beskrivs i [registreringsinformationen](registreringsinformation.md). För att öppna registrering krävs även `enrollmentPolicyFile` med aktuell information; ett filnamn eller en beslutsreferens bevisar inte ett behörigt beslut.
 Syntetiska labbservrar i `server.py` omfattas inte av WSGI-konfigurationen
 och får inte användas som publik ersättningsväg.
 

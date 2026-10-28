@@ -58,6 +58,7 @@ jobs:
             --user "$(id -u):$(id -g)" --tmpfs /tmp:size=32m,mode=1777 \
             -e PYTHONPATH=/tests:/app/verification \
             -v "$PWD/verification/test_cluster_revocation.py:/tests/test_cluster_revocation.py:ro" \
+            -v "$PWD/verification/test_enrollment_policy.py:/tests/test_enrollment_policy.py:ro" \
             --entrypoint python openid-wallet:ci -m unittest -v test_cluster_revocation
           docker run --rm --read-only --cap-drop ALL --entrypoint python openid-wallet:ci cluster_recovery.py --help
           docker run --rm --read-only --cap-drop ALL --entrypoint python openid-wallet:ci audit_archive.py --help

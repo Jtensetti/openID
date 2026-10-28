@@ -19,9 +19,23 @@ class ClusterRevocationConfigTests(unittest.TestCase):
             path=root/'config.json'
             # Only TLS parsing is replaced here; this is a configuration boundary test.
             with patch('cluster_serve.ssl.SSLContext'):
-                for extra in ({},{'cscaCrl':str(secret)},{'newRegistrationsEnabled':False},{'newRegistrationsEnabled':True}):
+                for extra in ({},{'cscaCrl':str(secret)},{'newRegistrationsEnabled':False}):
                     path.write_text(json.dumps(config|extra))
                     self.assertEqual(config|extra,config_file(path))
+                path.write_text(json.dumps(config|{'newRegistrationsEnabled':True}))
+                with self.assertRaisesRegex(ValueError,'explicit enrollment policy'):config_file(path)
+                from test_enrollment_policy import fixture_policy
+                import time
+                policy=fixture_policy();policy['notice'].update(notBefore=int(time.time())-60,notAfter=int(time.time())+3600)
+                notice=root/'notice.json';notice.write_text(json.dumps(policy));notice.chmod(0o600)
+                enabled=config|{'newRegistrationsEnabled':True,'enrollmentPolicyFile':str(notice)}
+                path.write_text(json.dumps(enabled));self.assertEqual(enabled,config_file(path))
+                # An expired/removed collection policy must not block existing
+                # status or withdrawal once collection has been disabled.
+                notice.unlink();paused=enabled|{'newRegistrationsEnabled':False}
+                path.write_text(json.dumps(paused));self.assertEqual(paused,config_file(path))
+                path.write_text(json.dumps(enabled))
+                with self.assertRaises(OSError):config_file(path)
                 for value in ('false', 0, 1, None):
                     path.write_text(json.dumps(config|{'newRegistrationsEnabled':value}))
                     with self.assertRaisesRegex(ValueError,'registration flag'):config_file(path)

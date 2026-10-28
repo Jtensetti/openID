@@ -71,10 +71,18 @@ def proofing_commands(config):
 def load_config(path):
     value = json.loads(Path(path).read_text())
     required = {'bind', 'origin', 'team', 'bundle', 'developmentAttestation', 'tlsCert', 'tlsKey', 'csca', 'database', 'pairingFile'}
-    if not required <= set(value) or set(value) - required - {'listenPort', 'publicEnrollment', 'cscaCrl', 'poseCheck', 'trustedProxy', 'newRegistrationsEnabled'}:
+    if not required <= set(value) or set(value) - required - {'listenPort', 'publicEnrollment', 'cscaCrl', 'poseCheck', 'trustedProxy', 'newRegistrationsEnabled', 'enrollmentPolicyFile'}:
         raise ValueError('Configuration fields do not match the example')
     if type(value.get('publicEnrollment', False)) is not bool: raise ValueError('Public enrollment flag')
     if type(value.get('newRegistrationsEnabled', False)) is not bool: raise ValueError('New registration flag')
+    if value.get('newRegistrationsEnabled', False) and 'enrollmentPolicyFile' not in value:
+        raise ValueError('Explicit enrollment policy required for new registrations')
+    if 'enrollmentPolicyFile' in value:
+        if not isinstance(value['enrollmentPolicyFile'], str) or not Path(value['enrollmentPolicyFile']).is_absolute():
+            raise ValueError('Absolute enrollment policy path required')
+        if value.get('newRegistrationsEnabled', False):
+            from enrollment_policy import read_policy
+            read_policy(value['enrollmentPolicyFile'])
     # 'log' keeps registration open while the uncalibrated pose limits are measured on real devices.
     if value.get('poseCheck', 'enforce') not in ('enforce', 'log'): raise ValueError('Pose check mode')
     if value.get('publicEnrollment', False) and (value['developmentAttestation'] is not False or value['origin'] != 'https://api.openid.tensetti.io'):
@@ -219,10 +227,12 @@ def main():
             from chip import ChipProcess
             from server import verify_document
             command, chip_command = proofing_commands(config)
+            from enrollment_policy import read_policy
+            policy = read_policy(config['enrollmentPolicyFile']) if config.get('newRegistrationsEnabled', False) else None
             native = NativeSessions(AppAttest(config['team'], config['bundle'], config['developmentAttestation']),
                 lambda data: verify_document(command, data), None, None, wallet=wallet,
                 chip_factory=lambda data: ChipProcess(chip_command, data),
-                biometrics=score_frames, pose_enforced=config.get('poseCheck', 'enforce') == 'enforce')
+                biometrics=score_frames, pose_enforced=config.get('poseCheck', 'enforce') == 'enforce', enrollment_policy=policy)
             app = Runtime(native, wallet, config['origin'], config['pairing'], public_enrollment=config.get('publicEnrollment', False),
                 trusted_proxy=config.get('trustedProxy'), new_registrations_enabled=config.get('newRegistrationsEnabled', False))
             app.crypto = crypto

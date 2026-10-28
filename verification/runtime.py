@@ -17,6 +17,9 @@ from wallet import BiometricAttemptLimit, SecurityCodeError, EnrollmentQuarantin
 from ingress_client import ClientAddresses
 
 NATIVE_ROUTES = {
+    '/native/notice': ('notice', 1024),
+    '/native/consent': ('consent', 16384),
+    '/native/withdraw': ('withdraw', 4096),
     '/native/start': ('start', 1024),
     '/native/attest': ('register', 65536),
     '/native/chip/start': ('begin_chip', 4_100_000),
@@ -170,7 +173,7 @@ class Runtime:
         # Admission and permission to collect a new passport are separate decisions.
         # Keep cancellation and existing wallet/revocation operations available.
         # Reject before reading the body, including unfinished registration sessions.
-        if path in NATIVE_ROUTES and path != '/native/cancel' and not self.new_registrations_enabled:
+        if path in NATIVE_ROUTES and path not in ('/native/cancel','/native/withdraw') and not self.new_registrations_enabled:
             return 503, {'error': 'REGISTRATION_PAUSED'}
         if self.draining.is_set(): return 503, {'error': 'DRAINING'}
         try: client = self.client_addresses.resolve(env)

@@ -44,7 +44,7 @@ class RuntimeTests(unittest.TestCase):
         for public in (False, True):
             self.app = Runtime(self.native, self.wallet, 'https://localhost:8765', 'a'*43, public_enrollment=public)
             for route in NATIVE_ROUTES:
-                if route == '/native/cancel': continue
+                if route in ('/native/cancel','/native/withdraw'): continue
                 unread = Mock()
                 unread.read.side_effect = AssertionError('passport body must not be read')
                 code, result, headers = self.request(route, **{'wsgi.input': unread,
@@ -58,10 +58,12 @@ class RuntimeTests(unittest.TestCase):
     def test_registration_pause_preserves_wallet_operations_and_cancellation(self):
         self.app = Runtime(self.native, self.wallet, 'https://localhost:8765', 'a'*43)
         self.native.cancel.return_value = {'cancelled': True}
+        self.native.withdraw.return_value = {'withdrawn': True}
         self.wallet.execute.return_value = {'state': 'REVOKED'}
         self.assertEqual(200, self.request('/wallet/challenge')[0])
         self.assertEqual((200, {'state': 'REVOKED'}), self.request('/wallet/execute')[:2])
         self.assertEqual((200, {'cancelled': True}), self.request('/native/cancel')[:2])
+        self.assertEqual((200, {'withdrawn': True}), self.request('/native/withdraw')[:2])
         self.wallet.execute.assert_called_once_with({})
         self.native.cancel.assert_called_once_with({})
 

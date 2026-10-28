@@ -17,7 +17,7 @@ final class WalletAPI {
         return object
     }
     private func postData(_ path: String, body: [String: Any]) async throws -> Data {
-        guard ["/native/start", "/native/attest", "/native/chip/start", "/native/chip/step", "/native/cancel", "/native/finish", "/wallet/challenge", "/wallet/execute"].contains(path) else { throw WalletError.rejected }
+        guard ["/native/notice", "/native/start", "/native/attest", "/native/consent", "/native/withdraw", "/native/chip/start", "/native/chip/step", "/native/cancel", "/native/finish", "/wallet/challenge", "/wallet/execute"].contains(path) else { throw WalletError.rejected }
         var request = URLRequest(url: URL(string: path, relativeTo: configuration.url)!)
         request.httpMethod = "POST"; request.timeoutInterval = 60
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")

@@ -72,6 +72,16 @@ final class WalletUITests: XCTestCase {
     func testPassportFieldsKeepLabelsAndExplainMissingDate() {
         let app = XCUIApplication(); app.launchArguments = ["--usability-preview"]; app.launch()
         app.buttons["Passformulär"].tap()
+        XCTAssertFalse(app.textFields["enrollment.number"].exists)
+        let terms = app.switches["enrollment.terms"]
+        for _ in 0..<6 { if terms.isHittable { break }; app.swipeUp() }
+        terms.tap()
+        XCTAssertEqual(terms.value as? String, "1", app.debugDescription)
+        XCTAssertFalse(app.textFields["enrollment.number"].exists)
+        let biometrics = app.switches["enrollment.biometrics"]
+        for _ in 0..<6 { if biometrics.isHittable { break }; app.swipeUp() }
+        biometrics.tap()
+        XCTAssertEqual(biometrics.value as? String, "1", app.debugDescription)
         let number = app.textFields["enrollment.number"]
         for _ in 0..<5 { if number.isHittable { break }; app.swipeUp() }
         number.tap(); number.typeText("ABC123")
@@ -87,9 +97,6 @@ final class WalletUITests: XCTestCase {
         app.buttons["Stäng kameraprovet"].tap()
         XCTAssertEqual(number.value as? String, "ABC123")
         XCTAssertFalse(app.descendants(matching: .any)["enrollment.inputIssue"].firstMatch.exists)
-        let consent = app.switches.firstMatch
-        for _ in 0..<6 { if consent.isHittable { break }; app.swipeUp() }
-        consent.tap()
         let read = app.buttons["enrollment.read"]
         for _ in 0..<5 { if read.isHittable { break }; app.swipeUp() }
         read.tap()

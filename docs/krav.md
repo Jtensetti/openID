@@ -20,8 +20,7 @@ GOV-08/ID-11: WSGI-verifieraren har en separat, avstängd standard för
 nyregistrering i pilot och register-proofing. Negativa ruttprov nekar även
 påbörjade sessioner före kroppsläsning och bevarar wallet/spärr och avbrott.
 Se [registreringspaus](registreringspaus.md). Kontrollen är inte ett
-samtyckesbevis; versionsbunden villkorsaccept, återkallelse och driftsättning
-återstår.
+samtyckesbevis. [Versionsbundna val och återkallelse](registreringsinformation.md) finns i registreringsprotokollet; beslutade texter, bevarande, äldre deltagare och faktisk driftsättning återstår.
 
 | ID | Område / källa | Implementation och prov | Kvarstående kontroll |
 |---|---|---|---|

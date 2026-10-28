@@ -83,7 +83,7 @@ class ClusterTests(unittest.TestCase):
 
     def setUp(self):
         with self.psycopg.connect(DSN, autocommit=True) as db:
-            db.execute('TRUNCATE openid.credentials,openid.persons,openid.operator_events,openid.maintenance_runs,openid.biometric_attempts,openid.enrollment_quarantine RESTART IDENTITY CASCADE')
+            db.execute('TRUNCATE openid.credentials,openid.persons,openid.operator_events,openid.maintenance_runs,openid.biometric_attempts,openid.enrollment_quarantine,openid.enrollment_policies RESTART IDENTITY CASCADE')
         self.enroller=self.store('enroller')
         self.a=self.store('wallet'); self.b=self.store('wallet')
         self.ident=self.enroller.enroll(self.keys[0]['publicKey'], document())['id']
@@ -182,6 +182,12 @@ class ClusterTests(unittest.TestCase):
             with self.assertRaises(self.psycopg.Error):db.execute(migration,prepare=False)
             db.execute('ROLLBACK')
             self.assertEqual([(2,)],db.execute('SELECT version FROM openid.schema_version').fetchall())
+        with self.psycopg.connect(admin_dsn,autocommit=True) as db:
+            migration3=(Path(__file__).parents[1]/'deployment/cluster/migrate-2-to-3.sql').read_text()
+            db.execute(migration3,prepare=False)
+            self.assertEqual([(3,)],db.execute('SELECT version FROM openid.schema_version').fetchall())
+            with self.assertRaises(self.psycopg.Error):db.execute(migration3,prepare=False)
+            db.execute('ROLLBACK')
         migrated=PostgresWallet(dsn('enroller'),self.a.origin,self.enroller.vault,local_test=True)
         self.addCleanup(migrated.close)
         self.assertEqual(4,migrated.biometric_attempt(document()))
@@ -221,6 +227,64 @@ class ClusterTests(unittest.TestCase):
                       'SELECT hash FROM security_codes','SELECT secret_hash FROM federation_requests',
                       'DELETE FROM events','UPDATE credentials SET state=state','SELECT reserve_biometric_attempt(\'forged\')'):
             with self.subTest(query=query),self.assertRaises(self.psycopg.Error):self.sql('auditor',query)
+
+    def enrollment_receipt(self, key=2):
+        from enrollment_policy import EnrollmentPolicy
+        from test_enrollment_policy import fixture_policy
+        data=fixture_policy();now=int(time.time())
+        data['notice'].update(notBefore=now-60,notAfter=now+600)
+        policy=EnrollmentPolicy(data);receipt=secrets.token_hex(32)
+        payload={'id':'a'*43,'nonce':'b'*43,'receipt':receipt,'devicePublicKey':self.keys[key]['publicKey'],
+            'acceptance':{'policyDigest':policy.digest,'termsAccepted':True,'biometricsAccepted':True}}
+        proof={'payload':base64.b64encode(json.dumps(payload).encode()).decode(),
+            'assertion':'synthetic-assertion-already-checked-by-native','appPublicKey':'synthetic-app-key'}
+        self.enroller.record_acceptance(self.keys[key]['publicKey'],policy,proof,receipt)
+        data={'action':'withdraw-enrollment-consent','origin':self.enroller.origin,'receipt':receipt}
+        raw=base64.b64encode(json.dumps(data).encode()).decode()
+        request={'publicKey':self.keys[key]['publicKey'],'payload':raw,
+            'signature':crypt(op='sign',key=self.keys[key]['privateKey'],payload=raw)}
+        return receipt,request
+
+    def test_consent_is_key_bound_withdrawal_is_permanent_and_roles_cannot_rewrite_evidence(self):
+        receipt,request=self.enrollment_receipt()
+        self.enroller.require_acceptance(receipt,self.keys[2]['publicKey'])
+        for role in ('enroller','wallet','auditor','maintenance'):
+            for query in ("UPDATE enrollment_consents SET proof='forged'",'DELETE FROM enrollment_consents',
+                          "UPDATE enrollment_policies SET record='{}'",'DELETE FROM credential_consents'):
+                with self.subTest(role=role,query=query),self.assertRaises(self.psycopg.Error):self.sql(role,query)
+        self.enroller.withdraw_acceptance(request);self.enroller.withdraw_acceptance(request)
+        with self.assertRaises(ValueError):self.enroller.enroll(self.keys[2]['publicKey'],document(),acceptance_receipt=receipt)
+        with self.assertRaises(self.psycopg.Error):self.sql('enroller','UPDATE enrollment_consents SET withdrawn=NULL')
+        self.assertEqual([],self.sql('enroller','SELECT * FROM credential_consents'))
+
+    def test_concurrent_consent_binding_and_backup_restore_preserve_evidence(self):
+        from cluster_recovery import backup,restore
+        from postgres import PostgresWallet
+        from psycopg.conninfo import conninfo_to_dict,make_conninfo
+        from wallet import EnrollmentQuarantine
+        receipt,request=self.enrollment_receipt()
+        other=self.store('enroller')
+        def enroll(store):
+            try:return store.enroll(self.keys[2]['publicKey'],document(),acceptance_receipt=receipt)['id']
+            except Exception as error:
+                from postgres import RegistryUnavailable
+                if not isinstance(error,(ValueError,RegistryUnavailable)):raise
+                return None
+        with ThreadPoolExecutor(2) as pool:results=list(pool.map(enroll,(self.enroller,other)))
+        self.assertEqual(1,sum(result is not None for result in results))
+        pending,pending_request=self.enrollment_receipt(key=3)
+        self.enroller.withdraw_acceptance(request)
+        destination=self.root/('consent-backup-'+secrets.token_hex(8))
+        backup(self.dsns['backup'],destination,local_test=True)
+        metadata=json.loads((destination/'manifest.json').read_text())
+        self.assertEqual(2,metadata['tables']['enrollment_consents']['rows'])
+        self.assertEqual(1,metadata['tables']['credential_consents']['rows'])
+        target=self.restore_target();restore(DSN,destination,target,self.a.vault,local_test=True)
+        restored=PostgresWallet(make_conninfo(**(conninfo_to_dict(self.dsns['enroller'])|{'dbname':target})),
+            self.enroller.origin,self.enroller.vault,local_test=True);self.addCleanup(restored.close)
+        with restored.transaction() as db:
+            self.assertIsNotNone(db.execute('SELECT withdrawn FROM enrollment_consents WHERE id=?',(receipt,)).fetchone()[0])
+        with self.assertRaises(EnrollmentQuarantine):restored.require_acceptance(pending,self.keys[3]['publicKey'])
 
     def test_same_login_cannot_approve_even_with_both_roles(self):
         proposal=self.sql('carol','SELECT request_activation(%s,%s,%s)',(self.ident,'REVIEW-test-002',24))[0][0]

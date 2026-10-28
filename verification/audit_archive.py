@@ -26,6 +26,9 @@ TABLES = {
     'operator_events': ('id', 'actor', 'kind', 'credential', 'proposal', 'time'),
     'retention_runs': ('id', 'time', 'policy_ref', 'policy_sha256', 'profile_days',
                        'request_days', 'counts'),
+    'enrollment_policies': ('digest', 'record'),
+    'enrollment_consents': ('id', 'subject', 'policy_digest', 'accepted', 'proof', 'withdrawn'),
+    'credential_consents': ('credential', 'receipt'),
 }
 MAX_BYTES = 1024 ** 3
 MAX_ROWS = 1_000_000
@@ -53,10 +56,12 @@ def decode(data):
 
 def tables(backend, version=1):
     if backend not in ('sqlite', 'postgresql'): raise ValueError('archive backend')
-    if type(version) is not int or version not in (1, 2) or (version == 2 and backend != 'sqlite'):
+    if type(version) is not int or version not in (1, 2, 3) or (version == 2 and backend != 'sqlite'):
         raise ValueError('archive version')
     names = tuple(TABLES)[:5] if backend == 'postgresql' else tuple(TABLES)[:3]
-    return names+('retention_runs',) if version == 2 else names
+    if version >= 2 and backend == 'sqlite': names += ('retention_runs',)
+    if version == 3: names += ('enrollment_policies','enrollment_consents','credential_consents')
+    return names
 
 
 def sqlite_format(db):
@@ -65,6 +70,12 @@ def sqlite_format(db):
     if retention and (set(retention) != {'retention_runs', 'profile_evidence'}
                       or any(kind != 'table' for kind in retention.values())):
         raise ValueError('incomplete retention schema')
+    consent = dict(db.execute("SELECT name,type FROM sqlite_master WHERE name IN ('enrollment_policies','enrollment_consents','credential_consents')"))
+    if consent:
+        if (set(consent) != {'enrollment_policies','enrollment_consents','credential_consents'}
+                or any(kind != 'table' for kind in consent.values()) or not retention):
+            raise ValueError('incomplete consent schema')
+        return 3
     return 2 if retention else 1
 
 
@@ -149,7 +160,7 @@ def export_snapshot(source, destination, backend, revision, *, max_bytes=MAX_BYT
     try:
         end = time.monotonic()+DEADLINE; files = {}; total = 0
         with source as (db, snapshot):
-            version = sqlite_format(db) if backend == 'sqlite' else 1
+            version = sqlite_format(db) if backend == 'sqlite' else (3 if snapshot['database_schema'] == 3 else 1)
             names = tables(backend, version)
             for name in names:
                 deadline(end)
@@ -193,7 +204,7 @@ def postgres_snapshot(dsn, *, local_test=False):
     with psycopg.connect(**connection_options(dsn, local_test)) as db:
         db.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
         version, read_at = db.execute('SELECT version, transaction_timestamp() FROM openid.schema_version').fetchone()
-        if version != 2: raise ValueError('archive requires schema 2')
+        if version not in (2,3): raise ValueError('archive requires schema 2 or 3')
         yield db, {'database_schema': version, 'read_at': read_at.astimezone(timezone.utc).isoformat()}
 
 
@@ -220,7 +231,7 @@ def verify(source, expected_digest, *, max_bytes=MAX_BYTES):
             raise ValueError('manifest does not match trusted digest')
         manifest = decode(raw)
         if (type(manifest) is not dict or set(manifest) != {'format','backend','source_revision','snapshot','files'}
-                or type(manifest['format']) is not int or manifest['format'] not in (1, 2)
+                or type(manifest['format']) is not int or manifest['format'] not in (1, 2, 3)
                 or not isinstance(manifest['source_revision'], str)
                 or not re.fullmatch('[a-f0-9]{40}', manifest['source_revision'])):
             raise ValueError('archive manifest format')
@@ -228,7 +239,8 @@ def verify(source, expected_digest, *, max_bytes=MAX_BYTES):
         snapshot = manifest['snapshot']
         if (type(snapshot) is not dict or set(snapshot) != {'database_schema','read_at'}
                 or (snapshot['database_schema'] is not None if manifest['backend'] == 'sqlite'
-                    else type(snapshot['database_schema']) is not int or snapshot['database_schema'] != 2)
+                    else type(snapshot['database_schema']) is not int
+                    or snapshot['database_schema'] != (3 if manifest['format'] == 3 else 2))
                 or not isinstance(snapshot['read_at'], str)
                 or datetime.fromisoformat(snapshot['read_at']).utcoffset() != timezone.utc.utcoffset(None)):
             raise ValueError('archive snapshot description')

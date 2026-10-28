@@ -11,9 +11,15 @@ import NFCPassportReader
     @Published var failed = false
     @Published var stepTitle = "Passuppgifter"
     @Published var passportRead = false
+    @Published private(set) var notice: EnrollmentNotice?
+    @Published private(set) var noticeText: EnrollmentText?
+    @Published private(set) var loadingNotice = false
+    @Published var termsAccepted = false
+    @Published var biometricsAccepted = false
+    private var noticeGeneration = UUID()
     var canStart: Bool { (try? PassportAccessKey.encode(documentNumber: documentNumber, birth: birth, expiry: expiry)) != nil }
 
-    func retry() { failed = false; phase = 0; passportRead = false; status = ""; stepTitle = "Passuppgifter" }
+    func retry() { failed = false; phase = 0; passportRead = false; status = ""; stepTitle = "Passuppgifter"; termsAccepted = false; biometricsAccepted = false }
     @Published var documentNumber = ""
     @Published var birth = ""
     @Published var expiry = ""
@@ -29,11 +35,38 @@ import NFCPassportReader
 
     func prepare(configuration: ServerConfiguration, credential: LocalCredential) {
         self.configuration = configuration; self.credential = credential
+        noticeGeneration = UUID(); notice = nil; noticeText = nil; loadingNotice = false; termsAccepted = false; biometricsAccepted = false
         phase = 0; completed = false; failed = false; passportRead = false; stepTitle = "Passuppgifter"; status = ""
     }
 
+    func loadNotice() async {
+        guard !busy, !loadingNotice, let configuration else { return }
+        let epoch = noticeGeneration
+        loadingNotice = true; notice = nil; noticeText = nil; termsAccepted = false; biometricsAccepted = false
+        defer { if noticeGeneration == epoch { loadingNotice = false } }
+        do {
+            let value = try await WalletAPI(configuration: configuration).post("/native/notice", body: [:], as: EnrollmentNotice.self)
+            try Task.checkCancellation()
+            let text = try value.text(at: Date())
+            guard noticeGeneration == epoch else { return }
+            notice = value; noticeText = text; status = ""
+        } catch {
+            guard noticeGeneration == epoch else { return }
+            status = (error as? WalletError)?.localizedDescription ?? "Informationen inför registrering kunde inte hämtas. Försök igen innan du lämnar passuppgifter."
+        }
+    }
+
+    #if DEBUG && targetEnvironment(simulator)
+    func setPreviewNotice(_ value: EnrollmentNotice) throws {
+        noticeText = try value.text(at: Date()); notice = value
+    }
+    #endif
+
     func start() {
         guard !busy else { return }
+        guard let notice, let acceptance = try? notice.acceptance(terms: termsAccepted, biometrics: biometricsAccepted) else {
+            status = "Läs den aktuella informationen och gör båda valen innan du fortsätter."; return
+        }
         busy = true; failed = false; passportRead = false
         task = Task {
             defer { busy = false; cameraVisible = false; readyForCamera = false; camera.stop(); reader = nil; clearDocument(); failed = !completed && !Task.isCancelled }
@@ -58,7 +91,23 @@ import NFCPassportReader
                 let attestation = try await service.attestKey(keyID, clientDataHash: Data(SHA256.hash(data: Data(challenge.utf8))))
                 try Task.checkCancellation()
                 let registered = try await api.postObject("/native/attest", body: ["id": id, "keyId": keyID, "attestation": attestation.base64EncodedString()])
-                guard let nonce = registered["nonce"] as? String else { throw FlowError.rejected }
+                guard let initialNonce = registered["nonce"] as? String else { throw FlowError.rejected }
+                let receiptID = (UUID().uuidString + UUID().uuidString).replacingOccurrences(of: "-", with: "").lowercased()
+                let choice: [String: Any] = ["id": id, "nonce": initialNonce, "receipt": receiptID,
+                    "devicePublicKey": credential.publicKey.base64EncodedString(), "acceptance": acceptance]
+                let choiceBytes = try JSONSerialization.data(withJSONObject: choice, options: [.sortedKeys])
+                let choiceAssertion = try await service.generateAssertion(keyID, clientDataHash: Data(SHA256.hash(data: choiceBytes)))
+                try Task.checkCancellation()
+                // Persist the reference BEFORE transmission so an uncertain reply
+                // does not lose the holder's ability to request withdrawal.
+                var receipt = EnrollmentReceipt(id: receiptID, credentialId: credential.id,
+                    origin: configuration.origin, notice: notice, state: .submitted)
+                try EnrollmentReceiptStore().save(receipt)
+                let accepted = try await api.postObject("/native/consent", body: ["id":id,
+                    "payload":choiceBytes.base64EncodedString(), "assertion":choiceAssertion.base64EncodedString()])
+                guard accepted["id"] as? String == id, accepted["receipt"] as? String == receiptID,
+                      let nonce = accepted["nonce"] as? String else { throw FlowError.rejected }
+                receipt.state = .recorded; try EnrollmentReceiptStore().save(receipt)
                 try Task.checkCancellation()
                 stepTitle = "Läser passets chip"
                 status = "Lägg passet plant och håll telefonens överkant stilla mot passet tills läsningen är klar."
@@ -147,7 +196,7 @@ import NFCPassportReader
             }
         }
     }
-    func cancel() { task?.cancel(); let pending = cameraStart; cameraStart = nil; readyForCamera = false; pending?.resume(throwing: CancellationError()); chipRelay.cancel(); camera.stop(); clearDocument(); configuration = nil; credential = nil }
+    func cancel() { task?.cancel(); noticeGeneration = UUID(); notice = nil; noticeText = nil; loadingNotice = false; termsAccepted = false; biometricsAccepted = false; let pending = cameraStart; cameraStart = nil; readyForCamera = false; pending?.resume(throwing: CancellationError()); chipRelay.cancel(); camera.stop(); clearDocument(); configuration = nil; credential = nil }
     func startCamera() {
         let pending = cameraStart; cameraStart = nil; readyForCamera = false
         pending?.resume()

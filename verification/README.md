@@ -648,3 +648,5 @@ för båda dokumenten och separat manuell aktivering. En förlorad telefon kan
 spärras med befintlig `wallet_cli.py revoke`; den gamla nyckeln återaktiveras inte.
 Syntetiska prov använder interna test-ID:n och lämnar aldrig ut personnummer.
 Se [operatörsflöde, adapterkontrakt och begränsningar](../docs/registerbindning.md).
+
+Registrering kräver separat aktivering och en privat `enrollmentPolicyFile`; se [information, versionsbundna val och återkallelse](../docs/registreringsinformation.md). PostgreSQL kräver schema 3.

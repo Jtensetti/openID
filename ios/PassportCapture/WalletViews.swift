@@ -438,6 +438,9 @@ struct SettingsView: View {
                 }
             }
             if model.unlocked && model.credential != nil {
+                Section("Personuppgifter") {
+                    NavigationLink("Dina samtycken") { EnrollmentReceiptsView() }
+                }
                 Section("Spärr och ny telefon") {
                     Button("Spärra mitt ID", role: .destructive) { revoke = true }.disabled(!model.canRevoke)
                     if let message = model.statusMessage { Text(message).font(.callout) }
@@ -471,7 +474,7 @@ struct SettingsView: View {
             } message: { Text("Pågående och nya inloggningar stoppas. Du behöver registrera dig på nytt för att få ett nytt ID.") }
             .confirmationDialog("Ta bort den spärrade eller utgångna nyckeln?", isPresented: $forget, titleVisibility: .visible) {
                 Button("Ta bort nyckeln", role: .destructive) { do { try model.forgetRevokedCredential() } catch { model.error = error.localizedDescription } }
-            } message: { Text("Nyckeln kan inte återställas.") }
+            } message: { Text("Nyckeln kan inte återställas. Telefonens samtyckeskvitton tas också bort. Spara önskade kopior under Dina samtycken först. Serverns uppgifter raderas inte av detta.") }
     }
 }
 struct ConnectionView: View {
@@ -506,7 +509,6 @@ struct EnrollmentView: View {
     @ObservedObject var flow: VerificationFlow
     @EnvironmentObject var model: WalletModel
     @Environment(\.dismiss) private var dismiss
-    @State private var consent = false
     @State private var scanPassport = false
     @State private var cameraPractice = false
     @State private var scanned = false
@@ -522,6 +524,20 @@ struct EnrollmentView: View {
                     Text(flow.failed ? "Kontrollen stannade" : flow.busy || flow.completed ? flow.stepTitle : "Registrera med pass")
                         .font(.largeTitle.bold())
                     if !flow.busy && !flow.completed && !flow.failed {
+                        if let notice = flow.noticeText {
+                            EnrollmentNoticeView(notice: notice)
+                            Toggle("Jag accepterar användarvillkoren", isOn: $flow.termsAccepted)
+                                .accessibilityIdentifier("enrollment.terms")
+                            Toggle("Jag samtycker uttryckligen till den beskrivna biometriska identitetskontrollen", isOn: $flow.biometricsAccepted)
+                                .accessibilityIdentifier("enrollment.biometrics")
+                            Text("Du kan avstå och stänga registreringen. Dina val och textversionen sparas före passkontrollen. Du hittar kvittot och kan återkalla samtycket under Inställningar → Dina samtycken.")
+                                .font(.footnote).foregroundStyle(Palette.muted)
+                        } else if flow.loadingNotice {
+                            ProgressView("Hämtar information inför registrering")
+                        } else {
+                            Button("Hämta information inför registrering") { Task { await flow.loadNotice() } }
+                        }
+                        if flow.noticeText != nil && flow.termsAccepted && flow.biometricsAccepted {
                         Text("Du börjar med passuppgifterna. Sedan läser vi chipet och tar tre ansiktsbilder.").font(.subheadline).foregroundStyle(Palette.muted)
                         DisclosureGroup("Förbered dig innan du börjar") {
                             VStack(alignment: .leading, spacing: 12) {
@@ -551,10 +567,6 @@ struct EnrollmentView: View {
                                     .accessibilityIdentifier("enrollment.inputIssue")
                             }
                         }.textFieldStyle(.roundedBorder)
-                        Toggle(isOn: $consent) {
-                            Text("Jag godkänner att passets chipuppgifter och tre kamerabilder skickas till servern. Namn, födelsedatum, nationalitet och passfoto sparas krypterat för mitt ID.").font(.footnote)
-                        }.tint(Palette.ink)
-                        if !consent { Text("Läs texten ovan och godkänn överföringen för att fortsätta.").font(.footnote).foregroundStyle(Palette.muted) }
                         PrimaryButton(title: "Läs passet", symbol: "wave.3.right") {
                             inputIssue = PassportAccessKey.invalidField(documentNumber: flow.documentNumber, birth: flow.birth, expiry: flow.expiry)
                             if let inputIssue {
@@ -562,7 +574,8 @@ struct EnrollmentView: View {
                                 if UIAccessibility.isVoiceOverRunning { UIAccessibility.post(notification: .announcement, argument: inputIssue.instruction) }
                             }
                             else { focusedField = nil; scanned = false; flow.start() }
-                        }.disabled(!consent).accessibilityIdentifier("enrollment.read")
+                        }.accessibilityIdentifier("enrollment.read")
+                        }
                     }
                     if flow.cameraVisible {
                         GuidedCaptureView(camera: flow.camera)
@@ -580,6 +593,7 @@ struct EnrollmentView: View {
                     }
                 }.padding(24)
             }.background(Palette.paper).navigationTitle("Registrera").navigationBarTitleDisplayMode(.inline)
+                .task { if flow.notice == nil { await flow.loadNotice() } }
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button(flow.busy ? "Avbryt" : "Stäng") { flow.cancel(); dismiss() } } }
                 .toolbar { ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Klart") { focusedField = nil } } }
                 .sheet(isPresented: $cameraPractice) {

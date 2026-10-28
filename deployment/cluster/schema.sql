@@ -19,8 +19,8 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 SET ROLE openid_owner;
 SET search_path=openid,pg_catalog;
 ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
-CREATE TABLE schema_version(version integer PRIMARY KEY CHECK(version=2));
-INSERT INTO schema_version VALUES(2);
+CREATE TABLE schema_version(version integer PRIMARY KEY CHECK(version=3));
+INSERT INTO schema_version VALUES(3);
 CREATE TABLE credentials (
  id text PRIMARY KEY CHECK(id ~ '^[a-f0-9]{64}$'), public_key text UNIQUE NOT NULL,
  state text NOT NULL CHECK(state IN ('PENDING_REVIEW','ACTIVE','REVOKED')), created bigint NOT NULL,
@@ -31,6 +31,26 @@ CREATE TABLE profiles (
  credential text PRIMARY KEY REFERENCES credentials, person text NOT NULL REFERENCES persons,
  version text UNIQUE NOT NULL, sealed text NOT NULL CHECK(length(sealed)<=65536),
  verified bigint NOT NULL, document_expires bigint NOT NULL);
+CREATE TABLE enrollment_policies(digest text PRIMARY KEY CHECK(digest ~ '^[a-f0-9]{64}$'),
+ record text NOT NULL CHECK(octet_length(record)<=65536));
+CREATE TABLE enrollment_consents(id text PRIMARY KEY CHECK(id ~ '^[a-f0-9]{64}$'),
+ subject text NOT NULL CHECK(subject ~ '^[a-f0-9]{64}$'), policy_digest text NOT NULL REFERENCES enrollment_policies,
+ accepted bigint NOT NULL CHECK(accepted BETWEEN 0 AND 253402300799),
+ proof text NOT NULL CHECK(octet_length(proof)<=16384),
+ withdrawn bigint CHECK(withdrawn BETWEEN accepted AND 253402300799));
+CREATE INDEX consent_subject ON enrollment_consents(subject,accepted);
+CREATE TABLE credential_consents(credential text PRIMARY KEY REFERENCES credentials,
+ receipt text UNIQUE NOT NULL REFERENCES enrollment_consents);
+CREATE FUNCTION guard_consent() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,openid,pg_temp AS $$
+BEGIN
+ IF ROW(NEW.id,NEW.subject,NEW.policy_digest,NEW.accepted,NEW.proof)
+      IS DISTINCT FROM ROW(OLD.id,OLD.subject,OLD.policy_digest,OLD.accepted,OLD.proof)
+    OR NEW.withdrawn IS NULL OR (OLD.withdrawn IS NOT NULL AND NEW.withdrawn IS DISTINCT FROM OLD.withdrawn)
+ THEN RAISE EXCEPTION 'consent evidence is immutable; withdrawal is permanent'; END IF;
+ RETURN NEW;
+END $$;
+CREATE TRIGGER consent_immutable BEFORE UPDATE ON enrollment_consents FOR EACH ROW EXECUTE FUNCTION guard_consent();
 CREATE TABLE requests (
  id text PRIMARY KEY, credential text NOT NULL REFERENCES credentials, secret_hash text NOT NULL,
  state text NOT NULL CHECK(state IN ('PENDING','APPROVED','REJECTED','CANCELLED','CONSUMED')),
@@ -294,5 +314,8 @@ GRANT EXECUTE ON FUNCTION security_code_status(text),check_security_code(text,te
 GRANT SELECT ON maintenance_runs TO openid_maintenance;
 GRANT USAGE ON SCHEMA openid TO openid_backup;
 GRANT SELECT ON ALL TABLES IN SCHEMA openid TO openid_backup;
+GRANT SELECT,INSERT ON enrollment_policies,enrollment_consents,credential_consents TO openid_enroller;
+GRANT UPDATE(withdrawn) ON enrollment_consents TO openid_enroller;
+GRANT SELECT ON enrollment_policies,enrollment_consents,credential_consents TO openid_backup;
 RESET ROLE;
 COMMIT;

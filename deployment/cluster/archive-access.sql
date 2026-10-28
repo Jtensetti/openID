@@ -6,4 +6,5 @@ GRANT SELECT ON schema_version TO openid_auditor;
 GRANT SELECT(id,public_key,state,created,expires,decision) ON credentials TO openid_auditor;
 GRANT SELECT(credential,version,verified,document_expires) ON profiles TO openid_auditor;
 GRANT SELECT(id,credential,kind,time,request) ON events TO openid_auditor;
+GRANT SELECT ON enrollment_policies,enrollment_consents,credential_consents TO openid_auditor;
 COMMIT;

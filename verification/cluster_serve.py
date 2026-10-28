@@ -18,9 +18,17 @@ def config_file(path):
         'tlsCert','tlsKey','pairingFile','metricsFile'}
     proofing={'team','bundle','developmentAttestation','csca','jar'}
     if config.get('role')=='proofing': fields |= proofing
-    optional={'cscaCrl','newRegistrationsEnabled'} if config.get('role')=='proofing' else set()
+    optional={'cscaCrl','newRegistrationsEnabled','enrollmentPolicyFile'} if config.get('role')=='proofing' else set()
     if not fields <= set(config) or set(config)-fields-optional or config['role'] not in ('wallet','proofing'): raise ValueError('configuration fields')
     if type(config.get('newRegistrationsEnabled', False)) is not bool: raise ValueError('new registration flag')
+    if config.get('newRegistrationsEnabled', False) and 'enrollmentPolicyFile' not in config:
+        raise ValueError('explicit enrollment policy required for new registrations')
+    if 'enrollmentPolicyFile' in config:
+        if not isinstance(config['enrollmentPolicyFile'],str) or not Path(config['enrollmentPolicyFile']).is_absolute():
+            raise ValueError('absolute enrollment policy path required')
+        if config.get('newRegistrationsEnabled',False):
+            from enrollment_policy import read_policy
+            read_policy(config['enrollmentPolicyFile'])
     validate_origin(config['origin'])
     address=ipaddress.ip_address(config['bind'])
     if address.is_unspecified or address.is_multicast or not address.is_private: raise ValueError('explicit private bind required')
@@ -55,9 +63,11 @@ def create_app(config, *, local_test=False):
             from chip import ChipProcess
             from server import verify_document
             command,chip_command=proofing_commands(config)
+            from enrollment_policy import read_policy
+            policy=read_policy(config['enrollmentPolicyFile']) if config.get('newRegistrationsEnabled',False) else None
             native=NativeSessions(AppAttest(config['team'],config['bundle'],config['developmentAttestation']),
                 lambda data:verify_document(command,data),None,None,wallet=wallet,
-                chip_factory=lambda data:ChipProcess(chip_command,data),biometrics=score_frames)
+                chip_factory=lambda data:ChipProcess(chip_command,data),biometrics=score_frames,enrollment_policy=policy)
         app=Runtime(native,wallet,config['origin'],private_file(config['pairingFile']).decode().strip(),
             metrics_token=private_file(config['metricsFile']).decode().strip(),role=config['role'],
             new_registrations_enabled=config.get('newRegistrationsEnabled', False))
