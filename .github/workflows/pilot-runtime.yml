@@ -444,7 +444,7 @@ jobs:
             --build-arg "BUILDER_UID=$(id -u)" --build-arg "BUILDER_GID=$(id -g)" \
             --file "$candidate_context/acl/Dockerfile" "$candidate_context" 2>&1 | tee "$candidate_output/builder.log"
           timeout 240s docker run --rm --name openid-acl-candidate --network none --read-only \
-            --cap-drop ALL --security-opt no-new-privileges --pids-limit 256 \
+            --cap-drop ALL --security-opt no-new-privileges --pids-limit 512 \
             --memory 1g --cpus 2 --tmpfs /tmp:size=128m,mode=1777 \
             -v "$RUNNER_TEMP/acl-inputs:/inputs:ro" \
             -v "$candidate_output:/output" openid-acl-builder:ci 2>&1 | tee "$candidate_output/runner.log"

@@ -13,6 +13,29 @@ Debian-säkerhetsuppdatering. Den lokala paketversionen är `2.41.6-0openid1`.
 Nyare färdiga util-linux-binärer kräver en annan glibc; enstaka biblioteksbyten
 bryter dessutom nuvarande exakta paketberoenden.
 
+Upstreams säkerhetsadvisories för CVE-2026-76642 och CVE-2026-78408–78410
+anger 2.41.6 som rättad upstreamversion. Debians säkerhetsspårare anger
+fortfarande Trixies 2.41.5-paket som sårbart och en rättad Debian-paketversion
+för forky/sid. Dessa är två olika versionskedjor: en lyckad installation av
+den här källbyggda 2.41.6-kandidaten är varken en utgiven Debian-rättning
+eller ett automatiskt undantag från OS-skannerns paketfynd. Källidentitet,
+faktiskt installerade binärer, relevanta säkerhetsändringar och den begränsade
+runtime-miljön måste granskas tillsammans innan ett fynd kan stängas.
+Inga privilegierade mount-/namespace-angrepp provas i den begränsade CI-miljön.
+För CVE-2026-78408 är skillnaden mellan releasearkiv och låst uppföljning
+konkret: 2.41.6-källan öppnar `cgroup.procs` med `O_CLOEXEC`, medan
+uppföljningsdiffen dessutom stänger den lästa cgroup-filen och
+`cgroup_procs_fd` direkt efter flytten. Bygget kräver diffens exakta hash och
+kontrollerar de beredda filernas låsta hashar. Versionssträngen ensam skulle
+inte visa detta; källkontrollen är fortfarande inte ett privilegierat
+exploateringsprov.
+
+- https://github.com/util-linux/util-linux/security/advisories/GHSA-m25x-3hj9-m26f
+- https://github.com/util-linux/util-linux/security/advisories/GHSA-55fx-f4gg-cfhj
+- https://github.com/util-linux/util-linux/security/advisories/GHSA-8f2p-47x3-43mv
+- https://github.com/util-linux/util-linux/security/advisories/GHSA-rh77-686x-2f2m
+- https://security-tracker.debian.org/tracker/source-package/util-linux
+
 ## Låsning och källkontroll
 
 Verktygen installeras endast i en engångsimage från en digestlåst Trixie-bas.

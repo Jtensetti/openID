@@ -44,7 +44,7 @@ def probe(package_directory, packages, directory, evidence, build_env, lock):
     libraries = root / 'usr/lib/x86_64-linux-gnu'
     binaries = root / 'usr/bin'
     actual_libraries = {}
-    for name in ('libtinfo.so.6', 'libncursesw.so.6'):
+    for name in ('libtic.so.6', 'libtinfo.so.6', 'libncursesw.so.6'):
         library = (libraries / name).resolve(strict=True)
         if library.parent != libraries.resolve(strict=True) or not library.is_file():
             raise ValueError('ncurses library resolves outside extracted package directory')
@@ -60,15 +60,17 @@ def probe(package_directory, packages, directory, evidence, build_env, lock):
         if binary.parent != binaries.resolve(strict=True) or not binary.is_file():
             raise ValueError('ncurses command resolves outside extracted package directory')
         output, _ = command(['ldd', binary])
-        matches = re.findall(r'^\s*libtinfo\.so\.6 => (\S+) \(', output, re.M)
-        if (len(matches) != 1 or Path(matches[0]).resolve(strict=True)
-                != (libraries / 'libtinfo.so.6').resolve(strict=True)):
-            raise ValueError('ncurses command did not resolve candidate libtinfo')
+        for dependency in ('libtic.so.6', 'libtinfo.so.6'):
+            matches = re.findall(r'^\s*' + re.escape(dependency) + r' => (\S+) \(',
+                                 output, re.M)
+            if (len(matches) != 1 or Path(matches[0]).resolve(strict=True)
+                    != (libraries / dependency).resolve(strict=True)):
+                raise ValueError('ncurses command did not resolve candidate ' + dependency)
         version = command([binary, '-V'])[0].strip()
         if '6.6' not in version:
             raise ValueError('ncurses command reports a different upstream version')
         linkage[name] = {'sha256': sha(binary.read_bytes()), 'version': version,
-                         'candidateTinfo': True}
+                         'candidateTicAndTinfo': True}
 
     database = directory / 'terminfo'
     database.mkdir()
@@ -86,7 +88,8 @@ def probe(package_directory, packages, directory, evidence, build_env, lock):
     analyzed, _ = command([binaries / 'infocmp', '-x', '-i', 'openid-probe'])
     termcap, _ = command([binaries / 'infocmp', '-C', 'openid-probe'])
     if ('openid-probe' not in ordinary or 'clear=' not in ordinary
-            or 'openid-probe' not in analyzed or 'openid-probe' not in termcap):
+            or analyzed.strip() != 'is2: ' + ('A' * 2048)
+            or 'openid-probe' not in termcap):
         raise ValueError('ncurses terminfo or termcap round-trip differs')
     # Exercise the termcap parsing path separately from infocmp's output path.
     cap_source = directory / 'generated.termcap'

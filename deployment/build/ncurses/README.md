@@ -28,12 +28,15 @@ Enhetstester nekar annan käll-/paketidentitet, fel checksummegrupp,
 oväntad nyckel och osäkra symbolfilslänkar. Det isolerade Linux-bygget
 måste producera nio namngivna Debianpaket med exakt lokal version och
 arkitektur. `compatibility.py` extraherar färdiga deb och kontrollerar
-`libtinfo.so.6`/`libncursesw.so.6`, SONAME, att de nya `tic`/`infocmp`
-verkligen länkar kandidatens bibliotek, genererade terminfo-/termcapfall
+`libtic.so.6`/`libtinfo.so.6`/`libncursesw.so.6`, SONAME, att de nya
+`tic`/`infocmp` verkligen länkar kandidatens bibliotek, genererade terminfo-/termcapfall
 med 2048 tecken samt indataformerna i de ursprungliga rapporterna om
 CVE-2025-6141 och CVE-2025-69720. Licenser, verktygsinventering,
 byggloggar, paket och en
 avgränsad CycloneDX-lista bevaras för granskning.
+Paketidentitet, de fyra runtime-paketen och bygginventeringen sparas redan
+före kompatibilitetsprovet, så ett underkänt prov lämnar granskbara byte
+men fortfarande `passed: false` och inget införandegodkännande.
 [Termcaprapporten](https://lists.gnu.org/archive/html/bug-ncurses/2025-03/msg00107.html)
 och [SGR-rapporten](https://github.com/Cao-Wuhui/CVE-2025-69720)
 anger de genererade indataformerna. Debian markerar Trixies ncurses-version

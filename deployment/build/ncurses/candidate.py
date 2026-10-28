@@ -233,8 +233,8 @@ def build(inputs, output, lock):
             p.update(filename=path.name, bytes=path.stat().st_size, sha256=sha(path.read_bytes()))
             packages.append(p)
         exported = check_packages(packages, lock)
-        from compatibility import probe
-        report['compatibility'] = probe(source.parent, packages, work / 'compatibility', evidence, env, lock)
+        report['packages'] = packages
+        report['exportedPackages'] = sorted(p['Package'] for p in exported)
         for p in exported:
             target = evidence / 'candidate-packages' / p['filename']
             target.parent.mkdir(exist_ok=True)
@@ -242,12 +242,12 @@ def build(inputs, output, lock):
         for pattern in ('*.buildinfo', '*.changes'):
             for path in source.parent.glob(pattern):
                 shutil.copyfile(path, evidence / path.name)
-        report['packages'] = packages
-        report['exportedPackages'] = sorted(p['Package'] for p in exported)
-        report['upstreamRuntimeSuite'] = 'No complete automated runtime suite is claimed; Debian builds examples but does not execute the CVE regressions.'
         from inventory import sbom
         (evidence / 'sbom.cdx.json').write_text(json.dumps(sbom(lock, packages,
             (evidence / 'toolchain/installed-packages.tsv').read_text()), indent=2) + '\n')
+        from compatibility import probe
+        report['compatibility'] = probe(source.parent, packages, work / 'compatibility', evidence, env, lock)
+        report['upstreamRuntimeSuite'] = 'No complete automated runtime suite is claimed; Debian builds examples but does not execute the CVE regressions.'
         report['complete'] = report['passed'] = True
     except Exception as error:
         report['errorType'] = type(error).__name__

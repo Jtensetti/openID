@@ -32,6 +32,11 @@ vanlig användare, inga capabilities och `no-new-privileges`.
 Upstreams `runwrapper` skapar ett temporärt hjälpbibliotek som testsviten
 laddar med `LD_PRELOAD`. `TMPDIR` pekar därför på en egen katalog i den
 skrivbara byggvolymen; den tillfälliga `/tmp`-mountens körskydd ändras inte.
+Upstreamsviten körs sekventiellt i kandidaten. Vid två samtidiga tester
+tog den tidigare CI-körningen slut på tillgängliga processer och gav två
+`FAIL` med `fork: Resource temporarily unavailable`. Den isolerade
+byggcontainern har en fortsatt ändlig gräns på 512 processer; testfel
+förblir fatala och resultatet måste verifieras i en ny körning.
 
 `Dockerfile.dockerignore` gäller byggkontexten `deployment/build`. Den
 tillåter exakt byggfilerna och de åtta publika signaturfixturerna från

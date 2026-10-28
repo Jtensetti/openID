@@ -242,12 +242,12 @@ def build(inputs, output, lock):
         test_tmp = work / 'test-tmp'
         test_tmp.mkdir(mode=0o700)
         env = {'PATH': os.environ['PATH'], 'LANG': 'C.UTF-8', 'LC_ALL': 'C.UTF-8',
-               'SOURCE_DATE_EPOCH': str(lock['sourceDateEpoch']), 'DEB_BUILD_OPTIONS': 'parallel=2',
+               'SOURCE_DATE_EPOCH': str(lock['sourceDateEpoch']), 'DEB_BUILD_OPTIONS': 'parallel=1',
                'TMPDIR': str(test_tmp)}
         run(['dpkg-source', '--before-build', '.'], evidence / 'patches.log', cwd=source, env=env)
         source_bundle(source, evidence / 'prepared-source.tar.xz', lock['sourceDateEpoch'])
         run(['dpkg-checkbuilddeps'], evidence / 'build-dependencies.log', cwd=source, env=env)
-        run(['dpkg-buildpackage', '--build=binary', '--no-sign', '--jobs=2'],
+        run(['dpkg-buildpackage', '--build=binary', '--no-sign', '--jobs=1'],
             evidence / 'package-build.log', cwd=source, env=env)
         report['upstreamTests'] = check_results(source, lock)
         packages = []
