@@ -19,9 +19,12 @@ class ClusterRevocationConfigTests(unittest.TestCase):
             path=root/'config.json'
             # Only TLS parsing is replaced here; this is a configuration boundary test.
             with patch('cluster_serve.ssl.SSLContext'):
-                for extra in ({},{'cscaCrl':str(secret)}):
+                for extra in ({},{'cscaCrl':str(secret)},{'newRegistrationsEnabled':False},{'newRegistrationsEnabled':True}):
                     path.write_text(json.dumps(config|extra))
                     self.assertEqual(config|extra,config_file(path))
+                for value in ('false', 0, 1, None):
+                    path.write_text(json.dumps(config|{'newRegistrationsEnabled':value}))
+                    with self.assertRaisesRegex(ValueError,'registration flag'):config_file(path)
                 for crl in ('relative.crl',str(root/'missing.crl')):
                     path.write_text(json.dumps(config|{'cscaCrl':crl}))
                     with self.assertRaisesRegex(ValueError,'absolute existing path'):config_file(path)

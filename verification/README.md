@@ -1,5 +1,9 @@
 # Passverifierare och testtjänst
 
+WSGI-servern håller nyregistrering pausad om `newRegistrationsEnabled` inte
+uttryckligen är `true`. Befintliga wallet-funktioner har kvar sina separata
+skydd. Se [registreringspaus och införande](../docs/registreringspaus.md).
+
 Server för passkontroll, ansiktsjämförelse, liveness och iPhone-appens
 pilotregister. [SAML-inloggningen](#saml-inloggning-med-passets-identitet) binder
 appens nyckel till passets personuppgifter och använder bibliotek från Sweden Connect.

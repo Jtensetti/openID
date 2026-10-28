@@ -4,6 +4,7 @@
   "team": "ABCDEFGHIJ",
   "bundle": "se.openid.PassportCapture",
   "developmentAttestation": true,
+  "newRegistrationsEnabled": false,
   "tlsCert": "/srv/openid/secrets/server.pem",
   "tlsKey": "/srv/openid/secrets/server-key.pem",
   "csca": "/srv/openid/secrets/trusted-csca.pem",

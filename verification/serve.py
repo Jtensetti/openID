@@ -71,9 +71,10 @@ def proofing_commands(config):
 def load_config(path):
     value = json.loads(Path(path).read_text())
     required = {'bind', 'origin', 'team', 'bundle', 'developmentAttestation', 'tlsCert', 'tlsKey', 'csca', 'database', 'pairingFile'}
-    if not required <= set(value) or set(value) - required - {'listenPort', 'publicEnrollment', 'cscaCrl', 'poseCheck', 'trustedProxy'}:
+    if not required <= set(value) or set(value) - required - {'listenPort', 'publicEnrollment', 'cscaCrl', 'poseCheck', 'trustedProxy', 'newRegistrationsEnabled'}:
         raise ValueError('Configuration fields do not match the example')
     if type(value.get('publicEnrollment', False)) is not bool: raise ValueError('Public enrollment flag')
+    if type(value.get('newRegistrationsEnabled', False)) is not bool: raise ValueError('New registration flag')
     # 'log' keeps registration open while the uncalibrated pose limits are measured on real devices.
     if value.get('poseCheck', 'enforce') not in ('enforce', 'log'): raise ValueError('Pose check mode')
     if value.get('publicEnrollment', False) and (value['developmentAttestation'] is not False or value['origin'] != 'https://api.openid.tensetti.io'):
@@ -223,7 +224,7 @@ def main():
                 chip_factory=lambda data: ChipProcess(chip_command, data),
                 biometrics=score_frames, pose_enforced=config.get('poseCheck', 'enforce') == 'enforce')
             app = Runtime(native, wallet, config['origin'], config['pairing'], public_enrollment=config.get('publicEnrollment', False),
-                trusted_proxy=config.get('trustedProxy'))
+                trusted_proxy=config.get('trustedProxy'), new_registrations_enabled=config.get('newRegistrationsEnabled', False))
             app.crypto = crypto
             return app
 

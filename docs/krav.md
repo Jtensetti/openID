@@ -16,6 +16,13 @@ installationsbevis och återstående fysiska/organisatoriska bevis. APP-01–08
 
 ## Identitet och nycklar
 
+GOV-08/ID-11: WSGI-verifieraren har en separat, avstängd standard för
+nyregistrering i pilot och register-proofing. Negativa ruttprov nekar även
+påbörjade sessioner före kroppsläsning och bevarar wallet/spärr och avbrott.
+Se [registreringspaus](registreringspaus.md). Kontrollen är inte ett
+samtyckesbevis; versionsbunden villkorsaccept, återkallelse och driftsättning
+återstår.
+
 | ID | Område / källa | Implementation och prov | Kvarstående kontroll |
 |---|---|---|---|
 | ID-01 | Utgivningspolicy, D08 K5.1–K5.3 | Privat registrering med separat operatörsaktivering. | Fastställd utgivningspolicy och användarvillkor. |
