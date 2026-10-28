@@ -314,6 +314,9 @@ class ClusterTests(unittest.TestCase):
         notice['notice'].update(notBefore=now-90*DAY,notAfter=now-DAY)
         digest=hashlib.sha256(canonical(notice['notice'])).hexdigest()
         with self.psycopg.connect(DSN) as db:
+            # Only the disposable fixture's owner may simulate elapsed history.
+            # The INSERT guard still requires a freshly pending credential.
+            db.execute('SET LOCAL ROLE openid_owner')
             db.execute('INSERT INTO openid.enrollment_policies VALUES(%s,%s)',(digest,canonical(notice).decode()))
             for number,accepted,withdrawn in ((1,now-9*DAY,None),(2,now-6*DAY,None),
                     (3,now-9*DAY,now-DAY),(4,now-9*DAY,None),(5,now-60,None)):
@@ -324,7 +327,9 @@ class ClusterTests(unittest.TestCase):
                     (13,'PENDING_REVIEW',None,now-40*DAY),(14,'REVOKED',now-10*DAY,now-DAY)):
                 who=ident(number)
                 db.execute('INSERT INTO openid.credentials VALUES(%s,%s,%s,%s,%s,%s,%s)',
-                    (who,'SYNTHETIC_KEY_'+who,state,now-40*DAY,expiry,'SYNTHETIC_REVIEW',who))
+                    (who,'SYNTHETIC_KEY_'+who,'PENDING_REVIEW',now,None,None,who))
+                db.execute('UPDATE openid.credentials SET state=%s,created=%s,expires=%s,decision=%s WHERE id=%s',
+                    (state,now-40*DAY,expiry,'SYNTHETIC_REVIEW',who))
                 db.execute('INSERT INTO openid.enrollment_consents VALUES(%s,%s,%s,%s,%s,NULL)',
                     (who,who,digest,now-40*DAY,'SYNTHETIC_PROOF'))
                 db.execute('INSERT INTO openid.credential_consents VALUES(%s,%s)',(who,who))
