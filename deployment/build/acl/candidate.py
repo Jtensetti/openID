@@ -14,7 +14,7 @@ import urllib.request
 
 # The same reviewed archive/signature helpers are copied beside this module in
 # the isolated builder. On the developer host they live in the sibling tree.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'util_linux'))
+sys.path.append(str(Path(__file__).resolve().parent.parent / 'util_linux'))
 from bootstrap import fields, sha
 from build import check_input, extract_regular, run, verify_signature
 

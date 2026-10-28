@@ -363,7 +363,10 @@ genom länk samt befintlig tars arkivering/återläsning. Detta testar inte
 samtidiga races, alla kärnor/filsystem eller att tar kan kompileras om.
 Källkod, licenser, pakethashar och råresultat bevaras även vid delvisa fel.
 Ett lyckat kandidatprov är ingen installation i appimagen eller stängning
-av ett driftfynd.
+av ett driftfynd. Det manuella ACL-jobbet binder samtliga kandidatens
+evidensfiler till samma revision, installerar endast `libacl1` i en separat
+appbild och kör bild-, protokoll- och strikt OS-prov mot den nya bilden.
+Ett verkligt CI-resultat krävs innan kompatibilitet kan bedömas vidare.
 
 ## Ncurses-paketkandidat
 
@@ -378,8 +381,9 @@ den signerade kandidatens hashade råartefakt. `test_trial.py` nekar ändrade
 paketbyte, fel revision, länkade filer och annan referensbild. CI ska kräva
 exakt fyra uppgraderade runtimepaket, oförändrade skyddade app-/JDK-filer,
 oförändrad runtimekonfiguration och bild-/protokollprov mot provbildens exakta
-image-ID. En strikt OS-skanning behåller alla kvarvarande fynd. Något lyckat
-provbildsresultat kan inte påstås förrän det nya jobbet har körts.
+image-ID. En strikt OS-skanning behåller alla kvarvarande fynd. CI #68 gav
+godkända installations-, bild- och protokollprov i en separat appbild, men
+den strikta OS-grinden är fortfarande röd.
 
 Det manuella, separata GitHub-jobbet i `pilot-runtime.yml` ska bygga
 kandidaten utan nät som vanlig användare och bevara råa loggar även vid

@@ -3,8 +3,9 @@
 Bygger ACL 2.4.0 med Debian-paketering 2.4.0-1 mot samma låsta Trixie-
 byggmiljö som pilotimagen. Lokal utvärderingsversion är `2.4.0-1openid1`.
 Syftet är att pröva en möjlig åtgärd för CVE-2026-54369/54370 utan att
-blanda in binärpaket byggda mot en nyare glibc. Detta flöde installerar
-inget i appimagen och utgör inget införande- eller tillitsgodkännande.
+blanda in binärpaket byggda mot en nyare glibc. Kandidatbygget installerar
+inget i appimagen. Ett separat manuellt prov får uppgradera en disponibel
+appbild; det utgör inget införande- eller tillitsgodkännande.
 
 ## Källor och byggkedja
 
@@ -32,11 +33,9 @@ vanlig användare, inga capabilities och `no-new-privileges`.
 Upstreams `runwrapper` skapar ett temporärt hjälpbibliotek som testsviten
 laddar med `LD_PRELOAD`. `TMPDIR` pekar därför på en egen katalog i den
 skrivbara byggvolymen; den tillfälliga `/tmp`-mountens körskydd ändras inte.
-Upstreamsviten körs sekventiellt i kandidaten. Vid två samtidiga tester
-tog den tidigare CI-körningen slut på tillgängliga processer och gav två
-`FAIL` med `fork: Resource temporarily unavailable`. Den isolerade
-byggcontainern har en fortsatt ändlig gräns på 512 processer; testfel
-förblir fatala och resultatet måste verifieras i en ny körning.
+Upstreamsviten körs sekventiellt i kandidaten. Den isolerade
+byggcontainern har en ändlig gräns på 512 processer; testfel förblir
+fatala. CI #92 gav tio `PASS`, fyra root-`SKIP` och två NFS-`XFAIL`.
 
 `Dockerfile.dockerignore` gäller byggkontexten `deployment/build`. Den
 tillåter exakt byggfilerna och de åtta publika signaturfixturerna från
@@ -86,11 +85,19 @@ python3 -m unittest discover -s deployment/build/acl -p 'test_*.py' -v
 ```
 
 Det befintliga `pilot / container`-jobbet exporterar endast spårad kod,
-hämtar de låsta källindata och bygger kandidaten sist. Steget har tio
-minuters gräns; själva nätfria paketbygget får högst fyra minuter,
-1 GiB minne, två CPU och 256 processer. Det skapar inget nytt CI-jobb
-eller någon AWS-resurs. Bevis sparas i 30 dagar. Föregående OS-fynd får
-fortsatt göra jobbet rött även om detta separata prov lyckas.
+hämtar de låsta källindata och bygger kandidaten utan installation. Bevis
+sparas i 30 dagar. Föregående OS-fynd gör fortfarande jobbet rött.
+
+Manuell `workflow_dispatch` med `acl_candidate: true` kör ett eget jobb.
+Det validerar den signerade kandidatens råartefakt och alla manifestförda
+evidensfiler (81 i CI #92). Endast det redan installerade `libacl1` läggs i
+en separat appbild; de övriga två paketen behålls som byggbevis. Provbilden byggs
+utan nät, binds till referensbildens exakta lager, behåller appens runtime-
+konfiguration och kontrollerar paketövergången samt skyddade app-/JDK-filer.
+En kort ACL-/tar-probe, bild- och protokollprov och en strikt OS-skanning
+körs mot provbildens image-ID. Installerade paket och resultaten sparas
+som separat artefakt även när OS-grinden blir röd. Provet skapar ingen
+AWS-resurs. Ett lyckat byggprov eller bildprov stänger inte ett CVE-fynd.
 
 ## Licens och återstående införande
 
@@ -109,7 +116,8 @@ GPL-2.0-or-later. Inget attr-binärpaket exporteras med kandidaten.
 Repoförvaltaren ansvarar för säkerhetsbevakning, nycklars aktuella status,
 licenser, uppdateringar och omprov. Låsta nyckelringar upptäcker inte
 senare spärrar. Före införande återstår bland annat komplett relevans-
-och kompatibilitetsbedömning, paketövergång i en separat appimage,
-applikations-/protokollprov, nya OS-resultat och oberoende releasebeslut.
+och kompatibilitetsbedömning, godkända nya OS-resultat och oberoende
+releasebeslut. Den separata paketövergången och app-/protokollproven måste
+först ge verkliga CI-resultat.
 En ny biblioteksversion gör inte gamla anrop som följer länkar säkra.
 [Primärkällor](../../../docs/SOURCES.md#acl-kandidat-2026-10-28).
