@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import secrets
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -744,6 +745,37 @@ class ClusterTests(unittest.TestCase):
         part.unlink();part.symlink_to(destination/'persons.copy')
         with self.assertRaises(OSError):restore(DSN,destination,self.restore_target(),self.a.vault,local_test=True)
         with self.assertRaises(FileExistsError):backup(self.dsns['backup'],destination,local_test=True)
+
+    def test_backup_manifest_and_table_reject_fifo_without_waiting_for_a_writer(self):
+        from cluster_recovery import backup
+        destination = self.root / ('fifo-' + secrets.token_hex(8))
+        backup(self.dsns['backup'], destination, local_test=True)
+        for name in ('manifest.json', 'profiles.copy'):
+            with self.subTest(name=name):
+                path = destination / name
+                saved = path.read_bytes()
+                path.unlink()
+                os.mkfifo(path, 0o600)
+                try:
+                    result = subprocess.run([sys.executable, '-c', '''
+import sys
+import time
+from contextlib import ExitStack
+from cluster_recovery import read_backup, MAX_BYTES
+with ExitStack() as stack:
+    try:
+        read_backup(sys.argv[1], stack, time.monotonic() + 1, MAX_BYTES)
+    except ValueError as error:
+        assert str(error) == 'private regular backup file required'
+    else:
+        raise AssertionError('FIFO accepted as backup input')
+''', str(destination)], cwd=Path(__file__).parent, capture_output=True, timeout=5)
+                    self.assertEqual(0, result.returncode, result.stderr.decode())
+                finally:
+                    path.unlink()
+                    with path.open('xb') as stream:
+                        stream.write(saved)
+                    path.chmod(0o600)
 
     def test_wrong_key_or_key_outage_keeps_restore_empty_and_closed(self):
         from cluster_recovery import backup,restore

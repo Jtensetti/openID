@@ -45,7 +45,8 @@ def private_dir(path):
 
 
 def open_data(directory_fd, name):
-    fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=directory_fd)
+    # Type checks must run even if an input was replaced by a FIFO.
+    fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory_fd)
     stream = os.fdopen(fd, 'rb')
     info = os.fstat(fd)
     if (not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077

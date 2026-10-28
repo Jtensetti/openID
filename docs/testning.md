@@ -426,3 +426,9 @@ så att den relativa modellsökvägen använder kandidatens paketerade modeller.
 Inga modellfiler hämtas från värddatorn. Separata loggar och OS-fynd sparas
 även vid fel; uteblivna prov eller saknade rapporter får
 inte räknas som lyckade. Full ABI-/kärntäckning och CVE-stängning antas inte.
+
+FIFO-fall i `test_runtime` och `test_cluster` använder separata processer med
+fem sekunders testgräns. De nekar en privat konfigurationsfil, ett backupmanifest
+och en tabellkopia som ersatts av en namngiven pipe utan skrivare. Registerfallet
+utgår från en verklig databasbackup; inga återställda databaser skapas i detta
+negativa prov.

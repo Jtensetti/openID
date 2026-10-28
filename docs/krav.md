@@ -368,3 +368,8 @@ måste synas och stoppa den utvidgade kontrollen. Inspektörens root-rättighet
 gäller endast CI-containern; den är varken tjänstens behörighet eller bevis
 för driftvärden. Känd filförekomst eller frånvaro ersätter inte
 tillämplighetsbedömning, riskbeslut eller behandling av scannerfynd.
+
+OPS-07: privat konfiguration och PostgreSQL-backupfiler öppnas utan att
+vänta på en skrivare till en FIFO. Filtyp kontrolleras innan innehåll läses,
+så att en namngiven pipe avvisas före återställning eller hemlighetsinläsning.
+Detta ersätter inte återställningsprov eller en tidsgräns för all disk-I/O.

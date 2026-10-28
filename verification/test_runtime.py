@@ -1,7 +1,10 @@
 import concurrent.futures
 import io
 import json
+import os
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import threading
 import unittest
@@ -18,6 +21,22 @@ class RuntimeTests(unittest.TestCase):
         self.native.start.return_value = {'id': 'session'}
         self.wallet.challenge.return_value = {'id': 'challenge'}
         self.app = Runtime(self.native, self.wallet, 'https://localhost:8765', 'a'*43, new_registrations_enabled=True)
+
+    def test_private_configuration_rejects_fifo_without_waiting_for_a_writer(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'secret'
+            os.mkfifo(path, 0o600)
+            result = subprocess.run([sys.executable, '-c', '''
+import sys
+from serve import private_file
+try:
+    private_file(sys.argv[1])
+except ValueError as error:
+    assert str(error) == 'Secret files must be regular files with mode 0600'
+else:
+    raise AssertionError('FIFO accepted as a secret file')
+''', str(path)], cwd=Path(__file__).parent, capture_output=True, timeout=5)
+            self.assertEqual(0, result.returncode, result.stderr.decode())
 
     def request(self, path='/native/start', method='POST', body=b'{}', **updates):
         env = {'REQUEST_METHOD': method, 'PATH_INFO': path, 'HTTP_HOST': 'localhost:8765',
