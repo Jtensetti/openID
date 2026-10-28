@@ -1,0 +1,1 @@
+openID generated source-signature policy fixture; not a release.

@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "generatedOnly": true,
+  "privateKeysIncluded": false,
+  "generator": "GnuPG 2.5.24; generated exclusively in temporary test homes and removed afterwards",
+  "keyCreationUnixSeconds": 1577836800,
+  "signatureCreationUnixSeconds": 1577836900,
+  "validPrimaryFingerprint": "005217BF5D4E02680A4147D5C4151BE429546DD6",
+  "expiredPrimaryFingerprint": "554F58664407A1760C7B3FFAE9EB2A6938902C6A",
+  "files": {
+    "expired-key.asc": "cb08ca567a3adbe9e41004e51019092692b40ac244795b07568785c9bac0b9df",
+    "expired-key.sig.asc": "f3b22259bb74dcea8807163a797ea728dd06ca2525cd015d79e8e0ee4da204a0",
+    "valid.sig.asc": "ce78dac41f2a84aec8dd8162076445ba5cba2bd1dd650e9b4bbe256c79b6a7f1",
+    "valid-key.asc": "2f9a6654bc9bd63fee01a632a0fcccca2012043e6046c647ae8b84b310b40b18",
+    "expired-signature.sig.asc": "d78cfcf8eb37b79e35093b83ef45c7436fb0372c366c7481711af6b87965932b",
+    "payload.txt": "9153acd6e9457efddb918c7baa422611a66e009af8b3d0a5aa5adc9ee83fc459",
+    "revoked-key.asc": "cf636572c90bf99f7f0bb69ea71e80e25a7272039bb907c5dcb91063dfce3bbe"
+  }
+}

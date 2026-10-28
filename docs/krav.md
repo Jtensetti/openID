@@ -328,6 +328,11 @@ Den versionsbundna publika verifieringsnyckeln måste matcha samma storleks-/
 hashlås och Debian-förankrade primärfingeravtryck som tidigare. Kopian ger
 ingen aktuell spärrkontroll; daterad upstreamnyckel-/säkerhetskontroll krävs
 separat före införande och får inte ersättas av ett lyckat kandidatbygge.
+Verkliga genererade signaturfall ska verifiera både accepterande och avslag
+med den låsta GnuPG-versionen före källberedningen. Verifierarens exitkod
+ensam räcker inte: utgången/spärrad status och fel fullständigt
+signerarfingeravtryck måste fortsatt ge avslag. Fixturer får inte ingå i
+källornas nyckelringar eller innehålla privata nycklar.
 Full ABI-/kärntäckning, CVE-bedömning och oberoende införandebeslut kvarstår;
 formell kravstatus ändras inte av ett kandidatbygge eller en provinstallation.
 

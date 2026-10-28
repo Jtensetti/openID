@@ -49,6 +49,14 @@ primärnyckel med samma fingeravtryck i båda kopiorna. Nyckelservern är endast
 distributionskanal. GnuPG verifierar signaturen över det okomprimerade
 källarkivet med den uppdaterade nyckeln, och signeraren måste matcha låset.
 Utgångna/spärrade signaturer och saknad entydig `VALIDSIG` nekar beredning.
+`gpgv` kan returnera noll även för en utgången eller spärrad nyckel; vår
+befintliga statuskontroll måste därför också lyckas. Sju regressioner med
+genererade publika nycklar och verkliga signaturer provar giltigt fall,
+utgången/spärrad nyckel, utgången signatur, ändrat innehåll, saknad nyckel
+och oväntad signerare. De körs med byggmiljöns låsta GnuPG före källberedningen;
+saknade verktyg eller ett underkänt prov stoppar bygget. `signature-policy.log`
+sparar resultatet. Fixturerna innehåller inga privata nycklar och tillförs
+aldrig nyckelringarna som används för att verifiera källorna.
 Detta avser status i den versionsbundna nyckelkopian; ett nätlöst bygge
 upptäcker inte senare publicerade spärrcertifikat. Repoförvaltaren ska därför
 kontrollera aktuell upstreamnyckel och säkerhetsinformation före införande,
@@ -134,8 +142,11 @@ Efter bygget jämförs lagerkedja och runtimekonfiguration mot referensen.
 Prov körs mot det oföränderliga kandidat-ID:t: paketstatus, sju kommandons
 versioner, laddning av fem bibliotek, bild-/processisolering, livscykel,
 återställning, SAML och OIDC. Körningarna har skrivskyddad rot, avstängt nät,
-resursgränser och inga capabilities. Endast filprivilegieinventeringen körs
-som root med `DAC_READ_SEARCH`; protokollprovet använder CI-användarens UID
+resursgränser och inga capabilities. Bildprovens testfiler monteras var för
+sig bredvid applikationen så att deras relativa modellsökväg pekar på imagens
+egna modeller; inga modeller monteras från värddatorn. Endast
+filprivilegieinventeringen körs som root med `DAC_READ_SEARCH`;
+protokollprovet använder CI-användarens UID
 för sin skrivbara beviskatalog. Biblioteksladdning är inte fullständig
 ABI-verifiering, och privilegierade mount-/namespace-/kärnprov utförs inte.
 
@@ -149,7 +160,9 @@ det befintliga jobbets tidsgräns. Ingen kandidat publiceras som runtimeimage.
 Aktuell CVE-bedömning, full kompatibilitetsbedömning och oberoende granskning
 krävs före införande. Inga CVE-fynd stängs av ett lyckat bygge eller prov.
 
-Lokala negativa prov; de utför inte Linux-bygge eller verklig GnuPG-verifiering:
+Lokala prov kräver Python 3 samt `gpg` och `gpgv`. De omfattar verklig
+signaturverifiering av genererade fixturer, men utför inget Linux-bygge
+och ersätter inte verifieringen av källutgåvans signatur:
 
 ```sh
 python3 -m unittest discover -s deployment/build/util_linux -p 'test_*.py' -v
@@ -167,3 +180,4 @@ Primärkällor kontrollerade 2026-10-27–28:
 - [APT-konfiguration: separata källor, index och arkivcache](https://manpages.debian.org/trixie/apt/apt.conf.5.en.html)
 - [Sequoias signaturverifierare i Trixie](https://manpages.debian.org/trixie/sqv/sqv.1.en.html)
 - [Kernel.org: signatur över okomprimerat arkiv](https://www.kernel.org/signature.html)
+- [GnuPG: gpgv, nyckeltillit och maskinläsbar status](https://www.gnupg.org/documentation/manuals/gnupg/gpgv.html)

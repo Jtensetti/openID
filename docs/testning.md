@@ -330,6 +330,12 @@ primärnycklar, privata nycklar och saknad primärnyckel i GnuPG-utmatningen.
 Utgångna/spärrade signaturstatusar nekas även tillsammans med `VALIDSIG`.
 Även en giltig signatur nekas om dess fullständiga signerarfingeravtryck
 avviker från den låsta upstreamnyckeln.
+`test_signature_policy.py` provar dessutom samma befintliga verifierare med
+sju verkliga OpenPGP-fall och genererade publika fixturer. Utgången/spärrad
+nyckel, utgången signatur, ändrat innehåll, saknad nyckel och fel signerare
+måste nekas; det giltiga kontrollfallet måste lyckas. Testet kräver `gpg` och
+`gpgv` och körs även i den låsta Linux-byggmiljön före källberedningen.
+Det skapar ingen tillit till fixturerna och använder inga privata nycklar.
 Den versionsbundna publika nyckeln provas utan nätåtkomst. Saknad, ändrad,
 länkad eller felbenämnd kopia nekas utan nätfallback, även när bara ett extra
 radslut tillkommit. Övriga HTTPS-indata måste fortfarande ha exakt storlek
@@ -349,6 +355,9 @@ Installationshjälparen
 måste avvisa utvecklingsdatorn före skrivning. Dessa lokala prov installerar
 inga paket. CI provinstallerar separat hela runtimegruppen utan nät, granskar
 slutligt paketläge och filprivilegier, laddar biblioteken och upprepar
-applikations-/protokollprov mot kandidatens exakta image-ID. Separata loggar
-och OS-fynd sparas även vid fel; uteblivna prov eller saknade rapporter får
+applikations-/protokollprov mot kandidatens exakta image-ID.
+Bildprovens testfiler monteras individuellt under `/app/verification`
+så att den relativa modellsökvägen använder kandidatens paketerade modeller.
+Inga modellfiler hämtas från värddatorn. Separata loggar och OS-fynd sparas
+även vid fel; uteblivna prov eller saknade rapporter får
 inte räknas som lyckade. Full ABI-/kärntäckning och CVE-stängning antas inte.

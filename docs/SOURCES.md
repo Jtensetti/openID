@@ -381,6 +381,15 @@ nätlöst bygge gäller kopians innehåll, inte senare spärrar. Kernel.orgs
 signaturbeskrivning ovan beskriver nyckelspärr vid kompromettering.
 Aktuell nyckel-/säkerhetskontroll krävs därför separat före införande.
 
+[GnuPG:s gpgv-manual](https://www.gnupg.org/documentation/manuals/gnupg/gpgv.html),
+kontrollerad 2026-10-28, beskriver att nyckelringens nycklar betraktas som
+betrodda och att utgångna/spärrade nycklar inte i sig ger avslag. Verktyget
+kan samtidigt lämna maskinläsbara statusrader. Vår verifierare kräver redan
+godkänd exitkod, entydig `VALIDSIG`, rätt signerare och frånvaro av förbjuden
+status. Verkliga genererade fixturer provar denna kombination; de ändrar
+varken verifieringspolicyn eller källornas tillitsankare. Senare spärrar som
+saknas i nyckelkopian omfattas fortfarande inte av ett nätlöst prov.
+
 ## APT:s lokala paketcache, 2026-10-28
 
 [APT 3.0.3 `pkgAcqArchive`](https://github.com/Debian/apt/blob/3.0.3/apt-pkg/acquire-item.cc)

@@ -9,6 +9,7 @@ import platform
 import re
 import shutil
 import subprocess
+import sys
 import tarfile
 import urllib.request
 import urllib.parse
@@ -322,6 +323,12 @@ def build(inputs, output, lock):
     try:
         shutil.copytree('/toolchain-evidence', evidence / 'toolchain')
         (evidence / 'candidate.lock.json').write_text(json.dumps(lock, indent=2) + '\n')
+        # Exercise actual key/signature status handling with this locked Linux
+        # verifier before trusting source inputs. These fixtures contain no
+        # private keys and do not enter either source-verification keyring.
+        run([sys.executable, str(Path(__file__).with_name('test_signature_policy.py'))],
+            evidence / 'signature-policy.log')
+        report['signaturePolicyRegressionPassed'] = True
         source, report['source'] = prepare(inputs, work, evidence, lock)
         env = {'PATH': os.environ['PATH'], 'LANG': 'C.UTF-8', 'LC_ALL': 'C.UTF-8',
                'SOURCE_DATE_EPOCH': str(lock['sourceDateEpoch']), 'DEB_BUILD_OPTIONS': 'parallel=2'}
