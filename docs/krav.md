@@ -373,3 +373,5 @@ OPS-07: privat konfiguration och PostgreSQL-backupfiler öppnas utan att
 vänta på en skrivare till en FIFO. Filtyp kontrolleras innan innehåll läses,
 så att en namngiven pipe avvisas före återställning eller hemlighetsinläsning.
 Detta ersätter inte återställningsprov eller en tidsgräns för all disk-I/O.
+
+INT-02 / GOV-08: ett [privat ärendeuttag](personuppgiftsutdrag.md) läser valt SQLite-underlag utan migrering eller skrivning. Kända relaterade ID:n måste ingå, olika registrerade personer får inte blandas och externa datakällor redovisas som återstående. Identifiering, utlämnandebeslut, fullständighet över alla system, radering och faktisk leverans är fortfarande separata kontroller.

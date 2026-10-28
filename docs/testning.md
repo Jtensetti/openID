@@ -432,3 +432,5 @@ fem sekunders testgräns. De nekar en privat konfigurationsfil, ett backupmanife
 och en tabellkopia som ersatts av en namngiven pipe utan skrivare. Registerfallet
 utgår från en verklig databasbackup; inga återställda databaser skapas i detta
 negativa prov.
+
+`test_subject_access` provar privat SQLite-uttag med syntetiska personer och riktig profilkryptering. Separata personer, äldre gallrad profil, journalundantag, historiskt schema, committad WAL, okänd kolumn/tabell, fil-/storleksgränser och fel nyckel provas. Uttagets källdata ska bestå och terminalfel får inte röja persondata. Inget verkligt rättighetsärende eller PostgreSQL-uttag ingår.

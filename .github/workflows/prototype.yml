@@ -90,7 +90,7 @@ jobs:
           .venv/bin/python -m unittest -v test_verification test_image_input test_biometric_diagnostics test_native test_native_retention test_chip test_wallet test_relying_party test_identity test_identity_key test_registry_binding test_runtime test_recovery_operations test_recovery_binding test_crypto_runtime test_revocation test_notices test_continuity_config test_continuity_operator test_pose test_security_code test_biometric_budget test_passport_revocation test_cluster_revocation
           .venv/bin/python -m unittest -v test_audit_archive
           .venv/bin/python -m unittest -v test_enrollment_policy test_acceptance_journal test_enrollment_consent
-          .venv/bin/python -m unittest -v test_sqlite_retention test_consent_retention
+          .venv/bin/python -m unittest -v test_sqlite_retention test_consent_retention test_subject_access
           .venv/bin/python -m unittest -v test_crl_maintenance
           .venv/bin/python -m unittest -v test_ingress_client
           .venv/bin/python -m unittest -v test_bounded_process test_profile_worker test_worker_confinement
