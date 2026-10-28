@@ -191,8 +191,18 @@ def verify_signature(signature, content, keyring, home, log, expected_signer=Non
     command = ['gpgv', '--homedir', str(home), '--status-fd=1', '--keyring', str(keyring), str(signature)]
     if content is not None:
         command.append(str(content))
-    run(command, log)
-    return valid_signature(log.read_bytes(), expected_signer)
+    # Only stdout carries --status-fd=1. A key's arbitrary user ID can also
+    # appear on stderr; never parse that human-facing channel as status.
+    status_log = log.with_name(log.stem + '-status.log')
+    with status_log.open('wb') as machine, log.open('wb') as diagnostic:
+        result = subprocess.run(command, stdout=machine, stderr=diagnostic, timeout=1200)
+    status = status_log.read_bytes()
+    with log.open('ab') as diagnostic:
+        diagnostic.write(status)
+    if result.returncode:
+        print(log.read_text(errors='replace')[-20000:], flush=True)
+        result.check_returncode()
+    return valid_signature(status, expected_signer)
 
 
 def source_bundle(source, path, epoch):

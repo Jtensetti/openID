@@ -57,6 +57,11 @@ och oväntad signerare. De körs med byggmiljöns låsta GnuPG före källberedn
 saknade verktyg eller ett underkänt prov stoppar bygget. `signature-policy.log`
 sparar resultatet. Fixturerna innehåller inga privata nycklar och tillförs
 aldrig nyckelringarna som används för att verifiera källorna.
+Maskinstatus läses som byte från `gpgv --status-fd=1` och parsas separat
+från den läsbara diagnostiken på stderr. Signerarens användartext kan
+innehålla andra teckenkodningar och får varken stoppa en giltig kontroll
+eller förfalska status. Rå status och diagnostik sparas i separata loggar;
+den mänskliga loggen innehåller också en kopia av status för felsökning.
 Byggkontextens tillåtelselista omfattar testmodulen och exakt de åtta publika
 fixturfilerna; övriga tester och lokala filer ingår inte i byggkontexten.
 Föräldrakatalogerna öppnas för traversering, deras innehåll utesluts på nytt

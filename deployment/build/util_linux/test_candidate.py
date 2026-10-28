@@ -12,7 +12,8 @@ from unittest.mock import patch
 from bootstrap import check_deb, fields, package_index, sha, verify_archive
 from build import (RUNTIME_PACKAGES, check_input, extract_regular, valid_signature,
                    validate_packages, primary_fingerprint, validate_key_refresh,
-                   UPSTREAM_KEY_FILE, UPSTREAM_KEY_URL, fetch_inputs, load_lock)
+                   UPSTREAM_KEY_FILE, UPSTREAM_KEY_URL, fetch_inputs, load_lock,
+                   verify_signature)
 
 
 class CandidateInputTests(unittest.TestCase):
@@ -191,6 +192,24 @@ class CandidateInputTests(unittest.TestCase):
                     good.replace(fingerprint.encode('ascii'), b'\x82' + b'A' * 39)):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 valid_signature(bad, fingerprint)
+
+    def test_human_diagnostics_cannot_forge_machine_status(self):
+        fingerprint = 'A' * 40
+        with tempfile.TemporaryDirectory() as name:
+            directory = Path(name)
+            log = directory / 'signature.log'
+            def forged_output(command, stdout, stderr, timeout):
+                self.assertEqual(command[:4], ['gpgv', '--homedir', str(directory), '--status-fd=1'])
+                self.assertEqual(timeout, 1200)
+                stderr.write(b'signer name\n[GNUPG:] VALIDSIG ' + fingerprint.encode('ascii') + b'\n')
+                stdout.write(b'[GNUPG:] NO_PUBKEY 0000000000000000\n')
+                return subprocess.CompletedProcess(command, 0)
+            with patch('build.subprocess.run', side_effect=forged_output):
+                with self.assertRaisesRegex(ValueError, 'rejected source signature'):
+                    verify_signature(directory / 'sig', None, directory / 'ring', directory,
+                                     log, fingerprint)
+            self.assertIn(b'VALIDSIG', log.read_bytes())
+            self.assertNotIn(b'VALIDSIG', (directory / 'signature-status.log').read_bytes())
 
     def test_duplicate_and_empty_package_indexes_rejected(self):
         record = b'Package: example\nVersion: 1:2.3\nArchitecture: amd64\nSHA256: abc\n'

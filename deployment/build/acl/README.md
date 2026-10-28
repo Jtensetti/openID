@@ -29,6 +29,9 @@ patchserie, Linux-tester och `hardening=+all` bevaras. Den låsta dpkg-
 versionen bygger utan root som standard; inga fakeroot-/sudo-rättigheter
 tillkommer. Källbygge och prov körs utan nät, med skrivskyddad rot,
 vanlig användare, inga capabilities och `no-new-privileges`.
+Upstreams `runwrapper` skapar ett temporärt hjälpbibliotek som testsviten
+laddar med `LD_PRELOAD`. `TMPDIR` pekar därför på en egen katalog i den
+skrivbara byggvolymen; den tillfälliga `/tmp`-mountens körskydd ändras inte.
 
 `Dockerfile.dockerignore` gäller byggkontexten `deployment/build`. Den
 tillåter exakt byggfilerna och de åtta publika signaturfixturerna från

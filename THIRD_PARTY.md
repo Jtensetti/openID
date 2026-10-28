@@ -411,3 +411,21 @@ inget attr-paket exporteras. Transitiv verktygsinventering och nedladdade
 pakethashar sparas. Detta ersätter inte en fullständig licens-/SBOM-
 bedömning av en framtida applikationsleverans. Repoförvaltaren äger
 uppdateringar, säkerhets-/nyckelbevakning, licenser och omprov.
+
+## Ncurses-paketkandidat, 2026-10-28
+
+[Ncurses-kandidaten](deployment/build/ncurses/README.md) använder signerad
+Debian-källa 6.6+20260608-2 och lokal utvärderingsversion
+6.6+20260608-2openid1. `candidate.lock.json` binder fyra källindata,
+fullständiga signerarfingeravtryck, licens-/paketeringsfiler och samma
+autentiserade Trixie-snapshot som övriga paketprov. Endast en daterad
+changelogpost tillförs. Sex interna symbolfilslänkar bevaras med exakt
+namn-/målpolicy. Inga ncurses-paket installeras i app- eller registerimage.
+
+Debians copyright anger MIT/X11 för huvudkoden, X11 för `install-sh` och
+BSD-3-Clause för `progs/tset.c` och `ncurses/tinfo/read_termcap.c`.
+Filernas egna notiser och full motsvarande källkod bevaras. `libgpm-dev`,
+`libgpm2` och `autoconf-dickey` används i den tillfälliga byggmiljön;
+deras paketcopyright sparas. Fullständig bedömning av transitiva licenser
+och en framtida appdistribution återstår. Repoförvaltaren ansvarar för
+upstream-/nyckel-/CVE-bevakning och omprov; oberoende införandebeslut saknas.

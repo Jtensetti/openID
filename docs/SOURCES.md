@@ -429,3 +429,23 @@ Libattr-byggberoendets copyright läses ur exakt hashlåst Debian-paket.
 [Trixies dpkg-manual](https://manpages.debian.org/trixie/dpkg-dev/deb-src-control.5.en.html)
 anger rootlöst standardbygge sedan 1.22.13; den låsta 1.22.22 omfattas.
 Ingen extra fakeroot-inställning eller privilegieutökning behövs.
+
+## Ncurses-kandidat, 2026-10-28
+
+[Debians källpool](https://deb.debian.org/debian/pool/main/n/ncurses/)
+distribuerar den signerade ncurses 6.6+20260608-2-källgruppen. `.dsc`,
+upstreamsignatur, två fullständiga signerarfingeravtryck, licens-/paketerings-
+filer och storlekar/hashar är låsta i
+[kandidatfilen](../deployment/build/ncurses/candidate.lock.json). Debians
+paketeringsarkiv har sex interna länkar till symbolfiler; just dessa namn
+och mål tillåts vid extraktion. Den lokala changelogposten är inte en
+officiell Debianrelease.
+
+Debians säkerhetsspårning markerar Trixie-versionen som sårbar för
+[CVE-2025-6141](https://security-tracker.debian.org/tracker/CVE-2025-6141)
+och [CVE-2025-69720](https://security-tracker.debian.org/tracker/CVE-2025-69720),
+med 6.6+20260608-2 markerad som rättad i forky/sid. [Upstreams NEWS](https://invisible-island.net/ncurses/NEWS.html)
+beskriver gränskontrollerna. [Den ursprungliga `tic`-rapporten](https://lists.gnu.org/archive/html/bug-ncurses/2025-03/msg00107.html)
+och [rapportörens `infocmp -i`-exempel](https://github.com/Cao-Wuhui/CVE-2025-69720)
+ger de genererade gränsprovens indataformer. Proven ersätter inte
+sanitizer-/appbevis eller oberoende sårbarhetsbedömning.

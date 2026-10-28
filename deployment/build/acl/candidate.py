@@ -236,8 +236,14 @@ def build(inputs, output, lock):
         report['signaturePolicyRegressionPassed'] = True
         source, report['source'] = prepare(inputs, work, evidence, lock,
                                          Path('/usr/share/keyrings/debian-keyring.pgp'))
+        # The upstream runwrapper loads a generated test library from mktemp's
+        # directory. Keep /tmp non-executable; place that directory on the
+        # disposable, writable build volume instead.
+        test_tmp = work / 'test-tmp'
+        test_tmp.mkdir(mode=0o700)
         env = {'PATH': os.environ['PATH'], 'LANG': 'C.UTF-8', 'LC_ALL': 'C.UTF-8',
-               'SOURCE_DATE_EPOCH': str(lock['sourceDateEpoch']), 'DEB_BUILD_OPTIONS': 'parallel=2'}
+               'SOURCE_DATE_EPOCH': str(lock['sourceDateEpoch']), 'DEB_BUILD_OPTIONS': 'parallel=2',
+               'TMPDIR': str(test_tmp)}
         run(['dpkg-source', '--before-build', '.'], evidence / 'patches.log', cwd=source, env=env)
         source_bundle(source, evidence / 'prepared-source.tar.xz', lock['sourceDateEpoch'])
         run(['dpkg-checkbuilddeps'], evidence / 'build-dependencies.log', cwd=source, env=env)

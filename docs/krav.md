@@ -344,6 +344,15 @@ tar-binär. Ett lyckat källbygge eller dessa avgränsade prov stänger inte
 SEC-03/INT-06: faktisk separat appinstallation, relevant CVE-/ABI-
 bedömning, fulla app-/protokollprov och oberoende införande återstår.
 
+[Ncurses-kandidaten](../deployment/build/ncurses/README.md) ska byggas från
+signerad och hashlåst källa mot samma Trixie-verktygskedja. Nio namngivna
+Debianpaket, färdiga ELF-bibliotek, SONAME och verklig länkning från
+`tic`/`infocmp` måste verifieras. Genererade terminfo-/termcapfall ska
+inkludera indataformerna från båda öppna ncurses-CVE-rapporterna.
+Kandidaten får inte installeras i ordinarie image som en bieffekt av bygget.
+SEC-03/INT-06 kräver fortsatt separat appinstallation, nya OS- och
+app-/protokollprov, licens-/nyckelaktualitet och oberoende beslut.
+
 SEC-03:s komponentunderlag kompletteras med en separat läsande inspektör över
 fysiska imagekataloger, även SSL-länkarnas mål. Den ursprungliga inventeringen
 som vanlig användare bevaras. Läsfel och mål utanför det angivna omfånget

@@ -328,6 +328,9 @@ eller det isolerade [Linux-bygget](../deployment/build/util_linux/README.md).
 Nyckelförnyelsen nekar andra eller förkortade fingeravtryck, flera
 primärnycklar, privata nycklar och saknad primärnyckel i GnuPG-utmatningen.
 Utgångna/spärrade signaturstatusar nekas även tillsammans med `VALIDSIG`.
+Binär GnuPG-användartext får inte stoppa parsning av maskinstatus. Ett
+genererat falskt `VALIDSIG` i den läsbara diagnostiken accepteras inte som
+status; endast den separata statuskanalen får styra signerarkontrollen.
 Även en giltig signatur nekas om dess fullständiga signerarfingeravtryck
 avviker från den låsta upstreamnyckeln.
 `test_signature_policy.py` provar dessutom samma befintliga verifierare med
@@ -361,6 +364,22 @@ samtidiga races, alla kärnor/filsystem eller att tar kan kompileras om.
 Källkod, licenser, pakethashar och råresultat bevaras även vid delvisa fel.
 Ett lyckat kandidatprov är ingen installation i appimagen eller stängning
 av ett driftfynd.
+
+## Ncurses-paketkandidat
+
+`deployment/build/ncurses/test_candidate.py` nekar annan signerad
+källgrupp, fel primärnyckel, saknat eller felmärkt paket, delvis installerad
+byggverktygsinventering och annat än de sex interna symbolfilslänkarna.
+Lokal verklig källberedning kräver giltig Debian-/upstreamsignatur och
+bevarar länkarna. Den ger inget Linux-byggbevis.
+
+Det manuella, separata GitHub-jobbet i `pilot-runtime.yml` ska bygga
+kandidaten utan nät som vanlig användare och bevara råa loggar även vid
+fel. De färdiga paketen extraheras utan installation. Proven kontrollerar
+SONAME/länkning och genererade terminfo-/termcapfall, inklusive
+rapportörernas långa indataformer för `tic` och `infocmp -i`.
+Ett icke kraschande resultat utan sanitizer/fuzzning bevisar inte
+minnessäkerhet eller full appkompatibilitet; inga CVE-fynd stängs därav.
 
 `test_prepare_trial.py` nekar fel revision, ofullständiga/ändrade bevis,
 länkade sökvägar och överskrivning av befintlig kontext. `test_trial_install.py`

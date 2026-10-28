@@ -2,10 +2,16 @@ name: Private pilot runtime
 on:
   workflow_call:
   workflow_dispatch:
+    inputs:
+      ncurses_candidate:
+        description: 'Build and probe only the isolated ncurses candidate'
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
   container:
+    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.ncurses_candidate }}
     runs-on: ubuntu-24.04
     timeout-minutes: 55
     steps:
@@ -481,3 +487,50 @@ jobs:
           compression-level: 0
           if-no-files-found: error
           retention-days: 7
+  ncurses_candidate:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.ncurses_candidate }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Reject malformed source and package evidence
+        run: |
+          python3 -m unittest discover -s deployment/build/util_linux -p 'test_*.py' -v
+          python3 -m unittest discover -s deployment/build/ncurses -p 'test_*.py' -v
+      - name: Export tracked source only
+        run: |
+          mkdir "$RUNNER_TEMP/ncurses-source"
+          git archive HEAD | tar -x -C "$RUNNER_TEMP/ncurses-source"
+      - name: Build and probe the authenticated ncurses candidate
+        id: build
+        run: |
+          set -euo pipefail
+          candidate_context="$RUNNER_TEMP/ncurses-source/deployment/build"
+          candidate_output="$RUNNER_TEMP/ncurses-evaluation"
+          mkdir -m 700 "$candidate_output"
+          git rev-parse HEAD > "$candidate_output/tested-revision.txt"
+          python3 "$candidate_context/ncurses/candidate.py" fetch --directory "$RUNNER_TEMP/ncurses-inputs" 2>&1 | tee "$candidate_output/fetch.log"
+          timeout 600s docker build --platform linux/amd64 --tag openid-ncurses-builder:ci \
+            --build-arg "BUILDER_UID=$(id -u)" --build-arg "BUILDER_GID=$(id -g)" \
+            --file "$candidate_context/ncurses/Dockerfile" "$candidate_context" 2>&1 | tee "$candidate_output/builder.log"
+          timeout 720s docker run --rm --name openid-ncurses-candidate --network none --read-only \
+            --cap-drop ALL --security-opt no-new-privileges --pids-limit 512 \
+            --memory 4g --cpus 2 --tmpfs /tmp:size=256m,mode=1777 \
+            -v "$RUNNER_TEMP/ncurses-inputs:/inputs:ro" \
+            -v "$candidate_output:/output" openid-ncurses-builder:ci 2>&1 | tee "$candidate_output/runner.log"
+      - name: Stop any remaining ncurses process
+        if: always()
+        run: docker rm --force openid-ncurses-candidate >/dev/null 2>&1 || true
+      - name: Save ncurses build and compatibility evidence including failures
+        if: ${{ always() && steps.build.outcome != 'skipped' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ncurses-build-candidate
+          path: |
+            ${{ runner.temp }}/ncurses-evaluation/*.log
+            ${{ runner.temp }}/ncurses-evaluation/tested-revision.txt
+            ${{ runner.temp }}/ncurses-evaluation/evidence/
+          if-no-files-found: error
+          retention-days: 30
