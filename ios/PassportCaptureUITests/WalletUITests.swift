@@ -7,7 +7,17 @@ final class WalletUITests: XCTestCase {
             let app = XCUIApplication(); app.launchArguments = ["--approval-preview"] + variant; app.launch()
             let reject = app.buttons[variant.contains("--sign") ? "Avböj underskrift" : "Neka begäran"]
             XCTAssertTrue(reject.waitForExistence(timeout: 5))
-            XCTAssertTrue(reject.isHittable, "Reject must be visible before scrolling: \(variant)")
+            // Accessibility can expose the button before the simulator draws its first frame.
+            // Wait for interaction readiness without scrolling or changing the request.
+            let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND hittable == true"), object: reject)
+            let result = XCTWaiter.wait(for: [ready], timeout: 10)
+            if result != .completed {
+                let screenshot = XCTAttachment(screenshot: app.screenshot())
+                screenshot.name = "Approval refusal readiness failure"; screenshot.lifetime = .keepAlways; add(screenshot)
+                let hierarchy = XCTAttachment(string: app.debugDescription)
+                hierarchy.name = "Approval refusal hierarchy"; hierarchy.lifetime = .keepAlways; add(hierarchy)
+            }
+            XCTAssertEqual(result, .completed, "Reject must be visible before scrolling: \(variant)")
             XCTAssertTrue(reject.isEnabled)
             XCTAssertGreaterThanOrEqual(reject.frame.minY, app.frame.minY)
             XCTAssertLessThanOrEqual(reject.frame.maxY, app.frame.maxY)
