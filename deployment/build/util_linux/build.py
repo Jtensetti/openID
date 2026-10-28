@@ -128,17 +128,34 @@ def extract_regular(archive, destination, prefix):
 
 
 def valid_signature(status, expected_signer=None):
-    lines = [line.split() for line in status.splitlines() if line.startswith('[GNUPG:] ')]
-    forbidden = {'BADSIG', 'ERRSIG', 'EXPSIG', 'EXPKEYSIG', 'REVKEYSIG', 'KEYEXPIRED',
-                 'SIGEXPIRED', 'KEYREVOKED', 'NO_PUBKEY', 'FAILURE'}
-    if any(line[1] in forbidden for line in lines):
+    """Parse only GnuPG's ASCII machine fields; user IDs may have other bytes."""
+    if isinstance(status, str):
+        status = status.encode('utf-8')
+    lines = []
+    for line in status.splitlines():
+        if not line.startswith(b'[GNUPG:]'):
+            continue
+        fields = line.split()
+        if (len(fields) < 2 or fields[0] != b'[GNUPG:]'
+                or not re.fullmatch(rb'[A-Z0-9_]+', fields[1])):
+            raise ValueError('malformed GnuPG status')
+        if fields[1] == b'VALIDSIG':
+            if len(fields) < 3 or not re.fullmatch(rb'(?:[A-F0-9]{40}|[A-F0-9]{64})', fields[2]):
+                raise ValueError('malformed GnuPG signature fingerprint')
+            lines.append((fields[1], fields[2]))
+        else:
+            lines.append((fields[1],))
+    forbidden = {b'BADSIG', b'ERRSIG', b'EXPSIG', b'EXPKEYSIG', b'REVKEYSIG', b'KEYEXPIRED',
+                 b'SIGEXPIRED', b'KEYREVOKED', b'NO_PUBKEY', b'FAILURE'}
+    if any(line[0] in forbidden for line in lines):
         raise ValueError('rejected source signature')
-    valid = [line for line in lines if line[1] == 'VALIDSIG']
-    if len(valid) != 1 or not re.fullmatch(r'(?:[A-F0-9]{40}|[A-F0-9]{64})', valid[0][2]):
+    valid = [line for line in lines if line[0] == b'VALIDSIG']
+    if len(valid) != 1:
         raise ValueError('missing unambiguous source signature')
-    if expected_signer is not None and valid[0][2] != expected_signer:
+    signer = valid[0][1].decode('ascii')
+    if expected_signer is not None and signer != expected_signer:
         raise ValueError('source signature uses an unexpected signing key')
-    return valid[0][2]
+    return signer
 
 
 def primary_fingerprint(listing):
@@ -175,7 +192,7 @@ def verify_signature(signature, content, keyring, home, log, expected_signer=Non
     if content is not None:
         command.append(str(content))
     run(command, log)
-    return valid_signature(log.read_text(), expected_signer)
+    return valid_signature(log.read_bytes(), expected_signer)
 
 
 def source_bundle(source, path, epoch):

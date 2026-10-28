@@ -178,6 +178,20 @@ class CandidateInputTests(unittest.TestCase):
             with self.subTest(status=status), self.assertRaises(ValueError):
                 valid_signature(status)
 
+    def test_binary_gpg_user_id_does_not_hide_signature_status(self):
+        fingerprint = 'A' * 40
+        good = (b'[GNUPG:] GOODSIG AAAAAAAA signer \x82 name\n'
+                + b'[GNUPG:] VALIDSIG ' + fingerprint.encode('ascii') + b' 2026-10-27\n')
+        self.assertEqual(valid_signature(good, fingerprint), fingerprint)
+        for bad in (good + b'[GNUPG:] BADSIG AAAAAAAA signer \x82 name\n',
+                    good + b'[GNUPG:] REVKEYSIG AAAAAAAA signer \x82 name\n',
+                    good + b'[GNUPG:] VALIDSIG ' + fingerprint.encode('ascii') + b'\n',
+                    good + b'[GNUPG:]BADSTATUS\n',
+                    good + b'[GNUPG:] \x82\n',
+                    good.replace(fingerprint.encode('ascii'), b'\x82' + b'A' * 39)):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                valid_signature(bad, fingerprint)
+
     def test_duplicate_and_empty_package_indexes_rejected(self):
         record = b'Package: example\nVersion: 1:2.3\nArchitecture: amd64\nSHA256: abc\n'
         self.assertIn(('example', '1:2.3', 'amd64'), package_index(record))
