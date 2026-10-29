@@ -100,7 +100,9 @@ final class WalletUITests: XCTestCase {
         let app = XCUIApplication(); app.launchArguments = []; app.launch()
         XCTAssertTrue(app.staticTexts["home.heading"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["home.unlock"].exists)
-        XCTAssertTrue(app.staticTexts["home.betaHours"].label.contains("09–17 svensk tid"))
+        let betaHours = app.staticTexts["home.betaHours"].label
+        XCTAssertTrue(betaHours.contains("dygnet runt till och med 30 november 2026"))
+        XCTAssertTrue(betaHours.contains("1 december kl. 00.00 svensk tid"))
         let image = XCTAttachment(screenshot: app.screenshot()); image.name = "openID-home"; image.lifetime = .keepAlways; add(image)
     }
     func testAllTabsShowSafeLockedStates() {

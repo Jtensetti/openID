@@ -59,11 +59,11 @@ och respektive komponent. Klusterfunktioner i CI räknas inte som driftsatta i S
 | K6.4 | D | Utveckling | Unik personbindning | Nyckel/passbindning finns; verifiera registeranknytning, dubbletter och dokumentbyte. |
 | K6.5 | T | Utveckling | Giltighetstid | Betan begränsar giltighet till 24–72 timmar och passets datum; fastställ produktionspolicy och riskunderlag. |
 | K6.6 | D | Utveckling/utfärdare | Oberoende avisering | Transaktionell utkorg och separat SQS/SES-konsument är inkopplade i den publika betan; syntetisk aktivering och transportkvittens provade. Verklig separat person–kontaktkontroll, leveransbevis och operativ felhantering kvarstår. |
-| K6.8 | D | Drift/support | Tillgänglig spärr | Publik beta och appkod är kopplade till separat spärrtjänst. Syntetiskt prov med stoppade betatjänster och återstartad wallet nekar gammal ACTIVE-status och session. Fysisk app, schemalagd nattstart, operativ beredskap och oberoende prov återstår; formell status OPEN. |
+| K6.8 | D | Drift/support | Tillgänglig spärr | Publik beta och appkod är kopplade till separat spärrtjänst. Syntetiskt prov med stoppade betatjänster och återstartad wallet nekar gammal ACTIVE-status och session. Fysisk app, sammanhängande återstartsprov i avsedd driftmiljö, operativ beredskap och oberoende prov återstår; formell status OPEN. |
 | K6.9 | D | Utveckling/drift | Säker verkställighet | Signerad spärr, sessionsavslag och negativa tester finns; verifiera drift, missbruksskydd och återstart. |
 | K7.1 | T | Utveckling | Giltighetskontroll | Signatur och aktuell spärr/utgång kontrolleras; oberoende kontroll av alla produktionsvägar återstår. |
 | K7.2 | T | Utveckling | Angreppsskydd | Engångsutmaningar och bindningar testas; oberoende test av relä, missbruk och full drift återstår. |
-| K8.1 | D | Drift | Intygstjänstens tillgänglighet | Identifiering finns; 09–17 är en pilotbegränsning, ingen verifierad produktionsnivå. |
+| K8.1 | D | Drift | Intygstjänstens tillgänglighet | Testservern kör dygnet runt till och med 30 november 2026, med stopp 1 december 2026 kl. 00.00 svensk tid. Se [driftplan](../deployment/README.md#betans-öppettider). Tidsbegränsad ensam betanod; produktionsnivå och SLA är inte verifierade. |
 | K8.2 | D | Utveckling | Intygsskydd | SAML signeras/krypteras och OIDC har bunden kodväxling; full profilmappning och extern validering återstår. |
 | K8.3 | T | Utveckling | Förnyad identifiering | Kortlivade begäranden/sessioner finns; verifiera sammanhängande policy för SAML och OIDC i avsedd drift. |
 

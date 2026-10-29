@@ -242,7 +242,7 @@ import LocalAuthentication
     }
     static func failureMessage(action: String, error: Error) -> String {
         if action == "snapshot" {
-            return "Kunde inte hämta aktuell status. Kontrollera internetanslutningen och serverns öppettid. Tryck sedan på Hämta status. En sparad spärrkod kan användas även när testservern är stängd."
+            return "Kunde inte hämta aktuell status. Kontrollera internetanslutningen och att servern är tillgänglig. Tryck sedan på Hämta status. En sparad spärrkod kan användas även när testservern är stängd."
         }
         if action == "inspect", let value = error as? WalletError, case .rejected = value {
             return "Begäran kunde inte öppnas. Den kan ha gått ut eller avslutats, eller ditt ID kan vara inaktivt. Hämta status under Mitt ID. Om ditt ID är aktivt, starta en ny inloggning på testsidan."

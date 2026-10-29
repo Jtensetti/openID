@@ -31,6 +31,23 @@ bevarat innehåll, betakontoskydd och avvisning över 128 KiB. Nginx-provets
 samtliga temporära kataloger ligger i dess egen engångskatalog.
 Inga pilotnycklar eller riktiga konton används. Resultatet anger nginx-versionen.
 
+## Betans öppettider
+
+Från 29 oktober 2026 kör den befintliga testservern **dygnet runt till och med
+30 november 2026**. Den stängs av **1 december 2026 kl. 00.00 svensk tid**
+(`Europe/Stockholm`), motsvarande 30 november kl. 23.00 UTC.
+
+Den dagliga autostarten är avstängd. AWS-stoppschemat och serverns befintliga
+lokala avstängningstimer är båda satta till slutdatumet. Vid återskapande av
+servern måste även bootstrap-konfigurationens lokala timer följa denna plan.
+Driftplanen ger ingen garanterad tillgänglighet eller bemannad support dygnet runt.
+Stoppet raderar inte data; lagring och reserverad IP-adress fortsätter debiteras.
+Den separata spärrtjänsten omfattas inte av testserverns stopp.
+
+Den publika projektsidans statiska filer finns i `project-site/`. `beta-site/`
+innehåller betavärdens egen hjälpsida. Håll deras öppettider och slutdatum
+samstämmiga med README och appens informationstext när driftplanen ändras.
+
 ## Förbered och starta
 
 Kräver Docker med Compose, Python 3 och OpenSSL på värddatorn. Använd ett

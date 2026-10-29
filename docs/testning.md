@@ -53,7 +53,7 @@ testad revision, kontrollsummor och uttrycklig avgränsning mot formellt godkän
 [PR #22](https://github.com/Jtensetti/openID/pull/22) redovisar den separata
 spärrtjänstens syntetiska AWS-prov med betans verifierare stoppad, köexport
 och SES-kvittens. Kvittensen bevisar inte leverans till inkorgen.
-Fysisk iPhone-spärr och faktisk schemalagd nattstart återstår.
+Fysisk iPhone-spärr och sammanhängande återstartsprov i avsedd driftmiljö återstår.
 
 Privata telefonprov har bekräftat passläsning, personnummer och SAML-inloggning.
 De är funktionella prov, inte oberoende säkerhets- eller tillgänglighetsgranskning.

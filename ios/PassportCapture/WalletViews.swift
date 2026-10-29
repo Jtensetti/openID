@@ -65,7 +65,7 @@ struct HomeView: View {
                 Text("Mitt ID").font(.largeTitle.bold()).accessibilityIdentifier("home.heading")
                 IdentityCard()
                 if model.configuration == nil || model.configuration?.isPublicBeta == true {
-                    Text(model.revocationProof == nil ? "Betans öppettider: varje dag 09–17 svensk tid. Registrering, legitimering och spärr kräver att testservern är öppen." : "Registrering och legitimering: varje dag 09–17 svensk tid. Spärr fungerar dygnet runt med internetanslutning.")
+                    Text(model.revocationProof == nil ? "Testservern är öppen dygnet runt till och med 30 november 2026 och stängs av den 1 december kl. 00.00 svensk tid. Registrering, legitimering och spärr kräver att testservern är igång." : "Testservern är öppen dygnet runt till och med 30 november 2026 och stängs av den 1 december kl. 00.00 svensk tid. Din sparade spärrkod kan användas även när testservern är avstängd, med internetanslutning.")
                         .font(.subheadline).foregroundStyle(Palette.muted).accessibilityIdentifier("home.betaHours")
                 }
                 if let state = model.snapshot?.state, state != .active {
@@ -414,7 +414,7 @@ struct SettingsView: View {
                 else {
                     if model.configuration?.isPublicBeta == true {
                         Label("Ansluten till openID beta", systemImage: "network")
-                        Text("Anslutningen sköts automatiskt. VPN behövs inte. Testservern är öppen varje dag 09–17 svensk tid.").font(.caption).foregroundStyle(.secondary)
+                        Text("Anslutningen sköts automatiskt. VPN behövs inte. Testservern är öppen dygnet runt till och med 30 november 2026 och stängs av den 1 december kl. 00.00 svensk tid.").font(.caption).foregroundStyle(.secondary)
                     } else {
                         Button { model.settingsPresented = true } label: { Label("Anslutning", systemImage: "network") }
                         if let configuration = model.configuration { Text(configuration.origin).font(.caption).foregroundStyle(.secondary).textSelection(.enabled) }

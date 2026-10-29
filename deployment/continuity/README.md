@@ -81,7 +81,7 @@ Kvar innan användare kan förlita sig på tjänsten:
   vidarebefordrade studsar/klagomål. `ACCEPTED` är inte leveransbevis.
 - Ändamålsenlig separat kontaktkontroll; verifierad e-postadress bevisar inte ensam
   att adressen tillhör den passkontrollerade personen.
-- Sammanhängande användarprov av SAML/OIDC och faktisk schemalagd nattstart.
+- Sammanhängande användarprov av SAML/OIDC och återstart efter driftavbrott.
   Övervakning, operativ felhantering och oberoende granskning.
 
 API:t begränsas till 0,1 anrop/sekund med burst 5. Lambda har två samtidiga
@@ -117,7 +117,8 @@ En äldre programversion utan markörkontroll får inte återtas efter migration
 
 Vid serverstart återstartas de tre containrarna med `unless-stopped`.
 Konfiguration, databas, identitetsnyckel och markör måste finnas kvar på den
-beständiga disken. Kontrollera tjänsternas status efter planerat nattstopp.
+beständiga disken. Kontrollera tjänsternas status efter varje återstart.
+Testserverns aktuella slutdatum finns i [betans driftplan](../README.md#betans-öppettider).
 
 Operatören förbereder en kontakt med `continuity_operator.py`, separat IAM-
 behörighet till de två tabellerna och flaggan `--independently-verified-contact`.
