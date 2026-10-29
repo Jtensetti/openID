@@ -375,3 +375,10 @@ så att en namngiven pipe avvisas före återställning eller hemlighetsinläsni
 Detta ersätter inte återställningsprov eller en tidsgräns för all disk-I/O.
 
 INT-02 / GOV-08: [privata ärendeuttag](personuppgiftsutdrag.md) läser valt SQLite- eller PostgreSQL-underlag utan migrering eller registerskrivning. Kända relaterade ID:n måste ingå, olika kända registrerade personer får inte blandas och externa datakällor redovisas som återstående. PostgreSQL avvisar skrivbehöriga läskonton, använder en sammanhängande lästransaktion och redovisar valda nycklar som saknar kvarvarande personlänk. Identifiering, utlämnandebeslut, fullständighet över alla system, radering och faktisk leverans är fortfarande separata kontroller.
+
+
+GOV-08 / INT-02: PostgreSQL schema 5 undantar SignMessage-rader från den generella
+begärandegallringen, även efter avbrott eller utgång. Vanliga inloggningsrader
+har fortsatt begränsad gallring. Kontrollerad migrering krävs; applikation och
+backup nekar äldre schema. Separat bevarande-/raderingspolicy, kopiehantering
+och faktisk införandeverifiering kvarstår. Se registerdriftens schema-5-avsnitt.

@@ -50,8 +50,8 @@ def schema(db):
         actual.setdefault(table, set()).add(column)
     if len(found) == 256 or actual != {t: set(c.split()) for t, c in COLUMNS.items()}:
         raise ValueError('unmapped or incomplete register columns')
-    if db.execute('SELECT version FROM openid.schema_version').fetchall() != [(4,)]:
-        raise ValueError('case extraction requires schema 4')
+    if db.execute('SELECT version FROM openid.schema_version').fetchall() != [(5,)]:
+        raise ValueError('case extraction requires schema 5')
     roles = db.execute("""SELECT rolsuper,rolcreatedb,rolcreaterole,rolreplication,rolbypassrls,
         has_schema_privilege(current_user,'openid','CREATE')
         FROM pg_catalog.pg_roles WHERE rolname=current_user""").fetchone()
@@ -139,7 +139,7 @@ def export_case(dsn, destination, case, revision, *, vault, local_test=False, ma
         data, unlinked = collect(db, case, vault, end)
         if time.monotonic() >= end: raise TimeoutError('case deadline')
     return write_output(destination, {'format': 1, 'backend': 'postgresql',
-        'case': case, 'sourceRevision': revision, 'databaseSchema': 4,
+        'case': case, 'sourceRevision': revision, 'databaseSchema': 5,
         'readAt': read_at.astimezone(timezone.utc).isoformat(), 'status': 'HANDLER_REVIEW_REQUIRED',
         'records': data, 'credentialsWithoutRetainedPersonLink': unlinked,
         'securityFieldsForSeparateReview': EXCLUDED,

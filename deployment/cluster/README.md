@@ -215,10 +215,10 @@ Tjänstekontot kan bara läsa kodstatus och anropa begränsade kontroll- och
 bytesfunktioner; det kan inte läsa verifierarna, återställa en låst kod
 eller ändra begärans text, nivå, motpart eller sessionsbindning.
 
-Nya installationer använder `schema.sql`, version 4. Version 1–3 nekas av den
+Nya installationer använder `schema.sql`, version 5. Version 1–4 nekas av den
 nya applikationen. Stoppa applikationer och underhåll, ta och verifiera en
 backup med den tidigare, låsta kodrevisionen och kör `migrate-1-to-2.sql`
-med databasens kontrollerade ägarkonto och fortsätt med `migrate-2-to-3.sql` och `migrate-3-to-4.sql`. Börja vid
+med databasens kontrollerade ägarkonto och fortsätt med `migrate-2-to-3.sql`, `migrate-3-to-4.sql` och `migrate-4-to-5.sql`. Börja vid
 databasens befintliga version; hoppa inte över steg. Migreringarna är transaktionella och
 nekar annan startversion. Starta därefter den nya revisionen och verifiera
 readiness, rollgränser och försöksspärren innan trafik öppnas.
@@ -360,3 +360,26 @@ schema-3-backup från dess låsta verktyg. Uppdatera `archive-access.sql`
 separat för arkivläsaren. Den nya journalen ingår i backup och arkivformat 4.
 [Förhandsvisning och gallring](../../docs/gallring-samtycken.md) kräver en
 explicit policyfil; inget nytt schemalagt jobb aktiveras.
+
+
+### Schema 5: skydd för underskriftstext vid generell gallring
+
+`purge_expired` väljer endast `federation_requests` där `sign_message IS NULL`.
+Utgångna inloggningsbegäranden kan fortfarande gallras i begränsade batcher.
+Begäranden med underskriftstext bevaras oavsett utfall; det är samma avgränsning
+som i SQLite-verktyget. Bevarandetid, riktad radering, ärendeundantag och
+hantering hos motpart/kopior behöver beslutas och genomföras separat.
+Skyddet är inte ett beslut om obegränsad lagring eller ett fullständigt
+underskriftsarkiv.
+
+Schema 4 och tidigare saknar detta undantag i den generella PostgreSQL-gallringen.
+Stoppa applikationer och underhåll, verifiera en backup med den tidigare låsta
+revisionen och kör `migrate-4-to-5.sql` som kontrollerad ägare. Migreringen
+ersätter funktionen och höjer versionskravet i samma transaktion, utan att
+radera några rader eller ge tjänstekonton nya rättigheter. Fel startversion,
+upprepad körning eller uteblivet lås stoppar den. Gör efterprov innan underhåll
+eller trafik återöppnas. Ny applikation, backupverktyg och individuellt
+ärendeuttag kräver schema 5. Äldre backuper återläses med sina ursprungliga
+verktyg i stängd miljö och migreras innan aktuell revision används.
+Migreringen återskapar inte tidigare raderad text. Arkivlayouten är fortsatt
+format 4, med faktisk databasversion i manifestet.

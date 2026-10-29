@@ -244,5 +244,26 @@ class ArchiveTests(unittest.TestCase):
             raw = archive.encoded(manifest); manifest_path.write_bytes(raw)
             with self.assertRaises(ValueError): archive.verify(self.destination, hashlib.sha256(raw).hexdigest())
 
+    def test_offline_postgres_schema_five_uses_v4_layout_and_rejects_mismatch(self):
+        # A deliberately empty, synthetic archive tests the offline wire format;
+        # real PostgreSQL export is exercised separately by test_cluster.
+        self.destination.mkdir(mode=0o700);files={}
+        for name in archive.tables('postgresql',4):
+            target=self.destination/(name+'.jsonl');target.write_bytes(b'');target.chmod(0o600)
+            files[target.name]={'columns':list(archive.TABLES[name]),'rows':0,'bytes':0,
+                'sha256':hashlib.sha256(b'').hexdigest()}
+        manifest={'format':4,'backend':'postgresql','source_revision':REVISION,'files':files,
+            'snapshot':{'database_schema':5,'read_at':'2026-01-01T00:00:00+00:00'}}
+        path=self.destination/'manifest.json'
+        for schema in (5,4,3,6,True,None):
+            with self.subTest(schema=schema):
+                manifest['snapshot']['database_schema']=schema
+                raw=archive.encoded(manifest);path.write_bytes(raw);path.chmod(0o600)
+                digest=hashlib.sha256(raw).hexdigest()
+                if type(schema) is int and schema in (4,5):
+                    self.assertEqual(0,archive.verify(self.destination,digest)['rows'])
+                else:
+                    with self.assertRaises(ValueError):archive.verify(self.destination,digest)
+
 
 if __name__ == '__main__': unittest.main()

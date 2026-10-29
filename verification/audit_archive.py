@@ -66,6 +66,13 @@ def tables(backend, version=1):
     return names
 
 
+def postgres_archive_format(schema_version):
+    # Schema 5 changes retention behavior, not the evidence table/field format.
+    if type(schema_version) is not int or schema_version not in (2, 3, 4, 5):
+        raise ValueError('archive requires schema 2, 3, 4 or 5')
+    return {2: 1, 3: 3, 4: 4, 5: 4}[schema_version]
+
+
 def sqlite_format(db):
     journal = dict(db.execute("SELECT name,type FROM sqlite_master WHERE name='consent_retention_runs'"))
     # A partial retention schema must not silently omit the journal.
@@ -168,7 +175,7 @@ def export_snapshot(source, destination, backend, revision, *, max_bytes=MAX_BYT
     try:
         end = time.monotonic()+DEADLINE; files = {}; total = 0
         with source as (db, snapshot):
-            version = sqlite_format(db) if backend == 'sqlite' else (snapshot['database_schema'] if snapshot['database_schema'] >= 3 else 1)
+            version = sqlite_format(db) if backend == 'sqlite' else postgres_archive_format(snapshot['database_schema'])
             names = tables(backend, version)
             for name in names:
                 deadline(end)
@@ -212,7 +219,7 @@ def postgres_snapshot(dsn, *, local_test=False):
     with psycopg.connect(**connection_options(dsn, local_test)) as db:
         db.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
         version, read_at = db.execute('SELECT version, transaction_timestamp() FROM openid.schema_version').fetchone()
-        if version not in (2,3,4): raise ValueError('archive requires schema 2, 3 or 4')
+        postgres_archive_format(version)
         yield db, {'database_schema': version, 'read_at': read_at.astimezone(timezone.utc).isoformat()}
 
 
@@ -247,8 +254,7 @@ def verify(source, expected_digest, *, max_bytes=MAX_BYTES):
         snapshot = manifest['snapshot']
         if (type(snapshot) is not dict or set(snapshot) != {'database_schema','read_at'}
                 or (snapshot['database_schema'] is not None if manifest['backend'] == 'sqlite'
-                    else type(snapshot['database_schema']) is not int
-                    or snapshot['database_schema'] != (manifest['format'] if manifest['format'] >= 3 else 2))
+                    else postgres_archive_format(snapshot['database_schema']) != manifest['format'])
                 or not isinstance(snapshot['read_at'], str)
                 or datetime.fromisoformat(snapshot['read_at']).utcoffset() != timezone.utc.utcoffset(None)):
             raise ValueError('archive snapshot description')

@@ -434,3 +434,14 @@ utgår från en verklig databasbackup; inga återställda databaser skapas i det
 negativa prov.
 
 `test_subject_access` provar privat SQLite-uttag med syntetiska personer och riktig profilkryptering. Separata personer, äldre gallrad profil, journalundantag, historiskt schema, committad WAL, okänd kolumn/tabell, fil-/storleksgränser och fel nyckel provas. Uttagets källdata ska bestå och terminalfel får inte röja persondata. `test_cluster` provar motsvarande PostgreSQL-uttag med ett faktiskt läskonto och Transit-dekryptering, inklusive samtidiga spärrar, saknad personlänk, kolumnrättigheter, RLS och nekad dekryptering. Inget verkligt rättighetsärende ingår.
+
+
+`test_cluster` provar att generell gallring behåller SignMessage i samtliga fem
+begärandetillstånd, att vanliga inloggningsrader tas bort i begränsade batcher
+och att underhållsrollen saknar direkt raderingsrätt. Migreringsprovet
+reproducerar först schema 4:s gamla borttagning i en tillfällig databas och
+rullar tillbaka den. Därefter provas 4→5, bevarade rader, upprepad migrering,
+identisk funktion i ny/migrerad databas och bibehållna behörigheter.
+`test_audit_archive` provar format 4 med databasversion 5 och nekar felaktiga
+versionskombinationer; det lokala arkivprovet använder syntetiska filer och
+ersätter inte PostgreSQL-körningen.

@@ -158,6 +158,26 @@ class ClusterTests(unittest.TestCase):
         self.sql('maintenance','SELECT purge_expired(7,1827,100)')
         self.assertEqual(1,len(self.sql('auditor','SELECT * FROM activation_proposals')))
 
+    def federation_retention_fixture(self, dsn):
+        now=int(time.time());signed=[]
+        with self.psycopg.connect(dsn) as db:
+            for state in ('PENDING','APPROVED','REJECTED','CANCELLED','CONSUMED'):
+                for message in (None,'SYNTHETIC SIGNATURE TEXT'):
+                    row=(('signature-' if message else 'login-')+state,self.ident,'synthetic-secret',
+                         state,now-10800,now-7200,'123456','synthetic-binding','https://test.invalid',message,'pin')
+                    db.execute('INSERT INTO openid.federation_requests VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)',row)
+                    if message:signed.append(row)
+        return sorted(signed)
+
+    def test_generic_retention_preserves_signature_text_and_bounds_login_cleanup(self):
+        signed=self.federation_retention_fixture(DSN)
+        for expected in (2,2,1,0):
+            self.assertEqual(expected,self.sql('maintenance','SELECT purge_expired(7,1827,2)')[0][0])
+            self.assertEqual(signed,self.sql('backup','SELECT * FROM federation_requests WHERE sign_message IS NOT NULL ORDER BY id'))
+        self.assertEqual(signed,self.sql('backup','SELECT * FROM federation_requests ORDER BY id'))
+        with self.assertRaises(self.psycopg.Error):
+            self.sql('maintenance','DELETE FROM federation_requests')
+
     def test_schema_one_migration_preserves_enrollment_and_enforces_new_boundaries(self):
         from postgres import PostgresWallet,RegistryUnavailable
         from psycopg.conninfo import conninfo_to_dict,make_conninfo
@@ -195,6 +215,29 @@ class ClusterTests(unittest.TestCase):
             self.assertEqual([(4,)],db.execute('SELECT version FROM openid.schema_version').fetchall())
             with self.assertRaises(self.psycopg.Error):db.execute(migration4,prepare=False)
             db.execute('ROLLBACK')
+        with self.assertRaises(RegistryUnavailable):
+            PostgresWallet(dsn('enroller'),self.a.origin,self.enroller.vault,local_test=True)
+        signed=self.federation_retention_fixture(admin_dsn)
+        # Reproduce the old behavior only in this disposable schema-4 database,
+        # then roll it back so the migration must preserve the original rows.
+        with self.psycopg.connect(dsn('maintenance')) as old:
+            self.assertEqual(10,old.execute('SELECT openid.purge_expired(7,1827,100)').fetchone()[0])
+            old.rollback()
+        with self.psycopg.connect(admin_dsn,autocommit=True) as db:
+            migration5=(Path(__file__).parents[1]/'deployment/cluster/migrate-4-to-5.sql').read_text()
+            db.execute(migration5,prepare=False)
+            self.assertEqual([(5,)],db.execute('SELECT version FROM openid.schema_version').fetchall())
+            self.assertEqual(10,db.execute('SELECT count(*) FROM openid.federation_requests').fetchone()[0])
+            with self.assertRaises(self.psycopg.Error):db.execute(migration5,prepare=False)
+            db.execute('ROLLBACK')
+            definition="SELECT pg_get_functiondef('openid.purge_expired(integer,integer,integer)'::regprocedure)"
+            with self.psycopg.connect(DSN) as fresh:
+                self.assertEqual(fresh.execute(definition).fetchone(),db.execute(definition).fetchone())
+            self.assertTrue(db.execute("SELECT has_function_privilege('test_maintenance','openid.purge_expired(integer,integer,integer)','EXECUTE')").fetchone()[0])
+            self.assertFalse(db.execute("SELECT has_function_privilege('test_wallet','openid.purge_expired(integer,integer,integer)','EXECUTE')").fetchone()[0])
+        with self.psycopg.connect(dsn('maintenance')) as maintenance:
+            self.assertEqual(5,maintenance.execute('SELECT openid.purge_expired(7,1827,100)').fetchone()[0])
+            self.assertEqual(signed,maintenance.execute('SELECT * FROM openid.federation_requests ORDER BY id').fetchall())
         migrated=PostgresWallet(dsn('enroller'),self.a.origin,self.enroller.vault,local_test=True)
         self.addCleanup(migrated.close)
         self.assertEqual(4,migrated.biometric_attempt(document()))
@@ -308,6 +351,7 @@ class ClusterTests(unittest.TestCase):
         self.assertTrue(data['enrollment_consents'][0]['recordedAcceptance']['biometricsAccepted'])
         self.assertEqual([receipt],data['consent_retention_runs'][0]['protectedReceipts'])
         self.assertEqual('HANDLER_REVIEW_REQUIRED',value['status'])
+        self.assertEqual(5,value['databaseSchema'])
         for forbidden in ('BOB PRIVATE',other,other_receipt,'SECRET_', 'synthetic-assertion-already-checked-by-native'):
             self.assertNotIn(forbidden,raw.decode())
         self.assertNotIn('payload',data['challenges'][0])

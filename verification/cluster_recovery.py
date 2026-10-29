@@ -79,7 +79,7 @@ def backup(dsn, destination, *, local_test=False, max_bytes=MAX_BYTES):
     try:
         with psycopg.connect(**options(dsn, local_test)) as db:
             db.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
-            if db.info.server_version // 10000 != 18 or db.execute('SELECT version FROM openid.schema_version').fetchall() != [(4,)]:
+            if db.info.server_version // 10000 != 18 or db.execute('SELECT version FROM openid.schema_version').fetchall() != [(5,)]:
                 raise ValueError('unsupported register version')
             for table in TABLES:
                 digest = hashlib.sha256()

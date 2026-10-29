@@ -19,8 +19,8 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 SET ROLE openid_owner;
 SET search_path=openid,pg_catalog;
 ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
-CREATE TABLE schema_version(version integer PRIMARY KEY CHECK(version=4));
-INSERT INTO schema_version VALUES(4);
+CREATE TABLE schema_version(version integer PRIMARY KEY CHECK(version=5));
+INSERT INTO schema_version VALUES(5);
 CREATE TABLE credentials (
  id text PRIMARY KEY CHECK(id ~ '^[a-f0-9]{64}$'), public_key text UNIQUE NOT NULL,
  state text NOT NULL CHECK(state IN ('PENDING_REVIEW','ACTIVE','REVOKED')), created bigint NOT NULL,
@@ -267,8 +267,11 @@ BEGIN
   ('challenges','expires',now_epoch),('requests','expires',now_epoch-3600),
   ('federation_requests','expires',now_epoch-3600)) AS t(table_name,column_name,cutoff)
  LOOP
-  EXECUTE format('DELETE FROM %I WHERE id IN (SELECT id FROM %I WHERE %I<$1 ORDER BY id LIMIT $2 FOR UPDATE SKIP LOCKED)',
-   item.table_name,item.table_name,item.column_name) USING item.cutoff,max_batch;
+  -- Signature text needs its own retention/disclosure decision, as in SQLite.
+  EXECUTE format('DELETE FROM %I WHERE id IN (SELECT id FROM %I WHERE %I<$1%s ORDER BY id LIMIT $2 FOR UPDATE SKIP LOCKED)',
+   item.table_name,item.table_name,item.column_name,
+   CASE WHEN item.table_name='federation_requests' THEN ' AND sign_message IS NULL' ELSE '' END)
+   USING item.cutoff,max_batch;
   GET DIAGNOSTICS n=ROW_COUNT; removed:=removed+n;
  END LOOP;
  DELETE FROM events WHERE id IN (SELECT e.id FROM events e JOIN credentials c ON c.id=e.credential
