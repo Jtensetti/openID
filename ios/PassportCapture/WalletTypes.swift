@@ -69,7 +69,7 @@ enum CredentialState: String, Codable {
         case .pending: return "Registreringen är klar och väntar på aktivering. Du behöver inte läsa passet igen. Hämta status under Mitt ID efter att ditt ID aktiverats."
         case .active: return "Ditt test-ID är aktivt. Starta en inloggning på testsidan och skanna QR-koden."
         case .revoked: return "Ditt ID är spärrat och kan inte användas. Gå till Inställningar för att ta bort den spärrade nyckeln och registrera ett nytt ID."
-        case .expired: return "Ditt ID har gått ut. Gå till Inställningar för att ta bort den gamla nyckeln och registrera ett nytt ID."
+        case .expired: return "Ditt ID har gått ut. Spärra det först under Inställningar. När spärren är bekräftad kan du ta bort den gamla nyckeln och registrera ett nytt ID."
         }
     }
     var title: String {
