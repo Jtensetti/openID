@@ -187,6 +187,7 @@ class ClusterTests(unittest.TestCase):
             admin.execute(sql.SQL('CREATE DATABASE {} TEMPLATE template0').format(sql.Identifier(target)))
         admin_dsn=make_conninfo(**(conninfo_to_dict(DSN)|{'dbname':target}))
         def dsn(role):return make_conninfo(**(conninfo_to_dict(self.dsns[role])|{'dbname':target}))
+        lost=self.enroller.enroll(self.keys[1]['publicKey'],document())['id']
         with self.psycopg.connect(admin_dsn,autocommit=True) as db:
             # This fixture is the exact version-1 schema from c91102b, not generated from version 2.
             db.execute((Path(__file__).parent/'fixtures/schema-v1.sql').read_text(),prepare=False)
@@ -195,6 +196,8 @@ class ClusterTests(unittest.TestCase):
                     rows=source.execute('SELECT * FROM openid.'+table).fetchall()
                     for row in rows:
                         db.execute('INSERT INTO openid.'+table+' VALUES('+','.join(['%s']*len(row))+')',row)
+            # Model a historical profile purge before retained links existed.
+            db.execute('DELETE FROM openid.profiles WHERE credential=%s',(lost,))
             with self.assertRaises(RegistryUnavailable):
                 PostgresWallet(dsn('enroller'),self.a.origin,self.enroller.vault,local_test=True)
             migration=(Path(__file__).parents[1]/'deployment/cluster/migrate-1-to-2.sql').read_text()
@@ -238,6 +241,31 @@ class ClusterTests(unittest.TestCase):
         with self.psycopg.connect(dsn('maintenance')) as maintenance:
             self.assertEqual(5,maintenance.execute('SELECT openid.purge_expired(7,1827,100)').fetchone()[0])
             self.assertEqual(signed,maintenance.execute('SELECT * FROM openid.federation_requests ORDER BY id').fetchall())
+        with self.assertRaises(RegistryUnavailable):
+            PostgresWallet(dsn('enroller'),self.a.origin,self.enroller.vault,local_test=True)
+        with self.psycopg.connect(admin_dsn,autocommit=True) as db:
+            before=db.execute('SELECT * FROM openid.profiles ORDER BY credential').fetchall()
+            migration6=(Path(__file__).parents[1]/'deployment/cluster/migrate-5-to-6.sql').read_text()
+            db.execute(migration6,prepare=False)
+            self.assertEqual([(6,)],db.execute('SELECT version FROM openid.schema_version').fetchall())
+            self.assertEqual(before,db.execute('SELECT * FROM openid.profiles ORDER BY credential').fetchall())
+            links=db.execute('SELECT credential,person FROM openid.credential_persons ORDER BY credential').fetchall()
+            self.assertEqual([(r[0],r[1]) for r in before],links)
+            self.assertNotIn(lost,[r[0] for r in links])
+            with self.assertRaises(self.psycopg.Error):db.execute(migration6,prepare=False)
+            db.execute('ROLLBACK')
+            definition="SELECT pg_get_functiondef('openid.record_profile_person()'::regprocedure)"
+            with self.psycopg.connect(DSN) as fresh:
+                self.assertEqual(fresh.execute(definition).fetchone(),db.execute(definition).fetchone())
+            self.assertTrue(db.execute("SELECT has_table_privilege('test_backup','openid.credential_persons','SELECT')").fetchone()[0])
+            self.assertFalse(db.execute("SELECT has_table_privilege('test_enroller','openid.credential_persons','INSERT,UPDATE,DELETE')").fetchone()[0])
+            # No history is invented for the profile removed before migration.
+            from postgres_subject_access import export_case
+            db.execute(sql.SQL('GRANT CONNECT ON DATABASE {} TO test_backup').format(sql.Identifier(target)))
+            destination=self.root/('legacy-rights-'+secrets.token_hex(8))
+            export_case(dsn('backup'),destination,{'version':1,'reference':'TEST_LEGACY_001',
+                'identityCheck':'TEST_CHECK_001','credentials':[lost]},'f'*40,vault=None,local_test=True)
+            self.assertEqual([lost],json.loads((destination/'case.json').read_bytes())['credentialsWithoutRetainedPersonLink'])
         migrated=PostgresWallet(dsn('enroller'),self.a.origin,self.enroller.vault,local_test=True)
         self.addCleanup(migrated.close)
         self.assertEqual(4,migrated.biometric_attempt(document()))
@@ -351,7 +379,7 @@ class ClusterTests(unittest.TestCase):
         self.assertTrue(data['enrollment_consents'][0]['recordedAcceptance']['biometricsAccepted'])
         self.assertEqual([receipt],data['consent_retention_runs'][0]['protectedReceipts'])
         self.assertEqual('HANDLER_REVIEW_REQUIRED',value['status'])
-        self.assertEqual(5,value['databaseSchema'])
+        self.assertEqual(6,value['databaseSchema'])
         for forbidden in ('BOB PRIVATE',other,other_receipt,'SECRET_', 'synthetic-assertion-already-checked-by-native'):
             self.assertNotIn(forbidden,raw.decode())
         self.assertNotIn('payload',data['challenges'][0])
@@ -367,18 +395,57 @@ class ClusterTests(unittest.TestCase):
                 export_case(self.dsns['backup'],target,case|{'credentials':ids},'f'*40,vault=self.a.vault,local_test=True)
             self.assertFalse(target.exists())
 
-    def test_rights_case_flags_purged_person_link_and_receipt_only_key(self):
-        case,_,_,_=self.rights_fixture()
+    def test_rights_case_retains_purged_person_links_and_flags_receipt_only_key(self):
+        from postgres_subject_access import export_case
+        case,_,other,_=self.rights_fixture()
         with self.psycopg.connect(DSN) as db:
-            db.execute('DELETE FROM openid.profiles WHERE credential=%s',(self.ident,))
+            db.execute('DELETE FROM openid.profiles WHERE credential=ANY(%s)',(case['credentials'],))
         _,_,value=self.rights_export(case)
-        self.assertEqual([self.ident],value['credentialsWithoutRetainedPersonLink'])
+        self.assertEqual([],value['credentialsWithoutRetainedPersonLink'])
+        self.assertEqual([],value['records']['profiles'])
+        self.assertEqual(set(case['credentials']),{r['credential'] for r in value['records']['credential_persons']})
+        for ids in ([self.ident],case['credentials']+[other]):
+            destination=self.root/('purged-rejected-'+secrets.token_hex(8))
+            with self.assertRaises(ValueError):
+                export_case(self.dsns['backup'],destination,case|{'credentials':ids},'f'*40,vault=None,local_test=True)
+            self.assertFalse(destination.exists())
         receipt,_=self.enrollment_receipt(key=3)
         ident=hashlib.sha256(base64.b64decode(self.keys[3]['publicKey'])).hexdigest()
         _,_,value=self.rights_export(case|{'credentials':[ident]},vault=None)
         self.assertEqual([],value['records']['profiles'])
         self.assertEqual([ident],value['credentialsWithoutRetainedPersonLink'])
         self.assertEqual(receipt,value['records']['enrollment_consents'][0]['id'])
+
+    def test_retained_person_binding_rejects_service_writes_and_rolls_back_failed_profile(self):
+        links=self.sql('backup','SELECT * FROM credential_persons ORDER BY credential')
+        for role in self.dsns:
+            self.assertEqual(role=='backup',self.sql(role,
+                "SELECT has_table_privilege(current_user,'openid.credential_persons','SELECT')")[0][0])
+            for statement in ('DELETE FROM credential_persons','UPDATE credential_persons SET person=person',
+                              'INSERT INTO credential_persons VALUES(%s,%s)'):
+                args=(self.ident,links[0][1]) if '%s' in statement else ()
+                with self.subTest(role=role,statement=statement),self.assertRaises(self.psycopg.errors.InsufficientPrivilege):
+                    self.sql(role,statement,args)
+        ident=hashlib.sha256(base64.b64decode(self.keys[4]['publicKey'])).hexdigest()
+        self.sql('enroller','INSERT INTO credentials VALUES(%s,%s,%s,%s,NULL,NULL,%s)',
+            (ident,self.keys[4]['publicKey'],'PENDING_REVIEW',int(time.time()),secrets.token_hex(32)))
+        profile=self.sql('backup','SELECT * FROM profiles WHERE credential=%s',(self.ident,))[0]
+        # The BEFORE trigger runs, then duplicate profile-version validation fails.
+        with self.assertRaises(self.psycopg.errors.UniqueViolation):
+            self.sql('enroller','INSERT INTO profiles VALUES(%s,%s,%s,%s,%s,%s)',(ident,*profile[1:]))
+        self.assertEqual(links,self.sql('backup','SELECT * FROM credential_persons ORDER BY credential'))
+        with self.assertRaises(self.psycopg.Error):
+            with self.psycopg.connect(DSN) as db:
+                db.execute('UPDATE openid.profiles SET credential=%s WHERE credential=%s',(ident,self.ident))
+        with self.assertRaises(self.psycopg.errors.ForeignKeyViolation):
+            with self.psycopg.connect(DSN) as db:
+                db.execute('DELETE FROM openid.credential_persons WHERE credential=%s',(self.ident,))
+        other=self.enroller.enroll(self.keys[1]['publicKey'],document(documentNumber='TEST00002'))['id']
+        other_person=self.sql('backup','SELECT person FROM credential_persons WHERE credential=%s',(other,))[0][0]
+        with self.assertRaises(self.psycopg.Error):
+            with self.psycopg.connect(DSN) as db:
+                db.execute('UPDATE openid.profiles SET person=%s WHERE credential=%s',(other_person,self.ident))
+        self.assertEqual(profile[1],self.sql('backup','SELECT person FROM profiles WHERE credential=%s',(self.ident,))[0][0])
 
     def test_rights_case_snapshot_does_not_mix_concurrent_revocation(self):
         import postgres_subject_access as access
@@ -635,6 +702,7 @@ class ClusterTests(unittest.TestCase):
 
     def test_function_privileges_match_actual_roles(self):
         allowed={'request_activation(text,text,integer)':{'alice','carol'},'approve_activation(text)':{'bob','carol'},
+            'record_profile_person()':set(),
             'revoke_credential(text)':{'revoker'},'revoke_all_after_restore()':{'revoker'},
             'purge_expired(integer,integer,integer)':{'maintenance'},
             'retain_consent_evidence(text,boolean,integer)':{'maintenance'},
@@ -927,6 +995,41 @@ class ClusterTests(unittest.TestCase):
             with self.assertRaises(self.psycopg.Error):
                 attacker.execute('INSERT INTO openid.credentials VALUES(%s,%s,%s,%s,NULL,NULL,%s)',
                     (ident,key,'PENDING_REVIEW',int(time.time()),secrets.token_hex(32)))
+
+    def test_retained_person_links_survive_backup_restore_after_profiles_are_removed(self):
+        from cluster_recovery import backup,restore
+        self.enroller.enroll(self.keys[1]['publicKey'],document())
+        expected=self.sql('backup','SELECT * FROM credential_persons ORDER BY credential')
+        self.assertEqual(2,len(expected))
+        with self.psycopg.connect(DSN) as db:db.execute('DELETE FROM openid.profiles')
+        destination=self.root/('retained-links-'+secrets.token_hex(8));target=self.restore_target()
+        backup(self.dsns['backup'],destination,local_test=True)
+        result=restore(DSN,destination,target,self.a.vault,local_test=True)
+        self.assertEqual(0,result['profilesChecked'])
+        with self.psycopg.connect(self.restored_database(target)) as db:
+            self.assertEqual(expected,db.execute('SELECT * FROM openid.credential_persons ORDER BY credential').fetchall())
+            self.assertEqual(0,db.execute('SELECT count(*) FROM openid.profiles').fetchone()[0])
+            self.assertEqual([('REVOKED',)],db.execute('SELECT DISTINCT state FROM openid.credentials').fetchall())
+
+    def test_backup_missing_person_links_is_rejected_without_silent_reconstruction(self):
+        from cluster_recovery import backup,restore
+        destination=self.root/('missing-links-'+secrets.token_hex(8))
+        backup(self.dsns['backup'],destination,local_test=True)
+        with self.psycopg.connect(DSN) as db,db.cursor() as cursor:
+            with cursor.copy('COPY (SELECT * FROM openid.credential_persons WHERE false) TO STDOUT (FORMAT BINARY)') as copy:
+                empty=b''.join(bytes(chunk) for chunk in copy)
+        (destination/'credential_persons.copy').write_bytes(empty)
+        path=destination/'manifest.json';manifest=json.loads(path.read_bytes())
+        manifest['tables']['credential_persons']={'rows':0,'bytes':len(empty),'sha256':hashlib.sha256(empty).hexdigest()}
+        path.write_text(json.dumps(manifest))
+        target=self.restore_target()
+        with self.assertRaisesRegex(ValueError,'registration links incomplete'):
+            restore(DSN,destination,target,self.a.vault,local_test=True)
+        with self.psycopg.connect(DSN) as db:
+            self.assertFalse(db.execute('SELECT datallowconn FROM pg_database WHERE datname=%s',(target,)).fetchone()[0])
+        with self.psycopg.connect(self.restored_database(target)) as db:
+            for table in ('credentials','profiles','credential_persons'):
+                self.assertEqual(0,db.execute('SELECT count(*) FROM openid.'+table).fetchone()[0])
 
     def test_corrupt_unbounded_or_foreign_backup_is_rejected_before_creation(self):
         from cluster_recovery import backup,restore

@@ -382,3 +382,12 @@ begärandegallringen, även efter avbrott eller utgång. Vanliga inloggningsrade
 har fortsatt begränsad gallring. Kontrollerad migrering krävs; applikation och
 backup nekar äldre schema. Separat bevarande-/raderingspolicy, kopiehantering
 och faktisk införandeverifiering kvarstår. Se registerdriftens schema-5-avsnitt.
+
+GOV-08 / ID-11 / INT-02: PostgreSQL schema 6 behåller en minimal
+`credential_persons`-länk efter profilgallring. Individuella uttag avvisar
+utelämnade kända registreringar även när profilerna har raderats.
+Migrering fyller bara länkar som befintliga profiler styrker; redan förlorad
+historik redovisas som manuell utredning. Länkar följer full backup och
+återställning med spärrkraven, utan att läggas till i journalarkivet.
+Det är fortsatt persondata med behov av beslutad bevaranderegel och
+raderingshantering, inte anonymisering eller formell stängning av rättighetskraven.

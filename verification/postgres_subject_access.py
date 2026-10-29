@@ -23,6 +23,7 @@ COLUMNS = {name: SQLITE_COLUMNS[name] for name in (
     'enrollment_consents', 'credential_consents', 'consent_retention_runs')}
 COLUMNS.update({
     'schema_version': 'version',
+    'credential_persons': 'credential person',
     'challenges': 'id credential payload expires federation',
     'pairwise_subjects': 'person audience subject',
     'activation_proposals': 'id credential profile_version requester decision hours created expires approved_by approved_at',
@@ -50,8 +51,8 @@ def schema(db):
         actual.setdefault(table, set()).add(column)
     if len(found) == 256 or actual != {t: set(c.split()) for t, c in COLUMNS.items()}:
         raise ValueError('unmapped or incomplete register columns')
-    if db.execute('SELECT version FROM openid.schema_version').fetchall() != [(5,)]:
-        raise ValueError('case extraction requires schema 5')
+    if db.execute('SELECT version FROM openid.schema_version').fetchall() != [(6,)]:
+        raise ValueError('case extraction requires schema 6')
     roles = db.execute("""SELECT rolsuper,rolcreatedb,rolcreaterole,rolreplication,rolbypassrls,
         has_schema_privilege(current_user,'openid','CREATE')
         FROM pg_catalog.pg_roles WHERE rolname=current_user""").fetchone()
@@ -105,9 +106,13 @@ def collect(db, case, vault, end):
     if {r['id'] for r in credentials} | {r['subject'] for r in consents} != ids:
         raise ValueError('case key has no retained registration or consent evidence')
     profiles = get('profiles', 'credential', ids)
-    people = {r['person'] for r in profiles}
+    links = get('credential_persons', 'credential', ids)
+    linked = {r['credential']: r['person'] for r in links}
+    if any(linked.get(r['credential']) != r['person'] for r in profiles):
+        raise ValueError('profile person linkage mismatch')
+    people = set(linked.values())
     if len(people) > 1: raise ValueError('case crosses registered persons')
-    related = select(db, 'profiles', 'person', people, budget, end)
+    related = select(db, 'credential_persons', 'person', people, budget, end)
     if {r['credential'] for r in related} - ids:
         raise ValueError('case omits related registrations; review scope')
     persons = get('persons', 'id', people)
@@ -124,7 +129,7 @@ def collect(db, case, vault, end):
     for row in select(db, 'consent_retention_runs', None, (), budget, end):
         entry = exception_entry(row, receipts)
         if entry: data['consent_retention_runs'].append(entry)
-    return data, sorted(ids - {r['credential'] for r in profiles})
+    return data, sorted(ids - set(linked))
 
 
 def export_case(dsn, destination, case, revision, *, vault, local_test=False, max_bytes=MAX_BYTES):
@@ -139,11 +144,11 @@ def export_case(dsn, destination, case, revision, *, vault, local_test=False, ma
         data, unlinked = collect(db, case, vault, end)
         if time.monotonic() >= end: raise TimeoutError('case deadline')
     return write_output(destination, {'format': 1, 'backend': 'postgresql',
-        'case': case, 'sourceRevision': revision, 'databaseSchema': 5,
+        'case': case, 'sourceRevision': revision, 'databaseSchema': 6,
         'readAt': read_at.astimezone(timezone.utc).isoformat(), 'status': 'HANDLER_REVIEW_REQUIRED',
         'records': data, 'credentialsWithoutRetainedPersonLink': unlinked,
         'securityFieldsForSeparateReview': EXCLUDED,
-        'notCovered': ['Other device keys and records with lost person links after profile purge',
+        'notCovered': ['Other device keys and legacy person links lost before schema-6 migration',
             'DynamoDB, SES, queues and mailboxes', 'Relying parties and their sessions/files',
             'Backups, snapshots, archives and earlier exports', 'Device-local records and current process memory',
             'Shared aggregate maintenance journals, unassigned requests/events and global quarantine'],

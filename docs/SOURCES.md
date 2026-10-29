@@ -449,3 +449,12 @@ beskriver gränskontrollerna. [Den ursprungliga `tic`-rapporten](https://lists.g
 och [rapportörens `infocmp -i`-exempel](https://github.com/Cao-Wuhui/CVE-2025-69720)
 ger de genererade gränsprovens indataformer. Proven ersätter inte
 sanitizer-/appbevis eller oberoende sårbarhetsbedömning.
+
+PostgreSQLs dokumentation för version 18 har kontrollerats 2026-10-29 för
+schema-6-länken och COPY-återställningen:
+[triggers](https://www.postgresql.org/docs/18/sql-createtrigger.html),
+[säker SECURITY DEFINER](https://www.postgresql.org/docs/18/sql-createfunction.html#SQL-CREATEFUNCTION-SECURITY)
+och [COPY](https://www.postgresql.org/docs/18/sql-copy.html).
+COPY FROM kör triggers och constraints; triggerns sökväg behöver begränsas
+och PUBLIC:s exekveringsrätt tas bort. Det motiverar transaktions-/behörighets-
+och återställningsproven, inte ett Digg- eller ISO-godkännande.

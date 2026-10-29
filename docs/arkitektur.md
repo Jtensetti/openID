@@ -207,3 +207,12 @@ WebAuthn-ceremoni; `SigningCeremony` kontrollerar spärr och engångsbruk;
 Detta flöde är inte aktiverat i telefonpiloten eller anslutet till SignService.
 Se [prövningsunderlaget](provningsunderlag.md).
 Se [krav](krav.md), [testning](testning.md) och [säkerhet](../SECURITY.md).
+
+PostgreSQL schema 6 separerar också profilinnehåll från en beständig intern
+registrering/person-länk (`credential_persons`). Profilinsättning och länken
+är atomiska; tjänster saknar direkt skrivrätt till länken. Läsande
+rättighetsuttag använder den för att hitta relaterade registreringar efter
+profilgallring. Full backup bevarar länken, medan det avgränsade journalarkivet
+inte tar med den. Äldre kopplingar som redan förlorats kan inte härledas genom
+migreringen. Se [registerdrift](../deployment/cluster/README.md) för behörigheter,
+migrering och återställning. Personlänken behöver egen bevarandeprövning.

@@ -215,10 +215,10 @@ Tjänstekontot kan bara läsa kodstatus och anropa begränsade kontroll- och
 bytesfunktioner; det kan inte läsa verifierarna, återställa en låst kod
 eller ändra begärans text, nivå, motpart eller sessionsbindning.
 
-Nya installationer använder `schema.sql`, version 5. Version 1–4 nekas av den
+Nya installationer använder `schema.sql`, version 6. Version 1–5 nekas av den
 nya applikationen. Stoppa applikationer och underhåll, ta och verifiera en
 backup med den tidigare, låsta kodrevisionen och kör `migrate-1-to-2.sql`
-med databasens kontrollerade ägarkonto och fortsätt med `migrate-2-to-3.sql`, `migrate-3-to-4.sql` och `migrate-4-to-5.sql`. Börja vid
+med databasens kontrollerade ägarkonto och fortsätt med `migrate-2-to-3.sql`, `migrate-3-to-4.sql`, `migrate-4-to-5.sql` och `migrate-5-to-6.sql`. Börja vid
 databasens befintliga version; hoppa inte över steg. Migreringarna är transaktionella och
 nekar annan startversion. Starta därefter den nya revisionen och verifiera
 readiness, rollgränser och försöksspärren innan trafik öppnas.
@@ -379,7 +379,37 @@ ersätter funktionen och höjer versionskravet i samma transaktion, utan att
 radera några rader eller ge tjänstekonton nya rättigheter. Fel startversion,
 upprepad körning eller uteblivet lås stoppar den. Gör efterprov innan underhåll
 eller trafik återöppnas. Ny applikation, backupverktyg och individuellt
-ärendeuttag kräver schema 5. Äldre backuper återläses med sina ursprungliga
+ärendeuttag kräver numera schema 6; personlänksmigreringen nedan ska också köras. Äldre backuper återläses med sina ursprungliga
 verktyg i stängd miljö och migreras innan aktuell revision används.
 Migreringen återskapar inte tidigare raderad text. Arkivlayouten är fortsatt
 format 4, med faktisk databasversion i manifestet.
+
+## Personlänkar efter profilgallring (schema 6)
+
+`credential_persons` behåller endast registreringens och personens interna
+referenser när profilinnehållet tas bort. En trigger registrerar länken i samma
+transaktion som profilen; en felande profilinsättning rullar tillbaka även länken.
+En främmande nyckel och triggerkontroll nekar en profil som byter känd personkoppling.
+Tjänsterna får inte skriva länktabellen direkt. Det befintliga backupkontot får
+läsa den; inga nya konton eller externt anropbara mutationsfunktioner införs.
+
+`migrate-5-to-6.sql` låser registret och fyller länkar från befintliga profiler.
+Den gissar inte vilka personer tidigare gallrade eller oavslutade registreringar
+tillhör. Fel startversion, omkörning eller uteblivet lås nekar migreringen.
+Aktuell app, full backup och rättighetsuttag kräver schema 6. Ta/verifiera först
+backup med tidigare låst verktyg, stoppa skrivare och kör migreringen som
+kontrollerad ägare; gör efterprov före öppning.
+
+Full backup läser länkar före profiler och återställer dem i samma ordning.
+`COPY FROM` aktiverar triggers: ett felaktigt arkiv som utelämnar en befintlig
+profils länk får därför inte tyst kompletteras. Återställningen kontrollerar
+slutantalet länkar, rullar tillbaka data vid fel och lämnar måldatabasen stängd.
+En korrekt kopia bevarar länkar även utan profil och spärrar alla äldre nycklar
+enligt ordinarie återställningsmodell.
+
+Länkar ingår i individuella rättighetsuttag och full backup, men inte i det
+avgränsade journalarkivet. Arkivformatet förblir 4 med faktisk schema-version 6.
+Länken är fortsatt personuppgift, inte anonymisering eller ett beslut om
+obegränsat bevarande. Riktad radering, motiverad bevarandetid och kopiehantering
+behöver genomföras separat; detta inför inte PostgreSQL-stöd för
+SQLite-adapterns byte av personkoppling vid registerkontrollerat passbyte.

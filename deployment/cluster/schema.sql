@@ -19,8 +19,8 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 SET ROLE openid_owner;
 SET search_path=openid,pg_catalog;
 ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
-CREATE TABLE schema_version(version integer PRIMARY KEY CHECK(version=5));
-INSERT INTO schema_version VALUES(5);
+CREATE TABLE schema_version(version integer PRIMARY KEY CHECK(version=6));
+INSERT INTO schema_version VALUES(6);
 CREATE TABLE credentials (
  id text PRIMARY KEY CHECK(id ~ '^[a-f0-9]{64}$'), public_key text UNIQUE NOT NULL,
  state text NOT NULL CHECK(state IN ('PENDING_REVIEW','ACTIVE','REVOKED')), created bigint NOT NULL,
@@ -31,6 +31,30 @@ CREATE TABLE profiles (
  credential text PRIMARY KEY REFERENCES credentials, person text NOT NULL REFERENCES persons,
  version text UNIQUE NOT NULL, sealed text NOT NULL CHECK(length(sealed)<=65536),
  verified bigint NOT NULL, document_expires bigint NOT NULL);
+-- Keep the minimum registration/person link after profile-content retention.
+-- It remains personal data; this is not a decision about its retention period.
+CREATE TABLE credential_persons (
+ credential text PRIMARY KEY REFERENCES credentials, person text NOT NULL REFERENCES persons,
+ UNIQUE(credential,person));
+CREATE INDEX credential_person ON credential_persons(person);
+ALTER TABLE profiles ADD CONSTRAINT profile_person_binding
+ FOREIGN KEY(credential,person) REFERENCES credential_persons(credential,person);
+CREATE FUNCTION record_profile_person() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $$
+BEGIN
+ IF TG_OP='UPDATE' AND ROW(NEW.credential,NEW.person) IS DISTINCT FROM ROW(OLD.credential,OLD.person) THEN
+  RAISE EXCEPTION 'registration person binding is immutable';
+ END IF;
+ INSERT INTO openid.credential_persons(credential,person) VALUES(NEW.credential,NEW.person)
+  ON CONFLICT(credential) DO NOTHING;
+ IF NOT EXISTS(SELECT 1 FROM openid.credential_persons
+               WHERE credential=NEW.credential AND person=NEW.person) THEN
+  RAISE EXCEPTION 'registration person binding mismatch';
+ END IF;
+ RETURN NEW;
+END $$;
+CREATE TRIGGER profile_person_record BEFORE INSERT OR UPDATE OF credential,person ON profiles
+ FOR EACH ROW EXECUTE FUNCTION record_profile_person();
 CREATE TABLE enrollment_policies(digest text PRIMARY KEY CHECK(digest ~ '^[a-f0-9]{64}$'),
  record text NOT NULL CHECK(octet_length(record)<=65536));
 CREATE TABLE enrollment_consents(id text PRIMARY KEY CHECK(id ~ '^[a-f0-9]{64}$'),

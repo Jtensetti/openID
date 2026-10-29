@@ -442,6 +442,19 @@ och att underhållsrollen saknar direkt raderingsrätt. Migreringsprovet
 reproducerar först schema 4:s gamla borttagning i en tillfällig databas och
 rullar tillbaka den. Därefter provas 4→5, bevarade rader, upprepad migrering,
 identisk funktion i ny/migrerad databas och bibehållna behörigheter.
-`test_audit_archive` provar format 4 med databasversion 5 och nekar felaktiga
+`test_audit_archive` provar format 4 med databasversion 5–6 och nekar felaktiga
 versionskombinationer; det lokala arkivprovet använder syntetiska filer och
 ersätter inte PostgreSQL-körningen.
+
+`test_cluster` provar också schema 6: personlänkar består när alla profiler
+för en person tas bort, ett ofullständigt urval eller en annan person nekas,
+och oavslutade/äldre olänkade nycklar redovisas för manuell utredning.
+Rollproven nekar direkt skrivning till länktabellen och direkt anrop av dess
+triggerfunktion. En felande profilinsättning lämnar ingen extra länk.
+Migreringskedjan 1→2→3→4→5→6 behåller befintliga profiler, fyller bara styrkta
+länkar, nekar omkörning och tillverkar inte historik för en tidigare gallrad profil.
+Full COPY-backup/återställning bevarar länkar efter profilradering; en kopia som
+utelämnar en profils länk ska ge rollback och stängd målmiljö.
+Arkivets offlineprov accepterar format 4 med schema 4, 5 eller 6 men nekar andra
+kombinationer. Dessa databasprov kräver riktig PostgreSQL/OpenBao; lokal
+arkivverifiering är inte ett ersättande databasprov.

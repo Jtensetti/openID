@@ -20,7 +20,7 @@ from transit import TransitVault
 
 
 SCHEMA = Path(__file__).parents[1] / 'deployment/cluster/schema.sql'
-TABLES = ('credentials', 'persons', 'profiles', 'requests', 'federation_requests',
+TABLES = ('credentials', 'persons', 'credential_persons', 'profiles', 'requests', 'federation_requests',
           'events', 'challenges', 'pairwise_subjects', 'activation_proposals',
           'operator_events', 'maintenance_runs', 'biometric_attempts', 'security_codes', 'enrollment_quarantine',
           'enrollment_policies', 'enrollment_consents', 'credential_consents', 'consent_retention_runs')
@@ -79,7 +79,7 @@ def backup(dsn, destination, *, local_test=False, max_bytes=MAX_BYTES):
     try:
         with psycopg.connect(**options(dsn, local_test)) as db:
             db.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
-            if db.info.server_version // 10000 != 18 or db.execute('SELECT version FROM openid.schema_version').fetchall() != [(5,)]:
+            if db.info.server_version // 10000 != 18 or db.execute('SELECT version FROM openid.schema_version').fetchall() != [(6,)]:
                 raise ValueError('unsupported register version')
             for table in TABLES:
                 digest = hashlib.sha256()
@@ -185,6 +185,10 @@ def restore(admin_dsn, source, target, vault, *, local_test=False, max_bytes=MAX
                                 copy.write(chunk)
                         if cursor.rowcount != manifest['tables'][table]['rows'] or digest.hexdigest() != manifest['tables'][table]['sha256']:
                             raise ValueError('backup changed during restore')
+                # COPY invokes the profile trigger. Missing link rows must not
+                # be silently reconstructed from a damaged backup's profiles.
+                if db.execute('SELECT count(*) FROM openid.credential_persons').fetchone()[0] != manifest['tables']['credential_persons']['rows']:
+                    raise ValueError('backup registration links incomplete')
                 for table in ('events', 'operator_events', 'consent_retention_runs'):
                     db.execute(sql.SQL("SELECT setval(pg_get_serial_sequence(%s,'id'),coalesce(max(id),1),count(*)>0) FROM openid.{}").format(sql.Identifier(table)), ('openid.' + table,))
                 db.execute('SELECT openid.revoke_all_after_restore()')

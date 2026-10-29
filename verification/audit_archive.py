@@ -67,10 +67,11 @@ def tables(backend, version=1):
 
 
 def postgres_archive_format(schema_version):
-    # Schema 5 changes retention behavior, not the evidence table/field format.
-    if type(schema_version) is not int or schema_version not in (2, 3, 4, 5):
-        raise ValueError('archive requires schema 2, 3, 4 or 5')
-    return {2: 1, 3: 3, 4: 4, 5: 4}[schema_version]
+    # Schemas 5/6 do not change this deliberately limited journal format.
+    # Person links belong in full backups/rights cases, not this audit export.
+    if type(schema_version) is not int or schema_version not in (2, 3, 4, 5, 6):
+        raise ValueError('archive requires schema 2, 3, 4, 5 or 6')
+    return {2: 1, 3: 3, 4: 4, 5: 4, 6: 4}[schema_version]
 
 
 def sqlite_format(db):

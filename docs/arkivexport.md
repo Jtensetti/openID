@@ -40,15 +40,16 @@ formaten samt format 3 och 4 nedan. Äldre verifierare nekar nya format och beh�
 Format 3 används för SQLite med samtyckestabeller och för PostgreSQL schema 3. Det inkluderar även `enrollment_policies`, `enrollment_consents` och `credential_consents`: exakt information, signerade val, enhetsnyckelns digest, serverns mottagningstid, eventuell återkallelsetid och credentialbindning. SQLite behåller gallringsjournalen. Ett delvis tillagt samtyckesschema nekas. Nya exporter kräver uppdaterad verifierare och PostgreSQLs utökade, läsande `archive-access.sql`. Äldre arkivformat kan fortfarande verifieras.
 
 Format 4 lägger till `consent_retention_runs` för SQLite med kvittogallring
-och PostgreSQL schema 4–5. Journalen innehåller körnings-ID, tid, exakt
+och PostgreSQL schema 4–6. Journalen innehåller körnings-ID, tid, exakt
 kanonisk gallringspolicy inklusive skyddslista, SHA-256 och antal per
 samtyckestabell. Policystruktur, tider, räknare och hash kontrolleras även
 offline. Detta bevisar inte att policyn antagits av behörig ansvarig.
 Ett arkiv som anger format 4 men saknar journalen nekas. Arkivformat 1–3 kan fortfarande
 verifieras, men visar bara de uppgifter som faktiskt ingick då.
 
-Schema 5 ändrar gallringsfunktionen men inte arkivets tabeller eller fält.
-Arkivet använder därför format 4 och anger faktisk databasversion 5 i
+Schema 5 ändrar gallringsfunktionen; schema 6 lägger till en personlänk som
+bara ingår i full backup och rättighetsuttag. Journalarkivets tabeller/fält
+ändras inte. Arkivet använder format 4 och anger faktisk databasversion i
 `snapshot.database_schema`. Mottagare/verifierare behöver uppdateras för
 den kombinationen; äldre verifierare nekar den. Arkivet innehåller inte
 själva SignMessage-texten och ersätter inte dess separata bevarandehantering.
