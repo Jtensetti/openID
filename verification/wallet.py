@@ -23,6 +23,8 @@ SIGN_PURPOSE = 'Skriv under och dela namn, födelsedatum enligt passet och passf
 SIGN_MESSAGE_LIMIT = 400
 BIOMETRIC_ATTEMPTS = 5          # analyses, including success and worker errors, per passport ...
 BIOMETRIC_WINDOW = 24 * 3600    # ... within this many seconds
+TEST_BETA_END = 1796079600      # 1 December 2026 00:00 Europe/Stockholm
+TEST_BETA_DECISION = 'AUTO_TESTFLIGHT_202611'
 
 SECURITY_CODE_ATTEMPTS = 5      # wrong security codes in a row before the code is locked for good
 
@@ -77,10 +79,13 @@ def identifier(value):
     return value
 
 class Wallet:
-    def __init__(self, path, origin, clock=time.time, crypto=device_crypto, vault_runner=None, revocation=None, notifications=False):
+    def __init__(self, path, origin, clock=time.time, crypto=device_crypto, vault_runner=None, revocation=None, notifications=False, test_beta=False):
         self.path, self.origin, self.clock, self.crypto = Path(path).absolute(), origin, clock, crypto
         self.revocation = revocation
         self.notifications = notifications
+        if type(test_beta) is not bool or (test_beta and (revocation is None or not notifications)):
+            raise ValueError('test beta requires configured independent revocation')
+        self.test_beta = test_beta
         if self.path.is_symlink() or self.path.parent.is_symlink(): raise ValueError('database symlink')
         self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         if self.path.parent.stat().st_mode & 0o077: raise ValueError('database directory must be private (0700)')
@@ -155,6 +160,14 @@ class Wallet:
             if self.notifications:
                 from notices import install
                 install(db)
+            db.execute('CREATE TABLE IF NOT EXISTS test_beta_policy (id INTEGER PRIMARY KEY CHECK(id=1), ends INTEGER NOT NULL)')
+            db.execute('''CREATE TABLE IF NOT EXISTS test_beta_revocation_codes (
+                credential TEXT PRIMARY KEY REFERENCES credentials(id), sealed TEXT NOT NULL)''')
+            policy = db.execute('SELECT ends FROM test_beta_policy WHERE id=1').fetchone()
+            if policy is not None and (not self.test_beta or policy['ends'] != TEST_BETA_END):
+                raise ValueError('test beta policy cannot be removed or extended')
+            if self.test_beta and policy is None:
+                db.execute('INSERT INTO test_beta_policy VALUES(1,?)', (TEST_BETA_END,))
 
     @contextmanager
     def transaction(self):
@@ -191,6 +204,9 @@ class Wallet:
         return row
 
     def state(self, row):
+        # The campaign revokes every credential, including older/manual ones.
+        # This is checked on every authentication and result consumption, not by a timer.
+        if getattr(self, 'test_beta', False) and self.clock() >= TEST_BETA_END: return 'REVOKED'
         if row['state'] == 'ACTIVE' and row['expires'] <= self.clock(): return 'EXPIRED'
         if row['state'] == 'ACTIVE' and getattr(self, 'revocation', None) is not None:
             remote = self.revocation.request('status', row['id'])
@@ -203,7 +219,9 @@ class Wallet:
         if self.state(row) != 'ACTIVE': raise ValueError('credential inactive')
         return row
 
-    def enroll(self, public_key, document=None):
+    def enroll(self, public_key, document=None, *, activate_test=False):
+        if activate_test and (not self.test_beta or not isinstance(document, VerifiedDocument)):
+            raise ValueError('verified test beta registration required')
         if not isinstance(public_key, str) or len(public_key) > 256: raise ValueError('key size')
         der = base64.b64decode(public_key, validate=True)
         self.crypto('validate', publicKey=public_key)
@@ -239,25 +257,37 @@ class Wallet:
                 if getattr(self, 'document_links_enabled', False):
                     db.execute('INSERT INTO profile_documents VALUES(?,?)', (ident, tag))
             self.event(db, ident, 'CAPTURE_VERIFIED')
-        return {'id': ident, 'state': 'PENDING_REVIEW'}
+            if activate_test:
+                # Only NativeSessions calls this after all passport, chip, device
+                # and biometric checks. No email/contact evidence is invented.
+                token = secrets.token_urlsafe(32)
+                sealed = self.vault.crypt('seal', ident, 'revocation-token-v1', {'token': token})
+                db.execute('INSERT INTO test_beta_revocation_codes VALUES(?,?)', (ident, json.dumps(sealed)))
+                self.revocation.register_test(ident, hashlib.sha256(token.encode('ascii')).hexdigest())
+                self._activate(db, ident, TEST_BETA_DECISION, test_beta=True)
+        return {'id': ident, 'state': 'ACTIVE' if activate_test else 'PENDING_REVIEW'}
 
     def activate(self, ident, decision, hours=24):
         # Operator-only; not exposed over HTTP.
         with self.transaction() as db:
             self._activate(db, ident, decision, hours)
 
-    def _activate(self, db, ident, decision, hours=24):
+    def _activate(self, db, ident, decision, hours=24, *, test_beta=False):
         # Also used within the atomic, registry-checked document replacement transaction.
         if type(self) is not Wallet: raise ValueError('activation requires backend approval')
         if not isinstance(decision, str) or not re.fullmatch('[A-Za-z0-9_-]{8,80}', decision):
             raise ValueError('non-personal decision reference required')
         if type(hours) is not int or not 1 <= hours <= 72: raise ValueError('pilot validity')
+        if test_beta and (not self.test_beta or decision != TEST_BETA_DECISION):
+            raise ValueError('test beta activation policy')
+        self.enrollment_open(db)
         row = self.credential(db, ident)
         if row['state'] != 'PENDING_REVIEW' or self.clock()-row['created'] > 86400:
             raise ValueError('new proofing required')
         if self.revocation is not None: self.revocation.assert_allowed(ident)
-        expires = int(self.clock())+hours*3600
+        expires = TEST_BETA_END if test_beta else int(self.clock())+hours*3600
         profile = db.execute('SELECT * FROM profiles WHERE credential=?', (ident,)).fetchone()
+        if test_beta and profile is None: raise ValueError('verified passport required')
         if profile is not None:
             if db.execute('''SELECT 1 FROM retired_documents r JOIN profile_documents p
                              ON r.document_tag=p.document_tag WHERE p.credential=?''', (ident,)).fetchone():
@@ -270,9 +300,27 @@ class Wallet:
         db.execute('UPDATE credentials SET state=?,expires=?,decision=? WHERE id=?',
             ('ACTIVE', expires, decision, ident))
         self.event(db, ident, 'ACTIVATED')
-        if self.notifications:
+        if self.notifications and not test_beta:
             from notices import activation
             activation(db, ident, int(self.clock()))
+
+    def extend_active_test_ids(self):
+        """Explicit migration: never revive expired, pending or revoked credentials."""
+        if not self.test_beta: raise ValueError('test beta required')
+        count = 0
+        with self.transaction() as db:
+            self.enrollment_open(db)
+            for row in db.execute('SELECT * FROM credentials WHERE state=\'ACTIVE\'').fetchall():
+                if self.state(row) != 'ACTIVE': continue
+                profile = db.execute('SELECT document_expires FROM profiles WHERE credential=?', (row['id'],)).fetchone()
+                if profile is None: raise ValueError('verified passport required')
+                expires = min(TEST_BETA_END, profile['document_expires'])
+                if expires <= self.clock(): continue
+                if expires != row['expires']:
+                    db.execute('UPDATE credentials SET expires=? WHERE id=?', (expires, row['id']))
+                    self.event(db, row['id'], 'TEST_BETA_VALIDITY_CHANGED')
+                    count += 1
+        return count
 
     def revoke(self, ident):
         with self.transaction() as db: self._revoke(db, ident)
@@ -308,6 +356,8 @@ class Wallet:
         return BIOMETRIC_ATTEMPTS-used-1
 
     def enrollment_open(self, db):
+        if getattr(self, 'test_beta', False) and self.clock() >= TEST_BETA_END:
+            raise EnrollmentQuarantine('test beta has ended')
         row = db.execute('SELECT until_epoch FROM enrollment_quarantine WHERE id=1').fetchone()
         if row is not None and row['until_epoch'] > self.clock():
             raise EnrollmentQuarantine('enrollment paused after restore')
@@ -520,6 +570,8 @@ class Wallet:
             code = db.execute('''SELECT r.sealed FROM revocation_codes r JOIN notice_contacts n
                 ON r.credential=n.credential AND r.contact_version=n.contact_version
                 WHERE r.credential=?''', (ident,)).fetchone()
+            if code is None and getattr(self, 'test_beta', False):
+                code = db.execute('SELECT sealed FROM test_beta_revocation_codes WHERE credential=?', (ident,)).fetchone()
             if code is not None:
                 value = self.vault.crypt('open', ident, 'revocation-token-v1', json.loads(code['sealed']))
                 token = value.get('token')

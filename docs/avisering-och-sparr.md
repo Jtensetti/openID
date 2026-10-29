@@ -1,5 +1,10 @@
 # Oberoende avisering och spärr
 
+Det valbara [automatiska TestFlight-testläget](testflight-beta.md) kräver
+ingen e-post och visar aktivering i appen. Det behåller den oberoende
+spärrtjänsten men gör inget anspråk på separat kontaktkontroll eller avisering.
+Nedanstående kontakt- och aviseringskedja gäller standardläget.
+
 Status 2026-10-22: [den separata tjänsten](../deployment/continuity/README.md)
 är kopplad till den publika SQLite-betan. Verifierare, federationsbrygga och
 operatörskommandon använder samma spärrkontroll. Appbygge 106 innehåller

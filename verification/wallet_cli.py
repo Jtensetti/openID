@@ -10,6 +10,7 @@ def main():
     parser.add_argument('--db', required=True, type=Path)
     sub = parser.add_subparsers(dest='operation', required=True)
     sub.add_parser('pending')
+    sub.add_parser('extend-active-test-ids', help='Extend only currently active IDs to the fixed test beta end')
     activate = sub.add_parser('activate')
     activate.add_argument('credential')
     activate.add_argument('--decision', required=True, help='Non-personal review reference, not a name/passport number')
@@ -33,6 +34,8 @@ def main():
                 value = [dict(row) for row in db.execute("SELECT id,state,created FROM credentials WHERE state='PENDING_REVIEW'")]
         elif args.operation == 'activate':
             wallet.activate(args.credential, args.decision, args.hours); value={'state':'ACTIVE','scope':'PRIVATE_PILOT'}
+        elif args.operation == 'extend-active-test-ids':
+            value = {'extended': wallet.extend_active_test_ids(), 'scope': 'PRIVATE_PILOT'}
         elif args.operation == 'revoke':
             wallet.revoke(args.credential); value={'state':'REVOKED'}
         elif args.operation == 'replace-passport':

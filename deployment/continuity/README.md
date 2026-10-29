@@ -3,11 +3,16 @@
 Kopplad till den publika SQLite-betan. Den privata testmiljön migreras inte.
 En befintlig credential migreras aldrig automatiskt av mallen.
 
+Det valbara [TestFlight-testläget](../../docs/testflight-beta.md) aktiverar
+nya test-ID:n utan kontaktadress och inför beständig slutspärr för det valda
+registret. Följ dess införandesteg. Kontaktkontrollen nedan gäller standardläget.
+
 `template.py` genererar CloudFormation för tre Lambda-funktioner, två DynamoDB-
 tabeller, en aviseringskö med felkö och ett HTTP-API i en region.
 Den publika funktionen får endast uppdatera
-spärrtabellen. Den privata funktionen får läsa status och spärra. Ingen funktion
-har rätt att lägga in en aktiveringspost, ta bort poster eller ändra IAM.
+spärrtabellen. Den privata funktionen får läsa status och spärra samt, bara
+i uttryckligt testläge, villkorat registrera en ny testnyckel och kampanjregeln.
+Ingen funktion får ta bort poster eller ändra IAM.
 Operatören registrerar en credential genom villkorad `PutItem` med
 `attribute_not_exists(credential)`. Ett befintligt spärrbeslut får aldrig skrivas
 över. Registrering i spärrtjänsten ersätter inte manuell ID-aktivering.

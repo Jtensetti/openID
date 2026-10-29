@@ -2,6 +2,26 @@ import XCTest
 @testable import PassportCapture
 
 final class WalletSecurityTests: XCTestCase {
+    func testRegistrationAcceptsOnlyBoundTestActivationAndLegacyPending() throws {
+        let id = String(repeating: "a", count: 64)
+        var result: [String: Any] = ["checksPassed": true, "issuanceEnabled": false,
+            "credential": ["id": id, "state": "ACTIVE"], "testBetaEndsAt": 1796079600]
+        XCTAssertEqual(try CredentialState.registrationResult(result, credentialID: id, publicBeta: true), .active)
+        XCTAssertThrowsError(try CredentialState.registrationResult(result, credentialID: id, publicBeta: false))
+        XCTAssertThrowsError(try CredentialState.registrationResult(result, credentialID: String(repeating: "b", count: 64), publicBeta: true))
+        for (field, value) in [("checksPassed", false as Any), ("issuanceEnabled", true as Any), ("testBetaEndsAt", 1796079601 as Any)] {
+            var changed = result; changed[field] = value
+            XCTAssertThrowsError(try CredentialState.registrationResult(changed, credentialID: id, publicBeta: true))
+        }
+        result.removeValue(forKey: "testBetaEndsAt")
+        XCTAssertThrowsError(try CredentialState.registrationResult(result, credentialID: id, publicBeta: true))
+        result["credential"] = ["id": id, "state": "PENDING_REVIEW"]
+        XCTAssertEqual(try CredentialState.registrationResult(result, credentialID: id, publicBeta: false), .pending)
+        for state in ["REVOKED", "EXPIRED", "unexpected"] {
+            result["credential"] = ["id": id, "state": state]
+            XCTAssertThrowsError(try CredentialState.registrationResult(result, credentialID: id, publicBeta: true))
+        }
+    }
     @MainActor func testRefreshFailureDoesNotClaimAnActionWasSent() {
         let message = WalletModel.failureMessage(action: "snapshot", error: URLError(.notConnectedToInternet))
         XCTAssertTrue(message.contains("Hämta status"))

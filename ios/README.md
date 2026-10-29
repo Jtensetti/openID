@@ -30,7 +30,9 @@ open ios/PassportCapture.xcodeproj
    telefonen mot passet igen när säkerhetskontrollen startar. Därefter tas
    tre kamerabilder: framåt och åt båda sidor. Följ ovalen och håll kvar tills
    respektive bild har tagits. NFC-kontrollen kräver kontakt med servern hela tiden.
-6. Uppdatera **Mitt ID**. Registreringen väntar på ett separat
+6. Uppdatera **Mitt ID**. I det valda [TestFlight-testläget](../docs/testflight-beta.md)
+   aktiveras test-ID:t automatiskt efter godkända kontroller, utan e-post.
+   I standardläget väntar registreringen på ett separat
    [aktiveringsbeslut](../verification/README.md#aktivera-och-prova-inloggning).
    Prova sedan
    [QR-inloggningen](../verification/README.md#saml-inloggning-med-passets-identitet).
@@ -60,7 +62,7 @@ I den publika betan kan innehavaren spara en separat spärrkod under
 Inställningar. Koden används av appen eller webbformuläret även när
 verifieraren är stängd. Den måste ha hämtats före avbrottet och sparats utanför
 telefonen för att fungera vid förlust. Privata ID:n migreras inte automatiskt.
-Ny telefon kräver ny registrering och manuell aktivering.
+Ny telefon kräver ny registrering och aktivering enligt det valda testläget.
 Se [avisering och spärr](../docs/avisering-och-sparr.md).
 
 ## Fotografering

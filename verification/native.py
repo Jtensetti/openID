@@ -188,9 +188,14 @@ class NativeSessions:
         passed=min(face_scores)>=0.5 and min(pad_scores)>=0.8 and (pose_passed or not self.pose_enforced)
         credential=None
         if passed and pending['devicePublicKey'] is not None:
-            credential=self.wallet.enroll(pending['devicePublicKey'], document)
+            if getattr(self.wallet, 'test_beta', False) is True:
+                if not self.pose_enforced: raise ValueError('automatic test activation requires pose enforcement')
+                credential=self.wallet.enroll(pending['devicePublicKey'], document, activate_test=True)
+            else:
+                credential=self.wallet.enroll(pending['devicePublicKey'], document)
         # No raw scores to the client: they would be an oracle for tuning a presentation or morphing attack.
         return {'checksPassed':passed,'passiveAuthentication':True,'appAttest':True,
             'chipAuthentication':'SERVER_VERIFIED_CA','poseCheck':'PASSED' if pose_passed else 'FAILED',
             'policy':'EXPERIMENTAL_0.5_FACE_0.8_PAD_POSE_V1','issuanceEnabled':False,'credential':credential,
+            **({'testBetaEndsAt':1796079600} if getattr(self.wallet, 'test_beta', False) is True else {}),
             **({'attemptsRemaining':remaining} if remaining is not None else {})}

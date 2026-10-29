@@ -15,9 +15,13 @@ Testservern för registrering och SAML-/OIDC-legitimering är öppen **dygnet ru
 till och med 30 november 2026**. Den stängs av **1 december 2026 kl. 00.00
 svensk tid**. Se [betans driftplan](deployment/README.md#betans-öppettider).
 Nya TestFlight-installationer ansluts automatiskt utan VPN. Befintliga privata
-serverbindningar behålls. Alla ID:n kräver **manuell aktivering**.
+serverbindningar behålls. Det valbara [TestFlight-testläget](docs/testflight-beta.md)
+aktiverar test-ID:n efter godkända kontroller, utan e-postkrav, och behåller
+dem till betans slut med passets giltighet som övre gräns. Standardläget
+kräver manuell aktivering; införandet kräver uppdaterad server och app.
 
-Den publika betan har en separat spärrtjänst och köad e-postavisering.
+Den publika betan har en separat spärrtjänst. Standardläget har köad
+e-postavisering; det automatiska testläget visar aktiveringen i appen.
 Spärr när testservern är avstängd kräver att innehavaren har hämtat sin spärrkod;
 äldre privata ID:n flyttas inte automatiskt. Se
 [avisering och spärr](docs/avisering-och-sparr.md) för provade funktioner och begränsningar.

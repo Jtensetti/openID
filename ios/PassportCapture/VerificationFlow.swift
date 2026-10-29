@@ -127,12 +127,11 @@ import NFCPassportReader
                         : WalletError.attemptLimit.localizedDescription
                     return
                 }
-                guard result["checksPassed"] as? Bool == true,
-                      let registeredCredential = result["credential"] as? [String: Any],
-                      registeredCredential["id"] as? String == credential.id,
-                      registeredCredential["state"] as? String == "PENDING_REVIEW" else { throw FlowError.rejected }
+                let state = try CredentialState.registrationResult(result, credentialID: credential.id, publicBeta: configuration.isPublicBeta)
                 phase = 3; completed = true; stepTitle = "Kontrollen är klar"
-                status = "Registreringen väntar på aktivering."
+                status = state == .active
+                    ? "Ditt test-ID är aktiverat. Det spärras när betan avslutas den 1 december 2026 kl. 00.00 svensk tid."
+                    : "Registreringen väntar på aktivering."
             } catch is CancellationError { status = "Registreringen avbröts." }
             catch WalletError.cameraImageRejected(let frame) { status = WalletError.cameraImageRejected(frame).localizedDescription }
             catch WalletError.attemptLimit { status = WalletError.attemptLimit.localizedDescription }
