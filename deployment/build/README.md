@@ -122,14 +122,14 @@ Okänt OS, saknad täckning, fel image-ID, verktygsfel och en databas äldre än
 hashar/rättigheter för kända administrativa komponenter och avlästa privilegier
 för en separat nätlös, skrivskyddad CI-process. Bild-ID, revision och insamlarens
 hash följer med. Saknade läsrättigheter och länkar utanför undersökta kodkataloger
-redovisas som ofullständig täckning. Verktygen exekveras inte. Detta är inte
+redovisas som ofullständig täckning. Administrationsverktygen startas inte. Detta är inte
 driftkonfiguration, full kodnåbarhetsanalys, VEX eller ett sårbarhetsundantag.
 Den ordinarie OS-grinden påverkas inte av inventeringens innehåll.
 
 En separat inspektion med `--whole-image` kompletterar den vanliga
 användarens avgränsade kodinventering. Den läser fysiska imagekataloger även
 utanför `/usr`, `/opt` och `/app`, inklusive SSL-länkarnas mål under `/etc`.
-`/dev`, `/proc` och `/sys` undantas. Symlänkar traverseras inte; deras mål
+Filinventeringen undantar `/dev`, `/proc` och `/sys`. Symlänkar traverseras inte; deras mål
 måste finnas i det fysiskt inspekterade omfånget. Läsfel eller mål utanför
 omfånget ger ofullständigt resultat och felkod. Endast filinnehåll för de
 namngivna komponenterna hashas; godtyckliga certifikat-/nyckelfiler läses inte.
@@ -142,6 +142,22 @@ eller driftsvolymer. Inspektörens UID/capabilities följer med och får inte
 tas som tjänstens rättigheter. Pilot, register och util-linux-provinstallation
 sparar egna rapporter även vid fel. Att en komponent saknas i denna
 inventering stänger inte automatiskt ett advisoryfynd.
+
+`sqliteRuntime` beskriver den motor som inspektörens Python faktiskt laddar:
+version, SQLite-käll-ID, byggflaggor samt funktioner och moduler i en ny
+minnesdatabas. Den läser bara metadata och begär ingen tilläggsladdning.
+`/proc/self/maps` anger kända laddade `libsqlite3`-sökvägar; filinventeringen
+hashar även `_sqlite3`-moduler, namngivna SQLite-bibliotek och `bzip2recover`.
+Saknade eller överstora metadataresultat ger ofullständigt bevis; en okänd
+PRAGMA får inte tolkas som en frånvarande funktion. Rootinspektionen nekar
+ofullständigt resultat. Se SQLite om [byggflaggor](https://sqlite.org/pragma.html#pragma_compile_options),
+[SQL-funktioner](https://sqlite.org/pragma.html#pragma_function_list) och
+[virtuella moduler](https://sqlite.org/pragma.html#pragma_module_list).
+
+Detta beskriver en ny anslutning i en CI-process. SQL-funktionslistan räknar
+inte upp alla C-API:er, exempelvis Session Extension. Andra processer,
+statiskt inbäddad/omdöpt kod, senare tilläggsladdning och faktisk nåbarhet
+kräver separat granskning. Ingen sårbarhet stängs genom metadatan.
 
 Pilot- och registerbygget tar bort setuid/setgid från reguljära filer efter
 installationerna. Tjänsterna behöver inga filbaserade byten till root eller

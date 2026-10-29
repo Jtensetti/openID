@@ -9,23 +9,69 @@ import platform
 import re
 import stat
 import subprocess
+import sys
 
 
 COMPONENTS = {'mount', 'umount', 'nsenter', 'infocmp', 'systemd-homed',
-              'systemd-homework', 'homectl', 'systemd-homed.service', 'getfacl', 'setfacl'}
+              'systemd-homework', 'homectl', 'systemd-homed.service', 'getfacl', 'setfacl', 'bzip2recover'}
 EPHEMERAL_ROOTS = ('dev', 'proc', 'sys')
 LIMITS = [
     'Evidence from one isolated CI probe process, not the deployed service or host.',
     'Known filenames and package manifests do not prove absence of renamed, embedded or dynamically supplied code.',
     'Package file lists describe dpkg records, not verified file contents, maintainer-created files or alternatives.',
     'Presence is not exploitability; absence in this inventory is not an advisory decision or risk acceptance.',
-    'No vulnerable program is executed and no scanner finding is removed.',
+    'No exploit inputs or privileged utility operations are executed; no scanner finding is removed.',
+    'SQLite metadata describes a new in-memory connection in this interpreter; other processes, copied libraries and later-loaded extensions require separate review.',
 ]
 
 
 def relevant(path):
     return (path.name in COMPONENTS or path.name.startswith('libacl.so')
+            or path.name.startswith('libsqlite3.so')
+            or (path.name.startswith('_sqlite3.') and path.suffix == '.so')
             or (path.name == 'Tar.pm' and path.parent.name == 'Archive'))
+
+
+def sqlite_runtime_evidence():
+    """Query the installed engine without opening a user database or loading extensions."""
+    report = {'complete': False, 'connection': ':memory:', 'pythonExecutable': sys.executable,
+              'errors': [], 'extensionLoadingRequested': False}
+    try:
+        import sqlite3
+        import _sqlite3
+        report['wrapperPath'] = str(Path(_sqlite3.__file__).resolve(strict=True))
+        with sqlite3.connect(':memory:') as db:
+            version, source_id = db.execute('SELECT sqlite_version(), sqlite_source_id()').fetchone()
+            if version != sqlite3.sqlite_version or not isinstance(source_id, str) or not source_id:
+                raise ValueError('inconsistent SQLite version metadata')
+            report.update(version=version, sourceID=source_id)
+            for key, query, columns in (
+                    ('compileOptions', 'PRAGMA compile_options', ('compile_options',)),
+                    ('modules', 'PRAGMA module_list', ('name',)),
+                    ('functions', 'PRAGMA function_list', ('name','builtin','type','enc','narg','flags'))):
+                cursor = db.execute(query)
+                # SQLite silently accepts unknown pragmas: no description/rows
+                # must not be interpreted as proof that a feature is absent.
+                rows = cursor.fetchmany(2049)
+                if (cursor.description is None or tuple(c[0] for c in cursor.description) != columns
+                        or (key != 'modules' and not rows) or len(rows) > 2048
+                        or any(len(row) != len(columns) for row in rows)):
+                    raise ValueError('missing or unbounded SQLite feature metadata')
+                report[key] = sorted([dict(zip(columns, row)) for row in rows],
+                                     key=lambda row: json.dumps(row, sort_keys=True))
+        report['queriesComplete'] = True
+        paths = set()
+        for line in Path('/proc/self/maps').read_text().splitlines():
+            fields = line.split(maxsplit=5)
+            if len(fields) == 6 and Path(fields[5]).name.startswith('libsqlite3.so'):
+                if fields[5].endswith(' (deleted)'):
+                    raise ValueError('mapped SQLite library no longer has a file')
+                paths.add(fields[5])
+        report['mappedSQLiteLibraries'] = sorted(paths)
+        report['complete'] = True
+    except Exception as error:
+        report['errors'].append(type(error).__name__)
+    return report
 
 
 def within(path, roots):
@@ -145,6 +191,7 @@ def main():
     report['packageFileNotes'] = [line for line in files.splitlines() if line and not line.startswith('/')]
     assert report['packageFilePaths']
     report['filesystem'] = filesystem_evidence(Path('/'), whole_image=args.whole_image)
+    report['sqliteRuntime'] = sqlite_runtime_evidence()
     selected = {'NoNewPrivs', 'CapInh', 'CapPrm', 'CapEff', 'CapBnd', 'CapAmb', 'Seccomp'}
     report['probeProcess'] = {'uid': os.getuid(), 'euid': os.geteuid(), 'gid': os.getgid(),
         'status': {line.split(':', 1)[0]: line.split(':', 1)[1].strip()
@@ -159,7 +206,8 @@ def main():
     else:
         report['fstab'] = {'present': False}
     print(json.dumps(report, indent=2, sort_keys=True))
-    if args.whole_image and not report['filesystem']['completeWithinStatedScope']:
+    if args.whole_image and (not report['filesystem']['completeWithinStatedScope']
+                            or not report['sqliteRuntime']['complete']):
         raise SystemExit(1)
 
 

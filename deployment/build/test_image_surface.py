@@ -5,10 +5,47 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from image_surface import filesystem_evidence
+from image_surface import filesystem_evidence, sqlite_runtime_evidence
 
 
 class SurfaceEvidenceTests(unittest.TestCase):
+    def test_sqlite_metadata_uses_real_engine_and_does_not_request_extension_loading(self):
+        import sqlite3
+        result=sqlite_runtime_evidence()
+        self.assertTrue(result['queriesComplete'])
+        self.assertEqual(sqlite3.sqlite_version,result['version'])
+        self.assertFalse(result['extensionLoadingRequested'])
+        self.assertTrue(result['compileOptions'])
+        self.assertIn('abs',{row['name'] for row in result['functions']})
+        self.assertTrue(all(isinstance(row['name'],str) for row in result['modules']))
+        # /proc is available only in Linux; a local macOS probe is partial.
+        if Path('/proc/self/maps').exists():self.assertTrue(result['complete'])
+        else:self.assertFalse(result['complete'])
+
+    def test_sqlite_silent_unknown_pragma_or_oversize_result_is_not_absence_evidence(self):
+        import sqlite3
+        from unittest.mock import MagicMock
+        for count, description in ((0,None),(2049,(('compile_options',None,None,None,None,None,None),))):
+            connection=MagicMock();version=MagicMock();version.fetchone.return_value=(sqlite3.sqlite_version,'synthetic-source')
+            options=MagicMock();options.description=description;options.fetchmany.return_value=[('SYNTHETIC',)]*count
+            connection.__enter__.return_value.execute.side_effect=[version,options]
+            with self.subTest(count=count),patch('sqlite3.connect',return_value=connection):
+                result=sqlite_runtime_evidence()
+            self.assertFalse(result['complete'])
+            self.assertEqual(['ValueError'],result['errors'])
+            self.assertNotIn('queriesComplete',result)
+
+    def test_sqlite_libraries_and_bzip_recovery_are_physically_hashed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp).resolve();(root/'opt/extra').mkdir(parents=True)
+            names=('bzip2recover','libsqlite3.so.0.8.6','_sqlite3.cpython-314-test.so')
+            for name in names:(root/'opt/extra'/name).write_bytes(b'synthetic component')
+            result=filesystem_evidence(root,whole_image=True)
+            self.assertTrue(result['completeWithinStatedScope'])
+            self.assertEqual({'/opt/extra/'+n for n in names},set(result['knownComponents']))
+            self.assertTrue(all(row['sha256']==hashlib.sha256(b'synthetic component').hexdigest()
+                                for row in result['knownComponents'].values()))
+
     def test_whole_image_inspects_ssl_targets_and_components_outside_code_roots(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
