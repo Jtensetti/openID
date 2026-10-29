@@ -49,6 +49,13 @@ ensamt är inget attestbevis. Se [Apples miljöbeskrivning](https://developer.ap
 
 ## Funktioner
 
+Appen följer iPhones inställning för ljust eller mörkt utseende, även när
+systemet byter automatiskt. Bakgrunder, text, formulärpaneler, kontrollkod,
+knappar och felmeddelanden har färger för båda lägena. ID-kortet och
+kamerans överlägg behåller mörk bakgrund med ljus text. `PaletteTests`
+kontrollerar färgbyte och minst 4,5:1 kontrast för de angivna textparen;
+detta är inte en fullständig tillgänglighetsgranskning.
+
 | Vy | Funktion |
 |---|---|
 | Mitt ID | Namn, passfoto, MRZ-födelsedatum och aktuell serverstatus. Status rensas vid låsning och nätverksfel. |
@@ -56,7 +63,7 @@ ensamt är inget attestbevis. Se [Apples miljöbeskrivning](https://developer.ap
 | Legitimera | Tjänst, syfte, kontrollkod och giltighet visas före godkännande eller nekande. Ny lokal användarverifiering krävs. |
 | QR och länkar | Endast `openid://request/<64 hextecken>`. Begäran hämtas från den konfigurerade servern. |
 | Aktivitet | De 50 senaste serverhändelserna. |
-| Inställningar | Anslutning, applås, permanent spärr och borttagning av spärrad/utgången nyckel. |
+| Inställningar | Anslutning, applås, permanent spärr och borttagning av en bekräftat spärrad nyckel. |
 
 I den publika betan kan innehavaren spara en separat spärrkod under
 Inställningar. Koden används av appen eller webbformuläret även när
@@ -64,6 +71,28 @@ verifieraren är stängd. Den måste ha hämtats före avbrottet och sparats uta
 telefonen för att fungera vid förlust. Privata ID:n migreras inte automatiskt.
 Ny telefon kräver ny registrering och aktivering enligt det valda testläget.
 Se [avisering och spärr](../docs/avisering-och-sparr.md).
+
+### Avbruten registrering och ny nyckel
+
+| Lokalt och verifierat tillstånd | Tillåten åtgärd |
+|---|---|
+| Ingen nyckel | Skapa en ny enhetsnyckel och starta passregistreringen. |
+| Nyckel men ingen hämtad serverstatus, även efter nätverksfel | Fortsätt registreringen med samma nyckel. Ingen automatisk radering eller aktivering sker. Servern nekar återregistrering av en redan registrerad nyckel. |
+| Väntande, aktivt eller utgånget ID | Behåll nyckeln och spärrkoden. Spärra först; utgång räcker inte för borttagning. |
+| Spärrat ID, bekräftat för rätt nyckel av verifieraren eller den separata spärrtjänsten | Ta bort den lokala nyckeln och påbörja ny pass- och ansiktskontroll. |
+
+Innehavaren initierar spärren efter lokal användarverifiering. Serverns
+spärrbeslut kan inte skapas av borttagningsknappen. Den separata tjänstens
+bekräftelse gäller under den aktuella upplåsningen även om verifieraren är
+otillgänglig. Efter låsning hämtas status eller bekräftas spärren igen.
+Om Keychain inte kan radera nyckeln behålls spärrkoden och appens tillstånd.
+Ett misslyckat statusanrop får inte dölja fortsatt registrering.
+
+`WalletRecoveryTests` provar återförsök med samma nyckel, förbud mot borttagning
+före spärr, låsning, fel vid nyckelradering och ny nyckel efter bekräftad spärr.
+XCUITest öppnar det riktiga passformuläret efter simulerat statusfel och provar
+borttagningsflödet. Testerna använder syntetisk lagring och ersätter inte
+fysiska prov av Secure Enclave, NFC, biometri och serverns aktivering.
 
 ## Fotografering
 

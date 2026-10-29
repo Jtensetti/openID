@@ -2,6 +2,36 @@ import XCTest
 
 final class WalletUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
+    func testFailedStatusStillOffersTheActualRegistrationForm() {
+        let app = XCUIApplication(); app.launchArguments = ["--recovery-preview"]; app.launch()
+        let resume = app.buttons["home.resumeRegistration"]
+        XCTAssertTrue(resume.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["home.statusMessage"].exists)
+        for _ in 0..<5 { if resume.isHittable { break }; app.swipeUp() }
+        resume.tap()
+        XCTAssertTrue(app.textFields["enrollment.number"].waitForExistence(timeout: 5))
+        app.buttons["Stäng"].firstMatch.tap()
+        XCTAssertTrue(resume.waitForExistence(timeout: 5))
+    }
+    func testExpiredKeyMustBeRevokedBeforeRemoval() {
+        let app = XCUIApplication(); app.launchArguments = ["--recovery-preview", "--EXPIRED"]; app.launch()
+        app.buttons["Inställningar"].tap()
+        for _ in 0..<3 { app.swipeUp() }
+        XCTAssertTrue(app.buttons["Spärra mitt ID"].exists)
+        XCTAssertFalse(app.buttons["settings.forgetCredential"].exists)
+        XCTAssertFalse(app.buttons["home.resumeRegistration"].exists)
+    }
+    func testConfirmedRevocationAndRemovalReturnToRegistration() {
+        let app = XCUIApplication(); app.launchArguments = ["--recovery-preview", "--confirmed-revocation"]; app.launch()
+        app.buttons["Inställningar"].tap()
+        let forget = app.buttons["settings.forgetCredential"]
+        for _ in 0..<5 { if forget.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(forget.isHittable); forget.tap()
+        app.buttons["Ta bort nyckeln"].tap()
+        XCTAssertTrue(app.buttons["home.register"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["home.register"].isEnabled)
+        XCTAssertFalse(app.staticTexts["home.statusMessage"].exists)
+    }
     func testRejectIsVisibleWithoutScrollingForEveryRequestKind() {
         for variant in [[], ["--pin"], ["--sign"], ["--sign", "--pin"], ["--sign", "--pin", "--largest-text"]] as [[String]] {
             let app = XCUIApplication(); app.launchArguments = ["--approval-preview"] + variant; app.launch()

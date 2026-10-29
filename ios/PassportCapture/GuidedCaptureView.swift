@@ -61,7 +61,7 @@ struct CaptureGuideView<Preview: View>: View {
                 }.foregroundStyle(.white).padding(.top, 20)
             }
             .aspectRatio(9.0 / 16, contentMode: .fit).frame(maxWidth: 260)
-            .background(Palette.ink).clipShape(RoundedRectangle(cornerRadius: 28))
+            .background(Palette.cardStart).clipShape(RoundedRectangle(cornerRadius: 28))
             .accessibilityElement(children: .contain).accessibilityLabel("Fotografering")
             .accessibilityValue("\(guidance.completed) av 3 bilder tagna").accessibilityIdentifier("capture.ring")
             if textSize.isAccessibilitySize {

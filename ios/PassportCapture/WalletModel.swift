@@ -17,7 +17,8 @@ import LocalAuthentication
     @Published private(set) var securityCodeMessage: String?
     @Published var registrationPresented = false
     @Published var settingsPresented = false
-    private let vault = SecureVault()
+    private let vault: any CredentialVault
+    @Published private(set) var confirmedRevocationID: String?
     private var context: LAContext?
     private var operationContext: LAContext?
     private var task: Task<Void, Never>?
@@ -26,8 +27,24 @@ import LocalAuthentication
     private var pendingLink: String?
     let verification = VerificationFlow()
 
+    init(vault: any CredentialVault = SecureVault()) { self.vault = vault }
+
+    var credentialState: CredentialState? {
+        if let credential, confirmedRevocationID == credential.id { return .revoked }
+        return snapshot?.state
+    }
+    var canResumeRegistration: Bool {
+        unlocked && configuration != nil && !busy && !verification.busy
+            && snapshot == nil && confirmedRevocationID == nil
+    }
+    var canForgetCredential: Bool {
+        guard unlocked, !busy, !verification.busy, let credential else { return false }
+        return confirmedRevocationID == credential.id
+            || (snapshot?.credentialId == credential.id && snapshot?.state == .revoked)
+    }
+
     var canRevoke: Bool {
-        guard unlocked, credential != nil else { return false }
+        guard unlocked, credential != nil, !canForgetCredential else { return false }
         if !busy { return true }
         return configuration?.isPublicBeta == true && revocationProof != nil
             && Self.canInterruptForRevocation(activeAction)
@@ -72,7 +89,7 @@ import LocalAuthentication
     func lock() {
         generation = UUID(); task?.cancel(); context?.invalidate(); context = nil
         operationContext?.invalidate(); operationContext = nil
-        verification.cancel(); snapshot = nil; credential = nil; configuration = nil; revocationProof = nil
+        verification.cancel(); snapshot = nil; credential = nil; configuration = nil; revocationProof = nil; confirmedRevocationID = nil
         focusedRequest = nil; registrationPresented = false; settingsPresented = false
         unlocked = false; busy = false; activeAction = nil; error = nil; statusMessage = nil; decisionMessage = nil
         securityCodeMessage = nil; pendingLink = nil
@@ -85,13 +102,14 @@ import LocalAuthentication
         try vault.save(value, account: "configuration"); configuration = value; snapshot = nil
     }
     func beginRegistration() {
-        guard unlocked, let configuration, !busy else { error = "Lås upp och anslut till din server först."; return }
-        guard snapshot == nil else { error = "Det finns redan en registrering. Hantera den innan du börjar om."; return }
+        guard unlocked, let configuration, !busy, !verification.busy else { error = "Lås upp och anslut till din server först."; return }
+        guard canResumeRegistration else { error = "Det finns redan en registrering. Spärra den och ta sedan bort den gamla nyckeln innan du börjar om."; return }
         do {
             guard let context else { throw WalletError.keyUnavailable }
             if credential == nil { credential = try vault.createCredential(context: context) }
             guard let credential else { throw WalletError.keyUnavailable }
             verification.prepare(configuration: configuration, credential: credential)
+            statusMessage = nil; error = nil
             registrationPresented = true
         } catch { self.error = error.localizedDescription }
     }
@@ -143,8 +161,9 @@ import LocalAuthentication
                 let (_, status) = try await WalletHTTP().send(request, limit: 4096)
                 try Task.checkCancellation(); guard generation == epoch else { return }
                 guard status == 200 else { throw WalletError.unavailable }
+                confirmedRevocationID = credential.id
                 snapshot = nil; focusedRequest = nil
-                statusMessage = "Ditt ID är spärrat permanent. Registrera ett nytt ID om du vill använda openID igen."
+                statusMessage = "Ditt ID är spärrat permanent. Under Inställningar kan du nu ta bort den spärrade nyckeln och sedan registrera ett nytt ID med passet."
             } catch {
                 if generation == epoch, !Self.wasCancelled(error) {
                     self.error = "Spärren kunde inte bekräftas. Kontrollera internetanslutningen och försök igen. Att radera appen spärrar inte ditt ID."
@@ -154,6 +173,9 @@ import LocalAuthentication
     }
     private func perform(_ action: String, request: WalletRequest? = nil, inspectID: String? = nil, extra: [String: String] = [:]) {
         guard unlocked, !busy, let configuration, let credential else { return }
+        // A permanent revocation confirmed by the separate authority must not
+        // be replaced by an older verifier response, including EXPIRED.
+        guard confirmedRevocationID != credential.id else { return }
         if let request, request.expired {
             focusedRequest = nil
             error = "QR-koden har gått ut. Starta en ny inloggning på testsidan och skanna den nya koden."
@@ -259,8 +281,28 @@ import LocalAuthentication
         if unlocked { refresh() }
     }
     func forgetRevokedCredential() throws {
-        guard unlocked, !busy, snapshot?.state == .revoked || snapshot?.state == .expired else { throw WalletError.rejected }
-        if let credential { try vault.remove("revocation-" + credential.id) }
-        try vault.remove("credential"); credential = nil; snapshot = nil; revocationProof = nil
+        guard canForgetCredential, let old = credential else { throw WalletError.rejected }
+        // Keep the revocation proof if deleting the key fails. A leftover proof
+        // after successful removal can only revoke an already revoked ID.
+        try vault.remove("credential")
+        verification.cancel(); credential = nil; snapshot = nil; revocationProof = nil; confirmedRevocationID = nil
+        focusedRequest = nil; pendingLink = nil; statusMessage = nil; decisionMessage = nil; error = nil
+        securityCodeMessage = nil; selectedTab = 0
+        try? vault.remove("revocation-" + old.id)
     }
+
+    #if DEBUG && targetEnvironment(simulator)
+    /// Synthetic UI/unit-test state only; never compiled into device builds.
+    func configureRecoveryPreview(credential: LocalCredential?, state: CredentialState? = nil,
+                                  statusError: Error? = nil, confirmedRevocation: Bool = false) {
+        configuration = try! ServerConfiguration(origin: "https://synthetic.invalid", pairing: String(repeating: "x", count: 43))
+        self.credential = credential; unlocked = true; context = LAContext()
+        if let credential, let state {
+            snapshot = WalletSnapshot(credentialId: credential.id, state: state, createdAt: 1, expiresAt: nil,
+                requests: [], events: [], environment: "PRIVATE_PILOT", legalIdentityIssued: false)
+        }
+        statusMessage = statusError.map { Self.failureMessage(action: "snapshot", error: $0) }
+        confirmedRevocationID = confirmedRevocation ? credential?.id : nil
+    }
+    #endif
 }

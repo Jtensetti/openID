@@ -1,5 +1,30 @@
 #if DEBUG && targetEnvironment(simulator)
 import SwiftUI
+import LocalAuthentication
+
+struct RecoveryPreviewFixture: View {
+    @StateObject private var model: WalletModel
+    init() {
+        let model = WalletModel(vault: RecoveryPreviewVault())
+        let arguments = ProcessInfo.processInfo.arguments
+        let state = CredentialState.allRecoveryPreviewStates.first { arguments.contains("--" + $0.rawValue) }
+        model.configureRecoveryPreview(credential: LocalCredential(id: String(repeating: "a", count: 64), wrappedKey: Data(), publicKey: Data()),
+            state: state, statusError: state == nil ? URLError(.notConnectedToInternet) : nil,
+            confirmedRevocation: arguments.contains("--confirmed-revocation"))
+        _model = StateObject(wrappedValue: model)
+    }
+    var body: some View { WalletRootView().environmentObject(model) }
+}
+private extension CredentialState {
+    static let allRecoveryPreviewStates: [CredentialState] = [.pending, .active, .expired, .revoked]
+}
+private struct RecoveryPreviewVault: CredentialVault {
+    func read<T: Decodable>(_ account: String, as type: T.Type) throws -> T? { nil }
+    func save<T: Encodable>(_ value: T, account: String) throws { throw WalletError.keyUnavailable }
+    func remove(_ account: String) throws {}
+    func createCredential(context: LAContext) throws -> LocalCredential { throw WalletError.keyUnavailable }
+    func sign(_ bytes: Data, credential: LocalCredential, context: LAContext) throws -> Data { throw WalletError.keyUnavailable }
+}
 
 struct CapturePreviewFixture: View {
     @State private var guidance = CaptureGuidance(hint: CapturePose.front.title)
@@ -8,7 +33,7 @@ struct CapturePreviewFixture: View {
             ScrollView {
                 CaptureGuideView(guidance: guidance) {
                     ZStack {
-                        LinearGradient(colors: [Palette.ink, Palette.muted], startPoint: .topLeading, endPoint: .bottomTrailing)
+                        LinearGradient(colors: [Palette.cardStart, Palette.cardEnd], startPoint: .topLeading, endPoint: .bottomTrailing)
                         Image(systemName: "person.fill").resizable().scaledToFit().foregroundStyle(.white.opacity(0.45))
                             .frame(width: 180).offset(y: 36)
                     }
