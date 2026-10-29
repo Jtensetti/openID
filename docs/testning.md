@@ -27,6 +27,13 @@ på Ubuntu 24.04 används utan att starta eller ändra värdens systemtjänst.
 
 ## Aktuell verifiering
 
+`test_recovery_operations` provar också att SQLite-backup och återläsning
+nekar delade och länkade målföräldrar. Ett syntetiskt katalogbyte vid
+databasöppningen visar varför enbart läge 0700 på den nya katalogen inte
+räcker. Befintliga prov täcker läsläge, committad WAL, kontinuitetsmarkör
+och städning efter fel. Detta verifierar inte värdens överordnade kataloger
+eller dess filsystems-ACL.
+
 `test_image_bundle` avvisar kodmonteringar även när de är skrivskyddade,
 tmpfs över kod, extra configs/secrets/volumes_from, saknade datamonteringar
 och skrivbar rot/konfiguration. Samma gräns kontrolleras mot sammanslagen

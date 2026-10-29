@@ -118,6 +118,7 @@ licenser, uppdateringar och omprov. Låsta nyckelringar upptäcker inte
 senare spärrar. Före införande återstår bland annat komplett relevans-
 och kompatibilitetsbedömning, godkända nya OS-resultat och oberoende
 releasebeslut. Den separata paketövergången och app-/protokollproven måste
-först ge verkliga CI-resultat.
+bindas till exakt provad revision; tidigare resultat för en separat
+provimage styrker inte en senare sammansatt leverans.
 En ny biblioteksversion gör inte gamla anrop som följer länkar säkra.
 [Primärkällor](../../../docs/SOURCES.md#acl-kandidat-2026-10-28).

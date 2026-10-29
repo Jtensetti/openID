@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import recovery
 import notices
@@ -136,6 +137,45 @@ class RecoveryOperationsTests(unittest.TestCase):
         sentinel = destination/'retain'; sentinel.write_bytes(b'retain')
         with self.assertRaises(ValueError): backup_database(self.source, destination)
         self.assertEqual(b'retain', sentinel.read_bytes())
+
+    def test_backup_rejects_shared_parent_before_directory_replacement(self):
+        shared = self.root/'shared'; shared.mkdir(); shared.chmod(0o777)
+        destination = shared/'snapshot'
+        connect = sqlite3.connect
+        replaced = False
+
+        def replace_then_connect(*args, **kwargs):
+            nonlocal replaced
+            if args[0] == self.source.as_uri()+'?mode=ro':
+                # Simulate another principal with rename access to the parent.
+                destination.rename(shared/'moved')
+                destination.mkdir(); destination.chmod(0o777)
+                replaced = True
+            return connect(*args, **kwargs)
+
+        with patch('recovery.sqlite3.connect', side_effect=replace_then_connect):
+            with self.assertRaisesRegex(ValueError, 'private parent'):
+                backup_database(self.source, destination)
+        self.assertFalse(replaced)
+        self.assertFalse(destination.exists())
+        self.assertFalse((shared/'moved').exists())
+
+    def test_backup_and_restore_reject_nonprivate_or_symlink_parent(self):
+        source = backup_database(self.source, self.root/'snapshot')
+        binding = self.root/'binding.json'; anchor = bind_backup(source, None, None, binding)
+        for mode in (0o711, 0o755, 0o770, 0o777, None):
+            parent = self.root/('parent-'+str(mode))
+            if mode is None:
+                parent.symlink_to(self.root, target_is_directory=True)
+            else:
+                parent.mkdir(); parent.chmod(mode)
+            for operation in (backup_database, restore):
+                destination = parent/(operation.__name__+'-rejected')
+                kwargs = {'binding': binding, 'binding_sha256': anchor} if operation is restore else {}
+                with self.subTest(mode=mode, operation=operation.__name__):
+                    with self.assertRaisesRegex(ValueError, 'private parent'):
+                        operation(source, destination, **kwargs)
+                    self.assertFalse(destination.exists())
 
 
 if __name__ == '__main__': unittest.main()

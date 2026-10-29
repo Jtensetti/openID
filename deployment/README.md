@@ -176,6 +176,12 @@ Mätresultat hör till respektive maskin och revision och redovisas i PR:n.
 
 ## Säkerhetskopiering och återställning
 
+Kör som registerkatalogens ägare och använd en separat privat lagringsplats.
+Backupens och återställningens målkatalog ska ligga direkt under en befintlig
+katalog som ägs av användaren, har läge 0700 och inte är en symbolisk länk.
+Verktyget avvisar delade målföräldrar innan en kopia skapas. Överordnade
+kataloger och filsystemets åtkomstregler behöver också skyddas av operatören.
+
 ```sh
 cd verification
 .venv/bin/python recovery.py backup --db /privat/data/wallet.sqlite \

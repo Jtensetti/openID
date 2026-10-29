@@ -17,6 +17,8 @@ from recovery_binding import (FORMAT, digest, private_parent, read_binding,
 
 def private_directory(path):
     path = Path(path).absolute()
+    # Mode 0700 on the new directory does not prevent its parent from renaming it.
+    private_parent(path)
     if path.exists() or path.is_symlink(): raise ValueError('Destination must not exist')
     path.mkdir(mode=0o700)
     return path
