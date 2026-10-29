@@ -59,10 +59,12 @@ installerade appar eller servern.
 5. Prova fysisk registrering, status/spärrkod, SAML, OIDC, nekande och spärr.
    Publicera uppdaterad hjälp och TestFlight-text när beteendet är tillgängligt.
 
-Det äldre privata VPN-registret har egen konfiguration och migreras inte
-automatiskt. Även det måste få verifierad slutspärr innan alla tidigare
-pilotregister kan redovisas som täckta. En avstängd server är inte ensam
-ett beständigt spärrbeslut. Ingen persondata gallras av denna ändring.
+Det äldre privata VPN-registret har egen konfiguration. Installera samma
+wallet-kod där och kör `wallet_cli.py --db /srv/openid/data/wallet.sqlite
+set-test-beta-deadline`. Starta därefter om verifierare och brygga så att alla
+processer läser den beständiga slutspärren. Detta aktiverar inte automatisk
+utgivning och flyttar inte persondata. Bekräfta båda registrens konfiguration
+före driftsättning. En avstängd server är inte ensam ett spärrbeslut.
 
 ## Prov
 

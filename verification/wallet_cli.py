@@ -11,6 +11,7 @@ def main():
     sub = parser.add_subparsers(dest='operation', required=True)
     sub.add_parser('pending')
     sub.add_parser('extend-active-test-ids', help='Extend only currently active IDs to the fixed test beta end')
+    sub.add_parser('set-test-beta-deadline', help='Also end a private pilot on 1 December 2026, without auto-activation')
     activate = sub.add_parser('activate')
     activate.add_argument('credential')
     activate.add_argument('--decision', required=True, help='Non-personal review reference, not a name/passport number')
@@ -36,6 +37,8 @@ def main():
             wallet.activate(args.credential, args.decision, args.hours); value={'state':'ACTIVE','scope':'PRIVATE_PILOT'}
         elif args.operation == 'extend-active-test-ids':
             value = {'extended': wallet.extend_active_test_ids(), 'scope': 'PRIVATE_PILOT'}
+        elif args.operation == 'set-test-beta-deadline':
+            value = {'betaEndsAt': wallet.set_test_beta_deadline(), 'automaticActivation': wallet.test_beta}
         elif args.operation == 'revoke':
             wallet.revoke(args.credential); value={'state':'REVOKED'}
         elif args.operation == 'replace-passport':

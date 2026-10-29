@@ -152,6 +152,21 @@ class TestBetaTests(unittest.TestCase):
         with recovered.transaction() as db: self.assertEqual('REVOKED', recovered.snapshot(db, ident)['state'])
         with self.assertRaises(ValueError): recovered.enrollment_available()
 
+    def test_private_pilot_also_ends_without_enabling_automatic_activation(self):
+        path = Path(self.tmp.name)/'private.sqlite'
+        wallet = Wallet(path, 'private', clock=lambda:self.time)
+        ident = wallet.enroll(self.keys[0]['publicKey'], self.document)['id']
+        wallet.activate(ident, 'REVIEW-private-fixture')
+        self.assertEqual(TEST_BETA_END, wallet.set_test_beta_deadline())
+        wallet = Wallet(path, 'private', clock=lambda:self.time)
+        self.assertFalse(wallet.test_beta)
+        self.time = TEST_BETA_END
+        with wallet.transaction() as db: self.assertEqual('REVOKED', wallet.snapshot(db, ident)['state'])
+        with self.assertRaises(ValueError): wallet.enrollment_available()
+        with self.assertRaises(ValueError): wallet.start_request(ident)
+        with wallet.transaction() as db: db.execute('UPDATE test_beta_deadline SET ends=ends+1')
+        with self.assertRaises(ValueError): Wallet(path, 'private')
+
     def test_native_gates_biometric_thresholds_pose_and_replay(self):
         attest = Mock(); attest.check.side_effect = lambda op, **kw: {'publicKey':'test'} if op == 'attestation' else {'signCount':kw['signCount']+1}
         matcher = pose_matcher(Mock()); matcher.compare.return_value = .95

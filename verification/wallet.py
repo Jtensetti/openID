@@ -161,6 +161,7 @@ class Wallet:
                 from notices import install
                 install(db)
             db.execute('CREATE TABLE IF NOT EXISTS test_beta_policy (id INTEGER PRIMARY KEY CHECK(id=1), ends INTEGER NOT NULL)')
+            db.execute('CREATE TABLE IF NOT EXISTS test_beta_deadline (id INTEGER PRIMARY KEY CHECK(id=1), ends INTEGER NOT NULL)')
             db.execute('''CREATE TABLE IF NOT EXISTS test_beta_revocation_codes (
                 credential TEXT PRIMARY KEY REFERENCES credentials(id), sealed TEXT NOT NULL)''')
             policy = db.execute('SELECT ends FROM test_beta_policy WHERE id=1').fetchone()
@@ -168,6 +169,10 @@ class Wallet:
                 raise ValueError('test beta policy cannot be removed or extended')
             if self.test_beta and policy is None:
                 db.execute('INSERT INTO test_beta_policy VALUES(1,?)', (TEST_BETA_END,))
+            deadline = db.execute('SELECT ends FROM test_beta_deadline WHERE id=1').fetchone()
+            if deadline is not None and deadline['ends'] != TEST_BETA_END:
+                raise ValueError('test beta deadline cannot be extended')
+            self.test_beta_deadline = self.test_beta or deadline is not None
 
     @contextmanager
     def transaction(self):
@@ -206,7 +211,7 @@ class Wallet:
     def state(self, row):
         # The campaign revokes every credential, including older/manual ones.
         # This is checked on every authentication and result consumption, not by a timer.
-        if getattr(self, 'test_beta', False) and self.clock() >= TEST_BETA_END: return 'REVOKED'
+        if getattr(self, 'test_beta_deadline', False) and self.clock() >= TEST_BETA_END: return 'REVOKED'
         if row['state'] == 'ACTIVE' and row['expires'] <= self.clock(): return 'EXPIRED'
         if row['state'] == 'ACTIVE' and getattr(self, 'revocation', None) is not None:
             remote = self.revocation.request('status', row['id'])
@@ -322,6 +327,16 @@ class Wallet:
                     count += 1
         return count
 
+    def set_test_beta_deadline(self):
+        """End an older private pilot too, without enabling automatic issuance."""
+        with self.transaction() as db:
+            deadline = db.execute('SELECT ends FROM test_beta_deadline WHERE id=1').fetchone()
+            if deadline is not None and deadline['ends'] != TEST_BETA_END:
+                raise ValueError('test beta deadline cannot be extended')
+            db.execute('INSERT OR IGNORE INTO test_beta_deadline VALUES(1,?)', (TEST_BETA_END,))
+        self.test_beta_deadline = True
+        return TEST_BETA_END
+
     def revoke(self, ident):
         with self.transaction() as db: self._revoke(db, ident)
 
@@ -356,7 +371,7 @@ class Wallet:
         return BIOMETRIC_ATTEMPTS-used-1
 
     def enrollment_open(self, db):
-        if getattr(self, 'test_beta', False) and self.clock() >= TEST_BETA_END:
+        if getattr(self, 'test_beta_deadline', False) and self.clock() >= TEST_BETA_END:
             raise EnrollmentQuarantine('test beta has ended')
         row = db.execute('SELECT until_epoch FROM enrollment_quarantine WHERE id=1').fetchone()
         if row is not None and row['until_epoch'] > self.clock():
