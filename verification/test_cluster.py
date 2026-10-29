@@ -326,12 +326,15 @@ class ClusterTests(unittest.TestCase):
                       'DELETE FROM events','UPDATE credentials SET state=state','SELECT reserve_biometric_attempt(\'forged\')'):
             with self.subTest(query=query),self.assertRaises(self.psycopg.Error):self.sql('auditor',query)
 
-    def enrollment_receipt(self, key=2):
+    def enrollment_policy(self):
         from enrollment_policy import EnrollmentPolicy
         from test_enrollment_policy import fixture_policy
         data=fixture_policy();now=int(time.time())
         data['notice'].update(notBefore=now-60,notAfter=now+600)
-        policy=EnrollmentPolicy(data);receipt=secrets.token_hex(32)
+        return EnrollmentPolicy(data)
+
+    def enrollment_receipt(self, key=2, *, policy=None):
+        policy=policy or self.enrollment_policy();receipt=secrets.token_hex(32)
         payload={'id':'a'*43,'nonce':'b'*43,'receipt':receipt,'devicePublicKey':self.keys[key]['publicKey'],
             'acceptance':{'policyDigest':policy.digest,'termsAccepted':True,'biometricsAccepted':True}}
         proof={'payload':base64.b64encode(json.dumps(payload).encode()).decode(),
@@ -345,9 +348,12 @@ class ClusterTests(unittest.TestCase):
 
     def rights_fixture(self):
         from enrollment_policy import canonical
-        receipt,_=self.enrollment_receipt(key=2)
+        # Reuse the exact notice, including its validity interval. Constructing
+        # it twice can produce different digests across a second boundary.
+        policy=self.enrollment_policy()
+        receipt,_=self.enrollment_receipt(key=2,policy=policy)
         second=self.enroller.enroll(self.keys[2]['publicKey'],document(),acceptance_receipt=receipt)['id']
-        other_receipt,_=self.enrollment_receipt(key=1)
+        other_receipt,_=self.enrollment_receipt(key=1,policy=policy)
         other=self.enroller.enroll(self.keys[1]['publicKey'],
             document(givenNames='BOB PRIVATE',documentNumber='TEST00002'),acceptance_receipt=other_receipt)['id']
         self.activate();self.a.start_request(self.ident);self.signed()
