@@ -1,5 +1,6 @@
 """Reject untrusted, damaged or mismatched bundles before changing Docker."""
 from datetime import datetime, timezone
+from copy import deepcopy
 import json
 from pathlib import Path
 import tempfile
@@ -8,6 +9,28 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import image_bundle as bundle
+
+
+def beta_configuration(image):
+    paths = {
+        "verifier": [("runtime.json", True), ("secrets", True), ("data", False), ("continuity.json", True)],
+        "bridge": [("data", False), ("origins.json", True), ("continuity.json", True)],
+        "idp": [("data", False), ("federation", False), ("origins.json", True)],
+        "sp": [("data", False), ("federation", True), ("origins.json", True)],
+        "notice-exporter": [("data", False), ("continuity.json", True)],
+    }
+    return {"services": {name: {"image": image, "read_only": True, "tmpfs": ["/tmp:size=16m"],
+        "volumes": [{"type": "bind", "source": "/private/" + path,
+                     "target": "/srv/openid/" + path, "read_only": readonly}
+                    for path, readonly in mounts]} for name, mounts in paths.items()}}
+
+
+def running_containers(config):
+    return [{"Config": {"Image": s["image"], "Labels": {"com.docker.compose.service": name}},
+             "Image": s["image"], "State": {"Running": True},
+             "HostConfig": {"ReadonlyRootfs": s["read_only"], "Tmpfs": {"/tmp": "size=16m"}},
+             "Mounts": [{"Type": v["type"], "Destination": v["target"], "RW": not v["read_only"]}
+                        for v in s["volumes"]]} for name, s in config["services"].items()]
 
 
 class BundleTests(unittest.TestCase):
@@ -177,10 +200,8 @@ class BundleTests(unittest.TestCase):
 
     def test_beta_running_requires_exact_pinned_image_for_every_service(self):
         image = self.data["image"]["id"]
-        names = ("verifier", "bridge", "idp", "sp", "notice-exporter")
-        containers = [{"Config": {"Image": image, "Labels": {"com.docker.compose.service": name}},
-                       "Image": image, "State": {"Running": True}} for name in names]
-        ids = "\n".join(str(i) for i in range(len(names)))
+        containers = running_containers(beta_configuration(image))
+        ids = "\n".join(str(i) for i in range(len(containers)))
         with patch.object(bundle, "run", side_effect=[ids, json.dumps(containers)]):
             bundle.check_beta_running(image)
         containers[0]["Config"]["Image"] = "openid-pilot:beta"
@@ -195,6 +216,41 @@ class BundleTests(unittest.TestCase):
         with patch.object(bundle, "run", side_effect=[ids, json.dumps(containers[:-1])]), \
                 self.assertRaisesRegex(ValueError, "service set"):
             bundle.check_beta_running(image)
+
+    def test_compose_rejects_code_mounts_even_read_only_and_other_overlay_forms(self):
+        image = self.data["image"]["id"]
+        good = beta_configuration(image)
+        bundle.check_beta_compose(good, image)
+        for target in ("/", "/app", "/app/verification/federation.py", "/usr/local/lib/python3.12"):
+            for readonly in (True, False):
+                with self.subTest(target=target, readonly=readonly):
+                    config = deepcopy(good)
+                    config["services"]["bridge"]["volumes"].append(
+                        {"type": "bind", "source": "/private/override", "target": target, "read_only": readonly})
+                    with self.assertRaisesRegex(ValueError, "code overrides"):
+                        bundle.check_beta_compose(config, image)
+        for key, value in (("tmpfs", ["/app:size=16m"]), ("configs", [{"source": "code", "target": "/app/code.py"}]),
+                           ("secrets", [{"source": "code", "target": "/app/code.py"}]), ("volumes_from", ["other"]),
+                           ("build", "."), ("read_only", False), ("image", "openid-pilot:beta")):
+            with self.subTest(key=key):
+                config = deepcopy(good); config["services"]["bridge"][key] = value
+                with self.assertRaises(ValueError): bundle.check_beta_compose(config, image)
+
+    def test_running_check_rejects_code_override_and_writable_configuration(self):
+        image = self.data["image"]["id"]
+        good = running_containers(beta_configuration(image))
+        ids = "\n".join(str(i) for i in range(len(good)))
+        for change in ("code", "writable_config", "writable_root", "tmpfs", "missing_mount", "named_volume"):
+            with self.subTest(change=change):
+                containers = deepcopy(good); c = containers[0]
+                if change == "code": c["Mounts"].append({"Type": "bind", "Destination": "/app/verification/probe.py", "RW": False})
+                elif change == "writable_config": c["Mounts"][0]["RW"] = True
+                elif change == "writable_root": c["HostConfig"]["ReadonlyRootfs"] = False
+                elif change == "tmpfs": c["HostConfig"]["Tmpfs"]["/app"] = "size=16m"
+                elif change == "missing_mount": c["Mounts"].pop()
+                elif change == "named_volume": c["Mounts"][0]["Type"] = "volume"
+                with patch.object(bundle, "run", side_effect=[ids, json.dumps(containers)]), self.assertRaises(ValueError):
+                    bundle.check_beta_running(image)
 
     def test_symlink_payload(self):
         (self.root / "image.tar.gz").rename(self.root / "external")

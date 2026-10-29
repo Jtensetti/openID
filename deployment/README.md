@@ -13,6 +13,9 @@ Serverpaket byggs och provas i den
 [separata byggmiljön](build/README.md), exporteras med proveniens och importeras
 utan ombygge på betavärden. Lokala labbinstruktioner nedan är för separata
 utvecklingsdatorer; använd dem inte som byggprocedur på en körande betaserver.
+Betans programkod, inklusive SAML-brygga och hälsoprob, ingår i samma image.
+Endast data och driftkonfiguration monteras utifrån. Leveranskontrollen
+nekar äldre kodmonteringar även om de är skrivskyddade.
 
 Instruktionerna nedan gäller den egna privata miljön. Betan använder i stället
 `beta-compose.yaml` tillsammans med `continuity-compose.yaml`, produktions-App

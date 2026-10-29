@@ -119,6 +119,7 @@ COPY deployment/aws/THIRD_PARTY.md deployment/aws/sbom.cdx.json /app/licenses/aw
 COPY verification/crypto_runtime.py verification/serve.py verification/runtime.py verification/biometric_worker.py verification/native.py verification/chip.py verification/server.py verification/wallet.py verification/wallet_cli.py verification/registry_binding.py verification/identity.py verification/recovery.py verification/relying_party.py ./
 COPY verification/crypto-worker.mjs verification/attest.mjs verification/device-signature.mjs verification/profile-crypto.mjs ./
 COPY verification/revocation.py verification/notices.py verification/notice_exporter.py verification/continuity_operator.py ./
+COPY verification/federation.py deployment/saml_bridge.py ./
 COPY verification/subject_access.py verification/audit_archive.py verification/crl_maintenance.py verification/ingress_client.py verification/sqlite_retention.py verification/recovery_binding.py ./
 COPY verification/enrollment_policy.py verification/acceptance_journal.py verification/consent_retention.py ./
 COPY verification/erasure_policy.py verification/subject_erasure.py ./

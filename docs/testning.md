@@ -27,6 +27,14 @@ på Ubuntu 24.04 används utan att starta eller ändra värdens systemtjänst.
 
 ## Aktuell verifiering
 
+`test_image_bundle` avvisar kodmonteringar även när de är skrivskyddade,
+tmpfs över kod, extra configs/secrets/volumes_from, saknade datamonteringar
+och skrivbar rot/konfiguration. Samma gräns kontrolleras mot sammanslagen
+Compose och faktisk Docker-metadata. Pilotjobbet startar den paketerade
+SAML-bryggan med tom syntetisk lagring, provar rätt/fel audience och ren
+SIGTERM-avslutning. SAML-/OIDC-proven använder imagens federationsmodul.
+Detta ersätter inte en driftskontroll eller granskning av hela värden.
+
 `test_image_input` provar den gemensamma gränsen för ansiktsbilder och
 profilminiatyrer: verklig JPEG/JP2/rå JPEG 2000, nekad PNG före native-anrop,
 trunkerade tillåtna format, bytegräns, avkodarfel och avkodade dimensioner.

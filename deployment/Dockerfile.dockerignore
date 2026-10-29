@@ -22,6 +22,7 @@
 !verification/rp_web/**
 !deployment/
 !deployment/probe.py
+!deployment/saml_bridge.py
 !deployment/Dockerfile
 !deployment/build/
 !deployment/build/patch_debian.py

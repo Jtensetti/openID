@@ -35,7 +35,8 @@ skannerlås och skanner-SBOM. Manifestet binder filernas storlekar och SHA-256
 till Git-revision/träd, image-ID, plattform och byggkörning. Exporten nekar
 ofullständig, gammal eller underkänd OS-skanning, fel image-ID/revision och
 paketlistor som inte stämmer. Källarkivet innehåller också låsfiler, SBOM,
-licenser och de källfiler som betans befintliga Compose-konfiguration monterar.
+licenser och motsvarande källkod. SAML-bryggan, federationsmodulen och
+hälsoproben ingår i imagen; betans Compose-filer monterar ingen programkod.
 Övriga komponenters test- och advisoryartefakter bevaras separat från samma
 helhetskörning enligt [releaseinstruktionen](../../docs/releasekandidat.md).
 
@@ -81,13 +82,25 @@ identifierade, oanvända byggartefakter enligt en granskad åtgärd. Kör inte
 ## Installera i den privata betan
 
 Följ [kandidat och återgång](../../docs/releasekandidat.md). Registrera aktuell
-konfiguration och image-ID för varje tjänst. Verifiera att monterade kodfiler
-kommer från samma revision; imagebyte ensamt byter inte bind-mountade filer.
+konfiguration och image-ID för varje tjänst. Vid övergång från äldre
+uppsättningar ska deras kodmonteringar tas bort genom samma granskade
+Compose-byte; imagebyte ensamt tar inte bort dem.
 Bevara register, nycklar, spärrar, privata miljövärden och aktuella volymer.
 Sätt `OPENID_BETA_IMAGE_ID` till manifestets fullständiga `sha256:...` efter
 verifiering. Både `beta-compose.yaml` och `continuity-compose.yaml` kräver
-variabeln; kontrollera med `docker compose config` att alla fem tjänster använder
-samma image före ett godkänt byte. Använd `up -d --no-build --pull never` med
+variabeln. Kontrollera den sammanslagna konfigurationen före ett godkänt byte:
+
+```sh
+docker compose -f deployment/beta-compose.yaml -f deployment/continuity-compose.yaml \
+  config --format json | python3 deployment/image_bundle.py check-beta-compose \
+  --image-id "$OPENID_BETA_IMAGE_ID"
+```
+
+Kontrollen kräver samma fullständiga image-ID för alla fem tjänster,
+skrivskyddad rot och exakt tjänstens data-/konfigurationsmonteringar under
+`/srv/openid`. Övriga volymer, configs/secrets/volumes_from och tmpfs utanför
+`/tmp` nekas. Ingen image byggs eller tjänst startas av kontrollen.
+Använd `up -d --no-build --pull never` med
 rätt Compose-projekt. Efteråt kan samma verifierade paket användas för en
 läsande driftkontroll:
 
@@ -98,9 +111,13 @@ python3 deployment/image_bundle.py check-beta \
   --expected-manifest-sha256 SHA256_FRAN_GITHUB_KORNINGEN
 ```
 
-Kontrollen nekar saknad, stoppad, extra eller felaktig container och rörlig
-tagg. Den ändrar ingen tjänst och kontrollerar inte monterade kodfiler eller
-värd-OS.
+Kontrollen nekar saknad, stoppad, extra eller felaktig container, rörlig
+tagg, skrivbar rot och monteringar utanför samma data-/konfigurationsgräns.
+Även en skrivskyddad kodmontering nekas eftersom den ersätter imagens kod.
+[Docker beskriver att bindmonteringar skymmer befintliga filer](https://docs.docker.com/engine/storage/bind-mounts/#bind-mounting-over-existing-data).
+Docker-metadatan läses utan att ändra tjänster eller läsa privata filer.
+Kontrollen verifierar inte datainnehåll, värd-OS, hela runtimekonfigurationen
+eller efterföljande ändringar av en betrodd Dockeradministratör.
 Kontrollera readiness, åtkomstskydd och färska telefonflöden efter bytet.
 
 Betavärden behöver fortsatt Docker för drift. Dess operatör kan fortfarande
@@ -320,6 +337,11 @@ provar skadade filer, fel revision/manifest/plattform, saknade filer,
 symlänkar, misslyckade/dubbla/ofullständiga protokollresultat, utrymmesstopp
 och fel inläst image-ID. Actions provar dessutom verklig export, borttagning
 av byggtaggar, återinläsning och Java-start utan nät från det inlästa paketet.
+Monteringsproven avvisar ersatt kod, saknade datamonteringar, skrivbara
+konfigurationsfiler och överlagring via tmpfs. CI startar dessutom bildens
+faktiska SAML-brygga som vanlig användare med tom privat tmpfs-lagring,
+kontrollerar rätt/fel audience och socketstädning efter SIGTERM.
+Protokollproven importerar bildens federationsmodul utan en värdmonterad kopia.
 
 `python3 .github/scripts/test_audit_image_os.py -v` provar fel image/verktyg/OS,
 saknade/extra/dubbla paket, ändrade versioner, gammal/framtida databas,

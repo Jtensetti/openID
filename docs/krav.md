@@ -50,6 +50,14 @@ samtyckesbevis. [Versionsbundna val och återkallelse](registreringsinformation.
 
 ## Drift och rapportering
 
+SEC-03/INT-06: Betans hälsoprob, SAML-brygga och federationsmodul ingår i
+den verifierade imagen. Före byte kontrolleras renderad Compose, och efter
+byte faktisk Docker-metadata: exakt image per tjänst, skrivskyddad rot och
+en avgränsad uppsättning data-/konfigurationsmonteringar. Kodöverlagring
+nekas även med read-only. CI provar den paketerade bryggans start och stopp
+samt protokoll utan värdmonterad federationskod. Faktiskt införande och
+oberoende releasebeslut återstår.
+
 | ID | Implementation | Återstående arbete |
 |---|---|---|
 | OPS-01/02 | Gunicorn/TLS med hälsokontroller, kapacitetsgränser, separat bildanalys, resursbegränsad container och lokala belastningsprov. Linux-bildarbetarna kräver Landlock ABI 3 och en seccomp-policy för begränsad fil-/systemanropsåtkomst; se bildarbetare.md. PostgreSQL-läge med flera TLS-workers, instansbortfallsprov och separata mät-/larmfunktioner. Separat stängd Render-container. | Tillgänglighets-/svarstidsmål enligt D03 §8.5.1 är inte verifierade. Redundans, aktiverat arbetarskydd och mätning på avsedd produktionsmiljö saknas. |

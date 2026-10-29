@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 
 
 SCHEMA = "openid-image-bundle-v2"
@@ -16,6 +17,13 @@ OS_FILES = ("assessment.json", "database-metadata.json", "os-sbom.cdx.json",
             "scanner-lock.json", "scanner-sbom.json", "system-packages.tsv", "trivy-os.json")
 PAYLOADS = ("image.tar.gz", "source.tar.gz", "protocol-results.json", "python-packages.json") + tuple(
     "os-" + name for name in OS_FILES)
+BETA_MOUNTS = {
+    "verifier": {"runtime.json": True, "secrets": True, "data": False, "continuity.json": True},
+    "bridge": {"data": False, "origins.json": True, "continuity.json": True},
+    "idp": {"data": False, "federation": False, "origins.json": True},
+    "sp": {"data": False, "federation": True, "origins.json": True},
+    "notice-exporter": {"data": False, "continuity.json": True},
+}
 
 
 def digest(path):
@@ -242,13 +250,40 @@ def import_image(directory, data):
     print("Verified image loaded: " + actual["Id"] + "; no service was started or changed")
 
 
+def check_beta_mounts(service, mounts, readonly_root, tmpfs):
+    """Allow only runtime data/config mounts; packaged code must remain visible."""
+    require(readonly_root is True, "Beta root filesystem must be read-only")
+    expected = {"/srv/openid/" + name: readonly for name, readonly in BETA_MOUNTS[service].items()}
+    require(len(mounts) == len(expected) and dict(mounts) == expected,
+            "Beta mounts must match the data/config boundary; code overrides are forbidden")
+    require(set(tmpfs) <= {"/tmp"}, "Beta tmpfs must not cover packaged code")
+
+
+def check_beta_compose(config, image_id):
+    """Check rendered Compose input without starting Docker or reading private files."""
+    require(re.fullmatch(r"sha256:[a-f0-9]{64}", image_id), "Full image ID required")
+    services = config.get("services", {})
+    require(set(services) == set(BETA_MOUNTS), "Unexpected beta service set")
+    for name, service in services.items():
+        require(service.get("image") == image_id and "build" not in service,
+                "Every beta service must use the verified image without building")
+        require(not any(service.get(key) for key in ("configs", "secrets", "volumes_from")),
+                "Unexpected additional beta mounts")
+        volumes = service.get("volumes", [])
+        require(all(v.get("type") == "bind" and type(v.get("read_only", False)) is bool for v in volumes),
+                "Only explicit beta bind mounts are supported")
+        check_beta_mounts(name, [(v.get("target"), v.get("read_only", False)) for v in volumes],
+                          service.get("read_only"), [v.split(":", 1)[0] for v in service.get("tmpfs", [])])
+    print("Verified beta image and mount configuration; no service was changed")
+
+
 def check_beta_running(image_id):
     """Read Docker state; reject missing, extra or drifted beta containers."""
     ids = run("docker", "container", "ls", "--all", "--filter",
               "label=com.docker.compose.project=openid-beta", "--format", "{{.ID}}").splitlines()
     require(ids, "No beta containers found")
     containers = json.loads(run("docker", "container", "inspect", *ids))
-    expected = {"verifier", "bridge", "idp", "sp", "notice-exporter"}
+    expected = set(BETA_MOUNTS)
     services = [c.get("Config", {}).get("Labels", {}).get("com.docker.compose.service")
                 for c in containers]
     require(len(containers) == len(ids) == len(expected) and set(services) == expected,
@@ -258,6 +293,13 @@ def check_beta_running(image_id):
                 and container.get("Image") == image_id
                 and container.get("Config", {}).get("Image") == image_id,
                 "Beta container is stopped, uses a mutable tag or has image drift")
+        service = container["Config"]["Labels"]["com.docker.compose.service"]
+        mounts = container.get("Mounts", [])
+        require(all(m.get("Type") == "bind" and type(m.get("RW")) is bool for m in mounts),
+                "Only explicit beta bind mounts are supported")
+        host = container.get("HostConfig", {})
+        check_beta_mounts(service, [(m.get("Destination"), not m["RW"]) for m in mounts],
+                          host.get("ReadonlyRootfs"), host.get("Tmpfs", {}))
     print("Verified running beta image: " + image_id + "; no service was changed")
 
 
@@ -270,6 +312,8 @@ def main():
     export.add_argument("--inventory", required=True, type=Path)
     export.add_argument("--os-audit", required=True, type=Path)
     export.add_argument("--output", required=True, type=Path)
+    compose = sub.add_parser("check-beta-compose")
+    compose.add_argument("--image-id", required=True)
     for command in ("verify", "import", "check-beta"):
         check = sub.add_parser(command)
         check.add_argument("--directory", required=True, type=Path)
@@ -278,6 +322,8 @@ def main():
     args = parser.parse_args()
     if args.command == "package":
         package(args)
+    elif args.command == "check-beta-compose":
+        check_beta_compose(json.load(sys.stdin), args.image_id)
     else:
         data = verify(args.directory, args.expected_revision, args.expected_manifest_sha256)
         if args.command == "import":
