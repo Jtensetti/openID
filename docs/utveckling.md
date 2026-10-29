@@ -43,7 +43,7 @@ framgår av koden. Tillfälliga arbetsloggar hör hemma i PR:n.
 | Biometri och fotografering | Kalibrerade trösklar samt mätning av felacceptans/felavvisning, presentationer, injektion och relä. |
 | Pass och personregister | Spärrinformation, länkcertifikat, registerkontroll och ersättning efter passförnyelse. |
 | Nycklar och återställning | Operativ rotation, gallring och PostgreSQL-/nyckelåterläsning på vald driftmiljö. |
-| Extern integration | Fastställd profil, metadata, attribut och kontrollerad motpart med negativa protokollprov. |
+| Extern integration | [GrandID som integrationsmål, FED-05](grandid-integration.md): fastställd IdP-profil, metadata, mottagarstyrda attribut och kontrollerad motpart med negativa protokollprov. Leverantörens kund-API är inte ett IdP-anslutningskontrakt. |
 | Drift | Operativa roller, redundant databas/nyckeltjänst, ingress, kapacitet och larmmottagning på vald driftmiljö. |
 
 Produktionsöppning kräver oberoende säkerhetsgranskning och ett behörigt

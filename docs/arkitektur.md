@@ -79,6 +79,14 @@ Tjänsten får namn, MRZ-födelsedatum, förminskat passfoto, tjänstesubjekt,
 credentialreferens och profilversion. MRZ:s tvåsiffriga årtal används utan
 härledning av sekel, ålder eller svenskt personnummer.
 
+## Extern integrationsmäklare
+
+GrandID/eID API är ett integrationsmål för OpenID som extern IdP via
+SAML 2.0 eller OpenID Connect. En separat motpartsprofil ska binda metadata,
+nycklar, identitetsattribut och appens visade mottagare till samma begäran.
+Nuvarande pilot har fasta motparter; leverantörsanslutning är inte provad.
+Se [GrandID-profilens omfattning och acceptans](grandid-integration.md).
+
 ## Livscykel och lagring
 
 | Tillstånd | Tillåten förändring |

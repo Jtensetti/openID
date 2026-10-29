@@ -1,5 +1,20 @@
 # Källregister
 
+## GrandID/eID API, 2026-10-29
+
+| ID | Primärkälla och avgränsning |
+|---|---|
+| GID-01 | [Svensk e-identitet: integrationsmäklare](https://e-identitet.se/tjanst/autentisering-inloggning/integrationsmaklare), särskilt FAQ om IdP-anslutning och nya motparter. Anger SAML 2.0/OIDC samt leverantörens konfiguration. Beskriver kundspecifika IdP:er, inte ett bekräftat generellt distributionsavtal för OpenID. |
+| GID-02 | [GrandID: OpenID Connect](https://docs.grandid.com/OpenIDConnect), avsnittet Third party identity provider. Sidans dynamiskt inlästa [Markdown-källa](https://bitbucket.org/grandid/docs/raw/HEAD/OpenIDConnect/README.md) har lästs direkt. Kundexemplen gäller GrandID som OIDC-server; de fastställer inte hela profilen när GrandID är klient till OpenID. |
+| GID-03 | [GrandID: Integration Broker](https://docs.grandid.com/integrationbroker), direktläst [Markdown-källa](https://bitbucket.org/grandid/docs/raw/HEAD/IntegrationBroker/README.md), samt [integrationsprotokoll](https://e-identitet.se/tjanst/autentisering-inloggning/integrationsprotokoll). Beskriver mäklarrollen och kundens FederatedLogin/GetSession. |
+| GID-04 | [Svensk e-identitet: API: så pratar era system med våra tjänster](https://e-identitet.se/inspiration/vadarvad/api). Skiljer eID API för legitimering/signering från eAvtal API för avtalets livscykel; fastställer ingen upstream-signaturprofil för OpenID. |
+
+Dokumenten kontrollerades 2026-10-29. OIDC- och mäklardokumenten saknar
+angiven profilrevision; `HEAD` är en föränderlig läshänvisning.
+Accepterad anslutningsprofil och version ska därför bindas till det
+faktiska leverantörsprovet. [FED-05](grandid-integration.md) skiljer
+publicerat stöd, projektets designval och återstående leverantörsbesked.
+
 ## Separat byggmiljö, 2026-10-26
 
 [GitHub-hosted runners](https://docs.github.com/en/actions/concepts/runners/github-hosted-runners)
