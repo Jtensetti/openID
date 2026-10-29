@@ -28,7 +28,7 @@
     <p>Det ska gå att förstå vad som kontrolleras, vem som ber dig legitimera dig och vad du godkänner. Om något misslyckas ska appen visa vad som hänt och hur du går vidare.</p>
     <ol class="steps">
       <li><span class="step-number" aria-hidden="true">01</span><h3>Läs passet</h3><p>Skanna passuppgifterna och läs chipet med telefonen. Den nuvarande piloten är avsedd för svenska pass.</p></li>
-      <li><span class="step-number" aria-hidden="true">02</span><h3>Följ kameraguiden</h3><p>Ta bilder framifrån och från sidorna. Registreringen kontrolleras och inväntar sedan manuell aktivering.</p></li>
+      <li><span class="step-number" aria-hidden="true">02</span><h3>Följ kameraguiden</h3><p>Ta bilder framifrån och från sidorna. Ditt test-ID aktiveras automatiskt när samtliga kontroller av enhet, pass, chip och bilder har godkänts.</p></li>
       <li><span class="step-number" aria-hidden="true">03</span><h3>Godkänn i appen</h3><p>Kontrollera tjänst, syfte och kontrollkod innan du godkänner. Du kan alltid neka begäran.</p></li>
     </ol>
   </section>
@@ -37,23 +37,24 @@
     <p class="eyebrow">Läget i projektet</p>
     <h2 id="status-rubrik">En fungerande pilot.<br>Ett större arbete kvar.</h2>
     <dl class="status-list">
-      <div><dt>I piloten</dt><dd>Passläsning, kameraguide, manuell aktivering och inloggning på testsidan med SAML och OpenID Connect (OIDC).</dd></div>
+      <div><dt>I piloten</dt><dd>Passläsning, kameraguide, automatisk testaktivering och inloggning på testsidan med SAML och OpenID Connect (OIDC). Den aktuella appversionen är bygge 112.</dd></div>
       <div><dt>Nästa steg</dt><dd>Registerkontroll, oberoende säkerhetsprov, elektronisk underskrift och en organisation för utgivning, support och drift.</dd></div>
       <div><dt>Målet</dt><dd>Att kunna ansöka om Diggs granskning och därefter anslutning till auktorisationssystemet. Vi är ännu inte godkända av Digg eller anslutna till Sweden Connect.</dd></div>
     </dl>
-    <p class="small">Status uppdaterad <time datetime="2026-10-21">21 oktober 2026</time>. Piloten intygar ingen godkänd tillitsnivå.</p>
+    <p class="small">Status uppdaterad <time datetime="2026-10-29">29 oktober 2026</time>. Piloten intygar ingen godkänd tillitsnivå.</p>
   </section>
 
   <section class="section test-section" id="testa" aria-labelledby="test-rubrik">
     <p class="eyebrow">För inbjudna testare</p>
     <h2 id="test-rubrik">Prova en legitimering.</h2>
-    <p>Du behöver din TestFlight-inbjudan, separat testkonto och ett manuellt aktiverat ID. Betan är för testare i Sverige.</p>
+    <p>Du behöver bygge 112 av appen, din TestFlight-inbjudan, separat åtkomst till testsidan och ett aktivt test-ID. Betan är för testare i Sverige. Extern TestFlight-testning kräver Apples godkännande.</p>
     <div class="actions"><a class="button" href="/login">Testa SAML</a><a class="button secondary" href="/oidc/login">Testa OpenID Connect</a></div>
     <p class="small">På datorn skannar du QR-koden med appen. På din iPhone väljer du Öppna openID. Testmiljön är tillgänglig dygnet runt till och med 30 november 2026. Testservern stängs av den 1 december 2026 kl. 00.00 svensk tid.</p>
     <details><summary>Första gången du testar</summary>
-      <ol><li>Installera appen från din personliga TestFlight-inbjudan när bygget är tillgängligt.</li><li>Anslut appen till <strong>https://api.openid.tensetti.io</strong> med kopplingskoden du fått separat. Betan kräver ingen VPN.</li><li>Registrera med ditt svenska pass och följ kameraguiden.</li><li>Visas <strong>Inväntar aktivering</strong>? Kontakta Jonatan och vänta på aktiveringen. Läs inte passet igen.</li><li>Hämta status under Mitt ID. När ditt ID är aktivt kan du testa här.</li></ol>
+      <ol><li>Installera bygge 112 via din TestFlight-inbjudan när bygget är tillgängligt.</li><li>Nya installationer ansluter automatiskt till openID beta. Ingen VPN, serveradress eller kopplingskod behövs.</li><li>Registrera med ditt svenska pass och följ kameraguiden. Ett test-ID aktiveras automatiskt när samtliga kontroller godkänts. Ingen e-post krävs för aktiveringen.</li><li>Spara din separata spärrkod utanför telefonen. Äldre väntande registreringar aktiveras inte i efterhand av automatiken; kontakta support om appen fortfarande visar <strong>Inväntar aktivering</strong>.</li><li>Hämta status under Mitt ID. När ditt ID är aktivt kan du testa här.</li></ol>
     </details>
     <details><summary>Vad ska jag testa?</summary><p>Prova att godkänna, neka och låta en QR-kod gå ut. Godkänn bara när tjänsten, syftet och kontrollkoden stämmer. Spärra endast ditt ID om du avser att avsluta det; då krävs ny registrering och aktivering.</p></details>
+    <p class="small">Test-ID har ingen kort 24–72-timmarsgräns. Det gäller längst till passets utgång eller betans slut och kan spärras tidigare. Alla beta-ID spärras den 1 december 2026 kl. 00.00 svensk tid. Radera inte enhetsnyckeln innan ID:t är spärrat.</p>
     <details><summary>Tekniskt test: krav på tillitsnivå</summary>
       <p>LoA 1–4 utfärdas inte av betan. Dessa tester ska stoppa inloggningen, utan att sänka nivån i tysthet.</p>
       <form method="get"><label for="loa">Krävd tillitsnivå</label><select id="loa" name="loa"><option value="1">LoA 1</option><option value="2">LoA 2</option><option value="3">LoA 3</option><option value="4">LoA 4</option></select><div class="actions"><button formaction="/login">Prova med SAML</button><button formaction="/oidc/login">Prova med OIDC</button></div></form>
@@ -64,7 +65,7 @@
     <p class="eyebrow">Kontakt</p>
     <h2 id="kontakt-rubrik">Frågor, återkoppling eller hjälp?</h2>
     <p>Projektet drivs av Jonatan Tensetti. Hör av dig om du vill diskutera projektet, behöver hjälp i betan eller vill begära radering.</p>
-    <a class="contact-link" href="mailto:jtensetti@protonmail.com">jtensetti@protonmail.com</a>
+    <a class="contact-link" href="mailto:Jonatan@tensetti.se">Jonatan@tensetti.se</a>
     <p class="small">Beskriv steget och feltexten när du rapporterar ett problem. Skicka inte passnummer, passbilder, ansiktsbilder, lösenord eller kopplingskod via e-post.</p>
   </section>
 </main>
