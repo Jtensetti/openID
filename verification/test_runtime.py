@@ -11,7 +11,8 @@ import unittest
 from unittest.mock import Mock
 from runtime import Runtime, RateLimit, validate_origin
 from wallet import Wallet
-from recovery import backup, restore
+from recovery import backup
+from test_erasure_helpers import sqlite_restore as restore
 from serve import Lease, reject_duplicate_headers, open_wallet
 
 

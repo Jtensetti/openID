@@ -118,7 +118,7 @@ class RetentionTests(unittest.TestCase):
         receipt = export_snapshot(sqlite_snapshot(self.path), second, 'sqlite', 'a'*40)
         verify(second, receipt['manifestSha256'])
         self.assertEqual((first/'profiles.jsonl').read_bytes(), (second/'profiles.jsonl').read_bytes())
-        self.assertEqual(4, json.loads((second/'manifest.json').read_bytes())['format'])
+        self.assertEqual(5, json.loads((second/'manifest.json').read_bytes())['format'])
         self.assertEqual(b'', (first/'retention_runs.jsonl').read_bytes())
         journal = json.loads((second/'retention_runs.jsonl').read_bytes())
         self.assertEqual(list(self.rows('retention_runs')[0]), journal)
@@ -159,7 +159,8 @@ class RetentionTests(unittest.TestCase):
         self.assertEqual(before, {t: self.rows(t) for t in before})
 
     def test_backup_restore_after_last_profile_purge_still_requires_original_key(self):
-        from recovery import backup_database, bind_backup, restore
+        from recovery import backup_database, bind_backup
+        from test_erasure_helpers import sqlite_restore as restore
         with self.wallet.transaction() as db:
             db.execute("UPDATE credentials SET state='REVOKED',expires=?", (NOW-8*DAY,))
         self.assertEqual(5, self.run_retention(apply=True)['selected']['profiles'])

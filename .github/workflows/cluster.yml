@@ -61,6 +61,7 @@ jobs:
             -v "$PWD/verification/test_enrollment_policy.py:/tests/test_enrollment_policy.py:ro" \
             --entrypoint python openid-wallet:ci -m unittest -v test_cluster_revocation
           docker run --rm --read-only --cap-drop ALL --entrypoint python openid-wallet:ci cluster_recovery.py --help
+          docker run --rm --read-only --cap-drop ALL --entrypoint python openid-wallet:ci subject_erasure.py --help
           docker run --rm --read-only --cap-drop ALL --entrypoint python openid-wallet:ci audit_archive.py --help
       - name: Enable and verify database TLS
         env:

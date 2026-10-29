@@ -41,7 +41,8 @@ class BiometricBudgetTests(unittest.TestCase):
 
     def test_old_backup_pauses_enrollment_for_a_full_window_and_keeps_index_key(self):
         from unittest.mock import patch,Mock
-        from recovery import backup,bind_backup,restore
+        from recovery import backup, bind_backup
+        from test_erasure_helpers import sqlite_restore as restore
         from native import NativeSessions
         from test_wallet import crypt
         import json

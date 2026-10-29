@@ -215,10 +215,10 @@ Tjänstekontot kan bara läsa kodstatus och anropa begränsade kontroll- och
 bytesfunktioner; det kan inte läsa verifierarna, återställa en låst kod
 eller ändra begärans text, nivå, motpart eller sessionsbindning.
 
-Nya installationer använder `schema.sql`, version 6. Version 1–5 nekas av den
+Nya installationer använder `schema.sql`, version 7. Version 1–6 nekas av den
 nya applikationen. Stoppa applikationer och underhåll, ta och verifiera en
 backup med den tidigare, låsta kodrevisionen och kör `migrate-1-to-2.sql`
-med databasens kontrollerade ägarkonto och fortsätt med `migrate-2-to-3.sql`, `migrate-3-to-4.sql`, `migrate-4-to-5.sql` och `migrate-5-to-6.sql`. Börja vid
+med databasens kontrollerade ägarkonto och fortsätt med `migrate-2-to-3.sql`, `migrate-3-to-4.sql`, `migrate-4-to-5.sql`, `migrate-5-to-6.sql` och `migrate-6-to-7.sql`. Börja vid
 databasens befintliga version; hoppa inte över steg. Migreringarna är transaktionella och
 nekar annan startversion. Starta därefter den nya revisionen och verifiera
 readiness, rollgränser och försöksspärren innan trafik öppnas.
@@ -298,7 +298,9 @@ Med tillgång till de återställda profilnycklarna:
 ```sh
 python cluster_recovery.py restore --admin-file /private/restore-admin-db \
   --backup /private/backups/register-20261020 \
-  --target openid_restore_20261020 --key-config /private/recovery-key.json
+  --target openid_restore_20261020 --key-config /private/recovery-key.json \
+  --erasure-ledger /separate/custodian/erasure-ledger.json \
+  --erasure-ledger-sha256 "$CURRENT_ERASURE_LEDGER_SHA256"
 ```
 
 Nyckelkonfigurationen har fälten `baoAddress`, `baoTokenFile` och `baoCA`,
@@ -379,7 +381,7 @@ ersätter funktionen och höjer versionskravet i samma transaktion, utan att
 radera några rader eller ge tjänstekonton nya rättigheter. Fel startversion,
 upprepad körning eller uteblivet lås stoppar den. Gör efterprov innan underhåll
 eller trafik återöppnas. Ny applikation, backupverktyg och individuellt
-ärendeuttag kräver numera schema 6; personlänksmigreringen nedan ska också köras. Äldre backuper återläses med sina ursprungliga
+ärendeuttag kräver numera schema 7; personlänksmigreringen nedan ska också köras. Äldre backuper återläses med sina ursprungliga
 verktyg i stängd miljö och migreras innan aktuell revision används.
 Migreringen återskapar inte tidigare raderad text. Arkivlayouten är fortsatt
 format 4, med faktisk databasversion i manifestet.
@@ -396,7 +398,7 @@ läsa den; inga nya konton eller externt anropbara mutationsfunktioner införs.
 `migrate-5-to-6.sql` låser registret och fyller länkar från befintliga profiler.
 Den gissar inte vilka personer tidigare gallrade eller oavslutade registreringar
 tillhör. Fel startversion, omkörning eller uteblivet lås nekar migreringen.
-Aktuell app, full backup och rättighetsuttag kräver schema 6. Ta/verifiera först
+Aktuell app, full backup och rättighetsuttag kräver schema 7. Ta/verifiera först
 backup med tidigare låst verktyg, stoppa skrivare och kör migreringen som
 kontrollerad ägare; gör efterprov före öppning.
 
@@ -413,3 +415,7 @@ Länken är fortsatt personuppgift, inte anonymisering eller ett beslut om
 obegränsat bevarande. Riktad radering, motiverad bevarandetid och kopiehantering
 behöver genomföras separat; detta inför inte PostgreSQL-stöd för
 SQLite-adapterns byte av personkoppling vid registerkontrollerat passbyte.
+
+## Beslutad radering och återställning (schema 7)
+
+Se [radering i rättighetsärende](../../docs/radering-rattighetsarende.md) för planering med läskonto, verkställighet med registerägaren och obligatorisk extern beslutsförteckning vid återställning. `migrate-6-to-7.sql` lägger till atomisk raderingsjournal och spärrar som också gäller nycklar utan kvarvarande registrering. App, full backup och ärendeverktyg kräver nu schema 7. Arkivformatet är 5; äldre journalarkiv förblir läsbara.

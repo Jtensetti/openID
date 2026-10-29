@@ -47,10 +47,17 @@ COLUMNS = {
     'notice_contacts': 'credential contact_version evidence',
     'notice_outbox': 'event credential contact_version kind created status attempts accepted_reference',
     'revocation_codes': 'credential sealed contact_version evidence',
+    'erasure_runs': 'id time decision plan_sha256 counts',
+    'erasure_subjects': 'credential first_decision',
+    'registry_bindings': 'credential person_tag sealed',
+    'registry_evidence': 'reference credential',
+    'registry_replacements': 'previous replacement',
 }
 OPTIONAL = {'notice_contacts', 'notice_outbox', 'revocation_codes'}
+REGISTRY = {'registry_bindings', 'registry_evidence', 'registry_replacements'}
 LATER = {'retention_runs', 'profile_evidence', 'enrollment_policies',
-         'enrollment_consents', 'credential_consents', 'consent_retention_runs'}
+         'enrollment_consents', 'credential_consents', 'consent_retention_runs',
+         'erasure_runs', 'erasure_subjects'} | REGISTRY
 EXCLUDED = {
     'requests': ['secret_hash', 'code'],
     'federation_requests': ['secret_hash', 'code'],
@@ -115,7 +122,8 @@ def schema(db):
     found = dict(db.execute("SELECT name,type FROM sqlite_master WHERE type IN ('table','view') AND name NOT GLOB 'sqlite_*'"))
     if (set(found) - set(COLUMNS) or set(COLUMNS) - OPTIONAL - LATER - set(found)
             or any(kind != 'table' for kind in found.values())
-            or (set(found) & OPTIONAL and not OPTIONAL <= set(found))):
+            or (set(found) & OPTIONAL and not OPTIONAL <= set(found))
+            or (set(found) & REGISTRY and not REGISTRY <= set(found))):
         raise ValueError('unmapped or incomplete wallet schema')
     sqlite_format(db)  # Accept supported historical groups, reject partial migrations.
     for table in found:
@@ -149,6 +157,16 @@ def review_evidence(data, vault, end):
         if type(value) is not dict: raise ValueError('profile representation')
         row['data'] = value
         if time.monotonic() >= end: raise TimeoutError('case deadline')
+    profiles = {r['credential']: r for r in data['profiles']}
+    for row in data.get('registry_bindings', ()):
+        sealed = row.pop('sealed')
+        profile = profiles.get(row['credential'])
+        if profile is None:
+            row['encryptedContentRequiresSeparateReview'] = True
+        else:
+            row['data'] = vault.crypt('open', 'registry:'+row['credential'], profile['person'], decode(sealed))
+            if type(row['data']) is not dict: raise ValueError('registry binding representation')
+        if time.monotonic() >= end: raise TimeoutError('case deadline')
     for row in policies:
         record = decode(row['record'])
         historical = EnrollmentPolicy(record, clock=lambda: record['notice']['notBefore'])
@@ -179,7 +197,8 @@ def collect(db, case, vault, end):
         return rows
     credentials = get('credentials', 'id', ids)
     consents = get('enrollment_consents', 'subject', ids)
-    if {r['id'] for r in credentials} | {r['subject'] for r in consents} != ids:
+    erased = get('erasure_subjects', 'credential', ids)
+    if {r['id'] for r in credentials} | {r['subject'] for r in consents} | {r['credential'] for r in erased} != ids:
         raise ValueError('case key has no retained registration or consent evidence')
     profiles = get('profiles', 'credential', ids)
     mappings = get('profile_documents', 'credential', ids)
@@ -203,6 +222,11 @@ def collect(db, case, vault, end):
     for table in ('retired_documents', 'biometric_failures'):
         get(table, 'document_tag', tags)
     for table in sorted(OPTIONAL & present): get(table, 'credential', ids)
+    for table in ('registry_bindings', 'registry_evidence'): get(table, 'credential', ids)
+    replacements = select(db, 'registry_replacements', 'previous', ids, budget) if 'registry_replacements' in present else []
+    replacements += select(db, 'registry_replacements', 'replacement', ids, budget) if 'registry_replacements' in present else []
+    if any({r['previous'], r['replacement']} - ids for r in replacements): raise ValueError('case omits replacement keys')
+    data['registry_replacements'] = list({r['previous']: r for r in replacements}.values())
     receipts = {r['id'] for r in consents}
     get('enrollment_policies', 'digest', {r['policy_digest'] for r in consents})
     review_evidence(data, vault, end)
@@ -216,6 +240,14 @@ def collect(db, case, vault, end):
         if budget[0] < 0 or budget[1] < 0: raise ValueError('case journal limit')
         entry = exception_entry(row, receipts)
         if entry: data['consent_retention_runs'].append(entry)
+    data['erasure_runs'] = []
+    if 'erasure_runs' in present:
+        from erasure_policy import case_entry
+        for row in db.execute('SELECT * FROM erasure_runs ORDER BY id LIMIT ?', (MAX_ROWS+1,)):
+            budget[0] -= 1; budget[1] -= len(row['decision'].encode())
+            if budget[0] < 0 or budget[1] < 0: raise ValueError('case erasure journal limit')
+            entry = case_entry(row, ids)
+            if entry: data['erasure_runs'].append(entry)
     return data, sorted(set(COLUMNS) - present)
 
 

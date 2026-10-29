@@ -458,3 +458,7 @@ utelämnar en profils länk ska ge rollback och stängd målmiljö.
 Arkivets offlineprov accepterar format 4 med schema 4, 5 eller 6 men nekar andra
 kombinationer. Dessa databasprov kräver riktig PostgreSQL/OpenBao; lokal
 arkivverifiering är inte ett ersättande databasprov.
+
+## Radering i rättighetsärende
+
+`test_subject_erasure` provar beslut per kategori, andra personers bevarande, ändrad plan, rollback, lokal CLI, registerbindningar och verklig återläsning av gamla SQLite-kopior. PostgreSQL-proven i `test_cluster` omfattar schema 7, separata roller, kvitton utan registrering, journalfel och full COPY-återställning med beslut som saknades i kopian. Arkivproven omfattar format 5 och leverans/återläsning via en lokal S3-testdubbel. Se [körning, avgränsningar och återställning](radering-rattighetsarende.md).

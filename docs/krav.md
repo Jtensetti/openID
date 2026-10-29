@@ -391,3 +391,7 @@ historik redovisas som manuell utredning. Länkar följer full backup och
 återställning med spärrkraven, utan att läggas till i journalarkivet.
 Det är fortsatt persondata med behov av beslutad bevaranderegel och
 raderingshantering, inte anonymisering eller formell stängning av rättighetskraven.
+
+## Radering i rättighetsärende
+
+GOV-08 / ID-11 / INT-02: beslutad ärenderadering har förhandsvisning, kontroll av ändrade källdata, atomisk journal och beständiga nyckelspärrar. Återställning kräver en separat aktuell beslutsförteckning och verkställer dess raderingar före driftgranskning. Rättslig prövning, motparts- och kopiehantering, oberoende granskning och faktisk driftsättning kvarstår. Se [körning, avgränsningar och återställning](radering-rattighetsarende.md).

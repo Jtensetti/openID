@@ -266,4 +266,26 @@ class ArchiveTests(unittest.TestCase):
                     with self.assertRaises(ValueError):archive.verify(self.destination,digest)
 
 
+    def test_offline_postgres_v5_requires_schema7_and_both_erasure_tables(self):
+        self.destination.mkdir(mode=0o700);files={}
+        for name in archive.tables('postgresql',5):
+            target=self.destination/(name+'.jsonl');target.write_bytes(b'');target.chmod(0o600)
+            files[target.name]={'columns':list(archive.TABLES[name]),'rows':0,'bytes':0,
+                'sha256':hashlib.sha256(b'').hexdigest()}
+        manifest={'format':5,'backend':'postgresql','source_revision':REVISION,'files':files,
+            'snapshot':{'database_schema':7,'read_at':'2026-01-01T00:00:00+00:00'}}
+        path=self.destination/'manifest.json'
+        for schema in (7,6,4,8,True,None):
+            manifest['snapshot']['database_schema']=schema
+            raw=archive.encoded(manifest);path.write_bytes(raw);path.chmod(0o600)
+            digest=hashlib.sha256(raw).hexdigest()
+            if type(schema) is int and schema==7:self.assertEqual(0,archive.verify(self.destination,digest)['rows'])
+            else:
+                with self.assertRaises(ValueError):archive.verify(self.destination,digest)
+        manifest['snapshot']['database_schema']=7
+        del files['erasure_subjects.jsonl']
+        raw=archive.encoded(manifest);path.write_bytes(raw)
+        with self.assertRaises(ValueError):archive.verify(self.destination,hashlib.sha256(raw).hexdigest())
+
+
 if __name__ == '__main__': unittest.main()

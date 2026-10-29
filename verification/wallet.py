@@ -161,6 +161,8 @@ class Wallet:
             acceptance_journal.install_sqlite(db)
             from consent_retention import install_sqlite
             install_sqlite(db)
+            from erasure_policy import install_sqlite as install_erasure
+            install_erasure(db)
             columns = {row['name'] for row in db.execute('PRAGMA table_info(federation_requests)')}
             if 'sign_message' not in columns:
                 db.execute('ALTER TABLE federation_requests ADD COLUMN sign_message TEXT')
@@ -226,6 +228,8 @@ class Wallet:
         ident = hashlib.sha256(der).hexdigest()
         with self.transaction() as db:
             self.enrollment_open(db)
+            if db.execute('SELECT 1 FROM erasure_subjects WHERE credential=?', (ident,)).fetchone():
+                raise ValueError('key retired by rights decision')
             if db.execute('SELECT 1 FROM credentials WHERE id=?', (ident,)).fetchone():
                 raise ValueError('key already enrolled')
             db.execute('INSERT INTO credentials VALUES(?,?,?,?,?,?,?)',
@@ -348,12 +352,18 @@ class Wallet:
         acceptance_journal.identifier(receipt)
         with self.transaction() as db:
             self.enrollment_open(db)
+            if db.execute('SELECT 1 FROM erasure_subjects WHERE credential=?',
+                          (acceptance_journal.subject(public_key),)).fetchone():
+                raise ValueError('key retired by rights decision')
             acceptance_journal.store(db, receipt, public_key, policy, proof, int(self.clock()))
         return receipt
 
     def require_acceptance(self, receipt, public_key):
         with self.transaction() as db:
             self.enrollment_open(db)
+            if db.execute('SELECT 1 FROM erasure_subjects WHERE credential=?',
+                          (acceptance_journal.subject(public_key),)).fetchone():
+                raise ValueError('key retired by rights decision')
             acceptance_journal.require_pending(db, receipt, public_key, int(self.clock()))
 
     def withdraw_acceptance(self, request):

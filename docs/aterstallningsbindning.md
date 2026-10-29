@@ -62,7 +62,9 @@ utelämnas båda nyckelargumenten; bindning och extern kontrollsumma krävs änd
   --destination /privat/aterstalld \
   --identity-key /separat/nyckelforvaring/wallet.identity-key \
   --binding /privat/aterstallningsunderlag/kopia-001.json \
-  --binding-sha256 "$RECOVERY_BINDING_SHA256" --require-continuity
+  --binding-sha256 "$RECOVERY_BINDING_SHA256" --require-continuity \
+  --erasure-ledger /separat/forvarare/raderingsbeslut.json \
+  --erasure-ledger-sha256 "$CURRENT_ERASURE_LEDGER_SHA256"
 ```
 
 Nyckelargumentet behövs bara när kopian har nyckelberoende data. Använd alltid

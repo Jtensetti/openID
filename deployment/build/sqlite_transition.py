@@ -10,8 +10,10 @@ from contextlib import closing
 import json
 from pathlib import Path
 import sqlite3
+import time
 from wallet import Wallet
 from recovery import backup, bind_backup, restore
+from erasure_policy import LEDGER_FORMAT, write_ledger
 
 ORIGIN = 'https://generated.example.invalid'
 
@@ -57,8 +59,14 @@ def check(root, expected_source='3.40.1'):
         assert db.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
     require_rejection(lambda: current.activate(ident, 'GENERATED-REACTIVATION'))
     require_rejection(lambda: current.start_request(ident))
+    # This fixture has no rights decisions. A real restore must receive the
+    # current ledger from its custodian; never infer an empty one from a backup.
+    ledger = root/'synthetic-erasure-ledger.json'
+    ledger_sha = write_ledger(ledger, {'format': LEDGER_FORMAT,
+        'authorityReference': 'SYNTHETIC_TRANSITION_TEST', 'reviewedAt': int(time.time()), 'decisions': []})
     target = restore(root/'backup'/'wallet.sqlite', root/'restored',
-                     binding=root/'binding.json', binding_sha256=state['bindingSHA256'])
+                     binding=root/'binding.json', binding_sha256=state['bindingSHA256'],
+                     erasure_ledger=ledger, erasure_ledger_sha256=ledger_sha)
     recovered = Wallet(target, ORIGIN)
     with recovered.transaction() as db:
         assert recovered.credential(db, ident)['state'] == 'REVOKED'

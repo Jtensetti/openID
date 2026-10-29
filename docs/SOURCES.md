@@ -458,3 +458,8 @@ och [COPY](https://www.postgresql.org/docs/18/sql-copy.html).
 COPY FROM kör triggers och constraints; triggerns sökväg behöver begränsas
 och PUBLIC:s exekveringsrätt tas bort. Det motiverar transaktions-/behörighets-
 och återställningsproven, inte ett Digg- eller ISO-godkännande.
+
+Radering och schema-7-återställning, kontrollerat 2026-10-29:
+
+- [IMY: Rätt till radering](https://www.imy.se/privatperson/dataskydd/dina-rattigheter/radering/) – prövning, undantag och hantering av mottagare.
+- [PostgreSQL 18 COPY](https://www.postgresql.org/docs/18/sql-copy.html) – tabelltriggers och constraints gäller vid COPY FROM; journal och spärrreferenser återläses i bestämd ordning.

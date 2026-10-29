@@ -20,7 +20,7 @@ from transit import TransitVault
 COLUMNS = {name: SQLITE_COLUMNS[name] for name in (
     'credentials', 'persons', 'profiles', 'requests', 'federation_requests',
     'events', 'security_codes', 'enrollment_quarantine', 'enrollment_policies',
-    'enrollment_consents', 'credential_consents', 'consent_retention_runs')}
+    'enrollment_consents', 'credential_consents', 'consent_retention_runs', 'erasure_runs', 'erasure_subjects')}
 COLUMNS.update({
     'schema_version': 'version',
     'credential_persons': 'credential person',
@@ -35,7 +35,7 @@ EXCLUDED = {k: v for k, v in SQLITE_EXCLUDED.items() if k in COLUMNS}
 EXCLUDED['challenges'] = ['payload']
 
 
-def schema(db):
+def schema(db, *, reader=True):
     db.execute('LOCK TABLE '+','.join('openid.'+t for t in sorted(COLUMNS))+' IN ACCESS SHARE MODE')
     # pg_catalog also reveals objects/columns hidden by insufficient SELECT grants.
     found = db.execute("""SELECT c.relname,c.relkind,c.relrowsecurity,c.relforcerowsecurity,
@@ -51,8 +51,9 @@ def schema(db):
         actual.setdefault(table, set()).add(column)
     if len(found) == 256 or actual != {t: set(c.split()) for t, c in COLUMNS.items()}:
         raise ValueError('unmapped or incomplete register columns')
-    if db.execute('SELECT version FROM openid.schema_version').fetchall() != [(6,)]:
-        raise ValueError('case extraction requires schema 6')
+    if db.execute('SELECT version FROM openid.schema_version').fetchall() != [(7,)]:
+        raise ValueError('case extraction requires schema 7')
+    if not reader: return
     roles = db.execute("""SELECT rolsuper,rolcreatedb,rolcreaterole,rolreplication,rolbypassrls,
         has_schema_privilege(current_user,'openid','CREATE')
         FROM pg_catalog.pg_roles WHERE rolname=current_user""").fetchone()
@@ -103,7 +104,8 @@ def collect(db, case, vault, end):
         return data[table]
     credentials = get('credentials', 'id', ids)
     consents = get('enrollment_consents', 'subject', ids)
-    if {r['id'] for r in credentials} | {r['subject'] for r in consents} != ids:
+    erased = get('erasure_subjects', 'credential', ids)
+    if {r['id'] for r in credentials} | {r['subject'] for r in consents} | {r['credential'] for r in erased} != ids:
         raise ValueError('case key has no retained registration or consent evidence')
     profiles = get('profiles', 'credential', ids)
     links = get('credential_persons', 'credential', ids)
@@ -129,6 +131,11 @@ def collect(db, case, vault, end):
     for row in select(db, 'consent_retention_runs', None, (), budget, end):
         entry = exception_entry(row, receipts)
         if entry: data['consent_retention_runs'].append(entry)
+    from erasure_policy import case_entry
+    data['erasure_runs'] = []
+    for row in select(db, 'erasure_runs', None, (), budget, end):
+        entry = case_entry(row, ids)
+        if entry: data['erasure_runs'].append(entry)
     return data, sorted(ids - set(linked))
 
 
@@ -144,7 +151,7 @@ def export_case(dsn, destination, case, revision, *, vault, local_test=False, ma
         data, unlinked = collect(db, case, vault, end)
         if time.monotonic() >= end: raise TimeoutError('case deadline')
     return write_output(destination, {'format': 1, 'backend': 'postgresql',
-        'case': case, 'sourceRevision': revision, 'databaseSchema': 6,
+        'case': case, 'sourceRevision': revision, 'databaseSchema': 7,
         'readAt': read_at.astimezone(timezone.utc).isoformat(), 'status': 'HANDLER_REVIEW_REQUIRED',
         'records': data, 'credentialsWithoutRetainedPersonLink': unlinked,
         'securityFieldsForSeparateReview': EXCLUDED,

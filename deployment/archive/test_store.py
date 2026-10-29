@@ -165,6 +165,31 @@ class StoreTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError,'future register time'):store.required_until(self.source,CFG,NOW)
                 path.write_bytes(original)
 
+    def test_v5_erasure_journal_delivery_readback_and_time_boundary(self):
+        from erasure_policy import sha256
+        from test_subject_erasure import fixture_decision
+        baseline=store.required_until(self.source,CFG,NOW)
+        config=fixture_decision(['a'*64],at=int(NOW.timestamp()))
+        ident=sha256(config)
+        row=[ident,int((NOW+timedelta(hours=48)).timestamp()),store.archive.encoded(config).decode(),
+             'b'*64,store.archive.encoded({'profiles':1}).decode()]
+        manifest_path=self.source/'manifest.json';manifest=json.loads(manifest_path.read_bytes())
+        manifest['format']=5
+        for name in store.archive.tables('sqlite',5):
+            if name+'.jsonl' in manifest['files']:continue
+            rows=[row] if name=='erasure_runs' else ([['a'*64,ident]] if name=='erasure_subjects' else [])
+            raw=b''.join(store.archive.encoded(value) for value in rows)
+            path=self.source/(name+'.jsonl');store.archive.write_file(path,raw)
+            manifest['files'][path.name]={'columns':list(store.archive.TABLES[name]),'rows':len(rows),
+                'bytes':len(raw),'sha256':hashlib.sha256(raw).hexdigest()}
+        raw=store.archive.encoded(manifest);manifest_path.write_bytes(raw);self.digest=hashlib.sha256(raw).hexdigest()
+        self.assertGreater(store.required_until(self.source,CFG,NOW),baseline)
+        location=self.confirm(self.deliver())
+        self.assertEqual(5,store.check(location,self.digest,CFG,self.s3,STS(True),now=NOW+timedelta(days=30))['rows'])
+        row[1]=int((NOW+timedelta(hours=100)).timestamp())
+        (self.source/'erasure_runs.jsonl').write_bytes(store.archive.encoded(row))
+        with self.assertRaisesRegex(ValueError,'future register time'):store.required_until(self.source,CFG,NOW)
+
     def test_wrong_custodian_role_is_not_accepted(self):
         cfg=CFG|{'custodianRole':'arn:aws:iam::111111111111:role/OtherCustodian'}
         with self.assertRaises(ValueError):store.confirm(self.deliver(),self.digest,cfg,self.s3,STS(True),now=NOW)

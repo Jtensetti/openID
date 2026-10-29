@@ -11,7 +11,8 @@ import unittest
 
 import recovery
 import notices
-from recovery import backup_database, bind_backup, restore
+from recovery import backup_database, bind_backup
+from test_erasure_helpers import sqlite_restore as restore
 from wallet import Wallet
 
 
@@ -29,6 +30,10 @@ class RecoveryOperationsTests(unittest.TestCase):
         self.marker.chmod(0o600)
 
     def cli(self, *args):
+        if args[0] == 'restore':
+            from test_erasure_helpers import empty_ledger
+            path = self.root/('cli-ledger-'+os.urandom(8).hex()+'.json')
+            args = (*args, '--erasure-ledger', path, '--erasure-ledger-sha256', empty_ledger(path))
         return subprocess.run([sys.executable, str(Path(recovery.__file__)), *map(str, args)],
                               check=True, capture_output=True, text=True, timeout=15)
 

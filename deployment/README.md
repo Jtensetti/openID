@@ -181,7 +181,9 @@ cd verification
   --destination /privat/aterstalld \
   --identity-key /separat/nyckelforvaring/wallet.identity-key \
   --binding /privat/aterstallningsunderlag/kopia-001.json \
-  --binding-sha256 "$RECOVERY_BINDING_SHA256" --require-continuity
+  --binding-sha256 "$RECOVERY_BINDING_SHA256" --require-continuity \
+  --erasure-ledger /separat/forvarare/raderingsbeslut.json \
+  --erasure-ledger-sha256 "$CURRENT_ERASURE_LEDGER_SHA256"
 ```
 
 Före återläsning måste förvararen skapa och oberoende förankra

@@ -48,6 +48,7 @@ COPY verification/THIRD_PARTY.md /app/licenses/components.md
 COPY deployment/cluster/probe.py ./probe.py
 COPY verification/cluster_recovery.py verification/audit_archive.py verification/sqlite_retention.py ./
 COPY verification/subject_access.py verification/postgres_subject_access.py ./
+COPY verification/erasure_policy.py verification/subject_erasure.py verification/recovery_binding.py ./
 COPY verification/ingress_client.py ./
 COPY verification/enrollment_policy.py verification/acceptance_journal.py verification/consent_retention.py ./
 COPY verification/image_input.py ./

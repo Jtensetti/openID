@@ -121,6 +121,7 @@ COPY verification/crypto-worker.mjs verification/attest.mjs verification/device-
 COPY verification/revocation.py verification/notices.py verification/notice_exporter.py verification/continuity_operator.py ./
 COPY verification/subject_access.py verification/audit_archive.py verification/crl_maintenance.py verification/ingress_client.py verification/sqlite_retention.py verification/recovery_binding.py ./
 COPY verification/enrollment_policy.py verification/acceptance_journal.py verification/consent_retention.py ./
+COPY verification/erasure_policy.py verification/subject_erasure.py ./
 COPY verification/rp_web ./rp_web
 COPY deployment/probe.py ./probe.py
 COPY deployment/build/remove_build_pip.py /tmp/remove_build_pip.py

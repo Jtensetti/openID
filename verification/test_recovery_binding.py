@@ -12,7 +12,8 @@ from contextlib import closing
 from unittest.mock import patch
 
 import recovery
-from recovery import backup_database, bind_backup, restore
+from recovery import backup_database, bind_backup
+from test_erasure_helpers import sqlite_restore as restore
 import recovery_binding
 from recovery_binding import read_binding, snapshot_copy, write_binding
 from wallet import Wallet

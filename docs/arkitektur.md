@@ -216,3 +216,7 @@ profilgallring. Full backup bevarar länken, medan det avgränsade journalarkive
 inte tar med den. Äldre kopplingar som redan förlorats kan inte härledas genom
 migreringen. Se [registerdrift](../deployment/cluster/README.md) för behörigheter,
 migrering och återställning. Personlänken behöver egen bevarandeprövning.
+
+## Radering i rättighetsärende
+
+Schema 7 tillför en transaktionell raderingsjournal och nyckelspärrar som även kan avse nycklar utan kvarvarande registrering. En separat aktuell beslutsförteckning styr återspelning vid isolerad återställning; säkerhetskopian är inte källa för vilka senare raderingar som måste ske. Se [körning, avgränsningar och återställning](radering-rattighetsarende.md).

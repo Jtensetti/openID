@@ -95,7 +95,7 @@ class WalletTests(unittest.TestCase):
     def test_duplicate_key_bad_key_and_unsafe_directory_fail(self):
         with self.assertRaises(ValueError):self.wallet.enroll(self.key['publicKey'])
         with self.assertRaises(ValueError):self.wallet.enroll('YQ==')
-        public=Path(self.tmp.name)/'public';public.mkdir(mode=0o755)
+        public=Path(self.tmp.name)/'public';public.mkdir(mode=0o755);public.chmod(0o755)
         with self.assertRaises(ValueError):Wallet(public/'wallet.sqlite','https://localhost')
     def test_bounded_requests_and_challenges(self):
         self.activate()

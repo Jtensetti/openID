@@ -649,4 +649,6 @@ spärras med befintlig `wallet_cli.py revoke`; den gamla nyckeln återaktiveras 
 Syntetiska prov använder interna test-ID:n och lämnar aldrig ut personnummer.
 Se [operatörsflöde, adapterkontrakt och begränsningar](../docs/registerbindning.md).
 
-Registrering kräver separat aktivering och en privat `enrollmentPolicyFile`; se [information, versionsbundna val och återkallelse](../docs/registreringsinformation.md). PostgreSQL kräver schema 6. [Gallring av registreringskvitton](../docs/gallring-samtycken.md) kräver separat beslutad policy.
+Registrering kräver separat aktivering och en privat `enrollmentPolicyFile`; se [information, versionsbundna val och återkallelse](../docs/registreringsinformation.md). PostgreSQL kräver schema 7. [Gallring av registreringskvitton](../docs/gallring-samtycken.md) kräver separat beslutad policy.
+
+Beslutad radering och aktuell beslutsförteckning vid återställning beskrivs i [radering i rättighetsärende](../docs/radering-rattighetsarende.md). Skyddsreferenser och externa kopior kräver separat prövning.

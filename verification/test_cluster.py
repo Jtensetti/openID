@@ -84,7 +84,7 @@ class ClusterTests(unittest.TestCase):
 
     def setUp(self):
         with self.psycopg.connect(DSN, autocommit=True) as db:
-            db.execute('TRUNCATE openid.credentials,openid.persons,openid.operator_events,openid.maintenance_runs,openid.biometric_attempts,openid.enrollment_quarantine,openid.enrollment_policies,openid.consent_retention_runs RESTART IDENTITY CASCADE')
+            db.execute('TRUNCATE openid.erasure_runs,openid.credentials,openid.persons,openid.operator_events,openid.maintenance_runs,openid.biometric_attempts,openid.enrollment_quarantine,openid.enrollment_policies,openid.consent_retention_runs RESTART IDENTITY CASCADE')
         self.enroller=self.store('enroller')
         self.a=self.store('wallet'); self.b=self.store('wallet')
         self.ident=self.enroller.enroll(self.keys[0]['publicKey'], document())['id']
@@ -259,6 +259,18 @@ class ClusterTests(unittest.TestCase):
                 self.assertEqual(fresh.execute(definition).fetchone(),db.execute(definition).fetchone())
             self.assertTrue(db.execute("SELECT has_table_privilege('test_backup','openid.credential_persons','SELECT')").fetchone()[0])
             self.assertFalse(db.execute("SELECT has_table_privilege('test_enroller','openid.credential_persons','INSERT,UPDATE,DELETE')").fetchone()[0])
+            migration7=(Path(__file__).parents[1]/'deployment/cluster/migrate-6-to-7.sql').read_text()
+            db.execute(migration7,prepare=False)
+            self.assertEqual([(7,)],db.execute('SELECT version FROM openid.schema_version').fetchall())
+            self.assertEqual(before,db.execute('SELECT * FROM openid.profiles ORDER BY credential').fetchall())
+            self.assertEqual(links,db.execute('SELECT credential,person FROM openid.credential_persons ORDER BY credential').fetchall())
+            self.assertEqual(0,db.execute('SELECT count(*) FROM openid.erasure_runs').fetchone()[0])
+            with self.psycopg.connect(DSN) as fresh:
+                for function in ('guard_credential','guard_consent'):
+                    definition="SELECT pg_get_functiondef('openid."+function+"()'::regprocedure)"
+                    self.assertEqual(fresh.execute(definition).fetchone(),db.execute(definition).fetchone())
+            with self.assertRaises(self.psycopg.Error):db.execute(migration7,prepare=False)
+            db.execute('ROLLBACK')
             # No history is invented for the profile removed before migration.
             from postgres_subject_access import export_case
             db.execute(sql.SQL('GRANT CONNECT ON DATABASE {} TO test_backup').format(sql.Identifier(target)))
@@ -356,6 +368,151 @@ class ClusterTests(unittest.TestCase):
             **({'vault':self.a.vault,'local_test':True}|changes))
         return target,result,json.loads((target/'case.json').read_bytes())
 
+    def erasure_fixture(self):
+        from test_subject_erasure import fixture_decision,fixture_ledger
+        case,receipt,other,other_receipt=self.rights_fixture()
+        for ident in case['credentials']:
+            self.sql('revoker','SELECT revoke_credential(%s)',(ident,))
+        config=fixture_decision(case['credentials'],at=int(time.time())-1)
+        ledger=fixture_ledger(config,reviewed_at=int(time.time()))
+        return config,ledger,other
+
+    def erasure_plan(self,config):
+        from subject_erasure import postgres_case
+        return postgres_case(self.dsns['backup'],config,local_test=True)
+
+    def erasure_apply(self,config,ledger,expected=None):
+        from subject_erasure import postgres_case
+        expected=expected or self.erasure_plan(config)['planSHA256']
+        return postgres_case(DSN,config,apply=True,expected=expected,ledger_value=ledger,local_test=True)
+
+    def test_erasure_reader_plan_owner_transaction_and_other_person_isolation(self):
+        from postgres_subject_access import COLUMNS
+        from erasure_policy import validate_journal
+        config,ledger,other=self.erasure_fixture();ids=config['case']['credentials']
+        before={t:self.sql('backup','SELECT * FROM '+t+' ORDER BY 1') for t in COLUMNS}
+        plan=self.erasure_plan(config)
+        self.assertEqual(before,{t:self.sql('backup','SELECT * FROM '+t+' ORDER BY 1') for t in COLUMNS})
+        self.assertEqual(2,plan['delete']['profiles'])
+        self.assertEqual(0,plan['delete']['enrollment_policies']) # Shared with the other person.
+        self.assertNotIn('SECRET_',json.dumps(plan));self.assertNotIn(other,json.dumps(plan))
+        result=self.erasure_apply(config,ledger,plan['planSHA256'])
+        self.assertEqual('LOCAL_DECISION_APPLIED',result['status'])
+        for table in ('credentials','persons','credential_persons','pairwise_subjects','biometric_attempts','consent_retention_runs'):
+            self.assertEqual(before[table],self.sql('backup','SELECT * FROM '+table+' ORDER BY 1'),table)
+        for table in ('profiles','requests','federation_requests','events','security_codes',
+                      'challenges','activation_proposals','operator_events','credential_consents'):
+            self.assertEqual([(0,)],self.sql('backup','SELECT count(*) FROM '+table+' WHERE credential=ANY(%s)',(ids,)),table)
+        self.assertEqual([r for r in before['profiles'] if r[0]==other],self.sql('backup','SELECT * FROM profiles'))
+        self.assertEqual(2,len(self.sql('backup','SELECT * FROM erasure_subjects')))
+        validate_journal(self.sql('backup','SELECT * FROM erasure_runs')[0])
+        self.assertEqual('ALREADY_APPLIED',self.erasure_apply(config,ledger)['status'])
+        self.assertEqual([(1,)],self.sql('backup','SELECT count(*) FROM erasure_runs'))
+        _,_,value=self.rights_export(config['case'],vault=None)
+        self.assertEqual([],value['records']['profiles'])
+        self.assertEqual(1,len(value['records']['erasure_runs']))
+        self.assertNotIn(other,json.dumps(value))
+
+    def test_erasure_scope_stale_plan_roles_and_journal_failure_leave_data_unchanged(self):
+        from postgres_subject_access import COLUMNS
+        from subject_erasure import postgres_case
+        from test_subject_erasure import fixture_ledger
+        config,ledger,other=self.erasure_fixture()
+        before={t:self.sql('backup','SELECT * FROM '+t+' ORDER BY 1') for t in COLUMNS}
+        for ids in ([self.ident],config['case']['credentials']+[other],['f'*64]):
+            changed=config|{'case':config['case']|{'credentials':ids}}
+            with self.assertRaises(ValueError):self.erasure_plan(changed)
+        for role in self.dsns:
+            with self.subTest(role=role),self.assertRaises(ValueError):
+                postgres_case(self.dsns[role],config,apply=True,expected='0'*64,ledger_value=ledger,local_test=True)
+            for table in ('erasure_runs','erasure_subjects'):
+                with self.assertRaises(self.psycopg.errors.InsufficientPrivilege):self.sql(role,'DELETE FROM '+table)
+        plan=self.erasure_plan(config)
+        with self.psycopg.connect(DSN) as db:
+            db.execute("UPDATE openid.profiles SET sealed=sealed||' ' WHERE credential=%s",(self.ident,))
+        with self.assertRaisesRegex(ValueError,'plan changed'):self.erasure_apply(config,ledger,plan['planSHA256'])
+        with self.psycopg.connect(DSN) as db:
+            db.execute('UPDATE openid.profiles SET sealed=%s WHERE credential=%s',
+                (next(row[3] for row in before['profiles'] if row[0]==self.ident),self.ident))
+        with self.assertRaisesRegex(ValueError,'omits'):
+            self.erasure_apply(config,fixture_ledger(reviewed_at=int(time.time())))
+        with self.psycopg.connect(DSN) as db:
+            db.execute("""CREATE FUNCTION openid.synthetic_erasure_failure() RETURNS trigger LANGUAGE plpgsql AS $$
+                BEGIN RAISE EXCEPTION 'synthetic journal failure'; END $$""")
+            db.execute('CREATE TRIGGER synthetic_erasure_failure BEFORE INSERT ON openid.erasure_runs FOR EACH ROW EXECUTE FUNCTION openid.synthetic_erasure_failure()')
+        try:
+            with self.assertRaises(self.psycopg.Error):self.erasure_apply(config,ledger)
+            self.assertEqual(before,{t:self.sql('backup','SELECT * FROM '+t+' ORDER BY 1') for t in COLUMNS})
+        finally:
+            with self.psycopg.connect(DSN) as db:
+                db.execute('DROP TRIGGER synthetic_erasure_failure ON openid.erasure_runs')
+                db.execute('DROP FUNCTION openid.synthetic_erasure_failure()')
+
+    def test_erasure_replays_old_copy_and_rejects_ledger_missing_recorded_decision(self):
+        from cluster_recovery import backup,restore
+        from erasure_policy import write_ledger
+        from test_erasure_helpers import empty_ledger
+        config,ledger,other=self.erasure_fixture()
+        old=self.root/('before-erasure-'+secrets.token_hex(8))
+        backup(self.dsns['backup'],old,local_test=True)
+        path=self.root/('erasure-ledger-'+secrets.token_hex(8)+'.json');anchor=write_ledger(path,ledger)
+        self.erasure_apply(config,ledger)
+        after=self.root/('after-erasure-'+secrets.token_hex(8))
+        backup(self.dsns['backup'],after,local_test=True)
+        for source in (old,after):
+            target=self.restore_target()
+            result=restore(DSN,source,target,self.a.vault,local_test=True,
+                erasure_ledger=path,erasure_ledger_sha256=anchor)
+            self.assertEqual(1,result['erasureDecisionsChecked']);self.assertEqual(anchor,result['erasureLedgerSHA256'])
+            with self.psycopg.connect(DSN) as admin:
+                self.assertFalse(admin.execute('SELECT datallowconn FROM pg_database WHERE datname=%s',(target,)).fetchone()[0])
+            with self.psycopg.connect(self.restored_database(target)) as db:
+                self.assertEqual([(other,)],db.execute('SELECT credential FROM openid.profiles').fetchall())
+                self.assertEqual([('REVOKED',)],db.execute('SELECT DISTINCT state FROM openid.credentials').fetchall())
+                self.assertEqual(2,db.execute('SELECT count(*) FROM openid.erasure_subjects').fetchone()[0])
+                self.assertEqual(1,db.execute('SELECT count(*) FROM openid.erasure_runs').fetchone()[0])
+        empty=self.root/('forgotten-ledger-'+secrets.token_hex(8)+'.json');stale=empty_ledger(empty)
+        target=self.restore_target()
+        with self.assertRaisesRegex(ValueError,'omits'):
+            restore(DSN,after,target,self.a.vault,local_test=True,erasure_ledger=empty,erasure_ledger_sha256=stale)
+        with self.psycopg.connect(DSN) as admin:
+            self.assertFalse(admin.execute('SELECT datallowconn FROM pg_database WHERE datname=%s',(target,)).fetchone()[0])
+        with self.psycopg.connect(self.restored_database(target)) as db:
+            self.assertEqual(0,db.execute('SELECT count(*) FROM openid.credentials').fetchone()[0])
+            self.assertEqual(0,db.execute('SELECT count(*) FROM openid.erasure_runs').fetchone()[0])
+
+    def test_erased_receipt_only_key_cannot_register_even_from_copy_predating_its_receipt(self):
+        from cluster_recovery import backup,restore
+        from erasure_policy import write_ledger
+        from test_subject_erasure import fixture_decision,fixture_ledger
+        from psycopg.conninfo import conninfo_to_dict,make_conninfo
+        old=self.root/('before-receipt-'+secrets.token_hex(8));backup(self.dsns['backup'],old,local_test=True)
+        receipt,_=self.enrollment_receipt(key=3)
+        ident=hashlib.sha256(base64.b64decode(self.keys[3]['publicKey'])).hexdigest()
+        row=self.sql('backup','SELECT * FROM enrollment_consents WHERE id=%s',(receipt,))[0]
+        config=fixture_decision([ident],at=int(time.time())-1);ledger=fixture_ledger(config,reviewed_at=int(time.time()))
+        self.erasure_apply(config,ledger)
+        with self.assertRaisesRegex(ValueError,'retired'):self.enrollment_receipt(key=3)
+        with self.assertRaisesRegex(ValueError,'retired'):self.enroller.enroll(self.keys[3]['publicKey'],document())
+        path=self.root/('receipt-ledger-'+secrets.token_hex(8)+'.json');anchor=write_ledger(path,ledger)
+        target=self.restore_target()
+        restore(DSN,old,target,self.a.vault,local_test=True,erasure_ledger=path,erasure_ledger_sha256=anchor)
+        admin_dsn=self.restored_database(target,grant=True)
+        with self.psycopg.connect(admin_dsn) as db:
+            # Remove the independent quarantine only in this synthetic database;
+            # the persistent rights block must still reject both entry paths.
+            db.execute('DELETE FROM openid.enrollment_quarantine')
+            self.assertEqual([(ident,)],db.execute('SELECT credential FROM openid.erasure_subjects').fetchall())
+        enroller=make_conninfo(**(conninfo_to_dict(self.dsns['enroller'])|{'dbname':target}))
+        with self.assertRaisesRegex(self.psycopg.Error,'key retired'):
+            with self.psycopg.connect(enroller) as db:
+                db.execute('INSERT INTO openid.credentials VALUES(%s,%s,%s,%s,NULL,NULL,%s)',
+                    (ident,self.keys[3]['publicKey'],'PENDING_REVIEW',int(time.time()),secrets.token_hex(32)))
+        with self.assertRaisesRegex(self.psycopg.Error,'key retired'):
+            with self.psycopg.connect(enroller) as db:
+                db.execute('INSERT INTO openid.enrollment_consents VALUES(%s,%s,%s,%s,%s,%s)',row)
+        self.assertEqual([(0,)],self.sql('backup','SELECT count(*) FROM enrollment_consents WHERE subject=%s',(ident,)))
+
     def test_rights_case_read_only_role_real_transit_own_history_and_choices(self):
         from postgres_subject_access import COLUMNS
         case,receipt,other,other_receipt=self.rights_fixture()
@@ -379,7 +536,7 @@ class ClusterTests(unittest.TestCase):
         self.assertTrue(data['enrollment_consents'][0]['recordedAcceptance']['biometricsAccepted'])
         self.assertEqual([receipt],data['consent_retention_runs'][0]['protectedReceipts'])
         self.assertEqual('HANDLER_REVIEW_REQUIRED',value['status'])
-        self.assertEqual(6,value['databaseSchema'])
+        self.assertEqual(7,value['databaseSchema'])
         for forbidden in ('BOB PRIVATE',other,other_receipt,'SECRET_', 'synthetic-assertion-already-checked-by-native'):
             self.assertNotIn(forbidden,raw.decode())
         self.assertNotIn('payload',data['challenges'][0])
@@ -534,7 +691,8 @@ class ClusterTests(unittest.TestCase):
         self.assertEqual([],self.sql('enroller','SELECT * FROM credential_consents'))
 
     def test_concurrent_consent_binding_and_backup_restore_preserve_evidence(self):
-        from cluster_recovery import backup,restore
+        from cluster_recovery import backup
+        from test_erasure_helpers import postgres_restore as restore
         from postgres import PostgresWallet
         from psycopg.conninfo import conninfo_to_dict,make_conninfo
         from wallet import EnrollmentQuarantine
@@ -924,7 +1082,8 @@ class ClusterTests(unittest.TestCase):
         return name
 
     def test_actual_backup_restore_revokes_old_state_and_allows_new_enrollment(self):
-        from cluster_recovery import backup,restore
+        from cluster_recovery import backup
+        from test_erasure_helpers import postgres_restore as restore
         from psycopg.conninfo import conninfo_to_dict,make_conninfo
         from postgres import PostgresWallet
         self.activate()
@@ -941,7 +1100,11 @@ class ClusterTests(unittest.TestCase):
         self.sql('revoker','SELECT revoke_credential(%s)',(self.ident,))
         target=self.restore_target()
         result=restore(DSN,destination,target,self.a.vault,local_test=True)
-        self.assertEqual({'state':'QUARANTINED','profilesChecked':2},result)
+        self.assertEqual('QUARANTINED',result['state'])
+        self.assertEqual(2,result['profilesChecked'])
+        self.assertEqual(0,result['erasureDecisionsChecked'])
+        self.assertEqual(0,result['retentionReviewsRequired'])
+        self.assertRegex(result['erasureLedgerSHA256'],'^[a-f0-9]{64}$')
         with self.psycopg.connect(DSN) as admin:
             self.assertFalse(admin.execute('SELECT datallowconn FROM pg_database WHERE datname=%s',(target,)).fetchone()[0])
         admin_dsn=self.restored_database(target)
@@ -997,7 +1160,8 @@ class ClusterTests(unittest.TestCase):
                     (ident,key,'PENDING_REVIEW',int(time.time()),secrets.token_hex(32)))
 
     def test_retained_person_links_survive_backup_restore_after_profiles_are_removed(self):
-        from cluster_recovery import backup,restore
+        from cluster_recovery import backup
+        from test_erasure_helpers import postgres_restore as restore
         self.enroller.enroll(self.keys[1]['publicKey'],document())
         expected=self.sql('backup','SELECT * FROM credential_persons ORDER BY credential')
         self.assertEqual(2,len(expected))
@@ -1012,7 +1176,8 @@ class ClusterTests(unittest.TestCase):
             self.assertEqual([('REVOKED',)],db.execute('SELECT DISTINCT state FROM openid.credentials').fetchall())
 
     def test_backup_missing_person_links_is_rejected_without_silent_reconstruction(self):
-        from cluster_recovery import backup,restore
+        from cluster_recovery import backup
+        from test_erasure_helpers import postgres_restore as restore
         destination=self.root/('missing-links-'+secrets.token_hex(8))
         backup(self.dsns['backup'],destination,local_test=True)
         with self.psycopg.connect(DSN) as db,db.cursor() as cursor:
@@ -1032,7 +1197,8 @@ class ClusterTests(unittest.TestCase):
                 self.assertEqual(0,db.execute('SELECT count(*) FROM openid.'+table).fetchone()[0])
 
     def test_corrupt_unbounded_or_foreign_backup_is_rejected_before_creation(self):
-        from cluster_recovery import backup,restore
+        from cluster_recovery import backup
+        from test_erasure_helpers import postgres_restore as restore
         destination=self.root/('corrupt-'+secrets.token_hex(8))
         backup(self.dsns['backup'],destination,local_test=True)
         manifest=destination/'manifest.json';original=manifest.read_bytes()
@@ -1083,7 +1249,8 @@ with ExitStack() as stack:
                     path.chmod(0o600)
 
     def test_wrong_key_or_key_outage_keeps_restore_empty_and_closed(self):
-        from cluster_recovery import backup,restore
+        from cluster_recovery import backup
+        from test_erasure_helpers import postgres_restore as restore
         from transit import TransitVault,VaultUnavailable
         destination=self.root/('key-failure-'+secrets.token_hex(8))
         backup(self.dsns['backup'],destination,local_test=True)
@@ -1098,7 +1265,8 @@ with ExitStack() as stack:
         with self.assertRaises(self.psycopg.Error):self.sql('backup','DELETE FROM credentials')
 
     def test_database_restore_with_recovered_raft_keys_and_stale_key_snapshot(self):
-        from cluster_recovery import backup,restore
+        from cluster_recovery import backup
+        from test_erasure_helpers import postgres_restore as restore
         from raft_test_support import RaftCluster
         from transit import TransitVault,VaultUnavailable
         cluster=RaftCluster(self.root/('raft-'+secrets.token_hex(8)))
@@ -1108,7 +1276,7 @@ with ExitStack() as stack:
         obsolete_snapshot=cluster.call(source,'sys/storage/raft/snapshot',token=token,raw=True)
         cluster.call(source,'transit/keys/openid-profile/rotate',{},token)
         with self.psycopg.connect(DSN,autocommit=True) as admin:
-            admin.execute('TRUNCATE openid.credentials,openid.persons,openid.operator_events,openid.maintenance_runs,openid.biometric_attempts RESTART IDENTITY CASCADE')
+            admin.execute('TRUNCATE openid.erasure_runs,openid.credentials,openid.persons,openid.operator_events,openid.maintenance_runs,openid.biometric_attempts RESTART IDENTITY CASCADE')
         self.enroller.vault=TransitVault(source['address'],tokens['enroller'],str(cluster.cert))
         self.ident=self.enroller.enroll(self.keys[0]['publicKey'],document())['id'];self.activate()
         destination=self.root/('paired-'+secrets.token_hex(8))
@@ -1118,7 +1286,10 @@ with ExitStack() as stack:
         recovered=cluster.restore_snapshot(snapshot,seal)
         vault=TransitVault(recovered['address'],tokens['recovery'],str(cluster.cert))
         target=self.restore_target()
-        self.assertEqual({'state':'QUARANTINED','profilesChecked':1},restore(DSN,destination,target,vault,local_test=True))
+        result=restore(DSN,destination,target,vault,local_test=True)
+        self.assertEqual('QUARANTINED',result['state'])
+        self.assertEqual(1,result['profilesChecked'])
+        self.assertEqual(0,result['erasureDecisionsChecked'])
         with self.psycopg.connect(self.restored_database(target)) as admin:
             self.assertEqual([('REVOKED',)],admin.execute('SELECT state FROM openid.credentials').fetchall())
         obsolete=cluster.restore_snapshot(obsolete_snapshot,seal)

@@ -100,6 +100,23 @@ class SubjectAccessTests(unittest.TestCase):
                 with self.assertRaises(ValueError): self.export()
                 self.assertFalse(self.dest.exists())
 
+    def test_registry_binding_decrypts_only_selected_person_and_flags_lost_profile_context(self):
+        from registry_binding import RegistryBindings
+        RegistryBindings(self.wallet,source='synthetic-test')
+        with self.wallet.transaction() as db:
+            for key,person in (('a','p'),('b','p'),('c','q')):
+                sealed=self.wallet.vault.crypt('seal','registry:'+key*64,person*64,{'synthetic':'BINDING_'+key})
+                db.execute('INSERT INTO registry_bindings VALUES(?,?,?)',(key*64,person*64,json.dumps(sealed)))
+                db.execute('INSERT INTO registry_evidence VALUES(?,?)',('synthetic-evidence-'+key,key*64))
+            db.execute('INSERT INTO registry_replacements VALUES(?,?)',('a'*64,'b'*64))
+        self.export();raw=(self.dest/'case.json').read_text();data=json.loads(raw)['records']
+        selected={row['credential']:row for row in data['registry_bindings']}
+        self.assertEqual('BINDING_b',selected['b'*64]['data']['synthetic'])
+        self.assertIs(selected['a'*64]['encryptedContentRequiresSeparateReview'],True)
+        self.assertNotIn('sealed',selected['a'*64])
+        self.assertNotIn('BINDING_c',raw);self.assertNotIn('c'*64,raw)
+        self.assertEqual([{'previous':'a'*64,'replacement':'b'*64}],data['registry_replacements'])
+
     def test_mismatched_recorded_choice_is_not_exported_as_valid_acceptance(self):
         with self.wallet.transaction() as db:
             digest=db.execute('SELECT digest FROM enrollment_policies').fetchone()[0]
@@ -120,6 +137,7 @@ class SubjectAccessTests(unittest.TestCase):
 
     def test_legacy_schema_is_read_without_migration_or_claiming_receipts_exist(self):
         with self.wallet.transaction() as db:
+            db.execute('DROP TABLE erasure_subjects'); db.execute('DROP TABLE erasure_runs')
             for table in ('credential_consents','enrollment_consents','enrollment_policies','consent_retention_runs','retention_runs','profile_evidence'):
                 db.execute('DROP TABLE '+table)
         before = self.path.read_bytes(); self.export()

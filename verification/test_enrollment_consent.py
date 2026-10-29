@@ -194,7 +194,7 @@ class EnrollmentConsentTests(unittest.TestCase):
         target=self.root/'archive'
         result=export_snapshot(sqlite_snapshot(self.wallet.path),target,'sqlite','a'*40)
         self.assertEqual('VERIFIED',verify(target,result['manifestSha256'])['state'])
-        self.assertEqual(4,json.loads((target/'manifest.json').read_text())['format'])
+        self.assertEqual(5,json.loads((target/'manifest.json').read_text())['format'])
         self.assertIn(consent['receipt'],(target/'enrollment_consents.jsonl').read_text())
         copy=backup(self.wallet,self.root/'backup')
         with sqlite3.connect(copy) as db:

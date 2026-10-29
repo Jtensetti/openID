@@ -92,7 +92,7 @@ class PostgresWallet(Wallet):
 
     def health(self):
         with self.transaction() as db:
-            if db.execute('SELECT version FROM schema_version').fetchone()[0] != 6:
+            if db.execute('SELECT version FROM schema_version').fetchone()[0] != 7:
                 raise RegistryUnavailable('schema unavailable')
         self.vault.key()
 

@@ -74,10 +74,10 @@ journalen, men inte läsa samtyckesbevis eller radera tabeller direkt.
 ## Införande och återstående gränser
 
 SQLite behöver aktuell applikationsschema med journalen. PostgreSQL kräver
-schema 6; journalen införs med `migrate-3-to-4.sql` och därefter krävs
-`migrate-4-to-5.sql` och `migrate-5-to-6.sql`. Migreringarna körs av kontrollerad ägare med stoppade
+schema 7; journalen införs med `migrate-3-to-4.sql` och därefter krävs
+`migrate-4-to-5.sql`, `migrate-5-to-6.sql` och `migrate-6-to-7.sql`. Migreringarna körs av kontrollerad ägare med stoppade
 skrivare och verifierad backup från tidigare låst revision. Journalen ingår
-i backup och [arkivformat 4](arkivexport.md). Äldre arkiv förblir läsbara.
+i backup och [aktuellt arkivformat 5](arkivexport.md). Äldre arkiv förblir läsbara.
 
 Verktyget raderar inte redan tagna backuper, exporter, repliker eller
 telefonens lokala kvitton. SQLite använder `secure_delete`, men detta är
@@ -90,3 +90,5 @@ ansvarigs beslut behöver egna bevis.
 `test_cluster` provar PostgreSQL-roller, direktanrop, återställning,
 samtidighet och journalfel i den disponibla CI-miljön. Proven är inte
 samtycken eller gallringsbeslut för verkliga personer.
+
+Beslutad radering och aktuell beslutsförteckning vid återställning beskrivs i [radering i rättighetsärende](radering-rattighetsarende.md). Skyddsreferenser och externa kopior kräver separat prövning.

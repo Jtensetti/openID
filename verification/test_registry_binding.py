@@ -14,7 +14,8 @@ from identity import VerifiedDocument
 from registry_binding import RegistryBindings, RegistryResult
 from test_wallet import crypt
 from wallet import Wallet
-from recovery import backup, restore
+from recovery import backup
+from test_erasure_helpers import sqlite_restore as restore
 
 AUDIENCE = 'https://service.invalid/sp'
 # Published SPAR examples, not generated national identifiers:

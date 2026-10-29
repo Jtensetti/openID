@@ -133,7 +133,12 @@ def bind_backup(source, identity_key, expected_key_sha256, output):
 
 
 def restore(source, destination, identity_key=None, *, require_continuity=False,
-            binding=None, binding_sha256=None):
+            binding=None, binding_sha256=None, erasure_ledger=None, erasure_ledger_sha256=None):
+    from erasure_policy import read_ledger, install_sqlite as install_erasure
+    from subject_erasure import replay_in_transaction, write_result
+    if erasure_ledger is None or erasure_ledger_sha256 is None:
+        raise ValueError('current detached erasure ledger and anchor required')
+    decisions = read_ledger(erasure_ledger, erasure_ledger_sha256)
     source = Path(source).absolute()
     if source.is_symlink() or not source.is_file(): raise ValueError('Regular backup file required')
     if binding is None or binding_sha256 is None: raise ValueError('binding and external anchor required')
@@ -182,6 +187,21 @@ def restore(source, destination, identity_key=None, *, require_continuity=False,
             vault = IdentityVault(target.with_suffix('.identity-key'))
             with closing(sqlite3.connect(target)) as db:
                 verify_profiles(db, vault)
+        with closing(sqlite3.connect(target)) as db:
+            db.row_factory = sqlite3.Row
+            db.execute('PRAGMA foreign_keys=ON'); db.execute('PRAGMA synchronous=EXTRA')
+            db.execute('PRAGMA secure_delete=ON')
+            if (db.execute('PRAGMA foreign_keys').fetchone()[0] != 1
+                    or db.execute('PRAGMA synchronous').fetchone()[0] != 3
+                    or db.execute('PRAGMA secure_delete').fetchone()[0] != 1):
+                raise ValueError('restore erasure durability')
+            db.execute('BEGIN IMMEDIATE')
+            install_erasure(db)
+            replayed = replay_in_transaction(db, 'sqlite', decisions, clock=time.time)
+            db.commit()
+        write_result(destination/'erasure-replay.json', {'format': 1,
+            'status': 'QUARANTINED_REQUIRES_OPERATOR_REVIEW',
+            'ledgerSHA256': erasure_ledger_sha256, 'decisions': replayed})
         with target.open('rb') as stream: os.fsync(stream.fileno())
         if required: save_continuity_requirement(target)
         sync_directory(destination)
@@ -201,6 +221,8 @@ def main():
     r.add_argument('--identity-key', type=Path)
     r.add_argument('--binding', type=Path)
     r.add_argument('--binding-sha256', help='SHA-256 from independently protected recovery evidence')
+    r.add_argument('--erasure-ledger', type=Path, required=True)
+    r.add_argument('--erasure-ledger-sha256', required=True)
     r.add_argument('--require-continuity', action='store_true',
         help='Require independent revocation and notification services even for an older backup')
     k = sub.add_parser('bind')
@@ -214,6 +236,7 @@ def main():
     elif args.operation == 'bind':
         result = bind_backup(args.backup, args.identity_key, args.expected_key_sha256, args.output)
     else: result = restore(args.backup, args.destination, args.identity_key,
+        erasure_ledger=args.erasure_ledger, erasure_ledger_sha256=args.erasure_ledger_sha256,
         require_continuity=args.require_continuity, binding=args.binding, binding_sha256=args.binding_sha256)
     print(result)
 

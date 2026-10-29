@@ -19,8 +19,8 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 SET ROLE openid_owner;
 SET search_path=openid,pg_catalog;
 ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
-CREATE TABLE schema_version(version integer PRIMARY KEY CHECK(version=6));
-INSERT INTO schema_version VALUES(6);
+CREATE TABLE schema_version(version integer PRIMARY KEY CHECK(version=7));
+INSERT INTO schema_version VALUES(7);
 CREATE TABLE credentials (
  id text PRIMARY KEY CHECK(id ~ '^[a-f0-9]{64}$'), public_key text UNIQUE NOT NULL,
  state text NOT NULL CHECK(state IN ('PENDING_REVIEW','ACTIVE','REVOKED')), created bigint NOT NULL,
@@ -37,6 +37,16 @@ CREATE TABLE credential_persons (
  credential text PRIMARY KEY REFERENCES credentials, person text NOT NULL REFERENCES persons,
  UNIQUE(credential,person));
 CREATE INDEX credential_person ON credential_persons(person);
+CREATE TABLE erasure_runs (
+ id text PRIMARY KEY CHECK(id ~ '^[a-f0-9]{64}$'), time bigint NOT NULL CHECK(time>=0),
+ decision text NOT NULL CHECK(octet_length(decision)<=32768),
+ plan_sha256 text NOT NULL CHECK(plan_sha256 ~ '^[a-f0-9]{64}$'),
+ counts text NOT NULL CHECK(octet_length(counts)<=16384));
+-- No credential FK: a recovery decision must also block a key absent from an old backup.
+CREATE TABLE erasure_subjects (
+ credential text PRIMARY KEY CHECK(credential ~ '^[a-f0-9]{64}$'),
+ first_decision text NOT NULL REFERENCES erasure_runs);
+GRANT SELECT ON erasure_subjects TO openid_enroller;
 ALTER TABLE profiles ADD CONSTRAINT profile_person_binding
  FOREIGN KEY(credential,person) REFERENCES credential_persons(credential,person);
 CREATE FUNCTION record_profile_person() RETURNS trigger
@@ -68,13 +78,18 @@ CREATE TABLE credential_consents(credential text PRIMARY KEY REFERENCES credenti
 CREATE FUNCTION guard_consent() RETURNS trigger
 LANGUAGE plpgsql SET search_path=pg_catalog,openid,pg_temp AS $$
 BEGIN
+ IF TG_OP='INSERT' THEN
+  IF EXISTS(SELECT 1 FROM openid.erasure_subjects WHERE credential=NEW.subject) THEN
+   RAISE EXCEPTION 'key retired by rights decision'; END IF;
+  RETURN NEW;
+ END IF;
  IF ROW(NEW.id,NEW.subject,NEW.policy_digest,NEW.accepted,NEW.proof)
       IS DISTINCT FROM ROW(OLD.id,OLD.subject,OLD.policy_digest,OLD.accepted,OLD.proof)
     OR NEW.withdrawn IS NULL OR (OLD.withdrawn IS NOT NULL AND NEW.withdrawn IS DISTINCT FROM OLD.withdrawn)
  THEN RAISE EXCEPTION 'consent evidence is immutable; withdrawal is permanent'; END IF;
  RETURN NEW;
 END $$;
-CREATE TRIGGER consent_immutable BEFORE UPDATE ON enrollment_consents FOR EACH ROW EXECUTE FUNCTION guard_consent();
+CREATE TRIGGER consent_immutable BEFORE INSERT OR UPDATE ON enrollment_consents FOR EACH ROW EXECUTE FUNCTION guard_consent();
 CREATE TABLE requests (
  id text PRIMARY KEY, credential text NOT NULL REFERENCES credentials, secret_hash text NOT NULL,
  state text NOT NULL CHECK(state IN ('PENDING','APPROVED','REJECTED','CANCELLED','CONSUMED')),
@@ -185,6 +200,10 @@ END $$;
 
 CREATE FUNCTION guard_credential() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,openid,pg_temp AS $$
 BEGIN
+ IF NEW.state!='REVOKED' THEN
+  IF EXISTS(SELECT 1 FROM openid.erasure_subjects WHERE credential=NEW.id) THEN
+   RAISE EXCEPTION 'key retired by rights decision'; END IF;
+ END IF;
  IF TG_OP='INSERT' THEN
   IF EXISTS(SELECT 1 FROM enrollment_quarantine WHERE until_epoch>extract(epoch FROM clock_timestamp())) THEN
    RAISE EXCEPTION 'enrollment paused after restore'; END IF;

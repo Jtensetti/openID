@@ -115,7 +115,7 @@ class ConsentRetentionTests(unittest.TestCase):
         self.run_retention(apply=True);target=self.root/'archive'
         result=export_snapshot(sqlite_snapshot(self.path),target,'sqlite','a'*40)
         self.assertEqual('VERIFIED',verify(target,result['manifestSha256'])['state'])
-        self.assertEqual(4,json.loads((target/'manifest.json').read_text())['format'])
+        self.assertEqual(5,json.loads((target/'manifest.json').read_text())['format'])
         self.assertIn('SYNTHETIC_RETENTION_001',(target/'consent_retention_runs.jsonl').read_text())
         row=list(self.rows('consent_retention_runs')[0]);row[3]='0'*64
         with self.assertRaises(ValueError):validate_journal(row)
@@ -133,7 +133,9 @@ class ConsentRetentionTests(unittest.TestCase):
     def test_previous_consent_archive_format_remains_readable(self):
         from audit_archive import export_snapshot,sqlite_snapshot,verify
         # This represents the previous schema, not removal during an apply run.
-        with self.wallet.transaction() as db:db.execute('DROP TABLE consent_retention_runs')
+        with self.wallet.transaction() as db:
+            db.execute('DROP TABLE erasure_subjects');db.execute('DROP TABLE erasure_runs')
+            db.execute('DROP TABLE consent_retention_runs')
         target=self.root/'previous-archive'
         result=export_snapshot(sqlite_snapshot(self.path),target,'sqlite','a'*40)
         self.assertEqual(3,json.loads((target/'manifest.json').read_text())['format'])

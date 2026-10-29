@@ -133,3 +133,7 @@ behöver införas i driften. Verktyget ändrar ingen gallringsrutin.
 Tekniskt stöd för ögonblicksbilder:
 [PostgreSQL 18](https://www.postgresql.org/docs/18/transaction-iso.html#XACT-REPEATABLE-READ)
 och [SQLite](https://www.sqlite.org/isolation.html).
+
+## Radering i rättighetsärende
+
+Arkivformat 5 lägger till `erasure_runs` och `erasure_subjects` för aktuell SQLite och PostgreSQL schema 7. Beslutets kanoniska innehåll binds till journal-ID och valideras vid export och offlinekontroll. Båda tabellerna krävs. Format 4 hör fortsatt till tidigare schema 4–6. Ett journalarkiv ersätter inte aktuell extern beslutsförteckning för återställning. Se [körning, avgränsningar och återställning](radering-rattighetsarende.md).
