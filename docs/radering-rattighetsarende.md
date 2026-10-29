@@ -153,7 +153,9 @@ radering kräver ett känt komplett schema. Äldre ofullständiga SQLite-scheman
 behöver separat verifierad migrering i isolering före återställningsförsöket.
 
 Full backup omfattar journal och nyckelspärrar. Begränsad arkivexport använder
-format 5; äldre arkivformat 1–4 är fortsatt läsbara. Arkivets hashkontroll
+format 5. Applicera även aktuell `archive-access.sql` separat som kontrollerad
+ägare om arkivläsaren används; schema 7 ger inte automatiskt denna roll läsrätt
+till de nya journalfälten. Äldre arkivformat 1–4 är fortsatt läsbara. Arkivets hashkontroll
 ersätter inte den separata aktuella beslutsförteckningen.
 
 `test_subject_erasure` provar SQLite-urval, andra personers data, bevarandeval,

@@ -271,6 +271,14 @@ class ClusterTests(unittest.TestCase):
                     self.assertEqual(fresh.execute(definition).fetchone(),db.execute(definition).fetchone())
             with self.assertRaises(self.psycopg.Error):db.execute(migration7,prepare=False)
             db.execute('ROLLBACK')
+            # Optional audit grants must work after migration, even when the
+            # caller has no openid schema in its default search path.
+            db.execute('SET search_path=public,pg_catalog')
+            archive_access=(Path(__file__).parents[1]/'deployment/cluster/archive-access.sql').read_text()
+            db.execute(archive_access,prepare=False);db.execute(archive_access,prepare=False)
+            self.assertTrue(db.execute("SELECT has_column_privilege('test_auditor','openid.erasure_runs','decision','SELECT')").fetchone()[0])
+            self.assertTrue(db.execute("SELECT has_column_privilege('test_auditor','openid.erasure_subjects','credential','SELECT')").fetchone()[0])
+            self.assertFalse(db.execute("SELECT has_table_privilege('test_auditor','openid.erasure_runs','INSERT,UPDATE,DELETE')").fetchone()[0])
             # No history is invented for the profile removed before migration.
             from postgres_subject_access import export_case
             db.execute(sql.SQL('GRANT CONNECT ON DATABASE {} TO test_backup').format(sql.Identifier(target)))
@@ -412,6 +420,15 @@ class ClusterTests(unittest.TestCase):
         self.assertEqual([],value['records']['profiles'])
         self.assertEqual(1,len(value['records']['erasure_runs']))
         self.assertNotIn(other,json.dumps(value))
+        from audit_archive import export_snapshot,postgres_snapshot,verify
+        archive=self.root/('erasure-archive-'+secrets.token_hex(8))
+        exported=export_snapshot(postgres_snapshot(self.dsns['auditor'],local_test=True),archive,'postgresql','a'*40)
+        self.assertEqual('VERIFIED',verify(archive,exported['manifestSha256'])['state'])
+        self.assertEqual(5,json.loads((archive/'manifest.json').read_bytes())['format'])
+        records=[json.loads(line) for line in (archive/'erasure_runs.jsonl').read_text().splitlines()]
+        self.assertEqual(1,len(records));validate_journal(records[0])
+        self.assertEqual(result['journalId'],records[0][0])
+        self.assertCountEqual(ids,[json.loads(line)[0] for line in (archive/'erasure_subjects.jsonl').read_text().splitlines()])
 
     def test_erasure_scope_stale_plan_roles_and_journal_failure_leave_data_unchanged(self):
         from postgres_subject_access import COLUMNS
