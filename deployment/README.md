@@ -25,13 +25,20 @@ Attest och den fasta publika HTTPS-adressen. Följ
 återställningsgränser och standardlägets kontaktbindning/manuella aktivering.
 Privata ID:n migreras inte genom att byta serveradress i appen.
 
+Testkonsolen, underskriftstestet och SAML-/OIDC-flödena är publikt åtkomliga
+utan ett gemensamt betalösenord. Identitetsuppgifter kräver fortfarande en
+giltig appgodkänd session; testresultat och dokument är bundna till den
+webbläsare som startade testet. Labbrutter och interna hälsokontroller är
+fortsatt blockerade i ingressen. En konfigurationsändring i repot måste
+installeras och verifieras separat på betavärden.
+
 Testkonsolens ingress provas med `python3 deployment/test_beta_nginx.py`
 på Linux med nginx och OpenSSL installerade. Provet startar en separat nginx
 på loopback med genererade certifikat och en syntetisk bakomliggande tjänst.
 Det kontrollerar samtliga testadresser, inklusive `loa3`, långa signerade
-omdirigeringar för krypterat SignMessage, betakontoskydd och nekade adresser.
+omdirigeringar för krypterat SignMessage, åtkomst utan betalösenord och nekade adresser.
 Det provar även SAML-POST på 64/128 KiB utan användbar temporärfilskatalog,
-bevarat innehåll, betakontoskydd och avvisning över 128 KiB. Nginx-provets
+bevarat innehåll, bortfiltrerade Basic-uppgifter och avvisning över 128 KiB. Nginx-provets
 samtliga temporära kataloger ligger i dess egen engångskatalog.
 Inga pilotnycklar eller riktiga konton används. Resultatet anger nginx-versionen.
 
