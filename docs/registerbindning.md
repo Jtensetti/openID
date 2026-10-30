@@ -48,6 +48,12 @@ händelsetyper och interna nyckelreferenser.
 
 ## Tillstånd och behörigheter
 
+Tabellen gäller det separata operatörsflödet för registerbindning. Den
+[automatiska TestFlight-betan](testflight-beta.md) utför ingen registerkontroll
+eller registerstödd passförnyelse. Telefonbyte med samma pass kräver ny
+registrering och aktivering enligt valt testläge; gamla nycklar återaktiveras inte.
+
+
 | Övergång | Förvillkor | Vem / resultat |
 | --- | --- | --- |
 | Passkontroll → `PENDING_REVIEW` | Befintliga chip-/bildkontroller och ny enhetsnyckel | Registreringstjänsten; ingen aktivering |

@@ -36,6 +36,16 @@ jobs:
           docker exec openid-pilot python probe.py /srv/openid/runtime.json
           docker exec openid-pilot node --version
           docker exec openid-pilot java -version
+          docker exec openid-pilot python crl_maintenance.py --help
+          docker exec -i openid-pilot python - <<'PY'
+          import json, subprocess
+          result=subprocess.run(['java','-Xmx128m','-jar','/app/prototype/target/isolated-eid-lab.jar',
+              'check-crls','/srv/openid/secrets/trusted-csca.pem'], input=b'{"candidate":"YQ=="}',
+              capture_output=True, timeout=30)
+          assert result.returncode==2
+          assert json.loads(result.stdout)=={'status':'REJECTED','error':'CRL_UPDATE_REJECTED'}
+          print('PASS: packaged CRL verifier rejects invalid input')
+          PY
           if docker exec openid-pilot touch /app/must-not-write; then exit 1; fi
           docker exec openid-pilot sh -c 'test ! -e /app/verification/test_runtime.py && test ! -e /app/verification/test_chip_fixture.py'
       - name: Run packaged local test service

@@ -2,7 +2,7 @@
 
 OIDC aktiveras endast när `phone-idp`/`phone-sp` får en explicit
 `PilotOrigins`-konfiguration. Den ursprungliga lokala SAML-labben påverkas
-inte. Båda protokollen använder samma manuellt aktiverade ID, signerade
+inte. Båda protokollen använder samma ID, aktiverat enligt valt testläge, signerade
 enhetsgodkännande och aktuella spärrstatus. Appen är autentiseringsenhet;
 OIDC-kod och token hanteras av testsidans server, aldrig av QR-koden.
 

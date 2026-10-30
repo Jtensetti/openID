@@ -3,7 +3,15 @@ import Security
 import CryptoKit
 import LocalAuthentication
 
-struct SecureVault {
+protocol CredentialVault {
+    func read<T: Decodable>(_ account: String, as type: T.Type) throws -> T?
+    func save<T: Encodable>(_ value: T, account: String) throws
+    func remove(_ account: String) throws
+    func createCredential(context: LAContext) throws -> LocalCredential
+    func sign(_ bytes: Data, credential: LocalCredential, context: LAContext) throws -> Data
+}
+
+struct SecureVault: CredentialVault {
     private let service = "se.openid.wallet.v1"
     private func query(_ account: String) -> [String: Any] {
         [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,

@@ -16,7 +16,9 @@ säkerhetsgranskning.
   nycklar. Krasch och återläsning spärrar alla credentials.
 - `verification/` och `ios/`: passverifiering, ansiktsjämförelse, RGB-PAD,
   NFC-fångst och enhetsautentisering för sluten beta och privata telefonprov. Registrering
-  kräver separat operatörsaktivering. `phone-idp` och `phone-sp` kopplar
+  kräver separat operatörsaktivering i standardläget. Det uttryckligen valda
+  [TestFlight-testläget](docs/testflight-beta.md) aktiverar efter godkända
+  kontroller utan e-post och avslutar giltigheten vid betans slut. `phone-idp` och `phone-sp` kopplar
   detta register till separata SAML-/OIDC-testtjänster.
 
 `start-web` innehåller även en syntetisk dokumentunderskriftslabb med
@@ -79,10 +81,12 @@ commit räcker inte. Historikändring kräver separat beslut.
 
 ## Rapportera problem
 
-En privat säkerhetskanal är ännu inte konfigurerad. Publicera inte känsliga
-sårbarhetsdetaljer i öppna issues; be projektägaren om en privat kontaktväg.
-Inför pilot- eller produktionsrelease behövs ansvarig mottagare och en
-dokumenterad process för triage och kommunikation.
+Rapportera via [GitHubs privata sårbarhetsrapportering](https://github.com/Jtensetti/openID/security/advisories/new).
+Ange berörd version, förutsättningar, konsekvens och minsta syntetiska exempel
+som visar problemet. Skicka inte pass, biometrik, personakter, privata nycklar
+eller lösenord. Publicera inte känsliga sårbarhetsdetaljer i öppna issues.
+Kanalen är aktiverad; bemannad beredskap och garanterad svarstid är ännu inte
+fastställda. Den ersätter inte användarens separata spärrfunktion.
 
 ## Test och release
 

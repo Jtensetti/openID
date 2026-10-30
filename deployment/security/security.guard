@@ -1,0 +1,65 @@
+rule no_additional_compute_or_scanning {
+  Resources.*.Type IN [
+    'AWS::KMS::Key', 'AWS::S3::Bucket', 'AWS::S3::BucketPolicy',
+    'AWS::Logs::LogGroup', 'AWS::Logs::MetricFilter',
+    'AWS::CloudTrail::Trail', 'AWS::IAM::Role', 'AWS::IAM::Policy',
+    'AWS::DLM::LifecyclePolicy', 'AWS::SNS::Topic', 'AWS::SNS::TopicPolicy',
+    'AWS::CloudWatch::Alarm'
+  ]
+  Resources.Trail.Properties.InsightSelectors !exists
+  Resources.Trail.Properties.EventSelectors.*.DataResources !exists
+  Resources.Trail.Properties.AdvancedEventSelectors !exists
+}
+
+rule protected_audit_storage {
+  Resources.AuditBucket.DeletionPolicy == 'Retain'
+  Resources.AuditBucket.UpdateReplacePolicy == 'Retain'
+  Resources.AuditBucket.Properties.PublicAccessBlockConfiguration.BlockPublicAcls == true
+  Resources.AuditBucket.Properties.PublicAccessBlockConfiguration.IgnorePublicAcls == true
+  Resources.AuditBucket.Properties.PublicAccessBlockConfiguration.BlockPublicPolicy == true
+  Resources.AuditBucket.Properties.PublicAccessBlockConfiguration.RestrictPublicBuckets == true
+  Resources.AuditBucket.Properties.VersioningConfiguration.Status == 'Enabled'
+  Resources.AuditBucket.Properties.BucketEncryption.ServerSideEncryptionConfiguration.*.ServerSideEncryptionByDefault.SSEAlgorithm == 'aws:kms'
+  Resources.AuditKey.DeletionPolicy == 'Retain'
+  Resources.AuditKey.UpdateReplacePolicy == 'Retain'
+  Resources.AuditKey.Properties.EnableKeyRotation == true
+  Resources.AuditLog.DeletionPolicy == 'Retain'
+  Resources.AuditLog.Properties.RetentionInDays == 90
+  Resources.AuditLog.Properties.KmsKeyId exists
+}
+rule continuous_audit {
+  Resources.Trail.Properties.IsLogging == true
+  Resources.Trail.Properties.IsMultiRegionTrail == true
+  Resources.Trail.Properties.IncludeGlobalServiceEvents == true
+  Resources.Trail.Properties.EnableLogFileValidation == true
+  Resources.Trail.Properties.KMSKeyId exists
+  Resources.Trail.Properties.CloudWatchLogsLogGroupArn exists
+}
+rule limited_backup {
+  Parameters.BackupState.Default == 'DISABLED'
+  Resources.SnapshotPolicy.Properties.PolicyDetails.ResourceTypes == ['INSTANCE']
+  Resources.SnapshotPolicy.Properties.PolicyDetails.Parameters.ExcludeBootVolume == false
+  Resources.SnapshotPolicy.Properties.PolicyDetails.TargetTags.*.Key == 'openIDBackup'
+  Resources.SnapshotPolicy.Properties.PolicyDetails.Schedules.*.RetainRule.Count == 14
+  Resources.SnapshotPolicy.Properties.PolicyDetails.Schedules.*.CreateRule.Interval == 24
+  Resources.SnapshotPolicy.Properties.PolicyDetails.Schedules.*.CreateRule.IntervalUnit == 'HOURS'
+  Resources.SnapshotRole.Properties.ManagedPolicyArns !exists
+  Resources.SnapshotPermissions.Properties.PolicyDocument.Statement.*.Action != 'ec2:*'
+  Resources.SnapshotPermissions.Properties.PolicyDocument.Statement.*.Action != '*'
+}
+let deletions = Resources.SnapshotPermissions.Properties.PolicyDocument.Statement[ Action == 'ec2:DeleteSnapshot' ]
+rule only_owned_snapshot_deletion {
+  %deletions !empty
+  %deletions.Condition.StringEquals.'ec2:ResourceTag/aws:dlm:lifecycle-policy-id'.Ref == 'SnapshotPolicy'
+  %deletions.Condition.StringEquals.'ec2:ResourceTag/openIDBackup'.Ref == 'AWS::StackName'
+}
+rule operational_notifications {
+  Resources.AlertTopic.Properties.KmsMasterKeyId exists
+  Resources.SnapshotsMissing.Properties.TreatMissingData == 'breaching'
+  Resources.SnapshotsMissing.Properties.ComparisonOperator == 'LessThanThreshold'
+  Resources.SnapshotsMissing.Properties.Threshold == 2
+  Resources.SnapshotsMissing.Properties.Period == 86400
+  Resources.NoticeDeadLetters.Properties.AlarmActions !empty
+  Resources.NoticeBacklog.Properties.AlarmActions !empty
+  Resources.InstanceFailure.Properties.AlarmActions !empty
+}

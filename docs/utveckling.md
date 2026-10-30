@@ -5,7 +5,7 @@
 | Del | Verktyg och instruktioner |
 |---|---|
 | Verifierare och SAML | Linux x86_64, Python 3.12, Node 24.19.0, Temurin 21.0.12.1+1 och Maven 3.9.11. [Start och tester](../verification/README.md). |
-| iPhone | macOS och iOS 16+. CI: Xcode 16.4; bygge 106: Xcode 27.1. [Projekt och signering](../ios/README.md). |
+| iPhone | macOS och iOS 16+. CI: Xcode 16.4; signerade byggen 112/113: Xcode 27.1. [Projekt och signering](../ios/README.md). |
 | WebAuthn-labb | JDK 21 och Chromium; låst Playwright 1.62.1. [Start och tester](../prototype/README.md). |
 | Driftcontainer | Docker med digestlåst Temurin. [Körning](../ops/README.md). |
 
@@ -43,7 +43,7 @@ framgår av koden. Tillfälliga arbetsloggar hör hemma i PR:n.
 | Biometri och fotografering | Kalibrerade trösklar samt mätning av felacceptans/felavvisning, presentationer, injektion och relä. |
 | Pass och personregister | Spärrinformation, länkcertifikat, registerkontroll och ersättning efter passförnyelse. |
 | Nycklar och återställning | Operativ rotation, gallring och PostgreSQL-/nyckelåterläsning på vald driftmiljö. |
-| Extern integration | Fastställd profil, metadata, attribut och kontrollerad motpart med negativa protokollprov. |
+| Extern integration | [GrandID som integrationsmål, FED-05](grandid-integration.md): fastställd IdP-profil, metadata, mottagarstyrda attribut och kontrollerad motpart med negativa protokollprov. Leverantörens kund-API är inte ett IdP-anslutningskontrakt. |
 | Drift | Operativa roller, redundant databas/nyckeltjänst, ingress, kapacitet och larmmottagning på vald driftmiljö. |
 
 Produktionsöppning kräver oberoende säkerhetsgranskning och ett behörigt
@@ -61,8 +61,10 @@ beroendekontroll har passerat. Fel, avbrott och överhoppade jobb nekar grinden.
 Komponentprov kan även startas manuellt. Inga produktionshemligheter skickas
 till dessa jobb; jobben har enbart läsbehörighet till koden.
 
-Repoägaren behöver aktivera `.github/branch-protection.json` för `main` och
-verifiera inställningen i GitHub. Den binder kontrollen till GitHub Actions,
+`main` skyddas i GitHub. Ett mergeförsök den 30 oktober 2026 nekades eftersom
+den senaste pushen saknade godkännande från en annan person. Versionshanterad
+önskad konfiguration finns i `.github/branch-protection.json`; kontrollera
+samtliga aktuella inställningar i GitHub före en release. Förslaget binder kontrollen till GitHub Actions,
 kräver aktuell branch, en granskare och godkännande efter senaste push,
 avfärdar gamla godkännanden, omfattar administratörer och förbjuder force-push
 och borttagning. CODEOWNERS anger ansvarig förvaltare; det utgör inte en
@@ -70,8 +72,8 @@ oberoende säkerhetsgranskning. En sådan granskare måste utses och ges en
 beslutad roll. Kodägargodkännande är inte aktiverat i förslaget eftersom en
 ensam ägare inte kan godkänna sin egen PR.
 
-Med repoägarens befintliga GitHub CLI-session kan förslaget granskas och
-tillämpas med:
+Vid installation i ett nytt repo kan förslaget granskas och tillämpas
+med en behörig GitHub CLI-session:
 
 ```sh
 python3 .github/scripts/configure_repository.py
@@ -80,7 +82,8 @@ python3 .github/scripts/configure_repository.py --apply
 
 Skriptet ersätter inte ett befintligt branchskydd. Det kontrollerar svaret
 efter ändringen och aktiverar därefter GitHubs privata sårbarhetsrapportering.
-Filen och skriptet innebär inte att dessa inställningar redan är aktiverade.
+En fil i repot verifierar inte driftinställningarna; skriptet ska inte användas
+för att skriva över eller försvaga det befintliga skyddet.
 Lägg inte en administratörstoken i CI för att köra detta.
 
 ## Säkerhetsbevakning

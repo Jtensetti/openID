@@ -41,6 +41,15 @@ class ConfigTests(unittest.TestCase):
         with wallet.transaction() as db:
             self.assertEqual(0, db.execute('SELECT count(*) FROM notice_outbox').fetchone()[0])
 
+    def test_test_beta_is_explicit_and_cannot_silently_revert(self):
+        self.value['testBeta'] = True; self.save()
+        self.assertTrue(self.open().test_beta)
+        del self.value['testBeta']; self.save()
+        with self.assertRaises(ValueError): self.open()
+        for value in [False, 'true', 1, None]:
+            self.value['testBeta'] = value; self.save()
+            with self.assertRaises(ValueError): self.open()
+
     def test_migrated_wallet_cannot_open_without_configuration(self):
         self.open()
         with self.assertRaises(ValueError): Wallet(self.db, 'legacy-operator')

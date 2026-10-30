@@ -1,12 +1,5 @@
 import SwiftUI
 
-enum Palette {
-    static let ink = Color(red: 0.06, green: 0.16, blue: 0.19)
-    static let mint = Color(red: 0.73, green: 0.94, blue: 0.80)
-    static let paper = Color(red: 0.96, green: 0.96, blue: 0.93)
-    static let muted = Color(red: 0.34, green: 0.41, blue: 0.42)
-}
-
 struct WalletRootView: View {
     @EnvironmentObject var model: WalletModel
     var body: some View {
@@ -16,7 +9,7 @@ struct WalletRootView: View {
             NavigationStack { ActivityView() }.tabItem { Label("Aktivitet", systemImage: "clock") }.tag(2)
             NavigationStack { SettingsView() }.tabItem { Label("Inställningar", systemImage: "slider.horizontal.3") }.tag(3)
         }
-        .tint(Palette.ink)
+        .tint(Palette.tint)
         .sheet(isPresented: $model.registrationPresented) {
             EnrollmentView(flow: model.verification).environmentObject(model)
         }
@@ -51,7 +44,7 @@ struct PrimaryButton: View {
     var body: some View {
         Button(action: action) {
             HStack { Text(title).font(.headline).fixedSize(horizontal: false, vertical: true); Spacer(); Image(systemName: symbol).accessibilityHidden(true) }
-                .padding(19).foregroundStyle(Palette.mint).background(Palette.ink, in: RoundedRectangle(cornerRadius: 18))
+                .padding(19).foregroundStyle(Palette.actionText).background(Palette.actionBackground, in: RoundedRectangle(cornerRadius: 18))
         }.buttonStyle(.plain)
     }
 }
@@ -65,10 +58,10 @@ struct HomeView: View {
                 Text("Mitt ID").font(.largeTitle.bold()).accessibilityIdentifier("home.heading")
                 IdentityCard()
                 if model.configuration == nil || model.configuration?.isPublicBeta == true {
-                    Text(model.revocationProof == nil ? "Betans öppettider: varje dag 09–17 svensk tid. Registrering, legitimering och spärr kräver att testservern är öppen." : "Registrering och legitimering: varje dag 09–17 svensk tid. Spärr fungerar dygnet runt med internetanslutning.")
+                    Text(model.revocationProof == nil ? "Testservern är öppen dygnet runt till och med 30 november 2026 och stängs av den 1 december kl. 00.00 svensk tid. Registrering, legitimering och spärr kräver att testservern är igång." : "Testservern är öppen dygnet runt till och med 30 november 2026 och stängs av den 1 december kl. 00.00 svensk tid. Din sparade spärrkod kan användas även när testservern är avstängd, med internetanslutning.")
                         .font(.subheadline).foregroundStyle(Palette.muted).accessibilityIdentifier("home.betaHours")
                 }
-                if let state = model.snapshot?.state, state != .active {
+                if let state = model.credentialState, state != .active {
                     Text(state.guidance).font(.subheadline).foregroundStyle(Palette.muted)
                 }
                 VStack(spacing: 12) {
@@ -79,6 +72,9 @@ struct HomeView: View {
                         PrimaryButton(title: "Anslut till servern") { model.settingsPresented = true }
                     } else if model.credential == nil {
                         PrimaryButton(title: "Registrera med ditt pass", symbol: "person.crop.rectangle.badge.plus") { model.beginRegistration() }
+                            .accessibilityIdentifier("home.register").disabled(!model.canResumeRegistration)
+                    } else if model.canForgetCredential {
+                        PrimaryButton(title: "Förbered ett nytt ID", symbol: "person.crop.rectangle.badge.plus") { model.selectedTab = 3 }
                     } else if model.snapshot?.state == .active {
                         PrimaryButton(title: "Legitimera mig", symbol: "qrcode.viewfinder") { model.selectedTab = 1 }
                             .accessibilityIdentifier("home.identify").disabled(model.busy)
@@ -90,8 +86,11 @@ struct HomeView: View {
                         Button("Hämta status") { model.refresh() }.frame(minHeight: 44).disabled(model.busy)
                     } else {
                         PrimaryButton(title: "Hämta status", symbol: "arrow.clockwise") { model.refresh() }.disabled(model.busy)
-                        if model.snapshot == nil && !model.busy && model.statusMessage == nil {
+                        if model.canResumeRegistration {
                             Button("Fortsätt registreringen") { model.beginRegistration() }.font(.subheadline)
+                                .accessibilityIdentifier("home.resumeRegistration")
+                            Text("Om registreringen avbröts kan du fortsätta med samma nyckel. Passet och ansiktskontrollen krävs fortfarande.")
+                                .font(.footnote).foregroundStyle(Palette.muted)
                         }
                     }
                     if let message = model.statusMessage { Text(message).font(.subheadline).foregroundStyle(Palette.muted).accessibilityIdentifier("home.statusMessage") }
@@ -136,8 +135,8 @@ struct IdentityCard: View {
                         }
                     }
                     HStack(spacing: 6) {
-                        Image(systemName: model.snapshot?.state == .active ? "checkmark.circle.fill" : "info.circle").accessibilityHidden(true)
-                        Text(model.snapshot?.state.title ?? (model.unlocked ? (model.credential != nil ? (model.busy ? "Hämtar status…" : "Status inte hämtad") : "Registrera med ditt pass") : "Lås upp för att se status"))
+                        Image(systemName: model.credentialState == .active ? "checkmark.circle.fill" : "info.circle").accessibilityHidden(true)
+                        Text(model.credentialState?.title ?? (model.unlocked ? (model.credential != nil ? (model.busy ? "Hämtar status…" : "Status inte hämtad") : "Registrera med ditt pass") : "Lås upp för att se status"))
                             .font(.caption).fixedSize(horizontal: false, vertical: true)
                     }.foregroundStyle(Palette.mint)
                 }
@@ -147,10 +146,10 @@ struct IdentityCard: View {
                 Spacer()
                 Text(model.snapshot.map { "ID · " + String($0.credentialId.suffix(6)).uppercased() } ?? "••••  ••••")
                     .font(.system(size: 11, design: .monospaced))
-            }.foregroundStyle(.white.opacity(0.55))
+            }.foregroundStyle(.white.opacity(0.8))
         }
         .padding(24).foregroundStyle(.white)
-        .background(LinearGradient(colors: [Palette.ink, Color(red: 0.10, green: 0.26, blue: 0.27)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 25))
+        .background(LinearGradient(colors: [Palette.cardStart, Palette.cardEnd], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 25))
         .accessibilityElement(children: .combine).accessibilityIdentifier("identity.card")
     }
 }
@@ -161,7 +160,7 @@ struct EmptyPanel: View {
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: symbol).font(.system(size: 44, weight: .light)).foregroundStyle(Palette.ink)
-                .frame(width: 92, height: 92).background(Palette.mint.opacity(0.5), in: Circle())
+                .frame(width: 92, height: 92).background(Palette.accentSurface, in: Circle())
             Text(title).font(.title2.weight(.semibold)).multilineTextAlignment(.center)
             Text(message).font(.subheadline).foregroundStyle(Palette.muted).multilineTextAlignment(.center)
         }.padding(32).frame(maxWidth: .infinity)
@@ -184,7 +183,7 @@ struct RequestsView: View {
                     PrimaryButton(title: "Till Mitt ID") { model.selectedTab = 0 }
                 } else {
                     if let message = model.decisionMessage {
-                        Text(message).font(.subheadline).padding().frame(maxWidth: .infinity, alignment: .leading).background(Palette.mint, in: RoundedRectangle(cornerRadius: 12)).accessibilityIdentifier("requests.decision")
+                        Text(message).font(.subheadline).foregroundStyle(Palette.ink).padding().frame(maxWidth: .infinity, alignment: .leading).background(Palette.accentSurface, in: RoundedRectangle(cornerRadius: 12)).accessibilityIdentifier("requests.decision")
                     }
                     PrimaryButton(title: "Skanna en QR-kod", symbol: "qrcode.viewfinder") { scanner = true }
                         .accessibilityIdentifier("requests.scan")
@@ -200,7 +199,7 @@ struct RequestsView: View {
                                 Label(request.relyingParty, systemImage: request.isSigning ? "signature" : "building.2").font(.headline)
                                 Text(request.isSigning ? "Underskrift" : request.purpose).font(.subheadline)
                                 HStack { Text("Kod \(request.code)").monospaced(); Spacer(); Image(systemName: "chevron.right") }.font(.caption)
-                            }.padding(20).frame(maxWidth: .infinity, alignment: .leading).background(.white, in: RoundedRectangle(cornerRadius: 20))
+                            }.padding(20).frame(maxWidth: .infinity, alignment: .leading).background(Palette.surface, in: RoundedRectangle(cornerRadius: 20))
                         }.buttonStyle(.plain).disabled(request.expired)
                     }
                     Button("Hämta begäranden") { model.refresh() }.frame(minHeight: 44)
@@ -276,13 +275,13 @@ struct SecurityCodeView: View {
                     Text("Använd inte telefonens kod, ditt födelsedatum eller följder som 123456.").font(.footnote).foregroundStyle(.secondary)
                 }
                 if let message = model.securityCodeMessage {
-                    Text(message).font(.callout).foregroundStyle(.red).accessibilityIdentifier("securityCode.message")
+                    Text(message).font(.callout).foregroundStyle(Palette.error).accessibilityIdentifier("securityCode.message")
                 }
                 Section {
                     Button(status?.set == true ? "Byt säkerhetskod" : "Spara säkerhetskod") {
                         model.setSecurityCode(current: status?.set == true ? current : nil, new: new)
                     }.disabled(model.busy || !SecurityCode.valid(new) || new != repeated || (status?.set == true && !SecurityCode.valid(current)))
-                    if !repeated.isEmpty && repeated.count == 6 && new != repeated { Text("Koderna är inte lika.").font(.footnote).foregroundStyle(.red) }
+                    if !repeated.isEmpty && repeated.count == 6 && new != repeated { Text("Koderna är inte lika.").font(.footnote).foregroundStyle(Palette.error) }
                     if model.busy { ProgressView() }
                 }
             }
@@ -315,7 +314,7 @@ struct ApprovalView: View {
                         Text(verbatim: text).font(.body).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
                             .accessibilityIdentifier("approval.signMessage")
                     }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-                        .background(.white, in: RoundedRectangle(cornerRadius: 20))
+                        .background(Palette.surface, in: RoundedRectangle(cornerRadius: 20))
                         .overlay(RoundedRectangle(cornerRadius: 20).stroke(Palette.ink, lineWidth: 2))
                         .accessibilityElement(children: .combine)
                 }
@@ -324,7 +323,7 @@ struct ApprovalView: View {
                     Text("Kontrollkod").font(.subheadline)
                     ControlCodeView(code: request.code)
                     Text("Kontrollera att samma kod visas hos tjänsten.").font(.footnote)
-                }.padding(24).frame(maxWidth: .infinity, alignment: .leading).background(Palette.mint, in: RoundedRectangle(cornerRadius: 20))
+                }.padding(24).frame(maxWidth: .infinity, alignment: .leading).foregroundStyle(Palette.ink).background(Palette.accentSurface, in: RoundedRectangle(cornerRadius: 20))
                 Label(request.isSigning ? "Skriv bara under om du själv startat underskriften och texten stämmer med dokumentet hos tjänsten." : "Godkänn bara en inloggning du själv startat.", systemImage: "hand.raised").font(.subheadline)
                 if request.needsSecurityCode {
                     VStack(alignment: .leading, spacing: 10) {
@@ -337,10 +336,10 @@ struct ApprovalView: View {
                             Text("Utöver Face ID. Fem fel i rad spärrar koden.").font(.footnote).foregroundStyle(Palette.muted)
                         }
                         if let message = model.securityCodeMessage {
-                            Text(message).font(.callout).foregroundStyle(.red).accessibilityIdentifier("approval.securityCodeMessage")
+                            Text(message).font(.callout).foregroundStyle(Palette.error).accessibilityIdentifier("approval.securityCodeMessage")
                         }
                     }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-                        .background(.white, in: RoundedRectangle(cornerRadius: 20))
+                        .background(Palette.surface, in: RoundedRectangle(cornerRadius: 20))
                 }
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     let remaining = max(0, Int(request.expiresAt - context.date.timeIntervalSince1970))
@@ -414,7 +413,7 @@ struct SettingsView: View {
                 else {
                     if model.configuration?.isPublicBeta == true {
                         Label("Ansluten till openID beta", systemImage: "network")
-                        Text("Anslutningen sköts automatiskt. VPN behövs inte. Testservern är öppen varje dag 09–17 svensk tid.").font(.caption).foregroundStyle(.secondary)
+                        Text("Anslutningen sköts automatiskt. VPN behövs inte. Testservern är öppen dygnet runt till och med 30 november 2026 och stängs av den 1 december kl. 00.00 svensk tid.").font(.caption).foregroundStyle(.secondary)
                     } else {
                         Button { model.settingsPresented = true } label: { Label("Anslutning", systemImage: "network") }
                         if let configuration = model.configuration { Text(configuration.origin).font(.caption).foregroundStyle(.secondary).textSelection(.enabled) }
@@ -449,8 +448,11 @@ struct SettingsView: View {
                             Link("Öppna spärrsidan", destination: RevocationProof.endpoint)
                         }
                     }
-                    if model.snapshot?.state == .revoked || model.snapshot?.state == .expired {
+                    if model.canForgetCredential {
                         Button("Ta bort nyckeln från telefonen", role: .destructive) { forget = true }
+                            .accessibilityIdentifier("settings.forgetCredential")
+                    } else if model.snapshot?.state == .expired {
+                        Text("Spärra även ett utgånget ID innan du tar bort nyckeln. Då bevaras möjligheten att bekräfta spärren och registrera på nytt.").font(.caption)
                     }
                     NavigationLink("Jag har förlorat min telefon") { RecoveryView() }
                 }
@@ -469,9 +471,9 @@ struct SettingsView: View {
             .confirmationDialog("Spärra detta ID permanent?", isPresented: $revoke, titleVisibility: .visible) {
                 Button("Spärra permanent", role: .destructive) { model.revoke() }
             } message: { Text("Pågående och nya inloggningar stoppas. Du behöver registrera dig på nytt för att få ett nytt ID.") }
-            .confirmationDialog("Ta bort den spärrade eller utgångna nyckeln?", isPresented: $forget, titleVisibility: .visible) {
+            .confirmationDialog("Ta bort den spärrade nyckeln?", isPresented: $forget, titleVisibility: .visible) {
                 Button("Ta bort nyckeln", role: .destructive) { do { try model.forgetRevokedCredential() } catch { model.error = error.localizedDescription } }
-            } message: { Text("Nyckeln kan inte återställas.") }
+            } message: { Text("ID:t är redan spärrat. Nyckeln kan inte återställas. Därefter kan du registrera ett nytt ID med passet.") }
     }
 }
 struct ConnectionView: View {
@@ -490,7 +492,7 @@ struct ConnectionView: View {
                     .disabled(model.credential != nil)
                 SecureField("Kopplingskod", text: $pairing).textInputAutocapitalization(.never).autocorrectionDisabled().accessibilityIdentifier("connection.pairing")
             }
-            if let error { Text(error).foregroundStyle(.red).accessibilityIdentifier("connection.error") }
+            if let error { Text(error).foregroundStyle(Palette.error).accessibilityIdentifier("connection.error") }
             Section {
                 Button("Spara anslutning") {
                     do { try model.saveConfiguration(origin: origin, pairing: pairing); dismiss() }
@@ -553,7 +555,7 @@ struct EnrollmentView: View {
                         }.textFieldStyle(.roundedBorder)
                         Toggle(isOn: $consent) {
                             Text("Jag godkänner att passets chipuppgifter och tre kamerabilder skickas till servern. Namn, födelsedatum, nationalitet och passfoto sparas krypterat för mitt ID.").font(.footnote)
-                        }.tint(Palette.ink)
+                        }.tint(Palette.tint)
                         if !consent { Text("Läs texten ovan och godkänn överföringen för att fortsätta.").font(.footnote).foregroundStyle(Palette.muted) }
                         PrimaryButton(title: "Läs passet", symbol: "wave.3.right") {
                             inputIssue = PassportAccessKey.invalidField(documentNumber: flow.documentNumber, birth: flow.birth, expiry: flow.expiry)
@@ -567,7 +569,8 @@ struct EnrollmentView: View {
                     if flow.cameraVisible {
                         GuidedCaptureView(camera: flow.camera)
                     } else if flow.readyForCamera {
-                        PrimaryButton(title: "Starta ansiktskontrollen", symbol: "person.crop.rectangle") { flow.startCamera() }
+                        CaptureIntroduction()
+                        PrimaryButton(title: "Börja", symbol: "person.crop.rectangle") { flow.startCamera() }
                     } else if flow.busy {
                         ProgressView().frame(maxWidth: .infinity)
                     }
@@ -603,7 +606,7 @@ struct GuideView: View {
     var body: some View {
         List {
             Section("Innan du börjar") { Text("Du behöver ett svenskt pass, en kompatibel iPhone och stabil internetanslutning. Den publika betan ansluter automatiskt utan VPN. Du kan prova ansiktskameran under Inställningar utan att skicka bilder.") }
-            Section("Registrera en gång") { Text("Skanna passuppgifterna eller skriv in dem. Läs chipet i två omgångar och följ kamerans instruktioner. När kontrollen är klar behöver operatören aktivera ditt ID. Du behöver inte läsa passet vid varje inloggning.") }
+            Section("Registrera en gång") { Text("Skanna passuppgifterna eller skriv in dem. Läs chipet i två omgångar och följ kamerans instruktioner. I den automatiska betan aktiveras ditt test-ID när kontrollerna är godkända, utan e-post. I andra testmiljöer kan operatörens aktivering behövas. Du behöver inte läsa passet vid varje inloggning.") }
             Section("Legitimera") { Text("Starta inloggningen hos testtjänsten. Skanna QR-koden, kontrollera tjänst och kod och godkänn i appen.") }
             Section("På samma telefon") { Text("Om tjänstens sida går att öppna på telefonen, välj Öppna openID där. Du behöver inte skanna din egen skärm. Pilotens nuvarande testsida öppnas på Macen och används med QR-kod.") }
             Section("Om du blir avbruten") { Text("Appen låses när du lämnar den. Lås upp igen och hämta status. Om du redan godkänt, kontrollera Aktivitet innan du börjar om. En utgången QR-kod kräver en ny inloggning, inte en ny passregistrering.") }
@@ -621,7 +624,7 @@ struct RecoveryView: View {
                 Text("Har du sparat din spärrkod kan du spärra dygnet runt från en annan telefon eller dator. Saknar du koden, kontakta pilotens operatör. Att radera appen spärrar inte ditt ID.")
                 Link("Öppna spärrsidan", destination: RevocationProof.endpoint)
             }
-            Section("Ny telefon") { Text("Installera appen, registrera dig med passet och invänta aktivering. Nyckeln kan inte flyttas mellan telefoner eller återställas från en säkerhetskopia.") }
+            Section("Ny telefon") { Text("Installera appen och registrera dig på nytt med passet. Appen visar när ditt test-ID är aktiverat. Nyckeln kan inte flyttas mellan telefoner eller återställas från en säkerhetskopia.") }
         }.navigationTitle("Förlorad telefon")
     }
 }
@@ -649,6 +652,7 @@ struct CameraCheckView: View {
                 if !running { Text(status).accessibilityAddTraits(.updatesFrequently) }
                 if running { GuidedCaptureView(camera: camera, showsDiagnostics: true) }
                 else {
+                    CaptureIntroduction()
                     PrimaryButton(title: "Starta kameraprov", symbol: "camera") {
                         running = true; status = "Följ ovalen och instruktionerna."
                         task = Task { @MainActor in

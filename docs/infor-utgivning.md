@@ -1,6 +1,7 @@
 # Förutsättningar inför bredare utgivning
 
-Den tekniska basen är en sluten beta med manuell aktivering. Tabellen skiljer
+Den tekniska basen är en sluten beta med [automatisk testaktivering](testflight-beta.md)
+i det valda TestFlight-läget och manuell aktivering i standardläget. Tabellen skiljer
 kod från beslut, drift och verifiering. Avtal, finansieringsunderlag,
 personförteckningar och känsliga granskningsrapporter hanteras utanför repot.
 En saknad referens betyder att underlaget inte är styrkt här, inte att det
@@ -9,7 +10,7 @@ omöjligen finns någon annanstans. Formell kravstatus förblir `OPEN`.
 | Fråga | Vad implementationen visar | Vad som behöver tillkomma | Typ av arbete |
 |---|---|---|---|
 | 1. Utfärdarorganisation och uthållighet | K2.1–K2.3 är öppna i [kravmatrisen](digg-kravmatris.md). | Beslut om juridisk utfärdare samt referenser till försäkring och ett års finansiering/riskbärande. Ansvarig: organisationen. | Beslut och externt styrkt underlag; ingen kodfunktion. |
-| 2. Målgrupp | iPhone, pass med stödd chipprofil, experimentell biometri och operatörsaktivering. Person-/samordningsnummer kan förekomma i passfältet; detta ger inte täckning för alla innehavare av sådana nummer. | Fastställd pilot-/utgivningspolicy och stödda enheter/handlingar. Bredare målgrupp behöver dessutom prov och alternativa identifieringsvägar. | Beslut först, därefter avgränsad utveckling och provning. |
+| 2. Målgrupp | iPhone, pass med stödd chipprofil, experimentell biometri och aktivering enligt valt testläge. Person-/samordningsnummer kan förekomma i passfältet; detta ger inte täckning för alla innehavare av sådana nummer. | Fastställd pilot-/utgivningspolicy och stödda enheter/handlingar. Bredare målgrupp behöver dessutom prov och alternativa identifieringsvägar. | Beslut först, därefter avgränsad utveckling och provning. |
 | 3. Polisens passkontroll | `PassportVerifier.java` validerar signaturkedja mot lokalt tillfört CSCA; `chip.py`/JMRTD verifierar chipkontroll. Ingen adapter till Polisens giltighetskontroll finns. | Auktoriserad väg att kontrollera aktuell giltighet/spärr hos utgivaren, dokumenterade användningsvillkor och negativa integrationsprov. Ansvarig: integrations-/avtalsansvarig. | Avtal/åtkomst och implementation. Ett CSCA-certifikat är inte en giltighetsfråga. |
 | 4. Nationell personbindning | Signerat DG1-nummer finns i krypterad profil. [Adapterkontraktet](registerbindning.md) kan föra det vidare och stoppa avvikande svar. Det finns ingen verklig registeradapter och funktionen är inte inkopplad i betans aktivering. | Vald registerkälla, behörighet, klientautentisering, granskad matchningspolicy, avvikelsehantering och kundtest. Därefter integration i utgivningsflödet; PostgreSQL-stöd återstår. | Integration, verksamhetsbeslut och provning. |
 | 5. Fysisk kedja | [Testöversikten](testning.md) anger privata prov av registrering/passläsning, visat nummer och SAML. Ett fullständigt prov inklusive separat spärr efter serverstopp är inte styrkt. | Genomför [acceptansprotokollet](fysisk-acceptans.md) på det exakta app-/serverbygget. Ansvarig: testledare och operatör. | Fysisk provning och evidens; inte en ny registreringsfunktion. |

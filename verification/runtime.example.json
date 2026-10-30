@@ -7,6 +7,7 @@
   "tlsCert": "/srv/openid/secrets/server.pem",
   "tlsKey": "/srv/openid/secrets/server-key.pem",
   "csca": "/srv/openid/secrets/trusted-csca.pem",
+  "cscaCrl": "/srv/openid/secrets/csca.crl",
   "database": "/srv/openid/data/wallet.sqlite",
   "pairingFile": "/srv/openid/secrets/pairing"
 }

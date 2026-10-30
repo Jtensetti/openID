@@ -1,5 +1,28 @@
 # Källregister
 
+## Avgränsad klientadress genom betans ingress, 2026-10-26
+
+[nginx proxy_set_header](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_set_header)
+och [remote_addr](https://nginx.org/en/docs/http/ngx_http_core_module.html#var_remote_addr)
+ligger till grund för att ersätta klientens adresshuvud med anslutningens
+adress. Inga `real_ip`-regler ingår. Eget proxyläge begränsas till explicit
+loopbacklyssnare; det provas med förfalskade huvuden genom riktig nginx.
+
+## GrandID/eID API, 2026-10-29
+
+| ID | Primärkälla och avgränsning |
+|---|---|
+| GID-01 | [Svensk e-identitet: integrationsmäklare](https://e-identitet.se/tjanst/autentisering-inloggning/integrationsmaklare), särskilt FAQ om IdP-anslutning och nya motparter. Anger SAML 2.0/OIDC samt leverantörens konfiguration. Beskriver kundspecifika IdP:er, inte ett bekräftat generellt distributionsavtal för OpenID. |
+| GID-02 | [GrandID: OpenID Connect](https://docs.grandid.com/OpenIDConnect), avsnittet Third party identity provider. Sidans dynamiskt inlästa [Markdown-källa](https://bitbucket.org/grandid/docs/raw/HEAD/OpenIDConnect/README.md) har lästs direkt. Kundexemplen gäller GrandID som OIDC-server; de fastställer inte hela profilen när GrandID är klient till OpenID. |
+| GID-03 | [GrandID: Integration Broker](https://docs.grandid.com/integrationbroker), direktläst [Markdown-källa](https://bitbucket.org/grandid/docs/raw/HEAD/IntegrationBroker/README.md), samt [integrationsprotokoll](https://e-identitet.se/tjanst/autentisering-inloggning/integrationsprotokoll). Beskriver mäklarrollen och kundens FederatedLogin/GetSession. |
+| GID-04 | [Svensk e-identitet: API: så pratar era system med våra tjänster](https://e-identitet.se/inspiration/vadarvad/api). Skiljer eID API för legitimering/signering från eAvtal API för avtalets livscykel; fastställer ingen upstream-signaturprofil för OpenID. |
+
+Dokumenten kontrollerades 2026-10-29. OIDC- och mäklardokumenten saknar
+angiven profilrevision; `HEAD` är en föränderlig läshänvisning.
+Accepterad anslutningsprofil och version ska därför bindas till det
+faktiska leverantörsprovet. [FED-05](grandid-integration.md) skiljer
+publicerat stöd, projektets designval och återstående leverantörsbesked.
+
 ## Separat byggmiljö, 2026-10-26
 
 [GitHub-hosted runners](https://docs.github.com/en/actions/concepts/runners/github-hosted-runners)
@@ -154,6 +177,18 @@ profilcertifiering är utförd. Direktåtkomst till EUR-Lex blockerades vid
 denna genomgång; EU-hänvisningarna ersätter inte läsning av konsoliderad
 lydelse inför juridiskt ställningstagande.
 
+
+## Certifikatspärr, kontrollerat 2026-10-26
+
+- [Polismyndigheten: CSCA-certifikat](https://polisen.se/tjanster-tillstand/pass-och-nationellt-id-kort/giltiga-svenska-resehandlingar/kontroll-av-passnationellt-id-kort/csca-certifikat/)
+  hänvisar till svenska CSCA-certifikat och publicerade spärrlistor.
+- [ICAO Doc 9303, del 12, åttonde upplagan med ändring 1](https://www.icao.int/sites/default/files/publications/DocSeries/9303_p12_cons_en.pdf),
+  avsnitt 4.1.4.3 och 4.1.5–4.1.5.1: nyckelbyte och certifikatspärr.
+  Verifierarens stöd är avgränsat till kompletta direkta CRL:er. Kontrollen
+  av certifikat är skild från den enskilda resehandlingens giltighetsstatus.
+  CRL-profilen och Appendix B anger även ett icke-kritiskt CRL-nummer som
+  icke-negativt heltal på högst 20 oktetter. Uppdateringsverktygets krav på
+  stigande nummer och bevarad utfärdartäckning är dess dokumenterade policy.
 
 ## Registeridentifierare
 

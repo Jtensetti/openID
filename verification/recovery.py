@@ -1,9 +1,11 @@
 """Offline SQLite backup and conservative restore: all restored keys are revoked."""
 import json
+from contextlib import closing
 import os
 from pathlib import Path
 import shutil
 import sqlite3
+import stat
 import time
 
 
@@ -14,34 +16,75 @@ def private_directory(path):
     return path
 
 
+def continuity_required(database):
+    """Read the local fail-closed marker without following a replacement symlink."""
+    marker = database.with_suffix('.continuity-required')
+    try:
+        fd = os.open(marker, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except FileNotFoundError:
+        return False
+    with os.fdopen(fd, 'rb') as stream:
+        if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode) or stream.read(4) != b'v1\n':
+            raise ValueError('Invalid continuity requirement marker')
+    return True
+
+
+def save_continuity_requirement(database):
+    fd = os.open(database.with_suffix('.continuity-required'), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    with os.fdopen(fd, 'wb') as stream:
+        stream.write(b'v1\n'); stream.flush(); os.fsync(stream.fileno())
+
+
+def sync_directory(directory):
+    fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+    try: os.fsync(fd)
+    finally: os.close(fd)
+
+
 def backup(wallet, destination):
+    return backup_database(wallet.path, destination)
+
+
+def backup_database(source, destination):
+    """Take a SQLite snapshot without opening a Wallet or changing its schema."""
+    source = Path(source).absolute()
+    if source.is_symlink() or not source.is_file(): raise ValueError('Regular database file required')
+    required = continuity_required(source)
     destination = private_directory(destination)
     target = destination/'wallet.sqlite'
     try:
         fd = os.open(target, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         os.close(fd)
-        with sqlite3.connect(wallet.path.as_uri()+'?mode=ro', uri=True) as source, sqlite3.connect(target) as output:
-            source.backup(output)
+        with closing(sqlite3.connect(source.as_uri()+'?mode=ro', uri=True)) as db, closing(sqlite3.connect(target)) as output:
+            db.backup(output)
             if output.execute('PRAGMA integrity_check').fetchone()[0] != 'ok': raise ValueError('Integrity check')
+        # Also retain a requirement enabled while the snapshot was being taken.
+        if continuity_required(source) or required: save_continuity_requirement(target)
         with target.open('rb') as stream: os.fsync(stream.fileno())
         # The encryption key is deliberately not included in the database backup.
-        (destination/'README.txt').write_text('Keep the identity key separately. Restore revokes every credential.\n')
+        (destination/'README.txt').write_text('Keep the identity key separately. Restore revokes every credential.\n'
+            'Preserve wallet.continuity-required with this database. For a deployed service, restore with\n'
+            '--require-continuity and supply independently managed continuity configuration before startup.\n')
         os.chmod(destination/'README.txt', 0o600)
+        with (destination/'README.txt').open('rb') as stream: os.fsync(stream.fileno())
+        sync_directory(destination)
+        sync_directory(destination.parent)
         return target
     except BaseException:
         shutil.rmtree(destination)
         raise
 
 
-def restore(source, destination, identity_key=None):
+def restore(source, destination, identity_key=None, *, require_continuity=False):
     source = Path(source).absolute()
     if source.is_symlink() or not source.is_file(): raise ValueError('Regular backup file required')
+    required = continuity_required(source) or require_continuity
     destination = private_directory(destination)
     target = destination/'wallet.sqlite'
     try:
         fd = os.open(target, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         os.close(fd)
-        with sqlite3.connect(source.as_uri()+'?mode=ro', uri=True) as old, sqlite3.connect(target) as db:
+        with closing(sqlite3.connect(source.as_uri()+'?mode=ro', uri=True)) as old, closing(sqlite3.connect(target)) as db:
             old.backup(db)
             if db.execute('PRAGMA integrity_check').fetchone()[0] != 'ok': raise ValueError('Integrity check')
             db.execute('PRAGMA synchronous=FULL')
@@ -72,10 +115,13 @@ def restore(source, destination, identity_key=None):
                 stream.write(key); stream.flush(); os.fsync(stream.fileno())
             # Prove the supplied key opens every profile before making the restore usable.
             vault = IdentityVault(target.with_suffix('.identity-key'))
-            with sqlite3.connect(target) as db:
+            with closing(sqlite3.connect(target)) as db:
                 for credential, person, sealed in db.execute('SELECT credential,person,sealed FROM profiles'):
                     vault.crypt('open', credential, person, json.loads(sealed))
         with target.open('rb') as stream: os.fsync(stream.fileno())
+        if required: save_continuity_requirement(target)
+        sync_directory(destination)
+        sync_directory(destination.parent)
         return target
     except BaseException:
         shutil.rmtree(destination)
@@ -89,12 +135,12 @@ def main():
     b = sub.add_parser('backup'); b.add_argument('--db', required=True, type=Path); b.add_argument('--destination', required=True, type=Path)
     r = sub.add_parser('restore'); r.add_argument('--backup', required=True, type=Path); r.add_argument('--destination', required=True, type=Path)
     r.add_argument('--identity-key', type=Path)
+    r.add_argument('--require-continuity', action='store_true',
+        help='Require independent revocation and notification services even for an older backup')
     args = parser.parse_args()
     if args.operation == 'backup':
-        from wallet import Wallet
-        if not args.db.is_file(): parser.error('Existing database required')
-        result = backup(Wallet(args.db, 'local-operator'), args.destination)
-    else: result = restore(args.backup, args.destination, args.identity_key)
+        result = backup_database(args.db, args.destination)
+    else: result = restore(args.backup, args.destination, args.identity_key, require_continuity=args.require_continuity)
     print(result)
 
 

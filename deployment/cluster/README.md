@@ -132,6 +132,10 @@ inte i flerprocessprovet, som ansluter direkt till respektive TLS-instans.
 
 Registreringsinstansen använder `role: proofing`, `workers: 1`, enroller-
 konton samt fälten `team`, `bundle`, `developmentAttestation`, `csca` och `jar`.
+Ange även `cscaCrl` med absolut sökväg till en aktuell, betrodd CSCA-spärrlista
+för att kunna registrera identiteter. Utan den startar tjänsten men avvisar
+registrering. Fältet tillåts bara för `proofing`; autentiseringsinstanserna
+behöver ingen passverifiering. Se [spärrkontrollen](../../verification/README.md#spärrade-dokumentsignerare).
 Den behöver verifierarens fulla modell-/Java-installation. Den mindre
 containern ovan innehåller endast autentisering och driftverktyg.
 

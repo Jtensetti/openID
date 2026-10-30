@@ -2,7 +2,6 @@
 from collections import Counter, OrderedDict
 from contextlib import contextmanager
 from http import HTTPStatus
-import ipaddress
 import json
 import secrets
 import socket
@@ -15,6 +14,7 @@ from urllib.parse import urlsplit
 from native import unique_object
 from biometric_worker import CameraImageRejected
 from wallet import BiometricAttemptLimit, SecurityCodeError, EnrollmentQuarantine
+from ingress_client import ClientAddresses
 
 NATIVE_ROUTES = {
     '/native/start': ('start', 1024),
@@ -59,12 +59,13 @@ class RateLimit:
 
 
 class Runtime:
-    def __init__(self, native, wallet, origin, pairing, body_timeout=15, metrics_token=None, role='combined', public_enrollment=False):
+    def __init__(self, native, wallet, origin, pairing, body_timeout=15, metrics_token=None, role='combined', public_enrollment=False, trusted_proxy=None):
         self.authority = validate_origin(origin).netloc
         if not isinstance(pairing, str) or len(pairing) < 43 or not pairing.isascii():
             raise ValueError('Pairing secret must contain at least 43 ASCII characters')
         if type(public_enrollment) is not bool: raise ValueError('public enrollment flag')
         self.public_enrollment = public_enrollment
+        self.client_addresses = ClientAddresses(trusted_proxy)
         self.native, self.wallet, self.origin, self.pairing = native, wallet, origin, pairing
         if role not in ('combined', 'wallet', 'proofing'): raise ValueError('runtime role')
         if metrics_token is not None and (len(metrics_token) < 43 or not metrics_token.isascii() or metrics_token == pairing):
@@ -165,7 +166,8 @@ class Runtime:
         if (self.role == 'wallet' and path in NATIVE_ROUTES) or (self.role == 'proofing' and path in WALLET_ROUTES):
             return 404, {'error': 'NOT_FOUND'}
         if self.draining.is_set(): return 503, {'error': 'DRAINING'}
-        client = env.get('REMOTE_ADDR', 'unknown')
+        try: client = self.client_addresses.resolve(env)
+        except ValueError: return 403, {'error': 'DENIED'}
         if not self.rate.allow(client): return 429, {'error': 'RATE_LIMIT'}
         if path == '/native/start' and not self.enrollment_rate.allow(client): return 429, {'error': 'RATE_LIMIT'}
         if env.get('CONTENT_TYPE') != 'application/json' or 'HTTP_TRANSFER_ENCODING' in env:

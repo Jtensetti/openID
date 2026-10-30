@@ -3,14 +3,21 @@
 Kopplad till den publika SQLite-betan. Den privata testmiljön migreras inte.
 En befintlig credential migreras aldrig automatiskt av mallen.
 
+Det valbara [TestFlight-testläget](../../docs/testflight-beta.md) aktiverar
+nya test-ID:n utan kontaktadress och inför beständig slutspärr för det valda
+registret. Följ dess införandesteg. Kontaktkontrollen nedan gäller standardläget.
+
 `template.py` genererar CloudFormation för tre Lambda-funktioner, två DynamoDB-
 tabeller, en aviseringskö med felkö och ett HTTP-API i en region.
 Den publika funktionen får endast uppdatera
-spärrtabellen. Den privata funktionen får läsa status och spärra. Ingen funktion
-har rätt att lägga in en aktiveringspost, ta bort poster eller ändra IAM.
+spärrtabellen. Den privata funktionen får läsa status och spärra samt, bara
+i uttryckligt testläge, villkorat registrera en ny testnyckel och kampanjregeln.
+Ingen funktion får ta bort poster eller ändra IAM.
 Operatören registrerar en credential genom villkorad `PutItem` med
 `attribute_not_exists(credential)`. Ett befintligt spärrbeslut får aldrig skrivas
-över. Registrering i spärrtjänsten ersätter inte manuell ID-aktivering.
+över. I standardläget ersätter registrering i spärrtjänsten inte ett manuellt
+aktiveringsbeslut. TestFlight-läget binder samma registrering till sin
+automatiska aktivering enligt kampanjvillkoren.
 
 Tabellen använder kryptering i vila, raderingsskydd och punktåterställning.
 Spärrposter har ingen TTL. Återställning av **denna** tabell kräver separat
@@ -39,7 +46,7 @@ SHA-256-hash lagras som `token_hash`. Den är endast ett spärrbevis, aldrig ett
 Fel kod och okänd credential ger samma svar. GET ändrar ingenting. Upprepad
 korrekt spärr är tillåten och ändrar inte den ursprungliga spärrtidpunkten.
 
-## Aviseringskö
+## Aviseringskö i standardläget
 
 `verification/notices.py` lägger aviseringspost och ID-aktivering i samma
 SQLite-transaktion. Kontaktversion och granskningsreferens ska först bindas
@@ -74,14 +81,14 @@ eller av fysisk iPhone över mobilnät.
 
 Kvar innan användare kan förlita sig på tjänsten:
 
-- Installera och prova appversionen med separat spärrkod på fysisk iPhone.
-  Den tidigare appversionen kan
-  inte spara koden och spärra direkt när verifieraren är avstängd.
+- Prova separat spärrkod i en sammanhängande fysisk kedja med stoppad
+  verifierare. Funktionen finns i den [aktuella appen](../../ios/README.md#utgåvor);
+  installation och syntetiska prov ersätter inte detta driftprov.
 - Provkör SQS/SES med rätt kontaktbindning och säkerställ att operatören tar emot
   vidarebefordrade studsar/klagomål. `ACCEPTED` är inte leveransbevis.
 - Ändamålsenlig separat kontaktkontroll; verifierad e-postadress bevisar inte ensam
   att adressen tillhör den passkontrollerade personen.
-- Sammanhängande användarprov av SAML/OIDC och faktisk schemalagd nattstart.
+- Sammanhängande användarprov av SAML/OIDC och återstart efter driftavbrott.
   Övervakning, operativ felhantering och oberoende granskning.
 
 API:t begränsas till 0,1 anrop/sekund med burst 5. Lambda har två samtidiga
@@ -113,11 +120,17 @@ En migrerad wallet får en `wallet.continuity-required`-markör. Gamla lokala
 kommandon utan konfiguration vägrar öppna den. Driftkonfigurationen måste också
 bevaras separat från databasbackuper; markören ersätter inte det kravet.
 Återställ endast kod som förstår och kräver kontinuitetskonfigurationen.
+`recovery.py backup` bevarar markören utan att öppna Wallet eller anropa den
+oberoende tjänsten. `recovery.py restore --require-continuity` bevarar eller
+skapar kravet även för äldre kopior. Använd flaggan vid driftåterställning,
+och anslut den återställda noden till den aktuella spärrtjänsten, aldrig till
+en äldre kopia av dess tabell. Saknad konfiguration måste stoppa tjänstestart.
 En äldre programversion utan markörkontroll får inte återtas efter migration.
 
 Vid serverstart återstartas de tre containrarna med `unless-stopped`.
 Konfiguration, databas, identitetsnyckel och markör måste finnas kvar på den
-beständiga disken. Kontrollera tjänsternas status efter planerat nattstopp.
+beständiga disken. Kontrollera tjänsternas status efter varje återstart.
+Testserverns aktuella slutdatum finns i [betans driftplan](../README.md#betans-öppettider).
 
 Operatören förbereder en kontakt med `continuity_operator.py`, separat IAM-
 behörighet till de två tabellerna och flaggan `--independently-verified-contact`.

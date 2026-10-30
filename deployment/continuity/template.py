@@ -34,7 +34,8 @@ def template():
             'Runtime': 'python3.12', 'Handler': 'index.'+handler, 'MemorySize': 512,
             'Timeout': 8, 'ReservedConcurrentExecutions': 2,
             'Role': {'Fn::GetAtt': [name+'Role', 'Arn']},
-            'Environment': {'Variables': {'REVOCATION_TABLE': {'Ref': 'Ledger'}}},
+            'Environment': {'Variables': {'REVOCATION_TABLE': {'Ref': 'Ledger'},
+                'TEST_BETA_MODE': {'Ref': 'TestBetaMode'}}},
             'Code': {'ZipFile': code}}}
     resources.update({
         'Integration': {'Type': 'AWS::ApiGatewayV2::Integration', 'Properties': {
@@ -104,7 +105,10 @@ def template():
     for name in ('Backend', 'Public', 'Delivery'):
         resources[name]['Properties']['Layers'] = {'Fn::If': ['PinnedSdk', [{'Ref': 'SdkLayerArn'}], {'Ref': 'AWS::NoValue'}]}
     return {'AWSTemplateFormatVersion': '2010-09-09',
-        'Parameters': {'SdkLayerArn': {'Type': 'String', 'Default': '',
+        'Parameters': {'TestBetaMode': {'Type': 'String', 'Default': 'disabled',
+            'AllowedValues': ['disabled', 'testflight-november-2026'],
+            'Description': 'Explicit test-only auto registration; every ledger ID revoked from 2026-11-30T23:00:00Z'},
+            'SdkLayerArn': {'Type': 'String', 'Default': '',
             'AllowedPattern': r'^$|^arn:aws:lambda:eu-north-1:[0-9]{12}:layer:[A-Za-z0-9_-]+:[0-9]+$'},
             'FeedbackAddress': {'Type': 'String', 'NoEcho': True,
             'Description': 'Verified operator email for delivery failures; never a queue-supplied address'}},

@@ -4,7 +4,7 @@ import threading
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
-from authority import Authority, public_handler
+from authority import Authority, public_handler, backend_handler, TEST_BETA_END
 
 
 class ConditionFailed(Exception):
@@ -21,8 +21,21 @@ class Table:
         assert ConsistentRead is True
         with self.lock: return {'Item': dict(self.items.get(Key['credential'], {}))}
 
-    def update_item(self, Key, UpdateExpression, ExpressionAttributeNames,
-                    ExpressionAttributeValues, ConditionExpression=None):
+    def update_item(self, Key, UpdateExpression, ExpressionAttributeValues,
+                    ExpressionAttributeNames=None, ConditionExpression=None):
+        if UpdateExpression == 'SET beta_ends_at = :ends':
+            assert ConditionExpression == 'attribute_not_exists(credential)'
+            with self.lock:
+                if Key['credential'] in self.items: raise ConditionFailed()
+                self.items[Key['credential']] = {'beta_ends_at':ExpressionAttributeValues[':ends']}
+            return
+        if ConditionExpression == 'attribute_not_exists(credential)':
+            assert UpdateExpression == 'SET #state = :enabled, token_hash = :hash, beta_ends_at = :ends'
+            with self.lock:
+                if Key['credential'] in self.items: raise ConditionFailed()
+                self.items[Key['credential']] = {'state':ExpressionAttributeValues[':enabled'],
+                    'token_hash':ExpressionAttributeValues[':hash'], 'beta_ends_at':ExpressionAttributeValues[':ends']}
+            return
         assert UpdateExpression == 'SET #state = :revoked, revoked_at = if_not_exists(revoked_at, :now)'
         assert ExpressionAttributeNames == {'#state': 'state'}
         with self.lock:
@@ -104,6 +117,55 @@ class AuthorityTests(unittest.TestCase):
         self.assertEqual(503, result['statusCode'])
         self.assertNotIn('private detail', result['body'])
         self.assertEqual('no-store', result['headers']['Cache-Control'])
+
+    def test_test_registration_is_explicit_backend_only_and_never_reactivates(self):
+        ident = 'c'*64; digest = hashlib.sha256(self.token.encode()).hexdigest()
+        with self.assertRaises(ValueError): self.authority.register_test(ident, digest)
+        self.authority.test_beta = True
+        event = {'operation':'register-test-beta', 'credential':ident, 'tokenHash':digest}
+        with patch('authority.store', return_value=self.authority):
+            result = backend_handler(event, None)
+            self.assertEqual(TEST_BETA_END, result['betaEndsAt'])
+            self.assertEqual(result, backend_handler(event, None))
+        with self.assertRaises(ValueError): self.authority.register_test(ident, 'd'*64)
+        self.authority.revoke(ident)
+        with self.assertRaises(ValueError): self.authority.register_test(ident, digest)
+        self.assertEqual('REVOKED', self.authority.status(ident)['state'])
+        public = {'requestContext':{'http':{'method':'POST'}}, 'body':json.dumps(event)}
+        self.assertEqual(400, self.call(public)['statusCode'])
+
+    def test_campaign_end_revokes_old_and_new_ids_without_test_server(self):
+        self.authority.test_beta = True
+        self.authority.register_test('c'*64, 'd'*64)
+        self.authority.test_beta = False  # Configuration rollback cannot undo campaign revocation.
+        self.authority.clock = lambda:TEST_BETA_END
+        for ident in (self.credential, 'c'*64):
+            self.assertEqual('REVOKED', self.authority.status(ident)['state'])
+            self.assertEqual('REVOKED', self.table.items[ident]['state'])
+        with self.assertRaises(ValueError): self.authority.register_test('e'*64, 'f'*64)
+        self.assertNotIn('e'*64, self.table.items)
+        # Persisted tombstones cannot disappear if the clock is later corrected backwards.
+        self.authority.clock = lambda:123
+        self.assertEqual('REVOKED', self.authority.status(self.credential)['state'])
+
+    def test_concurrent_registration_and_revoke_leave_a_tombstone(self):
+        self.authority.test_beta = True
+        def register(_):
+            try: self.authority.register_test('c'*64, 'd'*64)
+            except ValueError: pass
+        with ThreadPoolExecutor(8) as pool:
+            tasks = [pool.submit(register, i) for i in range(8)]
+            tasks.append(pool.submit(self.authority.revoke, 'c'*64))
+            for task in tasks: task.result()
+        self.assertEqual('REVOKED', self.authority.status('c'*64)['state'])
+
+    def test_campaign_dates_match_wallet_contract(self):
+        from pathlib import Path
+        import re
+        root = Path(__file__).resolve().parents[2]
+        wallet = (root/'verification/wallet.py').read_text()
+        deadline = int(re.search(r'^TEST_BETA_END = ([0-9]+)', wallet, re.M)[1])
+        self.assertEqual(deadline, TEST_BETA_END)
 
 
 if __name__ == '__main__': unittest.main()
