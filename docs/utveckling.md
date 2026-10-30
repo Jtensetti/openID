@@ -5,7 +5,7 @@
 | Del | Verktyg och instruktioner |
 |---|---|
 | Verifierare och SAML | Linux x86_64, Python 3.12, Node 24.19.0, Temurin 21.0.12.1+1 och Maven 3.9.11. [Start och tester](../verification/README.md). |
-| iPhone | macOS och iOS 16+. CI: Xcode 16.4; bygge 106: Xcode 27.1. [Projekt och signering](../ios/README.md). |
+| iPhone | macOS och iOS 16+. CI: Xcode 16.4; signerade byggen 112/113: Xcode 27.1. [Projekt och signering](../ios/README.md). |
 | WebAuthn-labb | JDK 21 och Chromium; låst Playwright 1.62.1. [Start och tester](../prototype/README.md). |
 | Driftcontainer | Docker med digestlåst Temurin. [Körning](../ops/README.md). |
 
@@ -43,7 +43,7 @@ framgår av koden. Tillfälliga arbetsloggar hör hemma i PR:n.
 | Biometri och fotografering | Kalibrerade trösklar samt mätning av felacceptans/felavvisning, presentationer, injektion och relä. |
 | Pass och personregister | Spärrinformation, länkcertifikat, registerkontroll och ersättning efter passförnyelse. |
 | Nycklar och återställning | Operativ rotation, gallring och PostgreSQL-/nyckelåterläsning på vald driftmiljö. |
-| Extern integration | Fastställd profil, metadata, attribut och kontrollerad motpart med negativa protokollprov. |
+| Extern integration | [GrandID som integrationsmål, FED-05](grandid-integration.md): fastställd IdP-profil, metadata, mottagarstyrda attribut och kontrollerad motpart med negativa protokollprov. Leverantörens kund-API är inte ett IdP-anslutningskontrakt. |
 | Drift | Operativa roller, redundant databas/nyckeltjänst, ingress, kapacitet och larmmottagning på vald driftmiljö. |
 
 Produktionsöppning kräver oberoende säkerhetsgranskning och ett behörigt
@@ -61,17 +61,23 @@ beroendekontroll har passerat. Fel, avbrott och överhoppade jobb nekar grinden.
 Komponentprov kan även startas manuellt. Inga produktionshemligheter skickas
 till dessa jobb; jobben har enbart läsbehörighet till koden.
 
-Repoägaren behöver aktivera `.github/branch-protection.json` för `main` och
-verifiera inställningen i GitHub. Den binder kontrollen till GitHub Actions,
-kräver aktuell branch, en granskare och godkännande efter senaste push,
-avfärdar gamla godkännanden, omfattar administratörer och förbjuder force-push
-och borttagning. CODEOWNERS anger ansvarig förvaltare; det utgör inte en
-oberoende säkerhetsgranskning. En sådan granskare måste utses och ges en
-beslutad roll. Kodägargodkännande är inte aktiverat i förslaget eftersom en
-ensam ägare inte kan godkänna sin egen PR.
+Repot gjordes privat på ägarens begäran den 30 oktober 2026. GitHub visar
+`main-security-gate` som **Not enforced** på den nuvarande planen. Därmed
+verkställs varken granskningskravet, CI-kravet eller force-push-skyddet av
+den regeln. En lyckad merge är inte bevis på godkänd CI. Förvaltaren ska
+kontrollera resultatet och undvika direkt-/force-push enligt projektets arbetsgång.
 
-Med repoägarens befintliga GitHub CLI-session kan förslaget granskas och
-tillämpas med:
+`.github/branch-protection.json` bevarar önskad skyddskonfiguration för en
+miljö där GitHub-planen stöder den: aktuell branch, GitHub Actions-kontrollen,
+en annan granskare, aktuellt godkännande samt förbud mot force-push/borttagning.
+Filen beskriver inte det privata repots verkställda skydd. GitHub tillåter
+inte att PR-författaren godkänner sin egen PR; anslutningens ändringar skapas
+under repoägarens konto. Återinför ett fungerande, verifierat skydd före
+bredare samarbete eller produktionsrelease. CODEOWNERS och agentgranskning
+ersätter inte oberoende säkerhetsgranskning.
+
+Vid installation i ett nytt repo kan förslaget granskas och tillämpas
+med en behörig GitHub CLI-session:
 
 ```sh
 python3 .github/scripts/configure_repository.py
@@ -80,7 +86,8 @@ python3 .github/scripts/configure_repository.py --apply
 
 Skriptet ersätter inte ett befintligt branchskydd. Det kontrollerar svaret
 efter ändringen och aktiverar därefter GitHubs privata sårbarhetsrapportering.
-Filen och skriptet innebär inte att dessa inställningar redan är aktiverade.
+En fil i repot verifierar inte driftinställningarna; skriptet ska inte användas
+utan att först kontrollera aktuell plan, faktisk regel och godkänd ändringsomfattning.
 Lägg inte en administratörstoken i CI för att köra detta.
 
 ## Säkerhetsbevakning
@@ -100,3 +107,10 @@ driftägaren. Swift-commitfrågor ersätter inte bevakning av inbäddade OpenSSL
 Verifiera dagliga körningar och en mottagare för fel efter aktivering på
 `main`. GitHub-artefakterna med 90 dagars retention är inte långtidsarkiv
 för utgivningsbevis.
+
+Efter privatbytet är dependency graph och Dependabot alerts aktiverade.
+GitHubs Advanced Security och den tidigare publika sårbarhetskanalen ska
+inte antas finnas kvar; aktuell rapporteringsväg anges i [SECURITY.md](../SECURITY.md).
+[GitHubs planvillkor för skyddade grenar](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches)
+kontrollerades den 30 oktober 2026. Privat Actions-användning följer kontots
+kvot och debitering; lägg inte till överflödiga omkörningar.

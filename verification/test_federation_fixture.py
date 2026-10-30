@@ -43,7 +43,7 @@ def run(directory, resources):
     resources.callback(close_bridge)
     fixture = Path(os.environ['PROOFING_FIXTURES'])
     jar = Path(__file__).resolve().parent.parent/'prototype/target/isolated-eid-lab.jar'
-    command = [os.environ['PROOFING_JAVA'], '-jar', str(jar), 'verify-passport', str(fixture/'csca.der')]
+    command = [os.environ['PROOFING_JAVA'], '-jar', str(jar), 'verify-passport', str(fixture/'csca.der'), str(fixture/'csca.crl')]
     attest = Mock(); attest.check.side_effect = lambda op,**kw: {'publicKey':'test double'} if op == 'attestation' else {'signCount':kw['signCount']+1}
     matcher = pose_matcher(Mock()); matcher.compare.return_value = 0.95
     pad = Mock(); pad.score.return_value = 0.95

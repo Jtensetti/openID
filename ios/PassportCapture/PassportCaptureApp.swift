@@ -7,7 +7,11 @@ import SwiftUI
         WindowGroup {
             Group {
                 #if DEBUG && targetEnvironment(simulator)
-                if ProcessInfo.processInfo.arguments.contains("--capture-guide-preview") {
+                if ProcessInfo.processInfo.arguments.contains("--recovery-preview") {
+                    RecoveryPreviewFixture()
+                } else if ProcessInfo.processInfo.arguments.contains("--passport-guide-preview") {
+                    PassportGuidePreviewFixture()
+                } else if ProcessInfo.processInfo.arguments.contains("--capture-guide-preview") {
                     CapturePreviewFixture()
                 } else if ProcessInfo.processInfo.arguments.contains("--usability-preview") {
                     UsabilityPreviewFixture()
@@ -29,7 +33,7 @@ import SwiftUI
                 // Cover app-switcher snapshots and interruptions without cancelling an active Face ID/NFC prompt.
                 .overlay {
                     if phase != .active {
-                        ZStack { Palette.ink.ignoresSafeArea(); Label("openID", systemImage: "lock.shield").font(.largeTitle.bold()).foregroundStyle(Palette.mint) }
+                        ZStack { Palette.cardStart.ignoresSafeArea(); Label("openID", systemImage: "lock.shield").font(.largeTitle.bold()).foregroundStyle(Palette.mint) }
                     }
                 }
         }

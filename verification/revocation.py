@@ -41,6 +41,18 @@ class RevocationAuthority:
         if self.request('revoke', credential) != 'REVOKED':
             raise RevocationUnavailable('revocation not confirmed')
 
+    def register_test(self, credential, token_hash):
+        if not isinstance(credential, str) or not re.fullmatch('[a-f0-9]{64}', credential):
+            raise ValueError('credential identifier')
+        if not isinstance(token_hash, str) or not re.fullmatch('[a-f0-9]{64}', token_hash):
+            raise ValueError('revocation proof hash')
+        try:
+            response = self.invoke({'operation': 'register-test-beta', 'credential': credential, 'tokenHash': token_hash})
+            if response != {'credential': credential, 'state': 'ENABLED', 'betaEndsAt': 1796079600}:
+                raise ValueError('test registration not confirmed')
+        except Exception:
+            raise RevocationUnavailable('test registration not confirmed') from None
+
 
 def lambda_authority(client, function_name):
     """Use a least-privilege AWS SDK client, not a shared bearer admin secret."""
@@ -76,8 +88,11 @@ opening an already migrated database through a legacy unconfigured command.
         raw = stream.read(4097)
     if len(raw) > 4096: raise ValueError('continuity configuration size')
     config = json.loads(raw)
-    if not isinstance(config, dict) or set(config) != {'version', 'region', 'backendFunction'}:
+    if not isinstance(config, dict) or set(config) not in ({'version', 'region', 'backendFunction'},
+                                                         {'version', 'region', 'backendFunction', 'testBeta'}):
         raise ValueError('continuity configuration fields')
+    if 'testBeta' in config and config['testBeta'] is not True:
+        raise ValueError('test beta must be explicitly enabled')
     if type(config['version']) is not int or config['version'] != 1 or config['region'] != 'eu-north-1':
         raise ValueError('continuity configuration version or region')
     if not isinstance(config['backendFunction'], str) or not re.fullmatch(
@@ -92,4 +107,4 @@ opening an already migrated database through a legacy unconfigured command.
                 config=Config(connect_timeout=2, read_timeout=10,
                               retries={'total_max_attempts': 1}))
     authority = lambda_authority(client_factory(), config['backendFunction'])
-    return Wallet(database, origin, revocation=authority, notifications=True)
+    return Wallet(database, origin, revocation=authority, notifications=True, test_beta=config.get('testBeta', False))

@@ -21,7 +21,9 @@ def document(**changes):
     identity = dict(givenNames='ALICE', familyName='SYNTHETIC', birthDateMrz='900101', nationality='UTO',
         issuingState='UTO', documentNumber='TEST00001', documentExpires='2030-10-19') | changes
     image = cv2.imencode('.jpg', np.zeros((32,32,3), dtype=np.uint8))[1].tobytes()
-    return VerifiedDocument.from_verifier({'passiveAuthentication': True, 'portrait': base64.b64encode(image).decode(), 'identity': identity})
+    # Synthetic verifier result. Real CRL verification is covered by the Java/CLI tests.
+    return VerifiedDocument.from_verifier({'passiveAuthentication': True, 'portrait': base64.b64encode(image).decode(),
+        'identity': identity, 'revocation': 'CHECKED_CRL', 'revocationValidUntil': 4102444800})
 
 class IdentityTests(unittest.TestCase):
     @classmethod

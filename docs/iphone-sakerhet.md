@@ -35,6 +35,12 @@ bedömningen av samtliga 93 referenskontroller.
 
 ## Bevis för installation och prov
 
+Signerade installationsbevis finns för de [daterade apputgåvorna](../ios/README.md#utgåvor).
+Det stänger en del av APP-06 för just dessa artefakter. En senare sammanförd
+källrevision kräver eget byggbevis; fysisk helkedjeprovning och oberoende
+releasegranskning är fortfarande öppna.
+
+
 Registrera full Git-revision, version, byggnummer, byggverktyg, IPA-hash,
 signeringsidentitetens team, bundle-ID, App Attest-miljö, debuggerbehörighet,
 profilens giltighet och att avsedd telefon omfattas. Behåll privata

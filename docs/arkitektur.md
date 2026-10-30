@@ -28,6 +28,13 @@ Databasens transaktioner avgör samtidiga godkännanden och spärrar. Ett fillå
 hindrar flera runtime-processer på samma databas. Detta är en ensam nod,
 inte en distribuerad tjänst. [Start och drift](../deployment/README.md).
 
+Betans nginx ersätter `X-OpenID-Client-IP` med anslutningens adress. Endast
+en explicit betrodd loopbackproxy får förmedla den till trafikbegränsningen;
+runtime nekar saknad, tvetydig eller oväntad adress. Direktläge litar bara på
+transportens motpart. Detta ändrar inte App Attest, identitetsbeslut eller
+beständiga försöksbudgetar. Värddatorns lokala processer delar fortsatt
+säkerhetszon med ingressen.
+
 ## Registrering
 
 1. Appen skapar en P-256-nyckel i Secure Enclave. Keychain lagrar den omslutna
@@ -41,10 +48,13 @@ inte en distribuerad tjänst. [Start och drift](../deployment/README.md).
    MAC bekräftar chipnyckeln; sessionsnycklar lämnar inte serverprocessen.
 5. Efter chipkontrollen får appen ett nytt engångsvärde och tar tre
    AVFoundation-bilder. Vision vägleder fotograferingen framifrån och från båda sidor
-   utifrån huvudposition, bildkvalitet och hur länge användaren håller stilla. En ny App
+   utifrån huvudposition och bildkvalitet i ett kort fönster med godtagbara observationer. En ny App
    Attest-assertion binder bilderna till
    sessionen. YuNet/SFace jämför dem med passfotot. MiniFASNet beräknar PAD-värden.
-   Godkända kontroller skapar `PENDING_REVIEW`; operatören aktiverar separat.
+   I standardläget skapar godkända kontroller `PENDING_REVIEW` för separat
+   operatörsaktivering. I [TestFlight-testläget](testflight-beta.md) aktiveras
+   test-ID:t automatiskt efter samtliga kontroller och den separata
+   spärrtjänstens bekräftelse; inget kontaktbevis fabriceras.
 
 Ringen vägleder fotograferingen lokalt på telefonen. Ingen klientrapporterad färg, vinkel
 eller liveness-flagga används i serverns beslut. Servern bestämmer ordningen för de
@@ -60,7 +70,9 @@ inte närhet mellan pass och telefon; NFC-relä behöver prövas separat.
 ## Inloggning med SAML
 
 1. Kontotjänsten skapar en signerad AuthnRequest till IdP:n. Metadata och
-   mottagare är fasta: `https://localhost:8443` och `https://localhost:8444`.
+   mottagare är fasta för vald miljö; lokal standard är
+   `https://localhost:8443` och `https://localhost:8444`. Betan använder sina
+   separata publika HTTPS-ursprung.
 2. IdP:n skapar en begäran i registret, bunden till SAML-flöde, SP och en
    hemlighet i IdP-sessionen. QR-koden innehåller endast begärans-ID.
 3. Appen hämtar tjänst, syfte och kontrollkod genom en signerad `inspect`.
@@ -79,6 +91,14 @@ Tjänsten får namn, MRZ-födelsedatum, förminskat passfoto, tjänstesubjekt,
 credentialreferens och profilversion. MRZ:s tvåsiffriga årtal används utan
 härledning av sekel, ålder eller svenskt personnummer.
 
+## Extern integrationsmäklare
+
+GrandID/eID API är ett integrationsmål för OpenID som extern IdP via
+SAML 2.0 eller OpenID Connect. En separat motpartsprofil ska binda metadata,
+nycklar, identitetsattribut och appens visade mottagare till samma begäran.
+Nuvarande pilot har fasta motparter; leverantörsanslutning är inte provad.
+Se [GrandID-profilens omfattning och acceptans](grandid-integration.md).
+
 ## Livscykel och lagring
 
 | Tillstånd | Tillåten förändring |
@@ -87,8 +107,11 @@ härledning av sekel, ålder eller svenskt personnummer.
 | `ACTIVE` | Utgång, spärr eller ersättning genom aktivering av ny nyckel för samma pass. |
 | `EXPIRED`, `REVOKED` | Ny registrering med ny nyckel krävs. |
 
-Standardgiltigheten är 24 timmar, högst 72 och aldrig längre än passets
-giltighet. Ersättning för samma pass behåller det interna person-ID:t och
+Tabellens vänteläge och giltighet på 24 timmar, högst 72, gäller standardläget.
+TestFlight-läget går direkt till `ACTIVE` efter godkända kontroller. Dess ID:n
+gäller längst till passets utgång eller **1 december 2026 kl. 00.00 svensk tid**;
+alla ID:n i kampanjregistren spärras då. Äldre väntande, utgångna och spärrade
+nycklar återaktiveras inte automatiskt. Ersättning för samma pass behåller det interna person-ID:t och
 spärrar äldre nycklar atomiskt. Ett annat pass med samma namn och födelsedatum
 slås inte ihop. Passförnyelse har ett separat, registerkontrollerat operatörsflöde i SQLite-koden.
 Det saknar ännu verklig registeradapter och är inte aktiverat i betan.
@@ -134,7 +157,7 @@ omfattar inte OpenBao, databaslogins eller infrastrukturkonfiguration.
 
 | Gräns | Kontroll och begränsning |
 |---|---|
-| Telefon → verifierare | HTTPS, exakt Host/Origin, kopplingskod och signerade anrop. Inga klientangivna identitetsfält accepteras som verifierade. |
+| Telefon → verifierare | HTTPS, exakt Host/Origin och signerade anrop. Privat läge kräver kopplingskod; publik betaregistrering kräver produktions-App Attest. Inga klientangivna identitetsfält accepteras som verifierade. |
 | Verifierare → passprocess | Fast binär, JAR och CSCA väljs av operatören. Inga nätverkshämtade tillitsankare. |
 | Register → SAML | Unix-socket 0600 i katalog 0700, avgränsade meddelanden och operationer. Ingen aktiveringsoperation. |
 | Webbläsare → IdP/SP | TLS, CSP, CSRF, Origin och sessionsbindning. Endast signerad SAML POST har protokollundantag från CSRF. |

@@ -90,6 +90,7 @@ public final class Lab implements AutoCloseable {
     finally { try { registry.close(); } catch (Exception e) { throw new IllegalStateException("Could not close persistent registry"); } }
   }
   public static void main(String[] args) throws Exception {
+    if (args.length == 2 && args[0].equals("check-crls")) { lab.proofing.CrlCommand.run(args[1]); return; }
     if ((args.length == 2 || args.length == 3) && args[0].equals("verify-passport")) { lab.proofing.PassportCommand.run(args[1], args.length == 3 ? args[2] : null); return; }
     if (args.length == 2 && args[0].equals("authenticate-chip")) { lab.proofing.ChipCommand.run(args[1]); return; }
     if (args.length == 2 && args[0].equals("phone-init")) { TestKeys.initialize(Path.of(args[1])); return; }

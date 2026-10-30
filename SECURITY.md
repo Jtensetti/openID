@@ -16,7 +16,9 @@ säkerhetsgranskning.
   nycklar. Krasch och återläsning spärrar alla credentials.
 - `verification/` och `ios/`: passverifiering, ansiktsjämförelse, RGB-PAD,
   NFC-fångst och enhetsautentisering för sluten beta och privata telefonprov. Registrering
-  kräver separat operatörsaktivering. `phone-idp` och `phone-sp` kopplar
+  kräver separat operatörsaktivering i standardläget. Det uttryckligen valda
+  [TestFlight-testläget](docs/testflight-beta.md) aktiverar efter godkända
+  kontroller utan e-post och avslutar giltigheten vid betans slut. `phone-idp` och `phone-sp` kopplar
   detta register till separata SAML-/OIDC-testtjänster.
 
 `start-web` innehåller även en syntetisk dokumentunderskriftslabb med
@@ -79,10 +81,16 @@ commit räcker inte. Historikändring kräver separat beslut.
 
 ## Rapportera problem
 
-En privat säkerhetskanal är ännu inte konfigurerad. Publicera inte känsliga
-sårbarhetsdetaljer i öppna issues; be projektägaren om en privat kontaktväg.
-Inför pilot- eller produktionsrelease behövs ansvarig mottagare och en
-dokumenterad process för triage och kommunikation.
+Repot är privat sedan 30 oktober 2026. Rapportera säkerhetsproblem till
+[Jonatan@tensetti.se](mailto:Jonatan@tensetti.se). Ange berörd version,
+förutsättningar, konsekvens och en kort beskrivning. Skicka inte pass,
+biometrik, personakter, privata nycklar eller lösenord. Be om en överenskommen
+säker överföringsväg för känsliga tekniska bilagor. Publicera inte känsliga
+sårbarhetsdetaljer i öppna kanaler.
+
+Den tidigare GitHub-länken för publik sårbarhetsrapportering är inte längre
+angiven som aktiv kanal. Bemannad beredskap och garanterad svarstid är inte
+fastställda. Kontaktadressen ersätter inte användarens separata spärrfunktion.
 
 ## Test och release
 

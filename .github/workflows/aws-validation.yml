@@ -44,3 +44,6 @@ jobs:
           "$RUNNER_TEMP/guard/cfn-guard-v3-x86_64-ubuntu-latest/cfn-guard" validate --rules deployment/aws/security.guard --data "$RUNNER_TEMP/template.json"
           python3 deployment/archive/template.py > "$RUNNER_TEMP/archive-template.json"
           "$RUNNER_TEMP/guard/cfn-guard-v3-x86_64-ubuntu-latest/cfn-guard" validate --rules deployment/archive/security.guard --data "$RUNNER_TEMP/archive-template.json" --output-format json
+          python3 deployment/security/template.py > "$RUNNER_TEMP/security-template.json"
+          "$RUNNER_TEMP/guard/cfn-guard-v3-x86_64-ubuntu-latest/cfn-guard" validate --rules deployment/security/security.guard --data "$RUNNER_TEMP/security-template.json" --output-format json
+          GUARD_BIN="$RUNNER_TEMP/guard/cfn-guard-v3-x86_64-ubuntu-latest/cfn-guard" python3 -m unittest discover -s deployment/security -v

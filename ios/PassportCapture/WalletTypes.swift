@@ -55,12 +55,21 @@ struct ServerConfiguration: Codable, Equatable {
 
 enum CredentialState: String, Codable {
     case pending = "PENDING_REVIEW", active = "ACTIVE", revoked = "REVOKED", expired = "EXPIRED"
+    static func registrationResult(_ result: [String: Any], credentialID: String, publicBeta: Bool) throws -> CredentialState {
+        guard result["checksPassed"] as? Bool == true, result["issuanceEnabled"] as? Bool == false,
+              let credential = result["credential"] as? [String: Any],
+              credential["id"] as? String == credentialID,
+              let rawState = credential["state"] as? String, let state = CredentialState(rawValue: rawState),
+              state == .pending || (state == .active && publicBeta && result["testBetaEndsAt"] as? Int == 1796079600)
+        else { throw WalletError.rejected }
+        return state
+    }
     var guidance: String {
         switch self {
         case .pending: return "Registreringen är klar och väntar på aktivering. Du behöver inte läsa passet igen. Hämta status under Mitt ID efter att ditt ID aktiverats."
-        case .active: return "Starta en inloggning på testsidan och skanna QR-koden."
+        case .active: return "Ditt test-ID är aktivt. Starta en inloggning på testsidan och skanna QR-koden."
         case .revoked: return "Ditt ID är spärrat och kan inte användas. Gå till Inställningar för att ta bort den spärrade nyckeln och registrera ett nytt ID."
-        case .expired: return "Ditt ID har gått ut. Gå till Inställningar för att ta bort den gamla nyckeln och registrera ett nytt ID."
+        case .expired: return "Ditt ID har gått ut. Spärra det först under Inställningar. När spärren är bekräftad kan du ta bort den gamla nyckeln och registrera ett nytt ID."
         }
     }
     var title: String {
@@ -101,6 +110,7 @@ struct WalletEvent: Codable, Identifiable {
         switch kind {
         case "CAPTURE_VERIFIED": return "Pass- och personkontroll slutförd"
         case "ACTIVATED": return "ID aktiverat"
+        case "TEST_BETA_VALIDITY_CHANGED": return "Test-ID giltigt till betans slut"
         case "REQUESTED": return "Ny begäran om legitimering"
         case "APPROVED": return "Begäran godkänd"
         case "SIGNED": return "Underskrift godkänd"

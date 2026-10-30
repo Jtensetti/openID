@@ -1,8 +1,13 @@
 # Oberoende avisering och spärr
 
-Status 2026-10-22: [den separata tjänsten](../deployment/continuity/README.md)
-är kopplad till den publika SQLite-betan. Verifierare, federationsbrygga och
-operatörskommandon använder samma spärrkontroll. Appbygge 106 innehåller
+Det valbara [automatiska TestFlight-testläget](testflight-beta.md) kräver
+ingen e-post och visar aktivering i appen. Det behåller den oberoende
+spärrtjänsten men gör inget anspråk på separat kontaktkontroll eller avisering.
+Nedanstående kontakt- och aviseringskedja gäller standardläget.
+
+Den 22 oktober 2026 verifierades att [den separata tjänsten](../deployment/continuity/README.md)
+var kopplad till den publika SQLite-betan. Verifierare, federationsbrygga och
+operatörskommandon använder samma spärrkontroll. Den aktuella appen innehåller
 kodlagring och direkt spärr som kan avbryta en väntande statuskontroll.
 Ett pågående godkännande eller avslag avbryts inte. Den privata testmiljön är inte migrerad.
 K6.6 och K6.8 är delvis tekniskt täckta och har fortsatt formell status OPEN.
@@ -44,7 +49,9 @@ behandlas av den separata tjänsten även när testservern är avstängd.
 En statisk projektsida kan visas dygnet runt men kan inte ensam ändra
 spärrstatus. En e-postlåda tar emot ärenden men bevisar varken identitet,
 bemanning eller verkställighet. Vi får inte kalla något av detta en färdig
-spärrtjänst. Pilotens 09–17-begränsning gäller registrering och legitimering.
+spärrtjänst. Testservern för registrering och legitimering är öppen dygnet runt
+till och med 30 november 2026. Den stängs av 1 december 2026 kl. 00.00 svensk
+tid enligt [betans driftplan](../deployment/README.md#betans-öppettider).
 
 Den publika spärrfunktionen i Lambda tar emot ett separat återkallelsebevis och
 skriver en permanent spärr i DynamoDB. Den får inte aktivera eller ändra kontakt.
@@ -52,7 +59,7 @@ Appen sparar beviset i Keychain och låter innehavaren spara det utanför telefo
 Spärrformuläret fungerar utan appen och lägger aldrig koden i en URL.
 
 Verifieraren och federationsbryggan kontrollerar aktuell spärrstatus utan positiv cache.
-Om status inte kan kontrolleras ska åtkomst nekas. Efter nattstopp måste
+Om status inte kan kontrolleras ska åtkomst nekas. Efter ett serverstopp måste
 spärrar vara synkroniserade innan någon legitimering tillåts. Lokalt cachad
 ACTIVE-status får aldrig övertrumfa spärr. En kvittens om mottaget ärende
 måste skiljas från bekräftad verkställighet.
@@ -66,11 +73,11 @@ Negativa tester täcker fel kod, replay, dubbel spärr, otillgänglig statuskäl
 gammal backup och kömanipulation. I AWS har ett syntetiskt ID spärrats med
 betans tjänster stoppade. Efter återöppning av dess wallet nekades ny
 legitimering, befintlig federationssession och konsumtion av en godkänd begäran.
-Fysisk iPhone, faktisk schemalagd nattstart och oberoende missbruksprov återstår.
+Fysisk iPhone, sammanhängande återstartsprov i avsedd driftmiljö och oberoende missbruksprov återstår.
 
 ## Kvarvarande beslut
 
 Fastställ kontaktkontroll, leveranspolicy, hantering när spärrkod saknas,
 återställning av den auktoritativa tabellen och operativ beredskap.
 Organisation, bemanning och oberoende granskning är separata förutsättningar.
-En teknisk pilot med manuell aktivering är inte ett tillitsgodkännande.
+Varken manuell eller automatisk testaktivering innebär ett tillitsgodkännande.

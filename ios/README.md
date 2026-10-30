@@ -3,6 +3,23 @@
 SwiftUI-app med Mitt ID, Legitimera, Aktivitet och Inställningar.
 Appen använder [verifieringsservern](../verification/README.md).
 
+## Utgåvor
+
+- **TestFlight-pilot: 0.2.0 (112)**, byggd från `ac4160fe6ce819b360c5a8532c32b2eceb40a84b`.
+  Innehåller automatisk testaktivering, fortsatt registrering efter statusfel,
+  spärr före nyckelborttagning och systemstyrt ljust/mörkt utseende.
+  Inskickad till Apples betagranskning den 29 oktober 2026. Då var status
+  *Waiting for Review* och den publika inbjudningslänken avstängd. Kontrollera
+  aktuell status i App Store Connect före nya inbjudningar. Piloten avser Sverige.
+- **Nästa utvecklingsbygge: 0.2.0 (113)**. Kameraguiden och den lokala
+  passbildskontrollen nedan ingår i källkoden. Ett signerat enhetsbygge från
+  `8b6a83ce0cd3b3b3ae7e11232a96d5f9ec88327f` installerades den 30 oktober.
+  Det är inte uppladdat till TestFlight; fysisk kamera- och helkedjeprovning återstår.
+
+Källkod, installerad app och TestFlight-utgåva kan alltså skilja sig.
+Läs version och byggnummer i appens Inställningar och knyt prov till exakt
+serverrevision. En merge publicerar varken en app eller en serveruppdatering.
+
 ## Öppna i Xcode
 
 Från repots rot:
@@ -13,7 +30,7 @@ open ios/PassportCapture.xcodeproj
 
 1. Använd schemat **PassportCapture** och en ansluten
    iPhone med iOS 16 eller senare. Swift Package Manager hämtar de låsta
-   beroendena. CI använder Xcode 16.4; TestFlight-bygge 106 byggdes med Xcode 27.1.
+   beroendena. CI använder Xcode 16.4; de signerade byggena 112 och 113 byggdes med Xcode 27.1.
 2. Välj Apple-utvecklingsteam och bundle-ID under **Signing & Capabilities**.
    Aktivera **NFC Tag Reading** och **App Attest** i App ID/provisioneringsprofilen.
    Standard-ID är `se.openid.PassportCapture`. Samma team och bundle-ID ska
@@ -30,7 +47,9 @@ open ios/PassportCapture.xcodeproj
    telefonen mot passet igen när säkerhetskontrollen startar. Därefter tas
    tre kamerabilder: framåt och åt båda sidor. Följ ovalen och håll kvar tills
    respektive bild har tagits. NFC-kontrollen kräver kontakt med servern hela tiden.
-6. Uppdatera **Mitt ID**. Registreringen väntar på ett separat
+6. Uppdatera **Mitt ID**. I det valda [TestFlight-testläget](../docs/testflight-beta.md)
+   aktiveras test-ID:t automatiskt efter godkända kontroller, utan e-post.
+   I standardläget väntar registreringen på ett separat
    [aktiveringsbeslut](../verification/README.md#aktivera-och-prova-inloggning).
    Prova sedan
    [QR-inloggningen](../verification/README.md#saml-inloggning-med-passets-identitet).
@@ -47,6 +66,13 @@ ensamt är inget attestbevis. Se [Apples miljöbeskrivning](https://developer.ap
 
 ## Funktioner
 
+Appen följer iPhones inställning för ljust eller mörkt utseende, även när
+systemet byter automatiskt. Bakgrunder, text, formulärpaneler, kontrollkod,
+knappar och felmeddelanden har färger för båda lägena. ID-kortet och
+kamerans överlägg behåller mörk bakgrund med ljus text. `PaletteTests`
+kontrollerar färgbyte och minst 4,5:1 kontrast för de angivna textparen;
+detta är inte en fullständig tillgänglighetsgranskning.
+
 | Vy | Funktion |
 |---|---|
 | Mitt ID | Namn, passfoto, MRZ-födelsedatum och aktuell serverstatus. Status rensas vid låsning och nätverksfel. |
@@ -54,28 +80,64 @@ ensamt är inget attestbevis. Se [Apples miljöbeskrivning](https://developer.ap
 | Legitimera | Tjänst, syfte, kontrollkod och giltighet visas före godkännande eller nekande. Ny lokal användarverifiering krävs. |
 | QR och länkar | Endast `openid://request/<64 hextecken>`. Begäran hämtas från den konfigurerade servern. |
 | Aktivitet | De 50 senaste serverhändelserna. |
-| Inställningar | Anslutning, applås, permanent spärr och borttagning av spärrad/utgången nyckel. |
+| Inställningar | Anslutning, applås, permanent spärr och borttagning av en bekräftat spärrad nyckel. |
 
 I den publika betan kan innehavaren spara en separat spärrkod under
 Inställningar. Koden används av appen eller webbformuläret även när
 verifieraren är stängd. Den måste ha hämtats före avbrottet och sparats utanför
 telefonen för att fungera vid förlust. Privata ID:n migreras inte automatiskt.
-Ny telefon kräver ny registrering och manuell aktivering.
+Ny telefon kräver ny registrering och aktivering enligt det valda testläget.
 Se [avisering och spärr](../docs/avisering-och-sparr.md).
+
+### Avbruten registrering och ny nyckel
+
+| Lokalt och verifierat tillstånd | Tillåten åtgärd |
+|---|---|
+| Ingen nyckel | Skapa en ny enhetsnyckel och starta passregistreringen. |
+| Nyckel men ingen hämtad serverstatus, även efter nätverksfel | Fortsätt registreringen med samma nyckel. Ingen automatisk radering eller aktivering sker. Servern nekar återregistrering av en redan registrerad nyckel. |
+| Väntande, aktivt eller utgånget ID | Behåll nyckeln och spärrkoden. Spärra först; utgång räcker inte för borttagning. |
+| Spärrat ID, bekräftat för rätt nyckel av verifieraren eller den separata spärrtjänsten | Ta bort den lokala nyckeln och påbörja ny pass- och ansiktskontroll. |
+
+Innehavaren initierar spärren efter lokal användarverifiering. Serverns
+spärrbeslut kan inte skapas av borttagningsknappen. Den separata tjänstens
+bekräftelse gäller under den aktuella upplåsningen även om verifieraren är
+otillgänglig. Efter låsning hämtas status eller bekräftas spärren igen.
+Om Keychain inte kan radera nyckeln behålls spärrkoden och appens tillstånd.
+Ett misslyckat statusanrop får inte dölja fortsatt registrering.
+
+`WalletRecoveryTests` provar återförsök med samma nyckel, förbud mot borttagning
+före spärr, låsning, fel vid nyckelradering och ny nyckel efter bekräftad spärr.
+XCUITest öppnar det riktiga passformuläret efter simulerat statusfel och provar
+borttagningsflödet. Testerna använder syntetisk lagring och ersätter inte
+fysiska prov av Secure Enclave, NFC, biometri och serverns aktivering.
 
 ## Fotografering
 
 Vision vägleder placering, avstånd, huvudvinkel och bildkvalitet. Tre bilder
-krävs: framåt, höger och vänster. Förhandsbilden är speglad; skickade bilder
-är ospeglade. Ovalens båda halvor lyser lila för frontbilden, sedan respektive
-sida. Grönt bekräftar fångsten i 0,65 sekunder. Bildnummer visas separat.
+krävs i serverns ordning. Förhandsbilden är speglad; skickade bilder är ospeglade.
+Segmenten runt ovalen visar geometrisk närhet till rätt position, även innan
+huvudet når målvinkeln. Orange visar närhet; grönt visar godtagbar position
+med tillräcklig bildkvalitet eller ett redan taget delsteg. Text och bockar
+kompletterar färgerna. En instruktion visas under kameran och dämpas mot
+kortvariga förändringar. Förhandsbilden begränsas på korta skärmar så att
+instruktionen ryms. Serverns ordning bevaras även om första bilden är en sida.
 
-Varje position kräver 0,45 sekunders hålltid och minst fyra godtagbara
-observationer. Kort korrigering får pausa hållningen högst 0,25 sekunder
-sammanlagt; pausen ger ingen framdrift. Fel sida, flera eller försvunna
-ansikten, stora rörelser och längre avbrott återställer hållningen.
-Aktuella trösklar finns i `PassportCapture/CaptureGuide.swift` och provas i
-`CaptureGuideTests`. Kameraguiden visar fångstvillkor, inte verifierad identitet.
+Varje bild väljs som den bästa Vision-kvaliteten i ett kort fönster: minst
+0,18 sekunders godtagbara observationer och minst tre prover. Kameran
+analyserar högst cirka 17 gånger per sekund. Endast den bästa JPEG-kandidaten
+behålls, aldrig en referens till kamerans återanvända pixelbuffert. Inga
+mellanbilder skrivs till disk. Befintliga geometriska och kvalitetsgränser
+behålls; naturlig rörelse tillåts inom dem. Korta kvalitetsdippar pausar högst
+0,25 sekunder sammanlagt utan att ge framdrift. Ett kandidatfönster får vara
+högst 0,50 sekunder gammalt. Stora hopp kasserar kandidaten. Bekräftelsen
+visas i 0,30 sekunder med lätt haptik.
+
+Mindre korrigeringar bevarar färdiga bilder. Flera ansikten eller mer än en
+sekunds förlorad ansikts-/tidskontinuitet rensar samtliga bilder och börjar
+om i samma serverordning. Kameraavbrott avbryter hela körningen. Detta är
+lokala fångstregler, inte bevis på obruten identitet eller liveness.
+Målet 5–10 sekunder från start till tre bilder behöver mätas på riktiga
+telefoner. Simulatorprover styrker inte den tiden eller biometrisk kvalitet.
 
 Registreringen visar riktningsoval, bildnummer och en aktuell instruktion.
 **Inställningar → Prova ansiktskameran** visar även diagnostikindikatorer och
@@ -167,7 +229,9 @@ CI sparar även `openID-capture-guide.png`. Fixturen öppnar ingen kamera och
 kan inte registrera en identitet.
 
 Simulatorn kan inte testa pass-NFC, Secure Enclave eller Apple App Attest.
-Privat telefonprov har bekräftat passläsning, personnummer och SAML-inloggning.
+Tidigare privata telefonprov har bekräftat passläsning, visat DG1-nummer,
+SAML/OIDC-inloggning och nekande. De ersätter inte ett sammanhängande
+registreringsprov på aktuell app-/serverkombination.
 Den nya separata spärrfunktionen behöver fortfarande ett sammanhängande telefonprov.
 
 ## Kvar att verifiera
@@ -182,7 +246,15 @@ knyter kontroller till GAP-punkter och skiljer dem från kvarstående beslut.
 
 ## Kamerainläsning och fel i registreringen
 
-VisionKit läser kodraderna lokalt med DataScannerViewController. Passnummer,
+VisionKit läser kodraderna lokalt med DataScannerViewController. En ram visar
+hela porträttsidan, med diskreta markeringar för porträttet och kodraderna.
+När giltiga åtkomstuppgifter hittas tas en stillbild automatiskt. Vision
+kontrollerar sidans synliga kanter och läser kodraderna igen efter
+perspektivkorrigering. Endast samma entydiga uppgifter med läsbarhetskonfidens
+minst 0,75 används. Bilden behandlas i minnet och kastas. Återkopplingen ger
+råd om sidans kanter, stillahållning och reflexer. Läsbarhetskontrollen är
+inte en separat mätning av porträttskärpa eller en kalibrerad reflexdetektor.
+Manuell inmatning finns kvar om automatiken inte fungerar. Passnummer,
 födelsedatum och utgångsdatum fylls i först när en entydig TD3-rad med
 korrekta kontrollsiffror och kalenderdatum har hittats. Ingen OCR-bild sparas
 eller skickas. Kontrollsiffrorna är formatkontroller; äktheten avgörs fortsatt
@@ -239,10 +311,19 @@ innebär inte att ett århundrade härleds från passets tvåsiffriga årtal.
 
 Vid tillgänglighetsstorlek staplas identitetskortets innehåll. Kontrollkoden
 visas på två rader och läses siffra för siffra, inklusive inledande nollor.
-Kamerans instruktion flyttas under förhandsvisningen vid stor text utan att
+Kamerans instruktion ligger alltid under förhandsvisningen, även vid stor text, utan att
 ändra bildutsnitt, huvudvinklar eller säkerhetskrav. QR-vyn går att rulla.
 
 Detta är förbättringar för provning, inte ett påstående om full tillgänglighet.
 Fulla språkversioner, fysisk VoiceOver-provning, alternativ till huvudrörelser
 och stödd fysisk minsta enhetsmodell återstår. Simulatorns testfixturer för
 layout finns endast i Debug och kan inte aktiveras i Release.
+
+## TrueDepth
+
+TrueDepth ingår inte i fångstflödet. [Undersökningsspåret](../docs/truedepth-undersokning.md)
+beskriver separata prov av djupdata, synkronisering och presentationsattacker.
+
+API-underlag för automatisk fångst, kontrollerat 2026-10-30:
+[Vision-bildval](https://developer.apple.com/documentation/vision/selecting-a-selfie-based-on-capture-quality),
+[DataScanner och lokal stillbild](https://developer.apple.com/documentation/visionkit/datascannerviewcontroller).

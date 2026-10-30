@@ -1,5 +1,47 @@
 #if DEBUG && targetEnvironment(simulator)
 import SwiftUI
+import LocalAuthentication
+
+struct RecoveryPreviewFixture: View {
+    @StateObject private var model: WalletModel
+    init() {
+        let model = WalletModel(vault: RecoveryPreviewVault())
+        let arguments = ProcessInfo.processInfo.arguments
+        let state = CredentialState.allRecoveryPreviewStates.first { arguments.contains("--" + $0.rawValue) }
+        model.configureRecoveryPreview(credential: LocalCredential(id: String(repeating: "a", count: 64), wrappedKey: Data(), publicKey: Data()),
+            state: state, statusError: state == nil ? URLError(.notConnectedToInternet) : nil,
+            confirmedRevocation: arguments.contains("--confirmed-revocation"))
+        _model = StateObject(wrappedValue: model)
+    }
+    var body: some View { WalletRootView().environmentObject(model) }
+}
+private extension CredentialState {
+    static let allRecoveryPreviewStates: [CredentialState] = [.pending, .active, .expired, .revoked]
+}
+private struct RecoveryPreviewVault: CredentialVault {
+    func read<T: Decodable>(_ account: String, as type: T.Type) throws -> T? { nil }
+    func save<T: Encodable>(_ value: T, account: String) throws { throw WalletError.keyUnavailable }
+    func remove(_ account: String) throws {}
+    func createCredential(context: LAContext) throws -> LocalCredential { throw WalletError.keyUnavailable }
+    func sign(_ bytes: Data, credential: LocalCredential, context: LAContext) throws -> Data { throw WalletError.keyUnavailable }
+}
+
+struct PassportGuidePreviewFixture: View {
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 20) {
+                    ZStack { Color.gray; PassportGuideOverlay() }.frame(height: 400)
+                        .clipShape(RoundedRectangle(cornerRadius: 24))
+                    Text("Placera hela passets porträttsida i ramen").font(.headline)
+                        .accessibilityIdentifier("passport.instruction")
+                    Text("Fotograferas automatiskt. Håll passet plant och undvik reflexer.")
+                    Text("SIMULATOR – ingen kamera eller passdata").font(.caption)
+                }.padding(20)
+            }.navigationTitle("Skanna passuppgifter").navigationBarTitleDisplayMode(.inline)
+        }
+    }
+}
 
 struct CapturePreviewFixture: View {
     @State private var guidance = CaptureGuidance(hint: CapturePose.front.title)
@@ -8,7 +50,7 @@ struct CapturePreviewFixture: View {
             ScrollView {
                 CaptureGuideView(guidance: guidance) {
                     ZStack {
-                        LinearGradient(colors: [Palette.ink, Palette.muted], startPoint: .topLeading, endPoint: .bottomTrailing)
+                        LinearGradient(colors: [Palette.cardStart, Palette.cardEnd], startPoint: .topLeading, endPoint: .bottomTrailing)
                         Image(systemName: "person.fill").resizable().scaledToFit().foregroundStyle(.white.opacity(0.45))
                             .frame(width: 180).offset(y: 36)
                     }
@@ -19,7 +61,8 @@ struct CapturePreviewFixture: View {
                         Button("Nästa position") {
                             let next = min(2, guidance.completed + 1)
                             guidance = CaptureGuidance(pose: CapturePose(rawValue: next)!, completed: next,
-                                hint: CapturePose(rawValue: next)!.title)
+                                hint: CapturePose(rawValue: next)!.title, proximity: 0.65,
+                                completedPoses: Set(CapturePose.allCases.prefix(next)))
                         }.accessibilityIdentifier("capture.preview.next")
                         Spacer()
                         Button("Simulera saknat ansikte") {

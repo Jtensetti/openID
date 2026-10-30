@@ -2,6 +2,36 @@ import XCTest
 
 final class WalletUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
+    func testFailedStatusStillOffersTheActualRegistrationForm() {
+        let app = XCUIApplication(); app.launchArguments = ["--recovery-preview"]; app.launch()
+        let resume = app.buttons["home.resumeRegistration"]
+        XCTAssertTrue(resume.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["home.statusMessage"].exists)
+        for _ in 0..<5 { if resume.isHittable { break }; app.swipeUp() }
+        resume.tap()
+        XCTAssertTrue(app.textFields["enrollment.number"].waitForExistence(timeout: 5))
+        app.buttons["Stäng"].firstMatch.tap()
+        XCTAssertTrue(resume.waitForExistence(timeout: 5))
+    }
+    func testExpiredKeyMustBeRevokedBeforeRemoval() {
+        let app = XCUIApplication(); app.launchArguments = ["--recovery-preview", "--EXPIRED"]; app.launch()
+        app.buttons["Inställningar"].tap()
+        for _ in 0..<3 { app.swipeUp() }
+        XCTAssertTrue(app.buttons["Spärra mitt ID"].exists)
+        XCTAssertFalse(app.buttons["settings.forgetCredential"].exists)
+        XCTAssertFalse(app.buttons["home.resumeRegistration"].exists)
+    }
+    func testConfirmedRevocationAndRemovalReturnToRegistration() {
+        let app = XCUIApplication(); app.launchArguments = ["--recovery-preview", "--confirmed-revocation"]; app.launch()
+        app.buttons["Inställningar"].tap()
+        let forget = app.buttons["settings.forgetCredential"]
+        for _ in 0..<5 { if forget.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(forget.isHittable); forget.tap()
+        app.buttons["Ta bort nyckeln"].tap()
+        XCTAssertTrue(app.buttons["home.register"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["home.register"].isEnabled)
+        XCTAssertFalse(app.staticTexts["home.statusMessage"].exists)
+    }
     func testRejectIsVisibleWithoutScrollingForEveryRequestKind() {
         for variant in [[], ["--pin"], ["--sign"], ["--sign", "--pin"], ["--sign", "--pin", "--largest-text"]] as [[String]] {
             let app = XCUIApplication(); app.launchArguments = ["--approval-preview"] + variant; app.launch()
@@ -37,9 +67,11 @@ final class WalletUITests: XCTestCase {
         let app = XCUIApplication(); app.launchArguments = ["--capture-guide-preview"]; app.launch()
         XCTAssertTrue(app.staticTexts["capture.instruction"].waitForExistence(timeout: 10))
         XCTAssertEqual(app.staticTexts["capture.instruction"].label, "Titta rakt mot kameran")
+        XCTAssertTrue(app.staticTexts["capture.instruction"].isHittable)
         XCTAssertEqual(app.otherElements["capture.ring"].value as? String, "0 av 3 bilder tagna")
         app.buttons["capture.preview.next"].tap()
         XCTAssertEqual(app.staticTexts["capture.instruction"].label, "Vrid huvudet lite åt höger")
+        XCTAssertTrue(app.staticTexts["capture.instruction"].isHittable)
         XCTAssertEqual(app.otherElements["capture.ring"].value as? String, "1 av 3 bilder tagna")
         let image = XCTAttachment(screenshot: app.screenshot()); image.name = "openID-capture-guide"; image.lifetime = .keepAlways; add(image)
         app.buttons["capture.preview.missing"].tap()
@@ -49,6 +81,15 @@ final class WalletUITests: XCTestCase {
         XCTAssertEqual(app.staticTexts["capture.instruction"].label, "Vrid huvudet lite åt vänster")
         XCTAssertFalse(app.staticTexts["Verifierad"].exists)
         XCTAssertFalse(app.buttons["Godkänn"].exists)
+    }
+    func testPassportGuideInstructionAndSyntheticPreview() {
+        let app = XCUIApplication(); app.launchArguments = ["--passport-guide-preview"]; app.launch()
+        let instruction = app.staticTexts["passport.instruction"]
+        XCTAssertTrue(instruction.waitForExistence(timeout: 5))
+        XCTAssertTrue(instruction.isHittable)
+        XCTAssertLessThanOrEqual(instruction.frame.maxX, app.frame.maxX)
+        let image = XCTAttachment(screenshot: app.screenshot()); image.name = "openID-passport-guide"; image.lifetime = .keepAlways; add(image)
+        XCTAssertFalse(app.staticTexts["Verifierad"].exists)
     }
     func testControlCodePreservesLeadingZeroAtLargestTextSize() {
         let app = XCUIApplication(); app.launchArguments = ["--usability-preview"]; app.launch()
@@ -100,7 +141,9 @@ final class WalletUITests: XCTestCase {
         let app = XCUIApplication(); app.launchArguments = []; app.launch()
         XCTAssertTrue(app.staticTexts["home.heading"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["home.unlock"].exists)
-        XCTAssertTrue(app.staticTexts["home.betaHours"].label.contains("09–17 svensk tid"))
+        let betaHours = app.staticTexts["home.betaHours"].label
+        XCTAssertTrue(betaHours.contains("dygnet runt till och med 30 november 2026"))
+        XCTAssertTrue(betaHours.contains("1 december kl. 00.00 svensk tid"))
         let image = XCTAttachment(screenshot: app.screenshot()); image.name = "openID-home"; image.lifetime = .keepAlways; add(image)
     }
     func testAllTabsShowSafeLockedStates() {

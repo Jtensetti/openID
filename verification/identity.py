@@ -18,6 +18,13 @@ FIELDS = {'givenNames', 'familyName', 'birthDateMrz', 'nationality', 'issuingSta
 class VerifiedDocument:
     portrait: bytes
     identity: dict
+    revocation: str = 'NOT_CHECKED'
+    revocation_valid_until: int = 0
+
+    def require_current_revocation(self, now):
+        if (self.revocation != 'CHECKED_CRL' or type(self.revocation_valid_until) is not int
+                or self.revocation_valid_until <= now):
+            raise ValueError('current document signer revocation check required')
 
     @classmethod
     def from_verifier(cls, value):
@@ -46,7 +53,13 @@ class VerifiedDocument:
             if sum(n//10+n%10 for n in products) % 10: raise ValueError('passport personal number')
         portrait = base64.b64decode(value['portrait'], validate=True)
         if not 0 < len(portrait) <= 2_000_000: raise ValueError('portrait size')
-        return cls(portrait, dict(identity))
+        status = value.get('revocation', 'NOT_CHECKED')
+        valid_until = value.get('revocationValidUntil', 0)
+        if (status not in ('NOT_CHECKED', 'CHECKED_CRL') or type(valid_until) is not int
+                or (status == 'NOT_CHECKED' and valid_until != 0)
+                or (status == 'CHECKED_CRL' and valid_until <= 0)):
+            raise ValueError('invalid document signer revocation result')
+        return cls(portrait, dict(identity), status, valid_until)
 
     def profile(self):
         import cv2

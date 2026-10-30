@@ -1,7 +1,8 @@
 """Independent, monotonic revocation store. No endpoint can reactivate an ID.
 
 Backend and public handlers must be separate Lambda functions with separate
-IAM roles. Provisioning is operator-only and is not exposed by either handler.
+IAM roles. The optional November 2026 test campaign permits conditional
+provisioning via the IAM backend only, never via the public handler.
 """
 import hashlib
 import base64
@@ -11,6 +12,9 @@ import os
 import re
 import time
 from urllib.parse import parse_qs
+
+TEST_BETA_END = 1796079600  # 1 December 2026 00:00 Europe/Stockholm
+TEST_BETA_POLICY = 'policy:testflight-november-2026'
 
 FORM = '''<!doctype html><html lang="sv"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Spärra ditt openID</title><main><h1>Spärra ditt openID</h1>
@@ -30,16 +34,66 @@ def identifier(value):
 
 
 class Authority:
-    def __init__(self, table, clock=time.time):
+    def __init__(self, table, clock=time.time, test_beta=False):
         self.table, self.clock = table, clock
+        self.test_beta = test_beta
+
+    def campaign_end(self):
+        # Persist the campaign policy outside the wallet and configuration.
+        # Disabling auto-registration later must not remove the planned revocation.
+        item = self.table.get_item(Key={'credential': TEST_BETA_POLICY}, ConsistentRead=True).get('Item', {})
+        if not item and self.test_beta:
+            try:
+                self.table.update_item(Key={'credential': TEST_BETA_POLICY},
+                    UpdateExpression='SET beta_ends_at = :ends',
+                    ConditionExpression='attribute_not_exists(credential)',
+                    ExpressionAttributeValues={':ends': TEST_BETA_END})
+            except Exception:
+                item = self.table.get_item(Key={'credential': TEST_BETA_POLICY}, ConsistentRead=True).get('Item', {})
+                if item.get('beta_ends_at') != TEST_BETA_END:
+                    raise ValueError('test beta policy not confirmed') from None
+            return TEST_BETA_END
+        if not item: return None
+        if item.get('beta_ends_at') != TEST_BETA_END: raise ValueError('invalid test beta policy')
+        return TEST_BETA_END
 
     def status(self, credential):
+        identifier(credential)
+        ends = self.campaign_end()
         item = self.table.get_item(Key={'credential': identifier(credential)},
                                    ConsistentRead=True).get('Item', {})
         state = item.get('state', 'UNKNOWN')
         if state not in {'ENABLED', 'REVOKED', 'UNKNOWN'}:
             raise ValueError('invalid stored state')
+        if ends is not None and self.clock() >= ends and state == 'ENABLED':
+            # Campaign revocation applies to ALL existing IDs in this isolated
+            # ledger, not only IDs created by the automatic flow. No server/job
+            # needs to be running at midnight. Persist each tombstone on access.
+            return self.revoke(credential)
         return {'credential': credential, 'state': state}
+
+    def register_test(self, credential, token_hash):
+        identifier(credential)
+        if not self.test_beta or self.clock() >= TEST_BETA_END:
+            raise ValueError('test beta registration closed')
+        if not isinstance(token_hash, str) or not re.fullmatch('[a-f0-9]{64}', token_hash):
+            raise ValueError('revocation proof hash')
+        try:
+            self.table.update_item(Key={'credential': credential},
+                UpdateExpression='SET #state = :enabled, token_hash = :hash, beta_ends_at = :ends',
+                ConditionExpression='attribute_not_exists(credential)',
+                ExpressionAttributeNames={'#state': 'state'},
+                ExpressionAttributeValues={':enabled': 'ENABLED', ':hash': token_hash, ':ends': TEST_BETA_END})
+        except Exception:
+            # A timeout may hide a successful write. Only the exact original
+            # proof may retry, and a revocation always wins over provisioning.
+            item = self.table.get_item(Key={'credential': credential}, ConsistentRead=True).get('Item', {})
+            if (item.get('state') != 'ENABLED' or item.get('token_hash') != token_hash
+                    or item.get('beta_ends_at') != TEST_BETA_END):
+                raise ValueError('test registration not confirmed') from None
+        if self.status(credential)['state'] != 'ENABLED':
+            raise ValueError('test registration not confirmed')
+        return {'credential': credential, 'state': 'ENABLED', 'betaEndsAt': TEST_BETA_END}
 
     def revoke(self, credential, token=None):
         identifier(credential)
@@ -63,13 +117,17 @@ class Authority:
 def store():
     import boto3
     from botocore.config import Config
+    mode = os.environ.get('TEST_BETA_MODE', 'disabled')
+    if mode not in ('disabled', 'testflight-november-2026'): raise ValueError('test beta mode')
     return Authority(boto3.resource('dynamodb', config=Config(
         connect_timeout=2, read_timeout=2, retries={'total_max_attempts': 2}
-    )).Table(os.environ['REVOCATION_TABLE']))
+    )).Table(os.environ['REVOCATION_TABLE']), test_beta=mode == 'testflight-november-2026')
 
 
 def backend_handler(event, context):
     # InvokeFunction via IAM only. Never connect this handler to a public route.
+    if isinstance(event, dict) and set(event) == {'operation', 'credential', 'tokenHash'} and event['operation'] == 'register-test-beta':
+        return store().register_test(event['credential'], event['tokenHash'])
     if not isinstance(event, dict) or set(event) != {'operation', 'credential'}:
         raise ValueError('request fields')
     authority = store()

@@ -56,6 +56,9 @@ struct CaptureGuidance: Equatable {
     var centered = false
     var angleOK = false
     var qualityOK = false
+    var proximity = 0.0
+    var completedPoses: Set<CapturePose> = []
+    var sequence: [CapturePose] = CapturePose.allCases
     // Vision coordinates become top-left coordinates in the mirrored preview.
     var previewBounds: CGRect? {
         faceBounds.map { CGRect(x: 1 - $0.maxX, y: 1 - $0.maxY, width: $0.width, height: $0.height) }
@@ -63,48 +66,70 @@ struct CaptureGuidance: Equatable {
     var progress: Double { min(1, (Double(completed) + holdProgress) / 3) }
 }
 
-// Capture guidance only. These thresholds do not measure identity or liveness.
+// Local composition/quality guidance, never an identity or liveness decision.
 struct CaptureGuide {
+    static let captureDuration = 0.18
+    static let confirmationDuration = 0.30
     private(set) var guidance = CaptureGuidance()
-    /// Order requested by the server for this session; the server checks the head turns in the frames.
+    // These generations also invalidate camera bytes, not just the UI progress.
+    private(set) var candidateGeneration = 0
+    private(set) var sessionGeneration = 0
+    private(set) var candidateEligible = false
     private let sequence: [CapturePose]
-    init(sequence: [CapturePose] = CapturePose.allCases) {
-        precondition(sequence.count == 3 && Set(sequence).count == 3, "Each pose exactly once")
-        self.sequence = sequence
-        guidance.pose = sequence[0]
-        guidance.hint = sequence[0] == .front ? "Placera ansiktet i ovalen" : sequence[0].title
-    }
     private var confirmationUntil = -Double.infinity
     private var heldDuration = 0.0
     private var lastAcceptedTime: Double?
+    private var candidateStarted: Double?
     private var paused = false
     private var pauseBudget = 0.25
     private var previousTime: Double?
+    private var lastFaceTime: Double?
     private var previousFace: CaptureFace?
     private var samples = 0
+    private var pendingHint: String?
+    private var pendingHintSince = 0.0
+
+    init(sequence: [CapturePose] = CapturePose.allCases) {
+        precondition(sequence.count == 3 && Set(sequence).count == 3, "Each pose exactly once")
+        self.sequence = sequence
+        guidance.sequence = sequence
+        guidance.pose = sequence[0]
+        guidance.hint = sequence[0] == .front ? "Placera ansiktet i ovalen" : sequence[0].title
+    }
 
     mutating func observe(_ faces: [CaptureFace], at time: Double) -> Bool {
+        candidateEligible = false
         guard guidance.completed < 3 else { return false }
-        if time.isFinite, time < confirmationUntil { return false }
-        guidance.confirmedPose = nil
+        guidance.acceptable = false
         guidance.faceBounds = nil
         guidance.distanceOK = false; guidance.centered = false
-        guidance.angleOK = false; guidance.qualityOK = false
-        guard time.isFinite else { resetHold("Håll telefonen stilla"); return false }
-        if let previousTime, time <= previousTime || time - previousTime > 0.3 {
-            resetHold("Håll telefonen stilla")
-            if time <= previousTime { return false }
+        guidance.angleOK = false; guidance.qualityOK = false; guidance.proximity = 0
+        guard time.isFinite else { resetWindow(); return false }
+        if let previousTime {
+            guard time > previousTime else { resetWindow(); return false }
+            if time - previousTime > 1 { restart() }
+            else if time - previousTime > 0.3 { resetWindow() }
         }
         previousTime = time
         guard faces.count == 1 else {
-            resetHold(faces.isEmpty ? "Placera ansiktet i ovalen" : "Bara ett ansikte får synas")
+            resetWindow()
+            if faces.count > 1 || lastFaceTime.map({ time - $0 > 1 }) == true { restart() }
+            setHint(faces.isEmpty ? "Placera ansiktet i ovalen" : "Bara ett ansikte får synas", at: time, immediate: true)
             return false
         }
-        let face = faces[0]
-        let box = face.bounds
+        if let lastFaceTime, time - lastFaceTime > 1 { restart() }
+        let face = faces[0], box = faces[0].bounds
         guard [Double(box.minX), Double(box.minY), Double(box.width), Double(box.height)].allSatisfy({ $0.isFinite }),
               box.width > 0, box.height > 0, box.minX >= 0, box.minY >= 0, box.maxX <= 1, box.maxY <= 1 else {
-            resetHold("Hela ansiktet behöver synas i bilden"); return false
+            resetWindow(); setHint("Hela ansiktet behöver synas", at: time, immediate: true); return false
+        }
+        lastFaceTime = time
+        // Continue checking presence during the short confirmation; no frame from it is reused.
+        if time < confirmationUntil { return false }
+        if guidance.confirmedPose != nil {
+            guidance.confirmedPose = nil
+            resetWindow()
+            setHint(guidance.pose.title, at: time, immediate: true)
         }
         guidance.faceBounds = box
         guidance.distanceOK = box.width >= 0.32 && box.height >= 0.32 && box.width <= 0.72 && box.height <= 0.62
@@ -112,76 +137,117 @@ struct CaptureGuide {
         guidance.qualityOK = face.quality.map { $0.isFinite && (0.25...1).contains($0) } ?? false
         let validAngles = [face.yaw, face.pitch, face.roll].allSatisfy { $0?.isFinite == true }
         let yaw = face.yaw ?? 0, pitch = face.pitch ?? 0, roll = face.roll ?? 0
+        let turn = guidance.pose == .side ? -yaw : yaw
         let poseHint: String?
-        switch guidance.pose {
-        case .front:
+        if guidance.pose == .front {
             poseHint = abs(yaw) <= 0.14 ? nil : "Vrid tillbaka mot kameran"
-        case .side, .opposite:
-            // Unmirrored portrait Vision input: negative yaw turns toward the
-            // user's right (right in the mirrored preview).
-            if abs(yaw) >= 0.26 && ((guidance.pose == .side && yaw > 0) || (guidance.pose == .opposite && yaw < 0)) { poseHint = guidance.pose.title }
-            else if abs(yaw) < 0.26 { poseHint = "Vrid lite mer åt sidan – håll telefonen stilla" }
-            else if abs(yaw) > 0.60 { poseHint = "Vrid tillbaka lite – inte hela vägen till profil" }
-            else { poseHint = nil }
-        }
+        } else if turn < 0 {
+            poseHint = guidance.pose.title
+        } else if turn < 0.26 {
+            poseHint = "Vrid lite till"
+        } else if turn > 0.60 {
+            poseHint = "Vrid tillbaka lite"
+        } else { poseHint = nil }
         guidance.angleOK = validAngles && abs(pitch) <= 0.30 && abs(roll) <= 0.30 && poseHint == nil
-        if box.width < 0.32 || box.height < 0.32 { pauseHold("Flytta telefonen lite närmare", at: time); return false }
-        if box.width > 0.72 || box.height > 0.62 { pauseHold("Flytta telefonen lite längre bort", at: time); return false }
-        if !guidance.centered { pauseHold("Flytta ansiktet till mitten av ovalen", at: time); return false }
-        guard validAngles else { resetHold("Ansiktets vinkel kan inte avläsas – vänd dig lite mot kameran"); return false }
-        if abs(roll) > 0.30 { pauseHold("Räta upp huvudet – luta inte åt axeln", at: time); return false }
-        if abs(pitch) > 0.30 { pauseHold("Håll hakan rakt – inte uppåt eller nedåt", at: time); return false }
-        if let poseHint {
-            if abs(yaw) >= 0.26 { resetHold(poseHint) }
-            else { pauseHold(poseHint, at: time) }
+        if validAngles {
+            let angle = guidance.pose == .front
+                ? closeness(abs(yaw), to: 0...0.14, margin: 0.45)
+                : closeness(turn, to: 0.26...0.60, margin: 0.26)
+            guidance.proximity = min(angle,
+                closeness(Double(box.width), to: 0.32...0.72, margin: 0.25),
+                closeness(Double(box.height), to: 0.32...0.62, margin: 0.25),
+                closeness(Double(abs(box.midX - 0.5)), to: 0...0.14, margin: 0.25),
+                closeness(Double(abs(box.midY - 0.5)), to: 0...0.14, margin: 0.25),
+                closeness(abs(pitch), to: 0...0.30, margin: 0.30),
+                closeness(abs(roll), to: 0...0.30, margin: 0.30))
+        }
+        let correction: String?
+        if box.width < 0.32 || box.height < 0.32 { correction = "Lite närmare" }
+        else if box.width > 0.72 || box.height > 0.62 { correction = "Lite längre bort" }
+        else if !guidance.centered { correction = "Flytta ansiktet till mitten av ovalen" }
+        else if !validAngles { correction = "Vänd ansiktet lite mot kameran" }
+        else if abs(roll) > 0.30 { correction = "Räta upp huvudet lite" }
+        else if abs(pitch) > 0.30 { correction = "Håll hakan rakt" }
+        else if let poseHint { correction = poseHint }
+        else if !guidance.qualityOK { correction = "Sök jämnt ljus på ansiktet" }
+        else { correction = nil }
+        if let correction {
+            pauseWindow(at: time)
+            setHint(correction, at: time)
             return false
         }
-        guard guidance.qualityOK else {
-            let hint = "Bilden behöver bli tydligare – sök jämnt ljus och håll stilla"
-            if let quality = face.quality, quality.isFinite, (0...1).contains(quality) { pauseHold(hint, at: time) }
-            else { resetHold(hint) }
-            return false
+        // Natural motion is allowed; discontinuous jumps cannot build a candidate window.
+        if let previousFace, let previousYaw = previousFace.yaw,
+           abs(yaw - previousYaw) > 0.20 || abs(box.midX - previousFace.bounds.midX) > 0.08
+            || abs(box.midY - previousFace.bounds.midY) > 0.08 || abs(box.width - previousFace.bounds.width) > 0.10
+            || abs(box.height - previousFace.bounds.height) > 0.10 {
+            resetWindow()
         }
-        if let previousFace, let previousYaw = previousFace.yaw, let previousPitch = previousFace.pitch, let previousRoll = previousFace.roll,
-           abs(yaw - previousYaw) > 0.14 || abs(box.midX - previousFace.bounds.midX) > 0.04
-            || abs(box.midY - previousFace.bounds.midY) > 0.04 || abs(box.width - previousFace.bounds.width) > 0.06
-            || abs(box.height - previousFace.bounds.height) > 0.06 || abs(pitch - previousPitch) > 0.14 || abs(roll - previousRoll) > 0.14 {
-            resetHold("Håll telefonen stilla")
-        }
+        if let candidateStarted, time - candidateStarted > 0.50 { resetWindow() }
         previousFace = face
         if let lastAcceptedTime {
             let elapsed = time - lastAcceptedTime
             if paused {
                 if elapsed <= pauseBudget { pauseBudget -= elapsed }
-                else { resetHold("Håll kvar") }
+                else { resetWindow() }
             } else { heldDuration += elapsed }
         }
-        paused = false
-        lastAcceptedTime = time
-        samples += 1
-        guidance.acceptable = true; guidance.hint = "Håll kvar"
-        guidance.holdProgress = min(1, heldDuration / 0.45)
-        guard guidance.holdProgress >= 1, samples >= 4 else { return false }
+        if candidateStarted == nil { candidateStarted = time }
+        paused = false; lastAcceptedTime = time; samples += 1
+        candidateEligible = true
+        guidance.acceptable = true
+        setHint("Bra, bilden tas automatiskt", at: time)
+        guidance.holdProgress = min(1, heldDuration / Self.captureDuration)
+        guard heldDuration + 0.000001 >= Self.captureDuration, samples >= 3 else { return false }
         let capturedPose = guidance.pose
         guidance.completed += 1
+        guidance.completedPoses.insert(capturedPose)
         if guidance.completed < 3 { guidance.pose = sequence[guidance.completed] }
-        resetHold(guidance.completed == 3 ? "Bilderna är tagna" : guidance.pose.title)
+        guidance.holdProgress = 0
         guidance.confirmedPose = capturedPose
-        guidance.hint = "Bilden är tagen"
-        confirmationUntil = time + 0.65
+        setHint(guidance.completed == 3 ? "Bilderna är tagna" : "Bilden är tagen", at: time, immediate: true)
+        confirmationUntil = time + Self.confirmationDuration
         return true
     }
 
-    private mutating func pauseHold(_ hint: String, at time: Double) {
-        guard let lastAcceptedTime, time - lastAcceptedTime <= pauseBudget else { resetHold(hint); return }
-        paused = true
-        guidance.acceptable = false
-        guidance.hint = hint
+    private func closeness(_ value: Double, to range: ClosedRange<Double>, margin: Double) -> Double {
+        max(0, 1 - max(range.lowerBound - value, value - range.upperBound, 0) / margin)
     }
+    private mutating func pauseWindow(at time: Double) {
+        guard let lastAcceptedTime, time - lastAcceptedTime <= pauseBudget else { resetWindow(); return }
+        paused = true
+    }
+    private mutating func resetWindow() {
+        heldDuration = 0; lastAcceptedTime = nil; candidateStarted = nil; paused = false; pauseBudget = 0.25
+        previousFace = nil; samples = 0; candidateGeneration += 1
+        guidance.holdProgress = 0; guidance.acceptable = false; candidateEligible = false
+    }
+    private mutating func restart() {
+        resetWindow(); sessionGeneration += 1; lastFaceTime = nil
+        guidance.completed = 0; guidance.completedPoses = []; guidance.pose = sequence[0]
+        guidance.confirmedPose = nil; confirmationUntil = -.infinity
+    }
+    private mutating func setHint(_ hint: String, at time: Double, immediate: Bool = false) {
+        if immediate || previousTime == nil || guidance.faceBounds == nil {
+            guidance.hint = hint; pendingHint = nil; return
+        }
+        if hint == guidance.hint { pendingHint = nil; return }
+        if pendingHint != hint { pendingHint = hint; pendingHintSince = time }
+        if time - pendingHintSince >= 0.22 { guidance.hint = hint; pendingHint = nil }
+    }
+}
 
-    private mutating func resetHold(_ hint: String) {
-        heldDuration = 0; lastAcceptedTime = nil; paused = false; pauseBudget = 0.25
-        previousFace = nil; samples = 0
-        guidance.holdProgress = 0; guidance.acceptable = false; guidance.hint = hint
+/// Keeps only the best encoded frame in the current short window. No camera buffers escape their callback.
+struct CaptureCandidate<Value> {
+    private(set) var value: Value?
+    private var quality = -Double.infinity
+    private var generation = -1
+    mutating func reset(to generation: Int) {
+        guard self.generation != generation else { return }
+        self.generation = generation; value = nil; quality = -.infinity
+    }
+    mutating func consider(quality: Double, makeValue: () throws -> Value) rethrows {
+        guard quality.isFinite, (0.25...1).contains(quality), quality > self.quality else { return }
+        value = try makeValue(); self.quality = quality
     }
 }
