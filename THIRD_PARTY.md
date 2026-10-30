@@ -155,7 +155,7 @@ Vid eventuell egen distribution av verktyget krävs separat transitiv licensgran
 ### Wolfi-bas och apko, kontrollerat 2026-10-30
 
 Pilot och register byggs från offentliga [Wolfi-paket](https://packages.wolfi.dev/os/).
-De 31 exakta paketversionerna och deras kontrollsummor finns i
+De 32 exakta paketversionerna och deras kontrollsummor finns i
 [wolfi-runtime.lock.json](deployment/build/wolfi-runtime.lock.json).
 Receptkällan är [wolfi-dev/os@65e46148155ff624c83ce3c02321614adc4d23b1](https://github.com/wolfi-dev/os/tree/65e46148155ff624c83ce3c02321614adc4d23b1).
 Basen omfattar bland annat glibc 2.44-r11, OpenSSL 4.0.3-r8,

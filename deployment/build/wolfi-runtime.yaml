@@ -7,6 +7,7 @@ contents:
     - wolfi-baselayout
     - ca-certificates-bundle
     - python-3.12=3.12.16-r1
+    - openssl-4.0=4.0.3-r8
     - libstdc++
     - tzdata
 archs:

@@ -2,7 +2,7 @@
   "version": "v1",
   "config": {
     "name": "deployment/build/wolfi-runtime.yaml",
-    "checksum": "sha256-7y+GbcGUg7/+VWYgmNwlXucVx9uvsw/VDh1XBkqrVNA="
+    "checksum": "sha256-j80cGOOb9h3dDwj2Xn2voG+VbciU5Dn0ZVoGrdPrD+Q="
   },
   "contents": {
     "keyring": [
@@ -156,6 +156,139 @@
         "checksum": "Q1TDYeh0Iq9Fjbp5cPck+zZfmDn14="
       },
       {
+        "name": "openssl-provider-legacy-allowed",
+        "url": "https://packages.wolfi.dev/os/x86_64/openssl-provider-legacy-allowed-4.1.0-r0.apk",
+        "version": "4.1.0-r0",
+        "architecture": "x86_64",
+        "signature": {
+          "range": "",
+          "checksum": ""
+        },
+        "control": {
+          "range": "bytes=0-8346",
+          "checksum": "sha1-K5CR6PVd/wWU++lG1SG1MRrQkJA="
+        },
+        "data": {
+          "range": "bytes=8347-364301",
+          "checksum": "sha256-VGUxk6rxtn3mLQpfTPZSWfIgtgQPoZK7cqCopeZzMgw="
+        },
+        "checksum": "Q1K5CR6PVd/wWU++lG1SG1MRrQkJA="
+      },
+      {
+        "name": "libbrotlicommon1",
+        "url": "https://packages.wolfi.dev/os/x86_64/libbrotlicommon1-1.2.1-r2.apk",
+        "version": "1.2.1-r2",
+        "architecture": "x86_64",
+        "signature": {
+          "range": "",
+          "checksum": ""
+        },
+        "control": {
+          "range": "bytes=0-15823",
+          "checksum": "sha1-hR13/btAoHKw3piU/POT5y4GwS8="
+        },
+        "data": {
+          "range": "bytes=15824-85870",
+          "checksum": "sha256-7LVjiDeTCgB6qBv5JE7MMsEXPxnE5tCZfymIvun3Fzk="
+        },
+        "checksum": "Q1hR13/btAoHKw3piU/POT5y4GwS8="
+      },
+      {
+        "name": "libbrotlienc1",
+        "url": "https://packages.wolfi.dev/os/x86_64/libbrotlienc1-1.2.1-r2.apk",
+        "version": "1.2.1-r2",
+        "architecture": "x86_64",
+        "signature": {
+          "range": "",
+          "checksum": ""
+        },
+        "control": {
+          "range": "bytes=0-15837",
+          "checksum": "sha1-sd/3jnUNRLQE1b2odCcgTMx/ORs="
+        },
+        "data": {
+          "range": "bytes=15838-448467",
+          "checksum": "sha256-BSn1avAg1zL3zBuOxhgzdHi4AR1crn63OTR+65riM/o="
+        },
+        "checksum": "Q1sd/3jnUNRLQE1b2odCcgTMx/ORs="
+      },
+      {
+        "name": "libbrotlidec1",
+        "url": "https://packages.wolfi.dev/os/x86_64/libbrotlidec1-1.2.1-r2.apk",
+        "version": "1.2.1-r2",
+        "architecture": "x86_64",
+        "signature": {
+          "range": "",
+          "checksum": ""
+        },
+        "control": {
+          "range": "bytes=0-15833",
+          "checksum": "sha1-StgOWSmECA/XsKwXr9lNj6rRTiQ="
+        },
+        "data": {
+          "range": "bytes=15834-49149",
+          "checksum": "sha256-+Zuh0lwkqjLNd+2iMkE2V/IFoKz9tUuytAqxVgw9pLI="
+        },
+        "checksum": "Q1StgOWSmECA/XsKwXr9lNj6rRTiQ="
+      },
+      {
+        "name": "openssl-4.0-libcrypto",
+        "url": "https://packages.wolfi.dev/os/x86_64/openssl-4.0-libcrypto-4.0.3-r8.apk",
+        "version": "4.0.3-r8",
+        "architecture": "x86_64",
+        "signature": {
+          "range": "",
+          "checksum": ""
+        },
+        "control": {
+          "range": "bytes=0-19897",
+          "checksum": "sha1-W9piTcgyubhrducJCMM7+qErDxo="
+        },
+        "data": {
+          "range": "bytes=19898-2403080",
+          "checksum": "sha256-9U8IPcKddu7bltbKxcAufsQiKBM7L3SElUDpj1+Ni5A="
+        },
+        "checksum": "Q1W9piTcgyubhrducJCMM7+qErDxo="
+      },
+      {
+        "name": "openssl-4.0-libssl",
+        "url": "https://packages.wolfi.dev/os/x86_64/openssl-4.0-libssl-4.0.3-r8.apk",
+        "version": "4.0.3-r8",
+        "architecture": "x86_64",
+        "signature": {
+          "range": "",
+          "checksum": ""
+        },
+        "control": {
+          "range": "bytes=0-19875",
+          "checksum": "sha1-arwi4n4L3VZ3S8YJ6P4WwY/7JjY="
+        },
+        "data": {
+          "range": "bytes=19876-575949",
+          "checksum": "sha256-xJ/uRx05OTShtIIyZJ/U8b+86nn4IqNyucKOqzIjAEU="
+        },
+        "checksum": "Q1arwi4n4L3VZ3S8YJ6P4WwY/7JjY="
+      },
+      {
+        "name": "openssl-4.0",
+        "url": "https://packages.wolfi.dev/os/x86_64/openssl-4.0-4.0.3-r8.apk",
+        "version": "4.0.3-r8",
+        "architecture": "x86_64",
+        "signature": {
+          "range": "",
+          "checksum": ""
+        },
+        "control": {
+          "range": "bytes=0-19873",
+          "checksum": "sha1-ne4/7JZoR9e4wdiXI+zrR+5Q4kU="
+        },
+        "data": {
+          "range": "bytes=19874-489538",
+          "checksum": "sha256-zkd5DvhCFglMFdpaoO6cfUi+7HxUhMi4Xg2RJ90pkUQ="
+        },
+        "checksum": "Q1ne4/7JZoR9e4wdiXI+zrR+5Q4kU="
+      },
+      {
         "name": "mpdecimal",
         "url": "https://packages.wolfi.dev/os/x86_64/mpdecimal-4.0.1-r6.apk",
         "version": "4.0.1-r6",
@@ -289,101 +422,6 @@
         "checksum": "Q1krKZR0I/kPCVPgULCI8yz9N3BZc="
       },
       {
-        "name": "openssl-provider-legacy-allowed",
-        "url": "https://packages.wolfi.dev/os/x86_64/openssl-provider-legacy-allowed-4.1.0-r0.apk",
-        "version": "4.1.0-r0",
-        "architecture": "x86_64",
-        "signature": {
-          "range": "",
-          "checksum": ""
-        },
-        "control": {
-          "range": "bytes=0-8346",
-          "checksum": "sha1-K5CR6PVd/wWU++lG1SG1MRrQkJA="
-        },
-        "data": {
-          "range": "bytes=8347-364301",
-          "checksum": "sha256-VGUxk6rxtn3mLQpfTPZSWfIgtgQPoZK7cqCopeZzMgw="
-        },
-        "checksum": "Q1K5CR6PVd/wWU++lG1SG1MRrQkJA="
-      },
-      {
-        "name": "libbrotlicommon1",
-        "url": "https://packages.wolfi.dev/os/x86_64/libbrotlicommon1-1.2.1-r2.apk",
-        "version": "1.2.1-r2",
-        "architecture": "x86_64",
-        "signature": {
-          "range": "",
-          "checksum": ""
-        },
-        "control": {
-          "range": "bytes=0-15823",
-          "checksum": "sha1-hR13/btAoHKw3piU/POT5y4GwS8="
-        },
-        "data": {
-          "range": "bytes=15824-85870",
-          "checksum": "sha256-7LVjiDeTCgB6qBv5JE7MMsEXPxnE5tCZfymIvun3Fzk="
-        },
-        "checksum": "Q1hR13/btAoHKw3piU/POT5y4GwS8="
-      },
-      {
-        "name": "libbrotlienc1",
-        "url": "https://packages.wolfi.dev/os/x86_64/libbrotlienc1-1.2.1-r2.apk",
-        "version": "1.2.1-r2",
-        "architecture": "x86_64",
-        "signature": {
-          "range": "",
-          "checksum": ""
-        },
-        "control": {
-          "range": "bytes=0-15837",
-          "checksum": "sha1-sd/3jnUNRLQE1b2odCcgTMx/ORs="
-        },
-        "data": {
-          "range": "bytes=15838-448467",
-          "checksum": "sha256-BSn1avAg1zL3zBuOxhgzdHi4AR1crn63OTR+65riM/o="
-        },
-        "checksum": "Q1sd/3jnUNRLQE1b2odCcgTMx/ORs="
-      },
-      {
-        "name": "libbrotlidec1",
-        "url": "https://packages.wolfi.dev/os/x86_64/libbrotlidec1-1.2.1-r2.apk",
-        "version": "1.2.1-r2",
-        "architecture": "x86_64",
-        "signature": {
-          "range": "",
-          "checksum": ""
-        },
-        "control": {
-          "range": "bytes=0-15833",
-          "checksum": "sha1-StgOWSmECA/XsKwXr9lNj6rRTiQ="
-        },
-        "data": {
-          "range": "bytes=15834-49149",
-          "checksum": "sha256-+Zuh0lwkqjLNd+2iMkE2V/IFoKz9tUuytAqxVgw9pLI="
-        },
-        "checksum": "Q1StgOWSmECA/XsKwXr9lNj6rRTiQ="
-      },
-      {
-        "name": "openssl-4.0-libcrypto",
-        "url": "https://packages.wolfi.dev/os/x86_64/openssl-4.0-libcrypto-4.0.3-r8.apk",
-        "version": "4.0.3-r8",
-        "architecture": "x86_64",
-        "signature": {
-          "range": "",
-          "checksum": ""
-        },
-        "control": {
-          "range": "bytes=0-19897",
-          "checksum": "sha1-W9piTcgyubhrducJCMM7+qErDxo="
-        },
-        "data": {
-          "range": "bytes=19898-2403080",
-          "checksum": "sha256-9U8IPcKddu7bltbKxcAufsQiKBM7L3SElUDpj1+Ni5A="
-        },
-        "checksum": "Q1W9piTcgyubhrducJCMM7+qErDxo="
-      },
-      {
         "name": "libffi",
         "url": "https://packages.wolfi.dev/os/x86_64/libffi-3.8.0-r2.apk",
         "version": "3.8.0-r2",
@@ -401,25 +439,6 @@
           "checksum": "sha256-fCsfV5nB+Aiw0Awm8HrM+u8hDL80m4wU5mh9KJUh6Ps="
         },
         "checksum": "Q1Xv/AsO+lsjORCxdKxyfkMMLLkO0="
-      },
-      {
-        "name": "openssl-4.0-libssl",
-        "url": "https://packages.wolfi.dev/os/x86_64/openssl-4.0-libssl-4.0.3-r8.apk",
-        "version": "4.0.3-r8",
-        "architecture": "x86_64",
-        "signature": {
-          "range": "",
-          "checksum": ""
-        },
-        "control": {
-          "range": "bytes=0-19875",
-          "checksum": "sha1-arwi4n4L3VZ3S8YJ6P4WwY/7JjY="
-        },
-        "data": {
-          "range": "bytes=19876-575949",
-          "checksum": "sha256-xJ/uRx05OTShtIIyZJ/U8b+86nn4IqNyucKOqzIjAEU="
-        },
-        "checksum": "Q1arwi4n4L3VZ3S8YJ6P4WwY/7JjY="
       },
       {
         "name": "sqlite-libs",

@@ -185,10 +185,12 @@ med skrivskyddad rot och enbart `DAC_READ_SEARCH`; tjänsterna behåller UID
 
 Pilot och register använder samma minimala Wolfi-bas, byggd med apko från
 [wolfi-runtime.yaml](wolfi-runtime.yaml) och det fullständiga paketlåset
-[wolfi-runtime.lock.json](wolfi-runtime.lock.json). Alla 31 paket har exakt
+[wolfi-runtime.lock.json](wolfi-runtime.lock.json). Alla 32 paket har exakt
 version och kontrollsumma, även transitiva beroenden. Python är distributionens
 3.12.16-r1; projektet kompilerar inte en egen Python eller egna OS-paket.
 Det färdiga filsystemet kopieras till `scratch`, utan skal eller pakethanterare.
+OpenSSL 4.0.3-r8:s CLI behålls för protokollprovens syntetiska certifikat och
+oberoende signaturgenerering; det använder basens redan låsta bibliotek.
 
 Apko 1.4.13 hämtas med SHA-256 från officiell release. Lås och källrevisioner
 finns i [runtime-tools.lock.json](runtime-tools.lock.json). Verktyget och
