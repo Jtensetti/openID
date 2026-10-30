@@ -7,7 +7,7 @@ permissions:
 jobs:
   integration:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:18.6-bookworm@sha256:afc7e2d441324c0388fa80c3d24f733b4194a4eb7f47dd8ee2b08eb1a24a647c
@@ -22,7 +22,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          node-version: '24.19.0'
+          node-version: '24.22.1'
       - name: Install locked dependencies and key service
         run: |
           python3.12 -m venv verification/.venv
@@ -34,9 +34,34 @@ jobs:
           mkdir "$RUNNER_TEMP/bao"
           tar -xzf "$RUNNER_TEMP/bao.tar.gz" -C "$RUNNER_TEMP/bao"
       - name: Build authentication image without biometric models
+        id: registry_image
         run: |
           docker build --tag openid-wallet:ci --file deployment/cluster/Dockerfile .
+          image_id=$(docker image inspect openid-wallet:ci --format '{{.Id}}')
+          printf 'image_id=%s\n' "$image_id" >> "$GITHUB_OUTPUT"
+          timeout 120s docker run --rm --network none --read-only --cap-drop ALL --cap-add DAC_READ_SEARCH --user 0:0 \
+            --security-opt no-new-privileges --pids-limit 32 --memory 128m --cpus 1 \
+            -v "$PWD/deployment/build/file_privileges.py:/checks/file_privileges.py:ro" \
+            --entrypoint python "$image_id" -B /checks/file_privileges.py check \
+            --image-id "$image_id" --revision "$(git rev-parse HEAD)" \
+            > "$RUNNER_TEMP/cluster-file-privileges.json"
+          timeout 120s docker run --rm --name openid-registry-surface --network none --read-only \
+            --cap-drop ALL --cap-add DAC_READ_SEARCH --user 0:0 --security-opt no-new-privileges \
+            --pids-limit 32 --memory 128m --cpus 1 \
+            -v "$PWD/deployment/build/image_surface.py:/checks/image_surface.py:ro" \
+            --entrypoint python "$image_id" -B /checks/image_surface.py \
+            --whole-image --image-id "$image_id" --revision "$(git rev-parse HEAD)" \
+            > "$RUNNER_TEMP/cluster-image-surface.json"
+          docker run --rm -i --network none --read-only --cap-drop ALL --entrypoint python openid-wallet:ci - < deployment/build/python_inventory.py > "$RUNNER_TEMP/cluster-python-packages.json"
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --pids-limit 32 --memory 256m --cpus 1 \
+            --user "$(id -u):$(id -g)" --tmpfs /tmp:size=32m,mode=1777 \
+            -e PYTHONPATH=/tests:/app/verification \
+            -v "$PWD/verification/test_cluster_revocation.py:/tests/test_cluster_revocation.py:ro" \
+            -v "$PWD/verification/test_enrollment_policy.py:/tests/test_enrollment_policy.py:ro" \
+            --entrypoint python openid-wallet:ci -m unittest -v test_cluster_revocation
           docker run --rm --read-only --cap-drop ALL --entrypoint python openid-wallet:ci cluster_recovery.py --help
+          docker run --rm --read-only --cap-drop ALL --entrypoint python openid-wallet:ci subject_erasure.py --help
           docker run --rm --read-only --cap-drop ALL --entrypoint python openid-wallet:ci audit_archive.py --help
       - name: Enable and verify database TLS
         env:
@@ -62,7 +87,32 @@ jobs:
           .venv/bin/python -m unittest test_operations -v
           .venv/bin/python -m unittest test_key_recovery -v
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
         with:
           name: cluster-capacity
-          path: '${{ runner.temp }}/cluster-capacity.json'
+          path: |
+            ${{ runner.temp }}/cluster-capacity.json
+            ${{ runner.temp }}/cluster-python-packages.json
+            ${{ runner.temp }}/cluster-file-privileges.json
+            ${{ runner.temp }}/cluster-image-surface.json
           retention-days: 14
+      - name: Audit every installed Debian package in the registry image
+        if: ${{ !cancelled() && steps.registry_image.outputs.image_id != '' }}
+        timeout-minutes: 10
+        env:
+          IMAGE_ID: ${{ steps.registry_image.outputs.image_id }}
+        run: |
+          python3 .github/scripts/audit_image_os.py \
+            --image "$IMAGE_ID" \
+            --output "$RUNNER_TEMP/cluster-os-audit"
+      - name: Save registry OS assessment including failures
+        if: ${{ always() && steps.registry_image.outputs.image_id != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cluster-os-inventory
+          path: ${{ runner.temp }}/cluster-os-audit/
+          if-no-files-found: error
+          retention-days: 90
+      - name: Stop any remaining component inspector
+        if: always()
+        run: docker rm --force openid-registry-surface >/dev/null 2>&1 || true

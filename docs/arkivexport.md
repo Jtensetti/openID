@@ -1,7 +1,7 @@
 # Privat export av registerjournaler
 
 `verification/audit_archive.py` exporterar en sammanhängande läsögonblicksbild
-av befintliga registerjournaler. Format 1 är JSON Lines med fasta kolumner,
+av befintliga registerjournaler. Format 1–4 är JSON Lines med fasta kolumner,
 radantal, byteantal och SHA-256 per fil i ett manifest. Verktyget skriver
 aldrig tillbaka till registret och anropar ingen nyckeltjänst.
 
@@ -13,13 +13,46 @@ Leverans och mottagning är separata steg under olika konton/roller.
 
 | Körläge | Innehåll |
 |---|---|
-| SQLite | Credentials: ID, publik nyckel, tillstånd, skapande, giltighet och beslutsreferens. Profilmetadata: credential, version, verifieringstid och dokumentets sista giltighet. Samtliga befintliga händelser. |
+| SQLite | Credentials: ID, publik nyckel, tillstånd, skapande, giltighet och beslutsreferens. Profilmetadata: credential, version, verifieringstid och dokumentets sista giltighet. Samtliga befintliga händelser. Format 2 inkluderar även gallringsjournalen. |
 | PostgreSQL schema 2 | Samma tre populationer samt aktiveringsförslag med begärare/godkännare och operatörshändelser. Operatörstid bevaras i UTC med mikrosekunder. |
 
 Alla rader som är synliga i ögonblicksbilden ingår; ingen tidsfiltrering eller
 automatisk gallring görs. PostgreSQL använder `REPEATABLE READ READ ONLY` och
 servercursor; SQLite använder en explicit lästransaktion. En samtidig spärr
 får därmed inte blandas in i bara en av exportens tabeller.
+
+Efter [SQLite-gallring](gallring-sqlite.md) inkluderar profilpopulationen även
+bevarade metadata från `profile_evidence`, med samma kolumner och format.
+Motstridiga levande/bevarade rader avvisas. Profilinnehållet återinförs inte.
+SQLite med enbart gallringsschema exporteras som format 2. `retention_runs.jsonl`
+ingår även när journalen är tom: körnings-ID, tid, deklarerad policyreferens,
+policyhash, de två lagringstiderna och antal per gallringstabell. Journalens
+typer, intervall, räknarfält och hash mot den deklarerade policyn kontrolleras
+både vid export och offlineverifiering. Referensen eller hashen bevisar inte
+att policyn är beslutad eller att journalens uppgifter är sanna.
+
+Journal och profilmetadata läses i samma snapshot. Ett ofullständigt
+gallringsschema eller vyer i stället för dess tabeller nekar exporten;
+verktyget får inte tyst utelämna journalen. Äldre SQLite utan gallringsschema
+och PostgreSQL schema 2 behåller format 1. Offlineverifieringen stöder båda
+formaten samt format 3 och 4 nedan. Äldre verifierare nekar nya format och behöver uppdateras före mottagning.
+
+Format 3 används för SQLite med samtyckestabeller och för PostgreSQL schema 3. Det inkluderar även `enrollment_policies`, `enrollment_consents` och `credential_consents`: exakt information, signerade val, enhetsnyckelns digest, serverns mottagningstid, eventuell återkallelsetid och credentialbindning. SQLite behåller gallringsjournalen. Ett delvis tillagt samtyckesschema nekas. Nya exporter kräver uppdaterad verifierare och PostgreSQLs utökade, läsande `archive-access.sql`. Äldre arkivformat kan fortfarande verifieras.
+
+Format 4 lägger till `consent_retention_runs` för SQLite med kvittogallring
+och PostgreSQL schema 4–6. Journalen innehåller körnings-ID, tid, exakt
+kanonisk gallringspolicy inklusive skyddslista, SHA-256 och antal per
+samtyckestabell. Policystruktur, tider, räknare och hash kontrolleras även
+offline. Detta bevisar inte att policyn antagits av behörig ansvarig.
+Ett arkiv som anger format 4 men saknar journalen nekas. Arkivformat 1–3 kan fortfarande
+verifieras, men visar bara de uppgifter som faktiskt ingick då.
+
+Schema 5 ändrar gallringsfunktionen; schema 6 lägger till en personlänk som
+bara ingår i full backup och rättighetsuttag. Journalarkivets tabeller/fält
+ändras inte. Arkivet använder format 4 och anger faktisk databasversion i
+`snapshot.database_schema`. Mottagare/verifierare behöver uppdateras för
+den kombinationen; äldre verifierare nekar den. Arkivet innehåller inte
+själva SignMessage-texten och ersätter inte dess separata bevarandehantering.
 
 Personprofiler, bilder, person-/dokumenttaggar, pairwise subjects,
 PIN-verifierare och sessionshemligheter exporteras inte. Exporten innehåller
@@ -44,8 +77,8 @@ behörig databasägare. Skriptet kan köras igen och ger befintliga
 läsrätt till profilers chiffertext, subjects, PIN-verifierare eller
 sessionshemligheter, och ingen skriv-/aktiveringsrätt. Använd ett separat
 personligt revisionskonto med denna roll; dela inte applikationens login.
-Tillämpa åtkomsten separat även i en återställd databas. Ordinarie schema 2
-och befintliga backupformat ändras inte.
+Tillämpa åtkomsten separat även i en återställd databas. Åtkomstskriptet
+migrerar inte applikationsschemat eller äldre backuper.
 
 ```sh
 python verification/audit_archive.py export \
@@ -100,3 +133,7 @@ behöver införas i driften. Verktyget ändrar ingen gallringsrutin.
 Tekniskt stöd för ögonblicksbilder:
 [PostgreSQL 18](https://www.postgresql.org/docs/18/transaction-iso.html#XACT-REPEATABLE-READ)
 och [SQLite](https://www.sqlite.org/isolation.html).
+
+## Radering i rättighetsärende
+
+Arkivformat 5 lägger till `erasure_runs` och `erasure_subjects` för aktuell SQLite och PostgreSQL schema 7. Beslutets kanoniska innehåll binds till journal-ID och valideras vid export och offlinekontroll. Båda tabellerna krävs. Format 4 hör fortsatt till tidigare schema 4–6. Ett journalarkiv ersätter inte aktuell extern beslutsförteckning för återställning. Se [körning, avgränsningar och återställning](radering-rattighetsarende.md).

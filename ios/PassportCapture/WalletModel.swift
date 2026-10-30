@@ -134,6 +134,34 @@ import LocalAuthentication
         perform("set-pin", extra: extra)
     }
     func clearSecurityCodeMessage() { securityCodeMessage = nil }
+    func withdrawEnrollmentConsent(_ receiptID: String) {
+        guard unlocked, !busy, !verification.busy, let configuration, let credential else { return }
+        busy = true; activeAction = "withdraw-consent"; error = nil; statusMessage = nil
+        let epoch = generation
+        task = Task {
+            defer { if generation == epoch { busy = false; activeAction = nil } }
+            do {
+                guard var receipt = try EnrollmentReceiptStore().read(for: credential.id).first(where: { $0.id == receiptID }),
+                      receipt.origin == configuration.origin else { throw WalletError.rejected }
+                let auth = LAContext(); operationContext = auth
+                defer { auth.invalidate(); if generation == epoch { operationContext = nil } }
+                guard try await auth.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Återkalla ditt biometriska samtycke") else { throw WalletError.cancelled }
+                try Task.checkCancellation(); guard generation == epoch else { return }
+                let payload = try receipt.withdrawalPayload()
+                let signature = try vault.sign(payload, credential: credential, context: auth)
+                let result = try await WalletAPI(configuration: configuration).postObject("/native/withdraw", body:
+                    ["publicKey":credential.publicKey.base64EncodedString(), "payload":payload.base64EncodedString(), "signature":signature.base64EncodedString()])
+                try Task.checkCancellation(); guard generation == epoch else { return }
+                guard result["withdrawn"] as? Bool == true, result["receipt"] as? String == receipt.id else { throw WalletError.rejected }
+                receipt.state = .withdrawn; try EnrollmentReceiptStore().save(receipt)
+                statusMessage = "Återkallelsen är bekräftad."
+            } catch {
+                if generation == epoch, !Self.wasCancelled(error) {
+                    self.error = "Återkallelsen kunde inte bekräftas. Försök igen när servern är tillgänglig. Om felet kvarstår, kontakta den ansvarige i kvittot."
+                }
+            }
+        }
+    }
     func revoke() {
         guard configuration?.isPublicBeta == true, let proof = revocationProof else { perform("revoke"); return }
         guard canRevoke, let credential else { return }
@@ -289,6 +317,7 @@ import LocalAuthentication
         focusedRequest = nil; pendingLink = nil; statusMessage = nil; decisionMessage = nil; error = nil
         securityCodeMessage = nil; selectedTab = 0
         try? vault.remove("revocation-" + old.id)
+        try? vault.remove("enrollment-" + old.id)
     }
 
     #if DEBUG && targetEnvironment(simulator)

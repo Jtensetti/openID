@@ -2,14 +2,15 @@ import XCTest
 
 final class WalletUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
-    func testFailedStatusStillOffersTheActualRegistrationForm() {
+    func testFailedStatusOffersRegistrationButRequiresCurrentNotice() {
         let app = XCUIApplication(); app.launchArguments = ["--recovery-preview"]; app.launch()
         let resume = app.buttons["home.resumeRegistration"]
         XCTAssertTrue(resume.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["home.statusMessage"].exists)
         for _ in 0..<5 { if resume.isHittable { break }; app.swipeUp() }
         resume.tap()
-        XCTAssertTrue(app.textFields["enrollment.number"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Hämta information inför registrering"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.textFields["enrollment.number"].exists)
         app.buttons["Stäng"].firstMatch.tap()
         XCTAssertTrue(resume.waitForExistence(timeout: 5))
     }
@@ -37,7 +38,17 @@ final class WalletUITests: XCTestCase {
             let app = XCUIApplication(); app.launchArguments = ["--approval-preview"] + variant; app.launch()
             let reject = app.buttons[variant.contains("--sign") ? "Avböj underskrift" : "Neka begäran"]
             XCTAssertTrue(reject.waitForExistence(timeout: 5))
-            XCTAssertTrue(reject.isHittable, "Reject must be visible before scrolling: \(variant)")
+            // Accessibility can expose the button before the simulator draws its first frame.
+            // Wait for interaction readiness without scrolling or changing the request.
+            let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND hittable == true"), object: reject)
+            let result = XCTWaiter.wait(for: [ready], timeout: 10)
+            if result != .completed {
+                let screenshot = XCTAttachment(screenshot: app.screenshot())
+                screenshot.name = "Approval refusal readiness failure"; screenshot.lifetime = .keepAlways; add(screenshot)
+                let hierarchy = XCTAttachment(string: app.debugDescription)
+                hierarchy.name = "Approval refusal hierarchy"; hierarchy.lifetime = .keepAlways; add(hierarchy)
+            }
+            XCTAssertEqual(result, .completed, "Reject must be visible before scrolling: \(variant)")
             XCTAssertTrue(reject.isEnabled)
             XCTAssertGreaterThanOrEqual(reject.frame.minY, app.frame.minY)
             XCTAssertLessThanOrEqual(reject.frame.maxY, app.frame.maxY)
@@ -113,24 +124,43 @@ final class WalletUITests: XCTestCase {
     func testPassportFieldsKeepLabelsAndExplainMissingDate() {
         let app = XCUIApplication(); app.launchArguments = ["--usability-preview"]; app.launch()
         app.buttons["Passformulär"].tap()
+        XCTAssertFalse(app.textFields["enrollment.number"].exists)
+        let terms = app.switches["enrollment.terms"]
+        for _ in 0..<6 { if terms.isHittable { break }; app.swipeUp() }
+        terms.tap()
+        XCTAssertEqual(terms.value as? String, "1", app.debugDescription)
+        XCTAssertFalse(app.textFields["enrollment.number"].exists)
+        let biometrics = app.switches["enrollment.biometrics"]
+        for _ in 0..<6 { if biometrics.isHittable { break }; app.swipeUp() }
+        biometrics.tap()
+        XCTAssertEqual(biometrics.value as? String, "1", app.debugDescription)
         let number = app.textFields["enrollment.number"]
         for _ in 0..<5 { if number.isHittable { break }; app.swipeUp() }
         number.tap(); number.typeText("ABC123")
         XCTAssertTrue(app.staticTexts["Passnummer"].exists)
         app.buttons["Klart"].tap()
-        let preparation = app.buttons["enrollment.prepare"]
+        let preparation = app.buttons["Förbered dig innan du börjar"]
         for _ in 0..<5 { if preparation.isHittable { break }; app.swipeDown() }
         preparation.tap()
-        let practice = app.buttons["Prova kameran först – utan att skicka bilder"]
+        let practice = app.buttons["enrollment.cameraPractice"]
         for _ in 0..<5 { if practice.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(practice.isHittable)
+        // Expansion moves this button past the scanner button's old position.
+        // Wait for its actual frame to settle before generating a coordinate tap.
+        var previousFrame = CGRect.zero
+        var stableSince = Date()
+        let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let frame = practice.frame
+            guard practice.isHittable else { return false }
+            if frame != previousFrame { previousFrame = frame; stableSince = Date(); return false }
+            return Date().timeIntervalSince(stableSince) >= 0.5
+        }, object: practice)
+        XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 5), .completed)
         practice.tap()
         XCTAssertTrue(app.buttons["Stäng kameraprovet"].waitForExistence(timeout: 3))
         app.buttons["Stäng kameraprovet"].tap()
         XCTAssertEqual(number.value as? String, "ABC123")
         XCTAssertFalse(app.descendants(matching: .any)["enrollment.inputIssue"].firstMatch.exists)
-        let consent = app.switches.firstMatch
-        for _ in 0..<6 { if consent.isHittable { break }; app.swipeUp() }
-        consent.tap()
         let read = app.buttons["enrollment.read"]
         for _ in 0..<5 { if read.isHittable { break }; app.swipeUp() }
         read.tap()

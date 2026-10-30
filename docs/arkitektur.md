@@ -23,7 +23,8 @@ Versioner och licenser finns i [komponentregistret](../THIRD_PARTY.md).
 
 `verification/serve.py` kör pilotens native-/wallet-API över TLS med Gunicorn.
 En worker äger NFC-sessionerna. Kapacitetsgränser skiljer native-anrop från
-inloggning och spärr; bildanalysen körs i en separat process med tidsgräns.
+inloggning och spärr; bildanalys och porträttförminskning körs i separata,
+resursbegränsade processer med Landlock/seccomp på Linux. Se [bildarbetare](bildarbetare.md).
 Databasens transaktioner avgör samtidiga godkännanden och spärrar. Ett fillås
 hindrar flera runtime-processer på samma databas. Detta är en ensam nod,
 inte en distribuerad tjänst. [Start och drift](../deployment/README.md).
@@ -39,7 +40,10 @@ säkerhetszon med ingressen.
 
 1. Appen skapar en P-256-nyckel i Secure Enclave. Keychain lagrar den omslutna
    nyckelrepresentationen med `WhenPasscodeSetThisDeviceOnly`.
-2. NFCPassportReader läser DG1, DG2, DG14 och SOD med PACE/BAC.
+2. Appen hämtar versionsbunden information från servern. Två separata val
+   krävs innan passformuläret visas. App Attest binder val, textdigest och
+   enhetsnyckel till ett kvitto före serverns passkontroll.
+   NFCPassportReader läser därefter DG1, DG2, DG14 och SOD med PACE/BAC.
 3. App Attest binder dokument och publik nyckel till en kortlivad serversession.
    Servern kontrollerar app-ID, certifikat, signatur, räknare och session.
 4. Passverifieraren kontrollerar SOD-signaturen, kedjan till operatörens CSCA
@@ -55,6 +59,11 @@ säkerhetszon med ingressen.
    operatörsaktivering. I [TestFlight-testläget](testflight-beta.md) aktiveras
    test-ID:t automatiskt efter samtliga kontroller och den separata
    spärrtjänstens bekräftelse; inget kontaktbevis fabriceras.
+
+Nyregistrering är stängd som standard och kräver en giltig privat
+`enrollmentPolicyFile`. Credential, profil, kvitto och eventuell automatisk
+aktivering binds atomiskt. Giltigheten kontrolleras igen efter externa
+anrop före commit. Se [registreringsinformation och återkallelse](registreringsinformation.md).
 
 Ringen vägleder fotograferingen lokalt på telefonen. Ingen klientrapporterad färg, vinkel
 eller liveness-flagga används i serverns beslut. Servern bestämmer ordningen för de
@@ -116,8 +125,11 @@ Passnummer sparas inte i klartext; rå chipdata, kamerabilder och ansiktsmallar
 sparas inte. Publika nycklar, status och händelser är okrypterade.
 
 SQLite-databasen och `wallet.identity-key` ligger i en privat katalog.
-Saknad eller fel nyckel stoppar profilåtkomst. Automatisk gallring och
-nyckelrotation saknas i SQLite-läget. `recovery.py restore` återläser till en ny katalog och
+Saknad eller fel nyckel stoppar profilåtkomst. [Beslutad gallring](gallring-sqlite.md)
+och [radering](radering-rattighetsarende.md) har läsande förhandsvisning och
+begränsade transaktioner; schemalagd gallring och nyckelrotation saknas i SQLite-läget.
+`recovery.py restore` kräver separat backup-/nyckelbindning och aktuell
+raderingsförteckning, återläser till en ny katalog, återspelar raderingar och
 spärrar alla återställda nycklar. Manuell återläsning som bevarar aktiva nycklar
 stöds inte, eftersom en äldre kopia kan sakna senare spärrar.
 

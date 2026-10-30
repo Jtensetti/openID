@@ -5,13 +5,20 @@ PostgreSQL och OpenBao Transit. Registrering körs separat med en process;
 ett avbrott i en pågående NFC-session kräver att registreringen startas om.
 Det befintliga SQLite-läget finns kvar för en lokal pilot.
 
+Det befintliga CI-jobbet bygger autentiseringsimagen, provar dess integration
+och skannar därefter samtliga dpkg-paket mot en aktuell, hashlåst Trivy-körning.
+Kontrollen binds till den byggda imagens exakta ID och nekar fynd eller
+ofullständig täckning. OS-resultat bevaras i `cluster-os-inventory` även när
+grinden underkänns. Detta omfattar inte PostgreSQL-/OpenBao-tjänsternas
+egna paket eller driftsatta värdar. Se [byggkontrollerna](../build/README.md).
+
 ## Förutsättningar
 
 - PostgreSQL 18.6, en ny dedikerad databas och administratör för schema/roller.
 - OpenBao 2.7.1 med TLS, separat lagring och åtkomsthantering. `bao.hcl`
   är en nodkonfiguration; redundant drift kräver ett riktigt Raft-kluster,
   separata felzoner och provad återställning. Stäng av swap på värdarna.
-- Python 3.12 och Node 24.19.0, eller den låsta autentiseringscontainern.
+- Python 3.12 och Node 24.22.1, eller den låsta autentiseringscontainern.
 - Certifikat för API, PostgreSQL och OpenBao. Hemliga filer ska ha läge 0600
   i en katalog med läge 0700, utanför repot.
 
@@ -191,7 +198,7 @@ inte i detta bevarande; profilernas gallring styrs separat. Administrativa
 loggar har ingen automatisk gallring. Oberoende arkiv, läsbarhetsprov,
 fastställd lagringspolicy och rättslig grund behöver etableras i driften.
 
-### Uppgradering till schema 2
+### Uppgradering av databasschema
 
 För ett läsbart journaluttag med separat kontrollsumma, använd
 [privat arkivexport](../../docs/arkivexport.md). `archive-access.sql` ger
@@ -208,10 +215,11 @@ Tjänstekontot kan bara läsa kodstatus och anropa begränsade kontroll- och
 bytesfunktioner; det kan inte läsa verifierarna, återställa en låst kod
 eller ändra begärans text, nivå, motpart eller sessionsbindning.
 
-Nya installationer använder `schema.sql`, version 2. Version 1 nekas av den
+Nya installationer använder `schema.sql`, version 7. Version 1–6 nekas av den
 nya applikationen. Stoppa applikationer och underhåll, ta och verifiera en
 backup med den tidigare, låsta kodrevisionen och kör `migrate-1-to-2.sql`
-med databasens kontrollerade ägarkonto. Migreringen är transaktionell och
+med databasens kontrollerade ägarkonto och fortsätt med `migrate-2-to-3.sql`, `migrate-3-to-4.sql`, `migrate-4-to-5.sql`, `migrate-5-to-6.sql` och `migrate-6-to-7.sql`. Börja vid
+databasens befintliga version; hoppa inte över steg. Migreringarna är transaktionella och
 nekar annan startversion. Starta därefter den nya revisionen och verifiera
 readiness, rollgränser och försöksspärren innan trafik öppnas.
 
@@ -290,7 +298,9 @@ Med tillgång till de återställda profilnycklarna:
 ```sh
 python cluster_recovery.py restore --admin-file /private/restore-admin-db \
   --backup /private/backups/register-20261020 \
-  --target openid_restore_20261020 --key-config /private/recovery-key.json
+  --target openid_restore_20261020 --key-config /private/recovery-key.json \
+  --erasure-ledger /separate/custodian/erasure-ledger.json \
+  --erasure-ledger-sha256 "$CURRENT_ERASURE_LEDGER_SHA256"
 ```
 
 Nyckelkonfigurationen har fälten `baoAddress`, `baoTokenFile` och `baoCA`,
@@ -337,3 +347,75 @@ alla anslutningar hamnar i samma worker. Svartider, worker-minne och öppna
 filbeskrivare mäts; omstart, kvarlämnade challenges och växande resursåtgång
 kan få provet att misslyckas. Detta är inte ett mått på maximal kapacitet.
 CI:s OpenBao dev-läge används endast i övriga tillfälliga integrationstester.
+
+### Schema 3: registreringsinformation
+
+Schema 3 tillför versionsbundna användarval och återkallelse enligt [registreringsprotokollet](../../docs/registreringsinformation.md). För befintligt schema 2: stoppa skrivare, verifiera backup med tidigare låsta verktyg, kör `migrate-2-to-3.sql` som kontrollerad ägare och verifiera den nya revisionens roller och readiness innan trafik återöppnas. Migreringen skapar inga historiska samtycken. Uppdatera den valfria arkivläsarens `archive-access.sql` separat. Backup omfattar nu också de tre samtyckestabellerna; äldre backuper återläses med tidigare verktyg i stängd miljö innan migrering och återställningsspärr. Ingen produktionstext levereras i repot.
+
+### Schema 4: gallringsjournal för registreringskvitton
+
+Schema 4 tillför den separata journalen och den begränsade funktionen
+`retain_consent_evidence`. `openid_maintenance` får anropa funktionen och
+läsa journalen, men får ingen läsrätt till samtyckesbevis eller direkt
+raderingsrätt. `migrate-3-to-4.sql` körs med stoppade skrivare och verifierad
+schema-3-backup från dess låsta verktyg. Uppdatera `archive-access.sql`
+separat för arkivläsaren. Den nya journalen ingår i backup och arkivformat 4.
+[Förhandsvisning och gallring](../../docs/gallring-samtycken.md) kräver en
+explicit policyfil; inget nytt schemalagt jobb aktiveras.
+
+
+### Schema 5: skydd för underskriftstext vid generell gallring
+
+`purge_expired` väljer endast `federation_requests` där `sign_message IS NULL`.
+Utgångna inloggningsbegäranden kan fortfarande gallras i begränsade batcher.
+Begäranden med underskriftstext bevaras oavsett utfall; det är samma avgränsning
+som i SQLite-verktyget. Bevarandetid, riktad radering, ärendeundantag och
+hantering hos motpart/kopior behöver beslutas och genomföras separat.
+Skyddet är inte ett beslut om obegränsad lagring eller ett fullständigt
+underskriftsarkiv.
+
+Schema 4 och tidigare saknar detta undantag i den generella PostgreSQL-gallringen.
+Stoppa applikationer och underhåll, verifiera en backup med den tidigare låsta
+revisionen och kör `migrate-4-to-5.sql` som kontrollerad ägare. Migreringen
+ersätter funktionen och höjer versionskravet i samma transaktion, utan att
+radera några rader eller ge tjänstekonton nya rättigheter. Fel startversion,
+upprepad körning eller uteblivet lås stoppar den. Gör efterprov innan underhåll
+eller trafik återöppnas. Ny applikation, backupverktyg och individuellt
+ärendeuttag kräver numera schema 7; personlänksmigreringen nedan ska också köras. Äldre backuper återläses med sina ursprungliga
+verktyg i stängd miljö och migreras innan aktuell revision används.
+Migreringen återskapar inte tidigare raderad text. Arkivlayouten är fortsatt
+format 4, med faktisk databasversion i manifestet.
+
+## Personlänkar efter profilgallring (schema 6)
+
+`credential_persons` behåller endast registreringens och personens interna
+referenser när profilinnehållet tas bort. En trigger registrerar länken i samma
+transaktion som profilen; en felande profilinsättning rullar tillbaka även länken.
+En främmande nyckel och triggerkontroll nekar en profil som byter känd personkoppling.
+Tjänsterna får inte skriva länktabellen direkt. Det befintliga backupkontot får
+läsa den; inga nya konton eller externt anropbara mutationsfunktioner införs.
+
+`migrate-5-to-6.sql` låser registret och fyller länkar från befintliga profiler.
+Den gissar inte vilka personer tidigare gallrade eller oavslutade registreringar
+tillhör. Fel startversion, omkörning eller uteblivet lås nekar migreringen.
+Aktuell app, full backup och rättighetsuttag kräver schema 7. Ta/verifiera först
+backup med tidigare låst verktyg, stoppa skrivare och kör migreringen som
+kontrollerad ägare; gör efterprov före öppning.
+
+Full backup läser länkar före profiler och återställer dem i samma ordning.
+`COPY FROM` aktiverar triggers: ett felaktigt arkiv som utelämnar en befintlig
+profils länk får därför inte tyst kompletteras. Återställningen kontrollerar
+slutantalet länkar, rullar tillbaka data vid fel och lämnar måldatabasen stängd.
+En korrekt kopia bevarar länkar även utan profil och spärrar alla äldre nycklar
+enligt ordinarie återställningsmodell.
+
+Länkar ingår i individuella rättighetsuttag och full backup, men inte i det
+avgränsade journalarkivet. Arkivformatet förblir 4 med faktisk schema-version 6.
+Länken är fortsatt personuppgift, inte anonymisering eller ett beslut om
+obegränsat bevarande. Riktad radering, motiverad bevarandetid och kopiehantering
+behöver genomföras separat; detta inför inte PostgreSQL-stöd för
+SQLite-adapterns byte av personkoppling vid registerkontrollerat passbyte.
+
+## Beslutad radering och återställning (schema 7)
+
+Se [radering i rättighetsärende](../../docs/radering-rattighetsarende.md) för planering med läskonto, verkställighet med registerägaren och obligatorisk extern beslutsförteckning vid återställning. `migrate-6-to-7.sql` lägger till atomisk raderingsjournal och spärrar som också gäller nycklar utan kvarvarande registrering. App, full backup och ärendeverktyg kräver nu schema 7. Arkivformatet är 5; äldre journalarkiv förblir läsbara.

@@ -27,9 +27,15 @@ def main():
         with socket.socket() as sock:
             sock.bind(('127.0.0.1',0)); port = sock.getsockname()[1]
         origin = f'https://localhost:{port}'
+        from test_enrollment_policy import fixture_policy
+        policy = fixture_policy()
+        policy['notice'].update(notBefore=int(time.time())-60,notAfter=int(time.time())+3600)
+        policy_path=root/'enrollment-policy.json';policy_path.write_text(json.dumps(policy));policy_path.chmod(0o600)
         config = {'bind':'127.0.0.1','origin':origin,'team':'ABCDEFGHIJ','bundle':'se.openid.PassportCapture',
             'developmentAttestation':True,'tlsCert':str(cert),'tlsKey':str(key),'csca':str(cert),
-            'database':str(root/'data'/'wallet.sqlite'),'pairingFile':str(pairing)}
+            'database':str(root/'data'/'wallet.sqlite'),'pairingFile':str(pairing),
+            # Explicit synthetic-test opt-in. Production configuration defaults to paused.
+            'newRegistrationsEnabled':True,'enrollmentPolicyFile':str(policy_path)}
         path = root/'config.json'; path.write_text(json.dumps(config))
         from wallet import Wallet
         from test_wallet import crypt

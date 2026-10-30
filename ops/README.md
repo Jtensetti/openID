@@ -50,8 +50,13 @@ Aktuella tjänste-ID:n och drifthistorik hör till driftsättningens inventarium
 
 ## Komponenter
 
-Temurin 21.0.12.1+1 på Ubuntu Noble låses med image-digests i Dockerfile.
-Basimagen bevarar JRE-licenserna. Inga Maven- eller npm-paket används.
+Temurin **21.0.13+9** installeras från officiella, SHA-256-låsta JDK/JRE-arkiv.
+Hela den gamla Java-installationen ersätts; `legal/`, releasefil och
+upstream-SBOM bevaras. De tidigare digestlåsta baserna behåller Ubuntu Noble-
+lagren. Detta uppdaterar Java, inte alla OS-paket eller hela deras riskbedömning.
+Kandidaten stöder **Linux/amd64**; Compose anger plattformen uttryckligen,
+vilket använder emulering på Apple Silicon. Andra arkitekturer behöver egna
+låsta arkiv och prov. Inga Maven- eller npm-paket används.
 Se [THIRD_PARTY.md](../THIRD_PARTY.md).
 
 Releasekrav finns i [SECURITY.md](../SECURITY.md).

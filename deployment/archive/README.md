@@ -95,6 +95,16 @@ nekar fel konto/roll, ändrad data/version, bristande bevarande/kryptering och
 falsk kvittens efter fel. Botocore Stubber validerar S3-API-kontrakt och
 svarsmodeller. Mallens resurs- och policygränser provas, och CI kör cfn-guard.
 Detta är offline-/kontraktsprov, inte bevis för en driftsatt S3-miljö.
+Gallringsjournalen i SQLite-arkivets format 2 ingår i samma leverans,
+versionsbundna mottagarkvittens och återläsningsprov. Dess tid räknas in i
+bevarandegränsen. Format 1 stöds fortsatt; uppdatera mottagarens verifierare
+innan format 2 används. Ingen resurs eller lagringstid ändras automatiskt.
+
+Format 4 omfattar också registreringskvitton och deras gallringsjournal.
+Accepttid, återkallelsetid och gallringstid räknas med vid bevarandegränsen;
+orimligt framtida tider stoppar leverans. Offlineprovet täcker samma
+leverans-, mottagnings- och återläsningskedja. Uppdatera verifieraren före
+användning; detta innebär ingen aktivering av AWS-lagring för betan.
 
 Kontrollerat 2026-10-24:
 [Object Lock](https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock.html),

@@ -13,6 +13,11 @@ telefonen. Koden kan bara spärra, aldrig aktivera eller återställa ett ID.
 Ingen separat avisering till en oberoende kontaktväg skickas i testläget.
 Standardlägets manuella aktivering och kontaktkontroll finns kvar.
 
+Den aktuella källkoden kräver även [versionsbunden information och två separata val](registreringsinformation.md)
+före registrering. Appbygge 114 stöder det flödet. Bygge 112 stöder automatisk
+aktivering men saknar de nya kvittoanropen; server och app behöver därför
+uppdateras samordnat. Äldre registreringar får inga fabricerade kvitton.
+
 Status är fortsatt `PRIVATE_PILOT`, `legalIdentityIssued=false` och
 `issuanceEnabled=false`: inget Digg-godkännande, anslutningsavtal eller
 godkänd tillitsnivå. Testläget ersätter inte information till deltagarna
@@ -60,8 +65,10 @@ påstående om att alla senare säkerhetsändringar redan finns på betaservern.
 Funktionen är avstängd som standard. En källkodsändring uppdaterar inte
 installerade appar eller servern.
 
-1. Testa och distribuera den nya appen. Äldre appar accepterar endast
-   `PENDING_REVIEW` i registreringssvaret och behöver uppdateras först.
+1. Testa och distribuera en app som stöder både automatiskt aktiveringssvaret
+   och information/kvitton före registrering. Konfigurera giltig privat
+   `enrollmentPolicyFile` innan `newRegistrationsEnabled` öppnas. Bygge 114
+   är nästa sådant utvecklingsbygge; äldre pilotbygge 112 saknar kvittoflödet.
 2. Uppdatera befintlig kontinuitetsstack med parametern
    `TestBetaMode=testflight-november-2026`. Samma funktioner, tabeller och
    IAM-rättigheter används. Inga nya AWS-resurser eller schemalagda jobb behövs.

@@ -16,6 +16,17 @@
       "sha256": "5231689c6ac8156cd155cfb98c3fd6fb252c3e7e9bd3d78b64d3c55f132624c9",
       "uploadTime": "2026-10-19T20:11:41.684844Z",
       "sourceCommit": "77b7ace0aaf660beeb9b3f9da4aabf21cbcf3fa9"
+    },
+    {
+      "name": "opencv-python-headless",
+      "version": "4.14.0.94",
+      "url": "https://files.pythonhosted.org/packages/ae/ce/7f538891722a4f06921419d55bac6f41729258d54442861edb2de0dbdf5e/opencv_python_headless-4.14.0.94-cp37-abi3-manylinux_2_28_x86_64.whl",
+      "sha256": "211e581f5a4670acbbe08fff36a35e9946039d2eea28b80394632d036d1be527",
+      "uploadTime": "2026-07-28T19:20:33.074428Z",
+      "sourceCommit": "2ba8bf62f2f1215ab620416b041c9659005fa25c",
+      "opencvSourceCommit": "0654a42e19215ef25b1d367d822f3c630447e7c7",
+      "upstreamSbomSHA256": "895d1e01e74d36c909f95203abe492824f411fdd3f4d4a5047ff10d620343937",
+      "checked": "2026-10-26"
     }
   ]
 }

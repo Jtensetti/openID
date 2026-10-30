@@ -19,8 +19,8 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 SET ROLE openid_owner;
 SET search_path=openid,pg_catalog;
 ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
-CREATE TABLE schema_version(version integer PRIMARY KEY CHECK(version=2));
-INSERT INTO schema_version VALUES(2);
+CREATE TABLE schema_version(version integer PRIMARY KEY CHECK(version=7));
+INSERT INTO schema_version VALUES(7);
 CREATE TABLE credentials (
  id text PRIMARY KEY CHECK(id ~ '^[a-f0-9]{64}$'), public_key text UNIQUE NOT NULL,
  state text NOT NULL CHECK(state IN ('PENDING_REVIEW','ACTIVE','REVOKED')), created bigint NOT NULL,
@@ -31,6 +31,65 @@ CREATE TABLE profiles (
  credential text PRIMARY KEY REFERENCES credentials, person text NOT NULL REFERENCES persons,
  version text UNIQUE NOT NULL, sealed text NOT NULL CHECK(length(sealed)<=65536),
  verified bigint NOT NULL, document_expires bigint NOT NULL);
+-- Keep the minimum registration/person link after profile-content retention.
+-- It remains personal data; this is not a decision about its retention period.
+CREATE TABLE credential_persons (
+ credential text PRIMARY KEY REFERENCES credentials, person text NOT NULL REFERENCES persons,
+ UNIQUE(credential,person));
+CREATE INDEX credential_person ON credential_persons(person);
+CREATE TABLE erasure_runs (
+ id text PRIMARY KEY CHECK(id ~ '^[a-f0-9]{64}$'), time bigint NOT NULL CHECK(time>=0),
+ decision text NOT NULL CHECK(octet_length(decision)<=32768),
+ plan_sha256 text NOT NULL CHECK(plan_sha256 ~ '^[a-f0-9]{64}$'),
+ counts text NOT NULL CHECK(octet_length(counts)<=16384));
+-- No credential FK: a recovery decision must also block a key absent from an old backup.
+CREATE TABLE erasure_subjects (
+ credential text PRIMARY KEY CHECK(credential ~ '^[a-f0-9]{64}$'),
+ first_decision text NOT NULL REFERENCES erasure_runs);
+GRANT SELECT ON erasure_subjects TO openid_enroller;
+ALTER TABLE profiles ADD CONSTRAINT profile_person_binding
+ FOREIGN KEY(credential,person) REFERENCES credential_persons(credential,person);
+CREATE FUNCTION record_profile_person() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $$
+BEGIN
+ IF TG_OP='UPDATE' AND ROW(NEW.credential,NEW.person) IS DISTINCT FROM ROW(OLD.credential,OLD.person) THEN
+  RAISE EXCEPTION 'registration person binding is immutable';
+ END IF;
+ INSERT INTO openid.credential_persons(credential,person) VALUES(NEW.credential,NEW.person)
+  ON CONFLICT(credential) DO NOTHING;
+ IF NOT EXISTS(SELECT 1 FROM openid.credential_persons
+               WHERE credential=NEW.credential AND person=NEW.person) THEN
+  RAISE EXCEPTION 'registration person binding mismatch';
+ END IF;
+ RETURN NEW;
+END $$;
+CREATE TRIGGER profile_person_record BEFORE INSERT OR UPDATE OF credential,person ON profiles
+ FOR EACH ROW EXECUTE FUNCTION record_profile_person();
+CREATE TABLE enrollment_policies(digest text PRIMARY KEY CHECK(digest ~ '^[a-f0-9]{64}$'),
+ record text NOT NULL CHECK(octet_length(record)<=65536));
+CREATE TABLE enrollment_consents(id text PRIMARY KEY CHECK(id ~ '^[a-f0-9]{64}$'),
+ subject text NOT NULL CHECK(subject ~ '^[a-f0-9]{64}$'), policy_digest text NOT NULL REFERENCES enrollment_policies,
+ accepted bigint NOT NULL CHECK(accepted BETWEEN 0 AND 253402300799),
+ proof text NOT NULL CHECK(octet_length(proof)<=16384),
+ withdrawn bigint CHECK(withdrawn BETWEEN accepted AND 253402300799));
+CREATE INDEX consent_subject ON enrollment_consents(subject,accepted);
+CREATE TABLE credential_consents(credential text PRIMARY KEY REFERENCES credentials,
+ receipt text UNIQUE NOT NULL REFERENCES enrollment_consents);
+CREATE FUNCTION guard_consent() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,openid,pg_temp AS $$
+BEGIN
+ IF TG_OP='INSERT' THEN
+  IF EXISTS(SELECT 1 FROM openid.erasure_subjects WHERE credential=NEW.subject) THEN
+   RAISE EXCEPTION 'key retired by rights decision'; END IF;
+  RETURN NEW;
+ END IF;
+ IF ROW(NEW.id,NEW.subject,NEW.policy_digest,NEW.accepted,NEW.proof)
+      IS DISTINCT FROM ROW(OLD.id,OLD.subject,OLD.policy_digest,OLD.accepted,OLD.proof)
+    OR NEW.withdrawn IS NULL OR (OLD.withdrawn IS NOT NULL AND NEW.withdrawn IS DISTINCT FROM OLD.withdrawn)
+ THEN RAISE EXCEPTION 'consent evidence is immutable; withdrawal is permanent'; END IF;
+ RETURN NEW;
+END $$;
+CREATE TRIGGER consent_immutable BEFORE INSERT OR UPDATE ON enrollment_consents FOR EACH ROW EXECUTE FUNCTION guard_consent();
 CREATE TABLE requests (
  id text PRIMARY KEY, credential text NOT NULL REFERENCES credentials, secret_hash text NOT NULL,
  state text NOT NULL CHECK(state IN ('PENDING','APPROVED','REJECTED','CANCELLED','CONSUMED')),
@@ -141,6 +200,10 @@ END $$;
 
 CREATE FUNCTION guard_credential() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,openid,pg_temp AS $$
 BEGIN
+ IF NEW.state!='REVOKED' THEN
+  IF EXISTS(SELECT 1 FROM openid.erasure_subjects WHERE credential=NEW.id) THEN
+   RAISE EXCEPTION 'key retired by rights decision'; END IF;
+ END IF;
  IF TG_OP='INSERT' THEN
   IF EXISTS(SELECT 1 FROM enrollment_quarantine WHERE until_epoch>extract(epoch FROM clock_timestamp())) THEN
    RAISE EXCEPTION 'enrollment paused after restore'; END IF;
@@ -247,8 +310,11 @@ BEGIN
   ('challenges','expires',now_epoch),('requests','expires',now_epoch-3600),
   ('federation_requests','expires',now_epoch-3600)) AS t(table_name,column_name,cutoff)
  LOOP
-  EXECUTE format('DELETE FROM %I WHERE id IN (SELECT id FROM %I WHERE %I<$1 ORDER BY id LIMIT $2 FOR UPDATE SKIP LOCKED)',
-   item.table_name,item.table_name,item.column_name) USING item.cutoff,max_batch;
+  -- Signature text needs its own retention/disclosure decision, as in SQLite.
+  EXECUTE format('DELETE FROM %I WHERE id IN (SELECT id FROM %I WHERE %I<$1%s ORDER BY id LIMIT $2 FOR UPDATE SKIP LOCKED)',
+   item.table_name,item.table_name,item.column_name,
+   CASE WHEN item.table_name='federation_requests' THEN ' AND sign_message IS NULL' ELSE '' END)
+   USING item.cutoff,max_batch;
   GET DIAGNOSTICS n=ROW_COUNT; removed:=removed+n;
  END LOOP;
  DELETE FROM events WHERE id IN (SELECT e.id FROM events e JOIN credentials c ON c.id=e.credential
@@ -294,5 +360,104 @@ GRANT EXECUTE ON FUNCTION security_code_status(text),check_security_code(text,te
 GRANT SELECT ON maintenance_runs TO openid_maintenance;
 GRANT USAGE ON SCHEMA openid TO openid_backup;
 GRANT SELECT ON ALL TABLES IN SCHEMA openid TO openid_backup;
+GRANT SELECT,INSERT ON enrollment_policies,enrollment_consents,credential_consents TO openid_enroller;
+GRANT UPDATE(withdrawn) ON enrollment_consents TO openid_enroller;
+GRANT SELECT ON enrollment_policies,enrollment_consents,credential_consents TO openid_backup;
+CREATE TABLE consent_retention_runs(id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+ time bigint NOT NULL, policy text NOT NULL CHECK(octet_length(policy)<=131072),
+ policy_sha256 text NOT NULL CHECK(policy_sha256 ~ '^[a-f0-9]{64}$'), counts text NOT NULL);
+CREATE FUNCTION retain_consent_evidence(raw_policy text,apply_changes boolean,max_batch integer) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $function$
+DECLARE p jsonb; held text[]; ids text[]:='{}'; policies text[]:='{}'; chosen record;
+ now_epoch bigint:=floor(extract(epoch FROM clock_timestamp()))::bigint;
+ unbound_days integer; bound_days integer; canonical_policy text; digest text;
+ selection text; counts jsonb; result jsonb; links integer; changed integer; journal bigint;
+ more_rows boolean:=false;
+BEGIN
+ IF apply_changes IS NULL OR max_batch IS NULL OR max_batch NOT BETWEEN 1 AND 1000
+    OR raw_policy IS NULL OR octet_length(raw_policy)>131072 THEN RAISE EXCEPTION 'retention input'; END IF;
+ p:=raw_policy::jsonb;
+ IF jsonb_typeof(p) IS DISTINCT FROM 'object' THEN RAISE EXCEPTION 'retention policy'; END IF;
+ IF (SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys(p) k)
+      IS DISTINCT FROM ARRAY['boundDays','protectedReceipts','reference','regime','unboundDays','version']
+    OR p->'version' IS DISTINCT FROM '1'::jsonb
+    OR jsonb_typeof(p->'reference') IS DISTINCT FROM 'string' OR p->>'reference' !~ '^[A-Za-z0-9_-]{8,96}$'
+    OR p->>'regime' NOT IN ('private-beta','digg')
+    OR jsonb_typeof(p->'unboundDays') IS DISTINCT FROM 'number' OR p->>'unboundDays' !~ '^[1-9][0-9]{0,3}$'
+    OR jsonb_typeof(p->'boundDays') IS DISTINCT FROM 'number' OR p->>'boundDays' !~ '^[1-9][0-9]{0,3}$'
+    OR jsonb_typeof(p->'protectedReceipts') IS DISTINCT FROM 'array'
+ THEN RAISE EXCEPTION 'retention policy'; END IF;
+ unbound_days:=(p->>'unboundDays')::integer;bound_days:=(p->>'boundDays')::integer;
+ IF unbound_days NOT BETWEEN 1 AND 3650 OR bound_days NOT BETWEEN 1 AND 3650
+    OR (p->>'regime'='digg' AND bound_days<1827)
+    OR jsonb_array_length(p->'protectedReceipts')>1000
+    OR EXISTS(SELECT 1 FROM jsonb_array_elements(p->'protectedReceipts') v
+       WHERE jsonb_typeof(v)!='string' OR v#>>'{}' !~ '^[a-f0-9]{64}$')
+ THEN RAISE EXCEPTION 'retention periods or holds'; END IF;
+ held:=ARRAY(SELECT jsonb_array_elements_text(p->'protectedReceipts'));
+ IF cardinality(held)!=(SELECT count(DISTINCT v) FROM unnest(held) v) THEN RAISE EXCEPTION 'duplicate holds'; END IF;
+ canonical_policy:='{"boundDays":'||bound_days||',"protectedReceipts":'||array_to_json(held)::text||
+   ',"reference":"'||(p->>'reference')||'","regime":"'||(p->>'regime')||
+   '","unboundDays":'||unbound_days||',"version":1}';
+ IF raw_policy IS DISTINCT FROM canonical_policy THEN RAISE EXCEPTION 'canonical policy required'; END IF;
+ digest:=encode(sha256(convert_to(canonical_policy,'UTF8')),'hex');
+ selection:=$query$SELECT e.id,b.credential FROM openid.enrollment_consents e
+   LEFT JOIN openid.credential_consents b ON b.receipt=e.id LEFT JOIN openid.credentials c ON c.id=b.credential
+   WHERE e.accepted BETWEEN 0 AND $1 AND (e.withdrawn IS NULL OR e.withdrawn BETWEEN e.accepted AND $1)
+     AND ((b.receipt IS NULL AND greatest(e.accepted+300,coalesce(e.withdrawn,0))<$2)
+       OR (b.receipt IS NOT NULL AND c.created BETWEEN 0 AND $1
+         AND ((c.expires IS NULL AND c.state IN ('PENDING_REVIEW','REVOKED'))
+            OR (c.expires>=c.created AND c.state IN ('ACTIVE','REVOKED')))
+         AND greatest(e.accepted,coalesce(e.withdrawn,0),coalesce(c.expires,c.created+86400),
+           coalesce((SELECT max(time) FROM openid.events WHERE credential=c.id),0))<$3))
+     AND NOT (e.id=ANY($4)) ORDER BY e.id LIMIT $5$query$;
+ IF apply_changes THEN selection:=selection||' FOR UPDATE OF e SKIP LOCKED'; END IF;
+ FOR chosen IN EXECUTE selection USING now_epoch,now_epoch-unbound_days::bigint*86400,
+     now_epoch-bound_days::bigint*86400,held,max_batch+1 LOOP
+   IF cardinality(ids)=max_batch THEN more_rows:=true;EXIT;END IF;
+   IF apply_changes AND chosen.credential IS NOT NULL THEN
+     -- Serialize with revocation/activation, then use a fresh statement snapshot.
+     -- A revocation committed while we waited must protect its receipt.
+     PERFORM 1 FROM openid.credentials WHERE id=chosen.credential FOR UPDATE;
+     IF NOT EXISTS(SELECT 1 FROM openid.enrollment_consents e
+       JOIN openid.credentials c ON c.id=chosen.credential WHERE e.id=chosen.id
+       AND c.created BETWEEN 0 AND now_epoch
+       AND ((c.expires IS NULL AND c.state IN ('PENDING_REVIEW','REVOKED'))
+          OR (c.expires>=c.created AND c.state IN ('ACTIVE','REVOKED')))
+       AND greatest(e.accepted,coalesce(e.withdrawn,0),coalesce(c.expires,c.created+86400),
+         coalesce((SELECT max(time) FROM openid.events WHERE credential=c.id),0))
+           <now_epoch-bound_days::bigint*86400) THEN CONTINUE;END IF;
+   END IF;
+   ids:=array_append(ids,chosen.id);
+ END LOOP;
+ selection:=$query$SELECT p.digest FROM openid.enrollment_policies p
+   WHERE (p.record::jsonb->'notice'->>'notAfter')::bigint BETWEEN 0 AND $1
+     AND NOT EXISTS(SELECT 1 FROM openid.enrollment_consents e WHERE e.policy_digest=p.digest AND NOT(e.id=ANY($2)))
+   ORDER BY p.digest LIMIT $3$query$;
+ IF apply_changes THEN selection:=selection||' FOR UPDATE OF p SKIP LOCKED'; END IF;
+ FOR chosen IN EXECUTE selection USING now_epoch,ids,max_batch+1 LOOP
+   IF cardinality(policies)=max_batch THEN more_rows:=true;EXIT;END IF;
+   policies:=array_append(policies,chosen.digest);
+ END LOOP;
+ SELECT count(*) INTO links FROM openid.credential_consents WHERE receipt=ANY(ids);
+ counts:=jsonb_build_object('credential_consents',links,'enrollment_consents',cardinality(ids),'enrollment_policies',cardinality(policies));
+ result:=jsonb_build_object('mode',CASE WHEN apply_changes THEN 'apply' ELSE 'plan' END,'time',now_epoch,
+   'policyReference',p->>'reference','policySHA256',digest,'selected',counts,'moreEligible',more_rows,'batch',max_batch);
+ IF apply_changes THEN
+   DELETE FROM openid.credential_consents WHERE receipt=ANY(ids);
+   GET DIAGNOSTICS changed=ROW_COUNT;IF changed!=links THEN RAISE EXCEPTION 'binding count mismatch';END IF;
+   DELETE FROM openid.enrollment_consents WHERE id=ANY(ids);
+   GET DIAGNOSTICS changed=ROW_COUNT;IF changed!=cardinality(ids) THEN RAISE EXCEPTION 'receipt count mismatch';END IF;
+   DELETE FROM openid.enrollment_policies WHERE enrollment_policies.digest=ANY(policies);
+   GET DIAGNOSTICS changed=ROW_COUNT;IF changed!=cardinality(policies) THEN RAISE EXCEPTION 'policy count mismatch';END IF;
+   INSERT INTO openid.consent_retention_runs(time,policy,policy_sha256,counts)
+     VALUES(now_epoch,canonical_policy,digest,counts::text) RETURNING id INTO journal;
+   result:=result||jsonb_build_object('journalId',journal);
+ END IF;
+ RETURN result;
+END $function$;
+REVOKE ALL ON FUNCTION retain_consent_evidence(text,boolean,integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION retain_consent_evidence(text,boolean,integer) TO openid_maintenance;
+GRANT SELECT ON consent_retention_runs TO openid_maintenance,openid_backup;
 RESET ROLE;
 COMMIT;

@@ -1,5 +1,6 @@
 #if DEBUG && targetEnvironment(simulator)
 import SwiftUI
+import CryptoKit
 import LocalAuthentication
 
 struct RecoveryPreviewFixture: View {
@@ -79,7 +80,17 @@ struct UsabilityPreviewFixture: View {
         NavigationStack {
             List {
                 Text("TESTDATA – inga riktiga ID")
-                NavigationLink("Passformulär") { EnrollmentView(flow: model.verification) }
+                NavigationLink("Passformulär") { EnrollmentView(flow: model.verification).onAppear {
+                    let now = Int(Date().timeIntervalSince1970)
+                    let text: [String: Any] = ["version":"SYNTHETIC_TERMS_001", "locale":"sv-SE", "notBefore":now-60, "notAfter":now+3600,
+                        "controller":"Syntetisk testoperatör", "contact":"privacy@example.invalid", "terms":"Syntetiska villkor utan avtal.",
+                        "privacy":"Endast testdata i förhandsvisningen.", "biometrics":"Syntetiskt val för biometriskt teständamål.",
+                        "withdrawal":"Syntetisk information. Ingen verklig behandling sker i förhandsvisningen."]
+                    if let bytes = try? JSONSerialization.data(withJSONObject: text, options: [.sortedKeys]) {
+                        try? model.verification.setPreviewNotice(EnrollmentNotice(
+                            digest: SHA256.hash(data: bytes).map { String(format:"%02x",$0) }.joined(), noticeJSON:bytes.base64EncodedString()))
+                    }
+                } }
                 NavigationLink("Kontrollkod med stor text") {
                     ScrollView {
                         ControlCodeView(code: "012345").padding(24)

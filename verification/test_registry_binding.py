@@ -14,7 +14,8 @@ from identity import VerifiedDocument
 from registry_binding import RegistryBindings, RegistryResult
 from test_wallet import crypt
 from wallet import Wallet
-from recovery import backup, restore
+from recovery import backup
+from test_erasure_helpers import sqlite_restore as restore
 
 AUDIENCE = 'https://service.invalid/sp'
 # Published SPAR examples, not generated national identifiers:
@@ -292,8 +293,13 @@ class RegistryBindingTests(unittest.TestCase):
     def test_backup_restore_never_reactivates_bound_keys(self):
         self.bind_both()
         saved=backup(self.wallet,Path(self.tmp.name)/'backup')
+        from recovery import bind_backup
+        import hashlib
+        binding=Path(self.tmp.name)/'binding.json'
+        anchor=bind_backup(saved,self.wallet.vault.path,hashlib.sha256(self.wallet.vault.key()).hexdigest(),binding)
         self.registry.activate_replacement(self.old,self.new,'REVIEW-before-restore')
-        db=restore(saved,Path(self.tmp.name)/'restore',self.wallet.vault.path)
+        db=restore(saved,Path(self.tmp.name)/'restore',self.wallet.vault.path,
+                   binding=binding,binding_sha256=anchor)
         recovered=Wallet(db,'https://localhost:8765',clock=lambda:self.time)
         bindings=RegistryBindings(recovered,source='fixture-registry',lookup=self.lookup,allow_synthetic=True)
         with recovered.transaction() as connection:

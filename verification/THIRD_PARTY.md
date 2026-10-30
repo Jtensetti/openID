@@ -31,7 +31,7 @@ Primärkällor för uppdateringen:
 | Scuba Smartcards | 0.0.21, transitivt från JMRTD, hash i Maven-låset. APDU- och TLV-format samt `CardService` för serverns NFC-transport. | LGPL enligt POM. Förvaltnings-/SLA-garanti saknas. |
 | EJBCA cert-cvc | 1.4.13, transitivt från JMRTD, hash i Maven-låset | LGPL-2.1 enligt POM. Ingen modifiering. |
 | Bouncy Castle | Befintlig 1.86 | Befintlig MIT-liknande BC-licens. CMS och X.509, ingen egen signaturmotor. |
-| OpenCV Python | 4.13.0.92, exakt Linux-hjulhash i `requirements.lock` | Apache-2.0, med hjulens bevarade tredjepartslicenser. |
+| OpenCV Python | 4.14.0.94, exakt Linux-hjulhash i `requirements.lock` | OpenCV Apache-2.0, Pythonpaketering MIT, med hjulens bevarade tredjepartslicenser. |
 | YuNet / SFace | OpenCV Zoo commit `47534e27c9851bb1128ccc0102f1145e27f23f98`; modellhashar i `face.py` och `download_models.py` | YuNet MIT, SFace Apache-2.0 enligt respektive modellkatalog. Zoo ej arkiverat, senaste push 2026-05-28. |
 | MiniFASNet V2 + V1SE | Upstream `b6d5f04ad78778917853b25c778acef6d5626d15`; båda viktfilerna SHA-256-kontrolleras före `torch.load(weights_only=True)` | Apache-2.0. Upstreams senaste commit 2020-08-05: tydlig underhållsrisk. Ingen påstådd ISO/PAD-certifiering. |
 | PyTorch CPU / NumPy | Exakta versioner och hjulhashar i `requirements.lock` | BSD-3-Clause, plus inbäddade licenser i hjulen. Ingen CUDA eller modellnedladdning vid körning. |
@@ -89,7 +89,7 @@ Foundation, CryptoKit/Secure Enclave, Security/Keychain, LocalAuthentication,
 CoreNFC, DeviceCheck och AVFoundation via Xcode 16.4. NFC-/OpenSSL-versioner
 är låsta i `ios/PassportCapture.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`.
 
-Serverns enhetssignaturer verifieras med Node 24.19.0 `node:crypto`
+Serverns enhetssignaturer verifieras med Node 24.22.1 `node:crypto`
 (createPublicKey/verify), SHA-256 och standard DER/SPKI för P-256.
 Python 3.12:s sqlite3, hashlib och secrets används för beständighet,
 standardhashar och slumputmaningar. Appens registrerings- och godkännande-API
@@ -164,7 +164,7 @@ kontrollerades 2026-10-20 och var fortsatt 1.0.3 (publicerad 2026-10-13).
 Apache-2.0, revision, transitiva licenser och JAR-hashar finns i rotens
 komponentregister och befintliga Maven-lås.
 
-Profilkryptering använder Node **24.19.0** `node:crypto` AES-256-GCM.
+Profilkryptering använder Node **24.22.1** `node:crypto` AES-256-GCM.
 Dokumentreferenser och tjänstesubjekt använder Python 3.12 `hmac`/SHA-256
 med separat nyckel. De befintliga OpenCV- och qrcode-versionerna används
 för passfotots storlek respektive QR.
@@ -186,10 +186,12 @@ säkerhetsbedömning av den egna integrationen.
 HTTP/2, proxyprotokoll, kontrollsocket och automatiska omstarter efter ett
 visst antal anrop används inte. NFC-sessionerna tillhör en enda worker.
 
-`deployment/Dockerfile` låser officiella Python **3.12.15 slim-bookworm**,
-Node **24.19.0 bookworm-slim** och befintliga Temurin **21.0.12.1+1** med
-image-digests, avlästa från Docker Registry 2026-10-20. Python har PSF-licens,
+`deployment/Dockerfile` låser officiella Python **3.12.15 slim-bookworm** och
+Node **24.22.1 bookworm-slim** med image-digests. Temurin **21.0.13+9** hämtas
+som SHA-256-låsta Linux x64-arkiv för JDK och JRE. Python har PSF-licens,
 Node MIT med tredjepartslicenser och Temurin GPL-2.0 med Classpath Exception.
+[Komponentregistret](../THIRD_PARTY.md#temurin-säkerhetsuppdatering-2026-10-26)
+anger ursprung, källrevision, distributions- och SBOM-hashar.
 Basimagens Debian-licenser, JRE:s `legal/` och Nodes LICENSE bevaras.
 Maven 3.9.11 hämtas som samma SHA-256-låsta ZIP som wrappern; hela grafens
 180 beroendehashar kontrolleras även i containerbygget. Bildvikter och
@@ -239,3 +241,45 @@ kontrollerades igen 2026-10-20. Issue #313 är fortfarande öppen utan ett
 klargörande från ansvarig rättighetshavare. Verktyget `evaluate_biometrics.py`
 beräknar felandelar för fasta trösklar på separata utvärderingsdata; det ger
 varken modellrättigheter eller oberoende PAD-certifiering.
+
+## OpenCV 4.14.0.94 och inbäddade bibliotek
+
+Kontrollerad 2026-10-26. Paketet kommer från OpenCV:s officiella PyPI-projekt,
+release `94`, paketeringsrevision `2ba8bf62f2f1215ab620416b041c9659005fa25c`,
+OpenCV 4.14.0-revision `0654a42e19215ef25b1d367d822f3c630447e7c7`.
+Exakt Linux/amd64-hjul, URL och SHA-256 finns i `python-package-sources.json`
+och `requirements.lock`. NumPy 2.2.6 uppfyller paketets krav; ingen ny
+Pythondependency läggs till. Repoförvaltaren ansvarar för uppdatering.
+
+`opencv-upstream-sbom.cdx.json` är oförändrad från det verifierade hjulet,
+SHA-256 `895d1e01e74d36c909f95203abe492824f411fdd3f4d4a5047ff10d620343937`.
+Den beskriver vissa återpaketerade systembibliotek, **inte samtliga**
+statiskt inbäddade bibliotek. Hjulets `LICENSE.txt` (MIT) och
+`LICENSE-3RD-PARTY.txt` bevaras vid installation. Jämfört med föregående
+hjul tillkommer dav1d-attribution med BSD-2-Clause; övrig licenstext är
+oförändrad. FFmpeg och andra bibliotek omfattas fortsatt av egna villkor.
+Inga källfiler eller binärer i hjulet modifieras.
+
+4.14.0.94 innehåller FFmpeg 8.1.2 och AlmaLinux OpenSSL
+`1.1.1k-17.el8_6`, vilket tar in tidigare saknade rättningar.
+**ALSA-2026-85968 kvarstår:** CVE-2026-63072 och CVE-2026-84782
+kräver `1.1.1k-18.el8_6`. En tom OSV-lista för Pythonpaketet stänger
+inte dessa fynd. Hjulet innehåller även OpenEXR 2.3.0 och andra
+inbäddade komponenter som kräver separat bedömning. Inget riskundantag
+eller produktionsgodkännande följer av uppdateringen.
+
+Verifierarens bildväg tillåter JPEG, JP2 och rå JPEG 2000-kodström innan
+OpenCV anropas. Andra format nekas. Det minskar åtkomliga bildavkodare men
+tar inte bort de inbäddade biblioteken och bevisar inte att alla sårbarheter
+är oåtkomliga. Ett begränsat källbygge behöver egen kompatibilitets-,
+proveniens- och licensverifiering innan det kan ersätta upstreamhjulet.
+
+CI provar verklig avkodning, negativa formatfall och ansiktsmodeller i den
+byggda serverimagen utan nät. Serverproven kör också PAD. Faktiska
+OpenCV-versioner, byggkonfiguration, upstream-SBOM och bibliotekshashar
+sparas i `runtime-components.json`. Det ersätter inte fysisk provning av
+ansikts-/PAD-kvalitet eller en fullständig analys av inbäddade bibliotek.
+
+Källor: [OpenCV Python 94](https://github.com/opencv/opencv-python/releases/tag/94),
+[OpenCV 4.14.0](https://github.com/opencv/opencv/releases/tag/4.14.0),
+[AlmaLinux ALSA-2026-85968](https://errata.almalinux.org/8/ALSA-2026-85968.html).

@@ -1,11 +1,15 @@
 import base64
+from functools import wraps
 import json
+import logging
 import math
 from pathlib import Path
 import secrets
 import subprocess
 import sys
+import threading
 import time
+import weakref
 
 POSES=('front','right','left')
 # Experimental pose limits in inter-eye distances (face.pose_ratio); calibration is pending like the score limits.
@@ -49,44 +53,101 @@ class AppAttest:
         if result.returncode!=0:raise ValueError('App Attest rejected')
         return json.loads(result.stdout)
 
+def session_operation(method):
+    @wraps(method)
+    def call(self,*args,**kwargs):
+        # The runtime already admits one native operation at a time. Share the
+        # same lifetime lock with idle cleanup, including direct/lab callers.
+        with self.session_lock:
+            if self.stopped.is_set():raise ValueError('sessions closed')
+            try:return method(self,*args,**kwargs)
+            finally:self.expire()
+    return call
+
+
+def sweep_sessions(reference,stopped,interval):
+    # Do not keep a discarded application alive just because its sweeper exists.
+    while not stopped.wait(interval):
+        sessions=reference()
+        if sessions is None:return
+        try:sessions.expire()
+        except Exception:
+            logging.getLogger(__name__).error('Registration session cleanup failed')
+        finally:del sessions
+
+
 class NativeSessions:
     def __init__(self,attest,passport,matcher,pad,clock=time.monotonic,wallet=None,chip_factory=None,biometrics=None,
-                 pose_order=random_pose_order,pose_direction=False,pose_enforced=True,wall_clock=time.time):
+                 pose_order=random_pose_order,pose_direction=False,pose_enforced=True,wall_clock=time.time,enrollment_policy=None,
+                 cleanup_interval=5):
+        if (type(cleanup_interval) not in (int,float) or not math.isfinite(cleanup_interval)
+                or not .01<=cleanup_interval<=60):raise ValueError('cleanup interval')
         self.attest,self.passport,self.matcher,self.pad,self.clock=attest,passport,matcher,pad,clock
         self.wallet=wallet
+        self.enrollment_policy=enrollment_policy
         self.wall_clock=wall_clock
         self.pose_order,self.pose_direction,self.pose_enforced=pose_order,pose_direction,pose_enforced
         self.biometrics=biometrics
         self.chip_factory=chip_factory
         self.pending={}
+        self.session_lock=threading.RLock()
+        self.stopped=threading.Event()
+        self.sweeper=threading.Thread(target=sweep_sessions,args=(weakref.ref(self),self.stopped,cleanup_interval),
+            name='openid-registration-cleanup',daemon=True)
+        self.sweeper.start()
+    @session_operation
     def start(self):
+        if self.enrollment_policy is not None:self.enrollment_policy.require_current()
         guard=getattr(self.wallet,'enrollment_available',None) if self.wallet is not None else None
         if guard is not None:guard()
-        for ident in list(self.pending):
-            if self.pending[ident]['expires']<=self.clock(): self.discard(ident)
+        self.expire()
         if len(self.pending)>=16:raise ValueError('too many sessions')
         ident=secrets.token_urlsafe(32);challenge=secrets.token_urlsafe(32)
         self.pending[ident]={'challenge':challenge,'expires':self.clock()+300,'phase':'attestation'}
         return {'id':ident,'challenge':challenge}
     def discard(self,ident):
-        value=self.pending.pop(ident,None)
-        if value and 'chip' in value:value['chip'].close()
+        with self.session_lock:
+            value=self.pending.pop(ident,None)
+            if value:
+                chip=value.pop('chip',None)
+                value.clear()
+                if chip is not None:chip.close()
+    def expire(self):
+        with self.session_lock:
+            now=self.clock()
+            for ident,value in list(self.pending.items()):
+                if value['expires']<=now or (value['phase']=='chip' and value['chipExpires']<=now):
+                    try:self.discard(ident)
+                    except Exception:logging.getLogger(__name__).error('Registration session cleanup failed')
+    def keep(self,ident,pending):
+        if self.stopped.is_set() or pending['expires']<=self.clock():
+            chip=pending.pop('chip',None);pending.clear()
+            if chip is not None:chip.close()
+            raise ValueError('session expired')
+        self.pending[ident]=pending
+    def live(self,pending):
+        if self.stopped.is_set() or pending['expires']<=self.clock():raise ValueError('session expired')
     def close(self):
-        for ident in list(self.pending):self.discard(ident)
+        self.stopped.set()
+        with self.session_lock:
+            for ident in list(self.pending):self.discard(ident)
+        if threading.current_thread() is not self.sweeper:self.sweeper.join(timeout=2)
     def current(self,ident,phase):
         if not isinstance(ident,str):raise ValueError('session rejected')
         value=self.pending.get(ident)
         if value is None or value['expires']<=self.clock() or value['phase']!=phase:
             self.discard(ident);raise ValueError('session rejected')
         return value
+    @session_operation
     def register(self,request):
         if set(request)!={'id','keyId','attestation'}:raise ValueError('fields')
         ident=request['id'];pending=self.current(ident,'attestation')
         self.pending.pop(ident) # Consume on all validation failures.
         if not isinstance(request['attestation'],str) or len(request['attestation'])>50000:raise ValueError('size')
         result=self.attest.check('attestation',attestation=request['attestation'],keyId=request['keyId'],challenge=pending['challenge'])
-        pending.update({'phase':'document','publicKey':result['publicKey'],'nonce':secrets.token_urlsafe(32),'signCount':0})
-        self.pending[ident]=pending
+        pending.update({'phase':'consent' if self.enrollment_policy is not None else 'document',
+            'publicKey':result['publicKey'],'nonce':secrets.token_urlsafe(32),'signCount':0})
+        self.keep(ident,pending)
         return {'id':ident,'nonce':pending['nonce']}
     def signed(self,request,pending,limit):
         raw=base64.b64decode(request['payload'],validate=True)
@@ -99,6 +160,38 @@ class NativeSessions:
         if not isinstance(data,dict) or data.get('id')!=request['id'] or data.get('nonce')!=pending['nonce']:
             raise ValueError('capture binding')
         return data
+    @session_operation
+    def notice(self,request):
+        if request or self.enrollment_policy is None:raise ValueError('enrollment policy required')
+        return self.enrollment_policy.public()
+    @session_operation
+    def consent(self,request):
+        if set(request)!={'id','payload','assertion'}:raise ValueError('fields')
+        ident=request['id'];pending=self.current(ident,'consent');self.pending.pop(ident)
+        if self.enrollment_policy is None or self.wallet is None:raise ValueError('enrollment policy required')
+        data=self.signed(request,pending,4096)
+        self.live(pending)
+        if set(data)!={'id','nonce','devicePublicKey','acceptance','receipt'}:raise ValueError('consent fields')
+        self.enrollment_policy.acceptance(data['acceptance'])
+        receipt=self.wallet.record_acceptance(data['devicePublicKey'],self.enrollment_policy,
+            {'payload':request['payload'],'assertion':request['assertion'],'appPublicKey':pending['publicKey']},data['receipt'])
+        pending.update(phase='document',nonce=secrets.token_urlsafe(32),
+            acceptanceReceipt=receipt,devicePublicKey=data['devicePublicKey'])
+        self.keep(ident,pending)
+        return {'id':ident,'nonce':pending['nonce'],'receipt':receipt}
+    @session_operation
+    def withdraw(self,request):
+        if self.wallet is None:raise ValueError('wallet required')
+        result=self.wallet.withdraw_acceptance(request)
+        for ident,value in list(self.pending.items()):
+            if value.get('acceptanceReceipt')==result['receipt']:self.discard(ident)
+        return result
+    def require_acceptance(self,pending):
+        self.live(pending)
+        if self.enrollment_policy is not None:
+            self.enrollment_policy.require_current()
+            self.wallet.require_acceptance(pending['acceptanceReceipt'],pending['devicePublicKey'])
+    @session_operation
     def begin_chip(self,request):
         if set(request)!={'id','payload','assertion'}:raise ValueError('fields')
         ident=request['id'];pending=self.current(ident,'document');self.pending.pop(ident)
@@ -109,9 +202,13 @@ class NativeSessions:
             expected.add('devicePublicKey')
             if self.wallet is None:raise ValueError('wallet not configured')
         if set(data)!=expected:raise ValueError('fields')
+        if self.enrollment_policy is not None:
+            if data.get('devicePublicKey')!=pending['devicePublicKey']:raise ValueError('consent key binding')
+        self.require_acceptance(pending)
         for key,limit in [('sod',65536),('dg1',4096),('dg2',2_000_000),('dg14',16384)]:
             if not 0<len(base64.b64decode(data[key],validate=True))<=limit:raise ValueError('document size')
         document=self.passport(data)
+        self.live(pending)
         if self.wallet is not None: document.require_current_revocation(self.wall_clock())
         chip=self.chip_factory(data)
         try:
@@ -119,20 +216,24 @@ class NativeSessions:
             if result.get('type')!='command':raise ValueError('chip exchange required')
             pending.update(phase='chip',document=document,devicePublicKey=data.get('devicePublicKey'),
                 chip=chip,chipToken=secrets.token_urlsafe(32),chipExpires=self.clock()+75,sequence=result['sequence'])
-            self.pending[ident]=pending
+            self.keep(ident,pending)
             return {**result,'id':ident,'chipToken':pending['chipToken']}
         except BaseException:
             chip.close()
             raise
+    @session_operation
     def chip_step(self,request):
         if set(request)!={'id','chipToken','sequence','response'}:raise ValueError('fields')
         ident=request['id'];pending=self.current(ident,'chip')
         try:
+            self.require_acceptance(pending)
             if (not isinstance(request['chipToken'],str) or not secrets.compare_digest(request['chipToken'],pending['chipToken'])
                     or pending['chipExpires']<=self.clock() or type(request['sequence']) is not int
                     or request['sequence']!=pending['sequence']):raise ValueError('chip binding')
             if not isinstance(request['response'],str) or len(request['response'])>5464:raise ValueError('chip response')
             result=pending['chip'].next(request['response'],request['sequence'])
+            self.live(pending)
+            if pending['chipExpires']<=self.clock():raise ValueError('chip timeout')
             if result.get('type')=='verified':
                 pending.pop('chip').close()
                 # The app learns the head-turn order only now, after the chip check: frames prepared earlier
@@ -146,6 +247,7 @@ class NativeSessions:
         except BaseException:
             self.discard(ident)
             raise
+    @session_operation
     def cancel(self,request):
         if set(request)!={'id','chipToken'}:raise ValueError('fields')
         ident=request['id'];pending=self.pending.get(ident) if isinstance(ident,str) else None
@@ -153,10 +255,12 @@ class NativeSessions:
                 or not secrets.compare_digest(request['chipToken'],pending.get('chipToken',''))):raise ValueError('chip binding')
         self.discard(ident)
         return {'cancelled':True}
+    @session_operation
     def finish(self,request):
         if set(request)!={'id','payload','assertion'}:raise ValueError('fields')
         ident=request['id'];pending=self.current(ident,'capture');self.pending.pop(ident)
         data=self.signed(request,pending,10_000_000)
+        self.require_acceptance(pending)
         if set(data)!={'id','nonce','frames'}:raise ValueError('fields')
         if not isinstance(data['frames'],list) or len(data['frames'])!=3:raise ValueError('frames')
         frames=[base64.b64decode(frame,validate=True) for frame in data['frames']]
@@ -188,14 +292,16 @@ class NativeSessions:
             # Calibration mode: only the outcome is logged, never ratios, scores or images.
             print(json.dumps({'event':'pose_check','result':'PASSED' if pose_passed else 'FAILED'}),file=sys.stderr,flush=True)
         # Experimental thresholds; calibration is pending.
+        self.require_acceptance(pending)
         passed=min(face_scores)>=0.5 and min(pad_scores)>=0.8 and (pose_passed or not self.pose_enforced)
         credential=None
         if passed and pending['devicePublicKey'] is not None:
+            enrollment = ({'acceptance_receipt': pending['acceptanceReceipt']}
+                if self.enrollment_policy is not None else {})
             if getattr(self.wallet, 'test_beta', False) is True:
                 if not self.pose_enforced: raise ValueError('automatic test activation requires pose enforcement')
-                credential=self.wallet.enroll(pending['devicePublicKey'], document, activate_test=True)
-            else:
-                credential=self.wallet.enroll(pending['devicePublicKey'], document)
+                enrollment['activate_test'] = True
+            credential = self.wallet.enroll(pending['devicePublicKey'], document, **enrollment)
         # No raw scores to the client: they would be an oracle for tuning a presentation or morphing attack.
         return {'checksPassed':passed,'passiveAuthentication':True,'appAttest':True,
             'chipAuthentication':'SERVER_VERIFIED_CA','revocation':document.revocation,

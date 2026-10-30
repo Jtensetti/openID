@@ -1,14 +1,18 @@
 import concurrent.futures
 import io
 import json
+import os
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import threading
 import unittest
 from unittest.mock import Mock
 from runtime import Runtime, RateLimit, validate_origin
 from wallet import Wallet
-from recovery import backup, restore
+from recovery import backup
+from test_erasure_helpers import sqlite_restore as restore
 from serve import Lease, reject_duplicate_headers, open_wallet
 
 
@@ -17,7 +21,23 @@ class RuntimeTests(unittest.TestCase):
         self.native, self.wallet = Mock(), Mock()
         self.native.start.return_value = {'id': 'session'}
         self.wallet.challenge.return_value = {'id': 'challenge'}
-        self.app = Runtime(self.native, self.wallet, 'https://localhost:8765', 'a'*43)
+        self.app = Runtime(self.native, self.wallet, 'https://localhost:8765', 'a'*43, new_registrations_enabled=True)
+
+    def test_private_configuration_rejects_fifo_without_waiting_for_a_writer(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'secret'
+            os.mkfifo(path, 0o600)
+            result = subprocess.run([sys.executable, '-c', '''
+import sys
+from serve import private_file
+try:
+    private_file(sys.argv[1])
+except ValueError as error:
+    assert str(error) == 'Secret files must be regular files with mode 0600'
+else:
+    raise AssertionError('FIFO accepted as a secret file')
+''', str(path)], cwd=Path(__file__).parent, capture_output=True, timeout=5)
+            self.assertEqual(0, result.returncode, result.stderr.decode())
 
     def request(self, path='/native/start', method='POST', body=b'{}', **updates):
         env = {'REQUEST_METHOD': method, 'PATH_INFO': path, 'HTTP_HOST': 'localhost:8765',
@@ -30,7 +50,7 @@ class RuntimeTests(unittest.TestCase):
         return response[0][0], json.loads(result), response[0][1]
 
     def test_public_admission_keeps_metrics_admin_and_origin_closed(self):
-        self.app = Runtime(self.native, self.wallet, 'https://localhost:8765', 'a'*43, public_enrollment=True)
+        self.app = Runtime(self.native, self.wallet, 'https://localhost:8765', 'a'*43, public_enrollment=True, new_registrations_enabled=True)
         self.assertEqual(200, self.request(HTTP_X_CSRF_TOKEN='')[0])
         self.assertEqual(403, self.request('/metrics', 'GET', HTTP_X_CSRF_TOKEN='')[0])
         self.assertEqual(403, self.request('/activate', HTTP_X_CSRF_TOKEN='')[0])
@@ -39,11 +59,52 @@ class RuntimeTests(unittest.TestCase):
         self.native.start.assert_called_once()
         self.wallet.activate.assert_not_called()
 
+    def test_registration_is_paused_by_default_before_reading_sensitive_bodies(self):
+        from runtime import NATIVE_ROUTES
+        for public in (False, True):
+            self.app = Runtime(self.native, self.wallet, 'https://localhost:8765', 'a'*43, public_enrollment=public)
+            for route in NATIVE_ROUTES:
+                if route in ('/native/cancel','/native/withdraw'): continue
+                unread = Mock()
+                unread.read.side_effect = AssertionError('passport body must not be read')
+                code, result, headers = self.request(route, **{'wsgi.input': unread,
+                    'HTTP_X_CSRF_TOKEN': '' if public else 'a'*43})
+                self.assertEqual((503, {'error': 'REGISTRATION_PAUSED'}), (code, result))
+                self.assertEqual('no-store', headers['Cache-Control'])
+                unread.read.assert_not_called()
+            self.native.assert_not_called()
+            self.assertEqual([], self.native.method_calls)
+
+    def test_registration_pause_preserves_wallet_operations_and_cancellation(self):
+        self.app = Runtime(self.native, self.wallet, 'https://localhost:8765', 'a'*43)
+        self.native.cancel.return_value = {'cancelled': True}
+        self.native.withdraw.return_value = {'withdrawn': True}
+        self.wallet.execute.return_value = {'state': 'REVOKED'}
+        self.assertEqual(200, self.request('/wallet/challenge')[0])
+        self.assertEqual((200, {'state': 'REVOKED'}), self.request('/wallet/execute')[:2])
+        self.assertEqual((200, {'cancelled': True}), self.request('/native/cancel')[:2])
+        self.assertEqual((200, {'withdrawn': True}), self.request('/native/withdraw')[:2])
+        self.wallet.execute.assert_called_once_with({})
+        self.native.cancel.assert_called_once_with({})
+
+    def test_registration_flag_never_coerces_strings_or_numbers(self):
+        from serve import load_config
+        fields = dict(bind='127.0.0.1', origin='https://localhost:8765', team='A'*10,
+            bundle='se.openid.PassportCapture', developmentAttestation=True, tlsCert='/missing',
+            tlsKey='/missing', csca='/missing', database='/missing', pairingFile='/missing')
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)/'config.json'
+            for value in ('false', 'true', 0, 1, None):
+                with self.assertRaisesRegex(ValueError, 'registration flag'):
+                    Runtime(self.native, self.wallet, 'https://localhost:8765', 'a'*43, new_registrations_enabled=value)
+                path.write_text(json.dumps(fields | {'newRegistrationsEnabled': value}))
+                with self.assertRaisesRegex(ValueError, 'registration flag'): load_config(path)
+
     def test_public_admission_does_not_skip_attestation_or_wallet_signature(self):
         from native import NativeSessions
         attest = Mock(); attest.verify.side_effect = ValueError('invalid attestation')
         native = NativeSessions(attest, Mock(), Mock(), Mock())
-        self.app = Runtime(native, self.wallet, 'https://localhost:8765', 'a'*43, public_enrollment=True)
+        self.app = Runtime(native, self.wallet, 'https://localhost:8765', 'a'*43, public_enrollment=True, new_registrations_enabled=True)
         _, session, _ = self.request(HTTP_X_CSRF_TOKEN='')
         body = json.dumps({'id': session['id']}).encode()
         for route in ['/native/chip/start', '/native/finish']:
@@ -193,7 +254,7 @@ class RuntimeTests(unittest.TestCase):
         self.assertTrue(limit.allow('first')); self.assertFalse(limit.allow('second')); self.assertFalse(limit.allow('first'))
 
     def test_proxy_clients_have_separate_enrollment_budgets(self):
-        self.app = Runtime(self.native, self.wallet, 'https://localhost:8765', 'a'*43, trusted_proxy='127.0.0.1')
+        self.app = Runtime(self.native, self.wallet, 'https://localhost:8765', 'a'*43, trusted_proxy='127.0.0.1', new_registrations_enabled=True)
         self.app.enrollment_rate = RateLimit(rate=0, burst=1)
         self.assertEqual(200, self.request(HTTP_X_OPENID_CLIENT_IP='192.0.2.8')[0])
         self.assertEqual(429, self.request(HTTP_X_OPENID_CLIENT_IP='192.0.2.8')[0])
@@ -202,20 +263,20 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(2,self.native.start.call_count)
 
     def test_proxy_clients_have_separate_general_budgets(self):
-        self.app = Runtime(self.native, self.wallet, 'https://localhost:8765', 'a'*43, trusted_proxy='127.0.0.1')
+        self.app = Runtime(self.native, self.wallet, 'https://localhost:8765', 'a'*43, trusted_proxy='127.0.0.1', new_registrations_enabled=True)
         self.app.rate = RateLimit(rate=0, burst=1)
         for ip,status in [('192.0.2.8',200),('192.0.2.8',429),('198.51.100.9',200)]:
             self.assertEqual(status,self.request('/wallet/challenge',HTTP_X_OPENID_CLIENT_IP=ip)[0])
         self.assertEqual(2,self.wallet.challenge.call_count)
 
     def test_spoofed_or_missing_proxy_address_never_reaches_services(self):
-        self.app = Runtime(self.native, self.wallet, 'https://localhost:8765', 'a'*43, trusted_proxy='127.0.0.1')
+        self.app = Runtime(self.native, self.wallet, 'https://localhost:8765', 'a'*43, trusted_proxy='127.0.0.1', new_registrations_enabled=True)
         for change in ({}, {'REMOTE_ADDR':'192.0.2.8','HTTP_X_OPENID_CLIENT_IP':'198.51.100.9'},
                        {'HTTP_X_OPENID_CLIENT_IP':'192.0.2.8,198.51.100.9'},
                        {'HTTP_X_OPENID_CLIENT_IP':'192.0.2.8','HTTP_X_FORWARDED_FOR':'198.51.100.9'}):
             self.assertEqual(403,self.request(**change)[0])
         self.native.start.assert_not_called()
-        self.app = Runtime(self.native, self.wallet, 'https://localhost:8765', 'a'*43)
+        self.app = Runtime(self.native, self.wallet, 'https://localhost:8765', 'a'*43, new_registrations_enabled=True)
         self.assertEqual(403,self.request(HTTP_X_OPENID_CLIENT_IP='192.0.2.8')[0])
         self.native.start.assert_not_called()
 
@@ -253,7 +314,9 @@ class RecoveryTests(unittest.TestCase):
         request = self.wallet.start_request(self.ident)
         snap = backup(self.wallet, self.root/'backup')
         self.wallet.revoke(self.ident)
-        target = restore(snap, self.root/'restored')
+        from recovery import bind_backup
+        binding = self.root/'binding.json'; anchor = bind_backup(snap, None, None, binding)
+        target = restore(snap, self.root/'restored', binding=binding, binding_sha256=anchor)
         recovered = Wallet(target, self.wallet.origin)
         with self.assertRaises(ValueError): recovered.check_session(self.ident, 'anything')
         with recovered.transaction() as db:
@@ -263,12 +326,20 @@ class RecoveryTests(unittest.TestCase):
 
     def test_never_overwrites_live_database(self):
         snap = backup(self.wallet, self.root/'backup')
-        with self.assertRaises(ValueError): restore(snap, self.root/'live')
+        from recovery import bind_backup
+        binding = self.root/'binding.json'; anchor = bind_backup(snap, None, None, binding)
+        with self.assertRaises(ValueError): restore(snap, self.root/'live', binding=binding, binding_sha256=anchor)
         with self.wallet.transaction() as db: self.assertEqual('ACTIVE', self.wallet.state(self.wallet.credential(db,self.ident)))
 
     def test_corrupt_backup_leaves_no_destination(self):
         source = self.root/'bad'; source.write_bytes(b'bad SQLite')
-        with self.assertRaises(Exception): restore(source, self.root/'restored')
+        source.chmod(0o600)
+        from recovery_binding import FORMAT, write_binding
+        import hashlib
+        binding = self.root/'binding.json'
+        anchor = write_binding(binding, {'format':FORMAT, 'backupSHA256':hashlib.sha256(source.read_bytes()).hexdigest(),
+            'backupBytes':source.stat().st_size, 'identityKeySHA256':None, 'continuityRequired':False})
+        with self.assertRaises(Exception): restore(source, self.root/'restored', binding=binding, binding_sha256=anchor)
         self.assertFalse((self.root/'restored').exists())
 
     def test_only_one_runtime_lease_and_released_after_close(self):
@@ -305,11 +376,17 @@ class EncryptedRecoveryTests(unittest.TestCase):
             ident = wallet.enroll(key['publicKey'], document())['id']
             wallet.activate(ident, 'TEST-PRIVATE-REVIEW')
             saved = backup(wallet, root/'backup')
+            from recovery import bind_backup
+            import hashlib
+            binding = root/'binding.json'
+            anchor = bind_backup(saved, wallet.vault.path, hashlib.sha256(wallet.vault.key()).hexdigest(), binding)
             with self.assertRaises(ValueError): restore(saved, root/'missing-key')
             wrong = root/'wrong-key'; wrong.write_bytes(b'x'*64); wrong.chmod(0o600)
-            with self.assertRaises(ValueError): restore(saved, root/'wrong', wrong)
+            with self.assertRaises(ValueError): restore(saved, root/'wrong', wrong,
+                binding=binding, binding_sha256=anchor)
             self.assertFalse((root/'wrong').exists())
-            target = restore(saved, root/'restored', wallet.vault.path)
+            target = restore(saved, root/'restored', wallet.vault.path,
+                binding=binding, binding_sha256=anchor)
             recovered = Wallet(target, wallet.origin)
             with recovered.transaction() as db:
                 snapshot = recovered.snapshot(db, ident)

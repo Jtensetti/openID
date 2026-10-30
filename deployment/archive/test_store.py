@@ -3,6 +3,7 @@ import base64
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 import hashlib
+import json
 import io
 from pathlib import Path
 import sys
@@ -100,6 +101,30 @@ class StoreTests(unittest.TestCase):
         self.assertTrue(all(body.closed for body in self.s3.bodies))
         self.assertTrue(self.s3.calls[-1].startswith(CFG['prefix']+'/receipts/'+self.digest+'/'))
 
+    def test_v2_journal_delivery_receipt_readback_and_retention_boundary(self):
+        baseline = store.required_until(self.source, CFG, NOW)
+        policy = {'version': 1, 'reference': 'TEST_POLICY_001', 'profileDays': 7,
+                  'authenticationRequestDays': 1}
+        policy_hash = hashlib.sha256(json.dumps(policy, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+        counts = json.dumps(dict(profiles=1, security_codes=1, requests=0, federation_requests=0))
+        row = [1, int((NOW+timedelta(hours=48)).timestamp()), policy['reference'], policy_hash, 7, 1, counts]
+        path = self.source/'retention_runs.jsonl'; raw = store.archive.encoded(row)
+        store.archive.write_file(path, raw)
+        manifest_path = self.source/'manifest.json'; manifest = json.loads(manifest_path.read_bytes())
+        manifest['format'] = 2
+        manifest['files'][path.name] = {'columns': list(store.archive.TABLES['retention_runs']),
+            'rows': 1, 'bytes': len(raw), 'sha256': hashlib.sha256(raw).hexdigest()}
+        raw_manifest = store.archive.encoded(manifest); manifest_path.write_bytes(raw_manifest)
+        self.digest = hashlib.sha256(raw_manifest).hexdigest()
+        self.assertGreater(store.required_until(self.source, CFG, NOW), baseline)
+        location = self.confirm(self.deliver())
+        result = store.check(location, self.digest, CFG, self.s3, STS(True), now=NOW+timedelta(days=30))
+        self.assertEqual('READABLE', result['state']); self.assertEqual(4, result['rows'])
+        self.assertTrue(any(key.endswith('/retention_runs.jsonl') for key in self.s3.calls))
+        row[1] = int((NOW+timedelta(hours=73)).timestamp()); path.write_bytes(store.archive.encoded(row))
+        with self.assertRaisesRegex(ValueError, 'future register time'):
+            store.required_until(self.source, CFG, NOW)
+
     def test_issuer_cannot_confirm_or_check_and_wrong_account_cannot_upload(self):
         delivery=self.deliver()
         with self.assertRaises(ValueError):store.confirm(delivery,self.digest,CFG,self.s3,STS(),now=NOW)
@@ -107,6 +132,63 @@ class StoreTests(unittest.TestCase):
         with self.assertRaises(ValueError):store.deliver(self.source,self.digest,CFG,self.s3,STS(True),now=NOW)
         location=self.confirm(delivery)
         with self.assertRaises(ValueError):store.check(location,self.digest,CFG,self.s3,STS(),now=NOW)
+
+    def test_v4_consent_journal_delivery_and_withdrawal_retention_boundary(self):
+        from consent_retention import TABLES
+        from enrollment_policy import canonical
+        baseline=store.required_until(self.source,CFG,NOW)
+        config={'version':1,'reference':'SYNTHETIC_RETENTION_001','regime':'private-beta',
+            'unboundDays':7,'boundDays':7,'protectedReceipts':[]}
+        raw_policy=canonical(config).decode()
+        receipt=['a'*64,'b'*64,'c'*64,int(NOW.timestamp()),'SYNTHETIC_PROOF',int((NOW+timedelta(hours=48)).timestamp())]
+        journal=[1,int((NOW+timedelta(hours=36)).timestamp()),raw_policy,
+            hashlib.sha256(raw_policy.encode()).hexdigest(),canonical(dict.fromkeys(TABLES,0)).decode()]
+        extra={'retention_runs':[],'enrollment_policies':[],'enrollment_consents':[receipt],
+            'credential_consents':[],'consent_retention_runs':[journal]}
+        manifest_path=self.source/'manifest.json';manifest=json.loads(manifest_path.read_bytes())
+        manifest['format']=4
+        for name,values in extra.items():
+            raw=b''.join(store.archive.encoded(row) for row in values)
+            path=self.source/(name+'.jsonl');store.archive.write_file(path,raw)
+            manifest['files'][path.name]={'columns':list(store.archive.TABLES[name]),'rows':len(values),
+                'bytes':len(raw),'sha256':hashlib.sha256(raw).hexdigest()}
+        raw_manifest=store.archive.encoded(manifest);manifest_path.write_bytes(raw_manifest)
+        self.digest=hashlib.sha256(raw_manifest).hexdigest()
+        self.assertGreater(store.required_until(self.source,CFG,NOW),baseline)
+        location=self.confirm(self.deliver())
+        self.assertEqual(5,store.check(location,self.digest,CFG,self.s3,STS(True),now=NOW+timedelta(days=30))['rows'])
+        for name,row,indexes in (('enrollment_consents',receipt,(3,5)),('consent_retention_runs',journal,(1,))):
+            path=self.source/(name+'.jsonl');original=path.read_bytes()
+            for index in indexes:
+                future=list(row);future[index]=int((NOW+timedelta(hours=100)).timestamp())
+                path.write_bytes(store.archive.encoded(future))
+                with self.assertRaisesRegex(ValueError,'future register time'):store.required_until(self.source,CFG,NOW)
+                path.write_bytes(original)
+
+    def test_v5_erasure_journal_delivery_readback_and_time_boundary(self):
+        from erasure_policy import sha256
+        from test_subject_erasure import fixture_decision
+        baseline=store.required_until(self.source,CFG,NOW)
+        config=fixture_decision(['a'*64],at=int(NOW.timestamp()))
+        ident=sha256(config)
+        row=[ident,int((NOW+timedelta(hours=48)).timestamp()),store.archive.encoded(config).decode(),
+             'b'*64,store.archive.encoded({'profiles':1}).decode()]
+        manifest_path=self.source/'manifest.json';manifest=json.loads(manifest_path.read_bytes())
+        manifest['format']=5
+        for name in store.archive.tables('sqlite',5):
+            if name+'.jsonl' in manifest['files']:continue
+            rows=[row] if name=='erasure_runs' else ([['a'*64,ident]] if name=='erasure_subjects' else [])
+            raw=b''.join(store.archive.encoded(value) for value in rows)
+            path=self.source/(name+'.jsonl');store.archive.write_file(path,raw)
+            manifest['files'][path.name]={'columns':list(store.archive.TABLES[name]),'rows':len(rows),
+                'bytes':len(raw),'sha256':hashlib.sha256(raw).hexdigest()}
+        raw=store.archive.encoded(manifest);manifest_path.write_bytes(raw);self.digest=hashlib.sha256(raw).hexdigest()
+        self.assertGreater(store.required_until(self.source,CFG,NOW),baseline)
+        location=self.confirm(self.deliver())
+        self.assertEqual(5,store.check(location,self.digest,CFG,self.s3,STS(True),now=NOW+timedelta(days=30))['rows'])
+        row[1]=int((NOW+timedelta(hours=100)).timestamp())
+        (self.source/'erasure_runs.jsonl').write_bytes(store.archive.encoded(row))
+        with self.assertRaisesRegex(ValueError,'future register time'):store.required_until(self.source,CFG,NOW)
 
     def test_wrong_custodian_role_is_not_accepted(self):
         cfg=CFG|{'custodianRole':'arn:aws:iam::111111111111:role/OtherCustodian'}

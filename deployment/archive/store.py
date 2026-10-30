@@ -103,13 +103,14 @@ def read_private(path, maximum=65536):
 def required_until(source, cfg, now):
     latest = now
     for name, columns in archive.TABLES.items():
-        if name not in ('credentials','events','activation_proposals','operator_events'): continue
+        if name not in ('credentials','events','activation_proposals','operator_events','retention_runs',
+                        'enrollment_consents','consent_retention_runs','erasure_runs'): continue
         path = Path(source)/(name+'.jsonl')
         if not path.exists(): continue
         with path.open('rb') as stream:
             for line in stream:
                 row = dict(zip(columns, archive.decode(line)))
-                for field in ('created','expires','approved_at','time'):
+                for field in ('created','expires','approved_at','time','accepted','withdrawn'):
                     value = row.get(field)
                     if value is None: continue
                     instant = datetime.fromtimestamp(value, UTC) if type(value) is int else timestamp(value)
@@ -192,7 +193,8 @@ def validate_delivery(value, manifest_sha, cfg):
             or type(value['format']) is not int or value['format'] != 1 or value['kind'] != 'DELIVERY'
             or value['manifestSha256'] != digest(manifest_sha) or value['bucket'] != cfg['bucket']
             or value['owner'] != cfg['owner'] or not re.fullmatch('[a-f0-9]{32}',value['transfer'])
-            or type(value['files']) is not dict or not 4 <= len(value['files']) <= 6
+            or type(value['files']) is not dict
+            or not 4 <= len(value['files']) <= 1+max(len(archive.tables(backend,5)) for backend in ('sqlite','postgresql'))
             or 'manifest.json' not in value['files']):
         raise ValueError('delivery binding')
     timestamp(value['retainUntil'])

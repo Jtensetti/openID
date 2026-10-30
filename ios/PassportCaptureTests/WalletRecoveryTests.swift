@@ -5,11 +5,13 @@ import LocalAuthentication
 @MainActor final class WalletRecoveryTests: XCTestCase {
     private let credential = LocalCredential(id: String(repeating: "a", count: 64), wrappedKey: Data([1]), publicKey: Data([2]))
     private let proofAccount = "revocation-" + String(repeating: "a", count: 64)
+    private let receiptAccount = "enrollment-" + String(repeating: "a", count: 64)
 
     private func prepared(state: CredentialState? = nil, confirmed: Bool = false) throws -> (WalletModel, RecoveryVault) {
         let vault = RecoveryVault()
         try vault.save(credential, account: "credential")
         try vault.save("synthetic-revocation-proof", account: proofAccount)
+        try vault.save("synthetic-enrollment-receipt", account: receiptAccount)
         let model = WalletModel(vault: vault)
         model.configureRecoveryPreview(credential: credential, state: state,
             statusError: state == nil ? URLError(.timedOut) : nil, confirmedRevocation: confirmed)
@@ -56,6 +58,7 @@ import LocalAuthentication
         XCTAssertEqual(model.credential?.id, credential.id)
         XCTAssertNotNil(vault.data[proofAccount])
         XCTAssertNotNil(vault.data["credential"])
+        XCTAssertNotNil(vault.data[receiptAccount])
         XCTAssertTrue(model.canForgetCredential)
         XCTAssertFalse(model.canResumeRegistration)
     }
@@ -67,6 +70,7 @@ import LocalAuthentication
         try model.forgetRevokedCredential()
         XCTAssertNil(model.credential)
         XCTAssertNil(vault.data["credential"])
+        XCTAssertNil(vault.data[receiptAccount])
         XCTAssertNil(model.snapshot)
         XCTAssertNil(model.statusMessage)
         XCTAssertEqual(model.selectedTab, 0)
@@ -89,7 +93,7 @@ import LocalAuthentication
         XCTAssertFalse(model.busy)
         try model.forgetRevokedCredential()
         XCTAssertNil(model.confirmedRevocationID)
-        XCTAssertEqual(vault.removed, ["credential", proofAccount])
+        XCTAssertEqual(vault.removed, ["credential", proofAccount, receiptAccount])
         model.beginRegistration()
         XCTAssertTrue(model.registrationPresented)
         XCTAssertEqual(vault.created, 1)

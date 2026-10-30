@@ -14,6 +14,15 @@ import subprocess
 
 FIELDS = {'givenNames', 'familyName', 'birthDateMrz', 'nationality', 'issuingState', 'documentNumber', 'documentExpires'}
 
+
+def sqlite_key_history(db):
+    """Retained HMAC links and sealed values require the original pilot key."""
+    names = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    return any(db.execute('SELECT 1 FROM '+name+' LIMIT 1').fetchone() for name in
+        ('profiles', 'persons', 'document_links', 'retired_documents', 'biometric_failures',
+         'security_codes', 'revocation_codes') if name in names)
+
+
 @dataclass(frozen=True)
 class VerifiedDocument:
     portrait: bytes
@@ -62,15 +71,8 @@ class VerifiedDocument:
         return cls(portrait, dict(identity), status, valid_until)
 
     def profile(self):
-        import cv2
-        import numpy as np
-        image = cv2.imdecode(np.frombuffer(self.portrait, dtype=np.uint8), cv2.IMREAD_COLOR)
-        if image is None or max(image.shape[:2]) > 8000: raise ValueError('portrait')
-        height, width = image.shape[:2]
-        scale = min(1, 224 / max(height, width))
-        image = cv2.resize(image, (max(1, round(width*scale)), max(1, round(height*scale))))
-        success, encoded = cv2.imencode('.jpg', image, [cv2.IMWRITE_JPEG_QUALITY, 75])
-        if not success or len(encoded) > 24_000: raise ValueError('portrait size')
+        from profile_worker import thumbnail
+        encoded = thumbnail(self.portrait)
         return {k: v for k, v in self.identity.items() if k != 'documentNumber'} | {
             'displayName': ' '.join(filter(None, (self.identity['givenNames'], self.identity['familyName']))),
             'portraitJpeg': base64.b64encode(encoded).decode()}

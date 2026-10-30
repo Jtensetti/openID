@@ -81,6 +81,59 @@ class FaceTests(unittest.TestCase):
             with self.subTest(size=len(image)), self.assertRaises(FaceRejected):
                 self.matcher.feature(image)
 
+    def test_other_formats_never_reach_native_decoder(self):
+        pixels = np.zeros((100, 100, 3), dtype=np.uint8)
+        # Real valid files that OpenCV would otherwise decode successfully.
+        for extension in ('.png', '.bmp', '.tiff', '.webp', '.ppm'):
+            encoded = cv2.imencode(extension, pixels)[1].tobytes()
+            self.assertIsNotNone(cv2.imdecode(np.frombuffer(encoded, np.uint8), cv2.IMREAD_COLOR))
+            with self.subTest(extension=extension), patch('face.cv2.imdecode') as decode:
+                with self.assertRaisesRegex(FaceRejected, '^IMAGE_REJECTED$'):
+                    self.matcher.decode_face(encoded)
+                decode.assert_not_called()
+        # Other common signatures and a marker embedded after a different header.
+        for encoded in (b'\x76\x2f\x31\x01EXR', b'GIF89a', b'%PDF-1.7',
+                        b'\x89PNG\r\n\x1a\n\xff\xd8\xff', b'prefix\xff\x4f\xff\x51'):
+            with self.subTest(encoded=encoded), patch('face.cv2.imdecode') as decode:
+                with self.assertRaisesRegex(FaceRejected, '^IMAGE_REJECTED$'):
+                    self.matcher.decode_face(encoded)
+                decode.assert_not_called()
+
+    def test_jpeg_and_both_jpeg2000_encodings_reach_face_validation(self):
+        # Generated pixels only; exercise the actual codecs, not a decoder mock.
+        pixels = np.full((100, 100, 3), 127, dtype=np.uint8)
+        jpeg = cv2.imencode('.jpg', pixels)[1].tobytes()
+        jp2 = cv2.imencode('.jp2', pixels, [cv2.IMWRITE_JPEG2000_COMPRESSION_X1000, 1000])[1].tobytes()
+        # Extract the raw codestream from the generated JP2 container.
+        position = 0
+        codestream = None
+        while position + 8 <= len(jp2):
+            size = int.from_bytes(jp2[position:position+4], 'big')
+            self.assertGreaterEqual(size, 8)
+            self.assertLessEqual(position + size, len(jp2))
+            if jp2[position+4:position+8] == b'jp2c':
+                codestream = jp2[position+8:position+size]
+                break
+            position += size
+        self.assertIsNotNone(codestream)
+        self.assertTrue(codestream.startswith(b'\xff\x4f\xff\x51'))
+        matcher = FaceMatcher.__new__(FaceMatcher)
+        matcher.detector = Mock()
+        matcher.detector.detect.return_value = (0, None)
+        for encoded in (jpeg, jp2, codestream):
+            with self.subTest(header=encoded[:12]):
+                with self.assertRaisesRegex(FaceRejected, '^EXACTLY_ONE_FACE_REQUIRED$'):
+                    matcher.decode_face(encoded)
+        self.assertEqual(3, matcher.detector.detect.call_count)
+
+    def test_allowed_signature_does_not_make_corrupt_image_valid(self):
+        matcher = FaceMatcher.__new__(FaceMatcher)
+        matcher.detector = Mock()
+        for encoded in (b'\xff\xd8\xff', b'\x00\x00\x00\x0cjP  \r\n\x87\n', b'\xff\x4f\xff\x51'):
+            with self.subTest(header=encoded), self.assertRaisesRegex(FaceRejected, '^IMAGE_REJECTED$'):
+                matcher.decode_face(encoded)
+        matcher.detector.detect.assert_not_called()
+
     def test_modified_model_refused_before_loading(self):
         with tempfile.TemporaryDirectory() as directory:
             (Path(directory)/next(iter(MODELS))).write_bytes(b'wrong model')

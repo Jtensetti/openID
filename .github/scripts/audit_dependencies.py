@@ -43,6 +43,11 @@ def inventory(root):
             name, version = match.groups()
             for value in {version, version.split('+')[0]}:
                 add({'package': {'ecosystem': 'PyPI', 'name': name}, 'version': value}, source)
+    source, raw = read(root/'deployment/build/python-runtime.lock.json')
+    bootstrap = json.loads(raw)['pip']
+    if not re.fullmatch(r'[0-9]+(?:\.[0-9]+){1,2}', bootstrap['version']) or not re.fullmatch(r'[a-f0-9]{64}', bootstrap['sha256']):
+        raise ValueError('unpinned Python bootstrap tool')
+    add({'package': {'ecosystem': 'PyPI', 'name': 'pip'}, 'version': bootstrap['version']}, source)
     for directory in ('prototype', 'verification'):
         source, raw = read(root/directory/'package-lock.json')
         packages = json.loads(raw)['packages']

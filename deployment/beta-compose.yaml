@@ -1,11 +1,11 @@
 name: openid-beta
 x-service: &service
-  image: openid-pilot:beta
+  image: ${OPENID_BETA_IMAGE_ID:?Set OPENID_BETA_IMAGE_ID to the verified sha256 image ID}
   network_mode: host
   user: "10001:10001"
   read_only: true
   cap_drop: [ALL]
-  security_opt: [no-new-privileges:true]
+  security_opt: ["no-new-privileges:true"]
   init: true
   restart: unless-stopped
   pids_limit: 128
@@ -20,7 +20,6 @@ services:
     cpus: 2
     stop_grace_period: 70s
     volumes:
-      - ./probe.py:/app/verification/probe.py:ro
       - ${OPENID_BETA_DIRECTORY:?Set OPENID_BETA_DIRECTORY}/runtime.json:/srv/openid/runtime.json:ro
       - ${OPENID_BETA_DIRECTORY}/secrets:/srv/openid/secrets:ro
       - ${OPENID_BETA_DIRECTORY}/data:/srv/openid/data
@@ -34,8 +33,6 @@ services:
     volumes:
       - ${OPENID_BETA_DIRECTORY}/data:/srv/openid/data
       - ${OPENID_BETA_DIRECTORY}/origins.json:/srv/openid/origins.json:ro
-      - ../verification/federation.py:/app/verification/federation.py:ro
-      - ./saml_bridge.py:/app/verification/saml_bridge.py:ro
   idp:
     <<: *service
     mem_limit: 640m

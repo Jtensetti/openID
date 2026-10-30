@@ -10,3 +10,15 @@
 !deployment/cluster/probe.py
 !deployment/cluster/schema.sql
 !deployment/cluster/Dockerfile
+!deployment/build/
+!deployment/build/patch_debian.py
+!deployment/build/file_privileges.py
+!deployment/build/debian-runtime.lock.json
+!deployment/build/build_python.sh
+!deployment/build/python-runtime.lock.json
+!deployment/build/licenses/
+!deployment/build/licenses/docker-library-python-LICENSE.txt
+!deployment/build/install_build_pip.py
+!deployment/build/remove_build_pip.py
+!deployment/build/patch_python_test.py
+!deployment/build/python-wheels.lock.json

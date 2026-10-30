@@ -20,9 +20,11 @@ from transit import TransitVault
 
 
 SCHEMA = Path(__file__).parents[1] / 'deployment/cluster/schema.sql'
-TABLES = ('credentials', 'persons', 'profiles', 'requests', 'federation_requests',
+TABLES = ('credentials', 'persons', 'credential_persons', 'profiles', 'requests', 'federation_requests',
           'events', 'challenges', 'pairwise_subjects', 'activation_proposals',
-          'operator_events', 'maintenance_runs', 'biometric_attempts', 'security_codes', 'enrollment_quarantine')
+          'operator_events', 'maintenance_runs', 'biometric_attempts', 'security_codes', 'enrollment_quarantine',
+          'enrollment_policies', 'enrollment_consents', 'credential_consents', 'consent_retention_runs',
+          'erasure_runs', 'erasure_subjects')
 MAX_BYTES = 10 * 1024 ** 3
 DEADLINE = 1800
 
@@ -44,7 +46,8 @@ def private_dir(path):
 
 
 def open_data(directory_fd, name):
-    fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=directory_fd)
+    # Type checks must run even if an input was replaced by a FIFO.
+    fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory_fd)
     stream = os.fdopen(fd, 'rb')
     info = os.fstat(fd)
     if (not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077
@@ -77,7 +80,7 @@ def backup(dsn, destination, *, local_test=False, max_bytes=MAX_BYTES):
     try:
         with psycopg.connect(**options(dsn, local_test)) as db:
             db.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
-            if db.info.server_version // 10000 != 18 or db.execute('SELECT version FROM openid.schema_version').fetchall() != [(2,)]:
+            if db.info.server_version // 10000 != 18 or db.execute('SELECT version FROM openid.schema_version').fetchall() != [(7,)]:
                 raise ValueError('unsupported register version')
             for table in TABLES:
                 digest = hashlib.sha256()
@@ -149,7 +152,13 @@ def read_backup(source, stack, deadline, max_bytes):
     return manifest, streams
 
 
-def restore(admin_dsn, source, target, vault, *, local_test=False, max_bytes=MAX_BYTES):
+def restore(admin_dsn, source, target, vault, *, local_test=False, max_bytes=MAX_BYTES,
+            erasure_ledger=None, erasure_ledger_sha256=None):
+    from erasure_policy import read_ledger
+    from subject_erasure import replay_in_transaction
+    if erasure_ledger is None or erasure_ledger_sha256 is None:
+        raise ValueError('current detached erasure ledger and anchor required')
+    decisions = read_ledger(erasure_ledger, erasure_ledger_sha256)
     if not re.fullmatch('openid_restore_[a-z0-9_]{1,40}', target):
         raise ValueError('new database name must start with openid_restore_')
     deadline = time.monotonic() + DEADLINE
@@ -183,7 +192,11 @@ def restore(admin_dsn, source, target, vault, *, local_test=False, max_bytes=MAX
                                 copy.write(chunk)
                         if cursor.rowcount != manifest['tables'][table]['rows'] or digest.hexdigest() != manifest['tables'][table]['sha256']:
                             raise ValueError('backup changed during restore')
-                for table in ('events', 'operator_events'):
+                # COPY invokes the profile trigger. Missing link rows must not
+                # be silently reconstructed from a damaged backup's profiles.
+                if db.execute('SELECT count(*) FROM openid.credential_persons').fetchone()[0] != manifest['tables']['credential_persons']['rows']:
+                    raise ValueError('backup registration links incomplete')
+                for table in ('events', 'operator_events', 'consent_retention_runs'):
                     db.execute(sql.SQL("SELECT setval(pg_get_serial_sequence(%s,'id'),coalesce(max(id),1),count(*)>0) FROM openid.{}").format(sql.Identifier(table)), ('openid.' + table,))
                 db.execute('SELECT openid.revoke_all_after_restore()')
                 db.execute('ALTER TABLE openid.credentials ENABLE TRIGGER credential_guard')
@@ -197,11 +210,14 @@ def restore(admin_dsn, source, target, vault, *, local_test=False, max_bytes=MAX
                         checked += 1
                 if db.execute("SELECT count(*) FROM openid.credentials WHERE state!='REVOKED'").fetchone()[0]:
                     raise ValueError('restore revocation failed')
+                replayed = replay_in_transaction(db, 'postgresql', decisions, end=deadline)
         finally:
             # Both success and failure leave the new database closed to all connections.
             # Its ACL also blocks service logins if the administrative connection is interrupted.
             admin.execute(sql.SQL('ALTER DATABASE {} ALLOW_CONNECTIONS false').format(sql.Identifier(target)))
-    return {'state': 'QUARANTINED', 'profilesChecked': checked}
+    return {'state': 'QUARANTINED', 'profilesChecked': checked,
+            'erasureDecisionsChecked': len(replayed), 'erasureLedgerSHA256': erasure_ledger_sha256,
+            'retentionReviewsRequired': sum(len(r['retentionReviewRequired']) for r in replayed)}
 
 
 def main():
@@ -215,6 +231,8 @@ def main():
     recover.add_argument('--backup', required=True)
     recover.add_argument('--target', required=True)
     recover.add_argument('--key-config', required=True)
+    recover.add_argument('--erasure-ledger', required=True)
+    recover.add_argument('--erasure-ledger-sha256', required=True)
     args = parser.parse_args()
     if args.operation == 'backup':
         result = backup(private_file(args.database_file).decode().strip(), args.destination)
@@ -223,7 +241,8 @@ def main():
         if set(config) != {'baoAddress', 'baoTokenFile', 'baoCA'}:
             raise ValueError('key configuration')
         vault = TransitVault(config['baoAddress'], config['baoTokenFile'], config['baoCA'])
-        result = restore(private_file(args.admin_file).decode().strip(), args.backup, args.target, vault)
+        result = restore(private_file(args.admin_file).decode().strip(), args.backup, args.target, vault,
+            erasure_ledger=args.erasure_ledger, erasure_ledger_sha256=args.erasure_ledger_sha256)
     print(json.dumps(result))
 
 

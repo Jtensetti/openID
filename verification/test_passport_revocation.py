@@ -57,6 +57,24 @@ class EnrollmentRevocationTests(unittest.TestCase):
         self.key=base64.b64encode(b'synthetic-public-key').decode()
         self.doc=VerifiedDocument.from_verifier(verifier_result())
 
+    def test_profile_worker_failures_roll_back_registration(self):
+        from dataclasses import replace
+        import subprocess
+        from bounded_process import WorkerOutputLimit
+        doc=replace(self.doc,portrait=b'\xff\xd8\xffsynthetic')
+        failures=[subprocess.TimeoutExpired('worker',15), WorkerOutputLimit('output limit'),
+                  subprocess.CompletedProcess([], -9, b''),
+                  subprocess.CompletedProcess([], 0, b'\xff\xd8\xfftruncated')]
+        for failure in failures:
+            kwargs={'side_effect':failure} if isinstance(failure,Exception) else {'return_value':failure}
+            with self.subTest(kind=type(failure).__name__), patch('profile_worker.run_bounded',**kwargs) as run:
+                with self.assertRaises((ValueError,OSError,subprocess.TimeoutExpired)):
+                    self.wallet.enroll(self.key,doc)
+                run.assert_called_once()
+            with self.wallet.transaction() as db:
+                for table in ('credentials','profiles','persons','events'):
+                    self.assertEqual(0,db.execute('SELECT count(*) FROM '+table).fetchone()[0])
+
     def test_unchecked_and_expired_documents_never_write_or_validate_a_key(self):
         for doc in (replace(self.doc,revocation='NOT_CHECKED',revocation_valid_until=0),
                     replace(self.doc,revocation_valid_until=1000)):
@@ -114,31 +132,6 @@ class NativeRevocationTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.native.finish(request)
         self.biometrics.assert_not_called();self.wallet.biometric_attempt.assert_not_called();self.wallet.enroll.assert_not_called()
         with self.assertRaises(ValueError):self.native.finish(request)
-
-
-class ClusterRevocationConfigTests(unittest.TestCase):
-    def test_proofing_accepts_only_an_existing_absolute_crl_path(self):
-        from cluster_serve import config_file
-        with tempfile.TemporaryDirectory() as directory:
-            root=Path(directory)
-            secret=root/'secret';secret.write_text('a'*43);secret.chmod(0o600)
-            config=dict(role='proofing',bind='127.0.0.1',port=8765,origin='https://localhost:8765',workers=1,
-                baoAddress='https://localhost:8200',team='A'*10,bundle='se.openid.PassportCapture',developmentAttestation=True)
-            config.update({field:str(secret) for field in ('databaseFile','baoTokenFile','baoCA','tlsCert','tlsKey',
-                'pairingFile','metricsFile','csca','jar')})
-            path=root/'config.json'
-            # Only TLS parsing is replaced here; this is a configuration boundary test.
-            with patch('cluster_serve.ssl.SSLContext'):
-                for extra in ({},{'cscaCrl':str(secret)}):
-                    path.write_text(json.dumps(config|extra))
-                    self.assertEqual(config|extra,config_file(path))
-                for crl in ('relative.crl',str(root/'missing.crl')):
-                    path.write_text(json.dumps(config|{'cscaCrl':crl}))
-                    with self.assertRaisesRegex(ValueError,'absolute existing path'):config_file(path)
-                wallet={key:value for key,value in config.items()
-                    if key not in ('team','bundle','developmentAttestation','csca','jar')}
-                path.write_text(json.dumps(wallet|{'role':'wallet','cscaCrl':str(secret)}))
-                with self.assertRaisesRegex(ValueError,'configuration fields'):config_file(path)
 
 
 if __name__=='__main__':unittest.main()

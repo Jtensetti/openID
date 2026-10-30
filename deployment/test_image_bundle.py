@@ -1,11 +1,36 @@
 """Reject untrusted, damaged or mismatched bundles before changing Docker."""
+from datetime import datetime, timezone
+from copy import deepcopy
 import json
 from pathlib import Path
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import image_bundle as bundle
+
+
+def beta_configuration(image):
+    paths = {
+        "verifier": [("runtime.json", True), ("secrets", True), ("data", False), ("continuity.json", True)],
+        "bridge": [("data", False), ("origins.json", True), ("continuity.json", True)],
+        "idp": [("data", False), ("federation", False), ("origins.json", True)],
+        "sp": [("data", False), ("federation", True), ("origins.json", True)],
+        "notice-exporter": [("data", False), ("continuity.json", True)],
+    }
+    return {"services": {name: {"image": image, "read_only": True, "tmpfs": ["/tmp:size=16m"],
+        "volumes": [{"type": "bind", "source": "/private/" + path,
+                     "target": "/srv/openid/" + path, "read_only": readonly}
+                    for path, readonly in mounts]} for name, mounts in paths.items()}}
+
+
+def running_containers(config):
+    return [{"Config": {"Image": s["image"], "Labels": {"com.docker.compose.service": name}},
+             "Image": s["image"], "State": {"Running": True},
+             "HostConfig": {"ReadonlyRootfs": s["read_only"], "Tmpfs": {"/tmp": "size=16m"}},
+             "Mounts": [{"Type": v["type"], "Destination": v["target"], "RW": not v["read_only"]}
+                        for v in s["volumes"]]} for name, s in config["services"].items()]
 
 
 class BundleTests(unittest.TestCase):
@@ -22,12 +47,43 @@ class BundleTests(unittest.TestCase):
         (self.root / "python-packages.json").write_text("{}")
         (self.root / "image.tar.gz").write_bytes(b"synthetic unit-test payload")
         (self.root / "source.tar.gz").write_bytes(b"synthetic source payload")
+        now = datetime.now(timezone.utc).isoformat()
         self.data = {
-            "schema": bundle.SCHEMA, "source": {"revision": self.revision, "tree": "b" * 40},
+            "schema": bundle.SCHEMA, "createdAt": now,
+            "source": {"revision": self.revision, "tree": "b" * 40},
             "image": {"id": "sha256:" + "c" * 64, "tag": "openid-pilot:commit-" + self.revision,
                       "sizeBytes": 1024, "platform": "linux/amd64"},
             "files": {}, "productionApproved": False}
+        self.assessment = {"format": 1, "complete": True, "passed": True,
+                           "checkedAt": now, "imageID": self.data["image"]["id"],
+                           "sourceRevision": self.revision, "scannerVersion": "0.76.1",
+                           "packageCount": 1, "findingCount": 0, "uniqueAdvisoryCount": 0,
+                           "databaseSha256": "f" * 64}
+        os_files = {
+            "database-metadata.json": {"Version": 2, "UpdatedAt": now, "DownloadedAt": now},
+            "os-sbom.cdx.json": {"bomFormat": "CycloneDX", "metadata": {
+                "component": {"type": "container", "name": self.data["image"]["id"]}}, "components": [
+                {"name": "synthetic", "version": "1", "type": "library"}]},
+            "scanner-lock.json": {"version": "0.76.1"},
+            "scanner-sbom.json": {"components": [{"name": "scanner"}]},
+            "system-packages.tsv": "synthetic\t1\tamd64\tinstalled\n",
+            "trivy-os.json": {"SchemaVersion": 2, "CreatedAt": now,
+                              "ArtifactType": "container_image", "Metadata": {"ImageID": self.data["image"]["id"],
+                              "OS": {"Family": "debian", "Name": "13.7"}},
+                              "Trivy": {"Version": "0.76.1"}, "Results": [{"Class": "os-pkgs",
+                              "Type": "debian", "Packages": [{"Name": "synthetic", "Version": "1",
+                              "Arch": "amd64"}], "Vulnerabilities": []}]},
+        }
+        for name, value in os_files.items():
+            (self.root / ("os-" + name)).write_text(value if isinstance(value, str) else json.dumps(value))
+        self.seal_os()
         self.seal()
+
+    def seal_os(self):
+        self.assessment["scannerLockSha256"] = bundle.digest(self.root / "os-scanner-lock.json")
+        self.assessment["files"] = {name: bundle.digest(self.root / ("os-" + name))
+                                     for name in bundle.OS_FILES if name != "assessment.json"}
+        (self.root / "os-assessment.json").write_text(json.dumps(self.assessment))
 
     def seal(self):
         self.data["files"] = {n: {"sha256": bundle.digest(self.root / n),
@@ -70,6 +126,131 @@ class BundleTests(unittest.TestCase):
         (self.root / "image.tar.gz").unlink()
         with self.assertRaisesRegex(ValueError, "Invalid payload"):
             self.verify()
+
+    def test_os_evidence_cannot_be_omitted_or_resealed_with_wrong_image(self):
+        (self.root / "os-assessment.json").unlink()
+        with self.assertRaisesRegex(ValueError, "Invalid payload"):
+            self.verify()
+        self.assessment["imageID"] = "sha256:" + "d" * 64
+        self.seal_os(); self.seal()
+        with self.assertRaisesRegex(ValueError, "passing OS assessment"):
+            self.verify()
+
+    def test_stale_or_failed_os_audit_blocks_even_when_manifest_is_resealed(self):
+        for change in ({"passed": False}, {"complete": False}, {"findingCount": 1},
+                       {"checkedAt": "2020-01-01T00:00:00+00:00"}):
+            with self.subTest(change=change):
+                original = dict(self.assessment)
+                self.assessment.update(change)
+                self.seal_os(); self.seal()
+                with self.assertRaises(ValueError): self.verify()
+                self.assessment = original
+
+    def test_os_scan_cannot_hide_finding_with_resealed_manifest(self):
+        path = self.root / "os-trivy-os.json"
+        scan = json.loads(path.read_text())
+        scan["Results"][0]["Vulnerabilities"] = [{"VulnerabilityID": "TEST"}]
+        path.write_text(json.dumps(scan)); self.seal_os(); self.seal()
+        with self.assertRaisesRegex(ValueError, "scanner report"):
+            self.verify()
+
+    def test_os_package_mismatch_and_stale_database_are_rejected(self):
+        inventory = self.root / "os-system-packages.tsv"
+        inventory.write_text("different\t1\tamd64\tinstalled\n")
+        self.seal_os(); self.seal()
+        with self.assertRaisesRegex(ValueError, "package inventory"):
+            self.verify()
+        inventory.write_text("synthetic\t1\tamd64\tinstalled\n")
+        metadata = self.root / "os-database-metadata.json"
+        data = json.loads(metadata.read_text()); data["UpdatedAt"] = "2020-01-01T00:00:00+00:00"
+        metadata.write_text(json.dumps(data)); self.seal_os(); self.seal()
+        with self.assertRaisesRegex(ValueError, "database was not current"):
+            self.verify()
+
+    def test_os_sbom_must_cover_installed_packages(self):
+        path = self.root / "os-os-sbom.cdx.json"
+        data = json.loads(path.read_text()); data["components"][0]["version"] = "2"
+        path.write_text(json.dumps(data)); self.seal_os(); self.seal()
+        with self.assertRaisesRegex(ValueError, "SBOM does not cover"):
+            self.verify()
+        data["components"][0]["version"] = "1"
+        data["metadata"]["component"]["name"] = "sha256:" + "d" * 64
+        path.write_text(json.dumps(data)); self.seal_os(); self.seal()
+        with self.assertRaisesRegex(ValueError, "SBOM does not cover"):
+            self.verify()
+
+    def test_package_refuses_failed_os_before_tag_or_export(self):
+        audit = self.root / "audit"
+        audit.mkdir()
+        for name in bundle.OS_FILES:
+            (audit / name).write_bytes((self.root / ("os-" + name)).read_bytes())
+        data = json.loads((audit / "assessment.json").read_text())
+        data["passed"] = False
+        (audit / "assessment.json").write_text(json.dumps(data))
+        inspect = json.dumps([{"Os": "linux", "Architecture": "amd64",
+                               "Id": self.data["image"]["id"], "Size": 1024}])
+        args = SimpleNamespace(protocol=self.root / "protocol-results.json", image="synthetic:ci",
+                               os_audit=audit, output=self.root / "export")
+        with patch.object(bundle, "run", side_effect=[self.revision, "b" * 40, "", inspect]), \
+                patch.object(bundle.subprocess, "run") as docker, \
+                self.assertRaisesRegex(ValueError, "passing OS assessment"):
+            bundle.package(args)
+        docker.assert_not_called()
+        self.assertFalse((args.output / "manifest.json").exists())
+
+    def test_beta_running_requires_exact_pinned_image_for_every_service(self):
+        image = self.data["image"]["id"]
+        containers = running_containers(beta_configuration(image))
+        ids = "\n".join(str(i) for i in range(len(containers)))
+        with patch.object(bundle, "run", side_effect=[ids, json.dumps(containers)]):
+            bundle.check_beta_running(image)
+        containers[0]["Config"]["Image"] = "openid-pilot:beta"
+        with patch.object(bundle, "run", side_effect=[ids, json.dumps(containers)]), \
+                self.assertRaisesRegex(ValueError, "mutable tag"):
+            bundle.check_beta_running(image)
+        containers[0]["Config"]["Image"] = image
+        containers[0]["Image"] = "sha256:" + "d" * 64
+        with patch.object(bundle, "run", side_effect=[ids, json.dumps(containers)]), \
+                self.assertRaisesRegex(ValueError, "image drift"):
+            bundle.check_beta_running(image)
+        with patch.object(bundle, "run", side_effect=[ids, json.dumps(containers[:-1])]), \
+                self.assertRaisesRegex(ValueError, "service set"):
+            bundle.check_beta_running(image)
+
+    def test_compose_rejects_code_mounts_even_read_only_and_other_overlay_forms(self):
+        image = self.data["image"]["id"]
+        good = beta_configuration(image)
+        bundle.check_beta_compose(good, image)
+        for target in ("/", "/app", "/app/verification/federation.py", "/usr/local/lib/python3.12"):
+            for readonly in (True, False):
+                with self.subTest(target=target, readonly=readonly):
+                    config = deepcopy(good)
+                    config["services"]["bridge"]["volumes"].append(
+                        {"type": "bind", "source": "/private/override", "target": target, "read_only": readonly})
+                    with self.assertRaisesRegex(ValueError, "code overrides"):
+                        bundle.check_beta_compose(config, image)
+        for key, value in (("tmpfs", ["/app:size=16m"]), ("configs", [{"source": "code", "target": "/app/code.py"}]),
+                           ("secrets", [{"source": "code", "target": "/app/code.py"}]), ("volumes_from", ["other"]),
+                           ("build", "."), ("read_only", False), ("image", "openid-pilot:beta")):
+            with self.subTest(key=key):
+                config = deepcopy(good); config["services"]["bridge"][key] = value
+                with self.assertRaises(ValueError): bundle.check_beta_compose(config, image)
+
+    def test_running_check_rejects_code_override_and_writable_configuration(self):
+        image = self.data["image"]["id"]
+        good = running_containers(beta_configuration(image))
+        ids = "\n".join(str(i) for i in range(len(good)))
+        for change in ("code", "writable_config", "writable_root", "tmpfs", "missing_mount", "named_volume"):
+            with self.subTest(change=change):
+                containers = deepcopy(good); c = containers[0]
+                if change == "code": c["Mounts"].append({"Type": "bind", "Destination": "/app/verification/probe.py", "RW": False})
+                elif change == "writable_config": c["Mounts"][0]["RW"] = True
+                elif change == "writable_root": c["HostConfig"]["ReadonlyRootfs"] = False
+                elif change == "tmpfs": c["HostConfig"]["Tmpfs"]["/app"] = "size=16m"
+                elif change == "missing_mount": c["Mounts"].pop()
+                elif change == "named_volume": c["Mounts"][0]["Type"] = "volume"
+                with patch.object(bundle, "run", side_effect=[ids, json.dumps(containers)]), self.assertRaises(ValueError):
+                    bundle.check_beta_running(image)
 
     def test_symlink_payload(self):
         (self.root / "image.tar.gz").rename(self.root / "external")

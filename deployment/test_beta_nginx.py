@@ -154,6 +154,9 @@ with tempfile.TemporaryDirectory(prefix='openid-ingress-') as temporary:
         assert request('/wallet', host='api.openid.tensetti.io')[0] == 404
         assert request('/wallet/challenge', host='api.openid.tensetti.io')[0] == 403
         assert request('/wallet/challenge', body=b'{}', host='api.openid.tensetti.io')[0] == 200
+        for route in ('notice','consent','withdraw'):
+            assert request('/native/'+route,authenticated=False,body=b'{}',host='api.openid.tensetti.io')[0] == 200
+            assert request('/native/'+route+'/extra',authenticated=False,body=b'{}',host='api.openid.tensetti.io')[0] == 404
         # The API's dedicated header must replace attacker input with exactly the
         # actual socket peer. Ordinary Forwarded headers remain stripped.
         for spoof in ({}, {'X-OpenID-Client-IP':'198.51.100.9'},

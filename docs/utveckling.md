@@ -67,7 +67,7 @@ undantag för fynd.
 Dependabot föreslår uppdateringar enligt [konfigurationen](../.github/dependabot.yml).
 En föreslagen version behöver granskas och provas innan den förs in.
 OSV:s täckning omfattar inte alla OS-lager, modeller och byggverktyg; se
-[säkerhetsinformationen](../SECURITY.md#kända-begränsningar-och-separata-utkast).
+[säkerhetsinformationen](../SECURITY.md#kända-begränsningar).
 
 CI-artefakter har begränsad retention och är inte långtidsarkiv.
 Bevara nödvändiga leveransunderlag separat. Undvik dubbla omkörningar;

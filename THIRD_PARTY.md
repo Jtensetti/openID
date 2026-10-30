@@ -111,12 +111,18 @@ SBOM hämtar licensdeklarationer från Maven-POM:er. Filgranskningen fann:
 
 ## Driftimage
 
-`ops/Dockerfile` låser Temurin **21.0.12.1+1** på Ubuntu Noble med image-digests.
+`ops/Dockerfile` använder Temurin **21.0.13+9** från samma kontrollerade
+Linux x64-arkiv och SBOM som beskrivs nedan. Hela JDK-/JRE-katalogen ersätts;
+den tidigare Java-installationen används inte av den slutliga containern.
+Ubuntu Noble-lagren är fortsatt låsta till de tidigare image-digests som
+levererades med Temurin 21.0.12.1+1. Detta är inte en full OS-uppdatering.
 Docker Hubs official-images-manifest kopplade taggarna till
 [adoptium/containers@511f9356dc4d50932a0a5f8cfb0f87ed1aef4f07](https://github.com/adoptium/containers/tree/511f9356dc4d50932a0a5f8cfb0f87ed1aef4f07).
 Dockerfile-källan är Apache-2.0. JDK/JRE har GPL-2.0 med Classpath Exception
 och separata licenser i `legal/`; Ubuntu-paketens licenser finns i
-`/usr/share/doc`. Dessa bevaras i basimagen och täcks inte av Maven-SBOM.
+`/usr/share/doc`. De nya JRE-licenserna och OS-licenserna bevaras och täcks
+inte av Maven-SBOM. Kandidaten är begränsad till Linux/amd64; Compose väljer
+den plattformen även på Apple Silicon.
 
 Imagen bygger endast `ops/src/SealedEnvironment.java`. Verifierare,
 Sweden Connect, identitetsdatabas och testnycklar ingår inte.
@@ -130,6 +136,177 @@ distribueras. Ramverket följer iOS och Apples SDK-villkor; Xcode är låst till
 [ansiktsrutor](https://developer.apple.com/documentation/vision/vndetectfacerectanglesrequest),
 [huvudvinkel](https://developer.apple.com/documentation/vision/vnfaceobservation/yaw) och
 [fångstkvalitet](https://developer.apple.com/documentation/vision/vndetectfacecapturequalityrequest).
+
+## Byggkontroll av systempaket
+
+Trivy **0.76.1**, källrevision
+`e713f67f7d54decdcd9b3132c9751833dcced698`, används endast i de isolerade
+pilot- och registerbyggena. Ursprung är [Aqua Securitys officiella repo](https://github.com/aquasecurity/trivy).
+Distribution och upstream-SBOM låses med SHA-256 i
+[trivy.lock.json](deployment/build/trivy.lock.json). Projektet är aktivt
+underhållet vid kontrollen 2026-10-26; releasen publicerades 2026-10-21.
+[Apache-2.0](deployment/build/licenses/Trivy-LICENSE.txt) och
+[NOTICE](deployment/build/licenses/Trivy-NOTICE.txt) bevaras oförändrade.
+Verktyget eller dess Go-beroenden distribueras inte med appen/serverimagen.
+Upstream-SBOM har 458 komponentposter och sparas i CI-artefakten; den saknar
+licensdeklarationer per komponent och utgör inte en fullständig licensrevision.
+Vid eventuell egen distribution av verktyget krävs separat transitiv licensgranskning.
+
+Python **3.12.15-slim-trixie** använder indexdigest
+`sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704`.
+Docker Official Images anger
+[docker-library/python@2a3b794c223ab067d122719541cdd54a068732a5](https://github.com/docker-library/python/tree/2a3b794c223ab067d122719541cdd54a068732a5/3.12/slim-trixie)
+som källa. amd64-manifest och känsliga paketversioner finns i
+[debian-runtime.lock.json](deployment/build/debian-runtime.lock.json).
+Dockerfiles har MIT-licens; Python och Debian-paketen har egna licenser.
+
+Basen är Debian 13.7 med OpenSSL `3.5.7-1~deb13u3`, SQLite
+`3.46.1-7+deb13u2` och CA-certifikat `20250419+deb13u1`. Installationstillstånd
+och exakta OpenSSL-/SQLite-versioner verifieras i bygget. Tzdata
+`2026e-0+deb13u1` hämtas från officiella Debian med versions- och hashlås;
+den faktiska paketfilens SHA-256 kontrollerades 2026-10-26. Copyright och
+paketlicenser i `/usr/share/doc` bevaras genom Debians installation.
+
+[CVE-2025-7458](https://security-tracker.debian.org/tracker/CVE-2025-7458)
+är rättad i denna SQLite-version enligt Debian. Det innebär inte att
+alla OS- eller runtimefynd är åtgärdade. Basens hela `/usr/local` ersätts av
+det nya Python-källbygget nedan. Node och Temurin uppdateras separat.
+
+CI använder den tidigare, digestlåsta Bookworm-basen enbart för att skapa
+en syntetisk SQLite 3.40.1-fixture utan nät, privilegier eller riktiga uppgifter.
+Den följer inte med i leveransimagen. Nya imagen provar läsning och säker
+återställning med SQLite 3.46.1 samt Wallet-/runtimeproven med riktiga
+signaturer och krypterad profilåterställning. Förvaltaren ansvarar för nästa
+versions- och licensgranskning; oberoende godkännande krävs före införande.
+
+Den daterade OS-inventeringen och CycloneDX sparas för varje byggd pilotimage.
+Den är skild från Maven-/Python-SBOM och omfattar inte de kopierade runtime-
+binärerna. Resultat, täckning och stoppvillkor beskrivs i
+[bygginstruktionen](deployment/build/README.md#systempaket-och-säkerhetsunderlag).
+
+## Node-säkerhetsuppdatering 2026-10-26
+
+Node **24.22.1** ersätter 24.19.0 i serverimages, server-/register-/iPhone-CI
+samt det separata AWS-testets installationsskript. Inga sådana AWS-jobb körs
+av ändringen. [Officiell säkerhetsrelease](https://nodejs.org/en/blog/release/v24.22.1)
+beskriver bland annat TLS-/DNS-/Brotli-rättningar, CA-uppdatering och OpenSSL 3.5.9.
+Dockerimagen är låst till
+`sha256:55fb5f5a527ea2c5c4a95f963e48ef90aa38c7b346054fdc8ee9957a2b55d205`;
+amd64-källan anges som
+[nodejs/docker-node@80f02a542da739e6a662451d1db66456a0dea253](https://github.com/nodejs/docker-node/tree/80f02a542da739e6a662451d1db66456a0dea253/24/bookworm-slim).
+Linux x64-distributionen har SHA-256
+`6c172a9ab6718f7b801fb5a7bd486af2ee5e32758086a04b84fcce2aa77095e6`
+enligt Node-projektets SHASUMS256.txt.
+
+Node är MIT med separata licenser för inbäddade delar. Releasefilen LICENSE
+har kontrollerats och innehåller dessa texter; den kopieras fortsatt till
+serverimagen från den officiella Node-distributionen. Ingen Node-källkod
+kopieras till projektet. `runtime-components.json` inventerar den faktiska
+Node-binärens komponentversioner samt Python/OpenSSL/SQLite/Expat och
+Temurins releaseuppgifter. Det är inventering, inte full advisorytäckning
+eller oberoende SBOM-attest. Testa protokoll och CryptoKit-interoperabilitet
+med den nya runtime-versionen före införande.
+
+## Temurin-säkerhetsuppdatering 2026-10-26
+
+Pilotens JDK/JRE och serverproven använder **Temurin 21.0.13+9-LTS**, den
+officiella [releasen](https://github.com/adoptium/temurin21-binaries/releases/tag/jdk-21.0.13%2B9)
+från Eclipse Adoptium. Projektet är aktivt underhållet; release publicerades
+2026-10-22. Linux x64-arkiven hämtas oförändrade från denna release. Byggningen
+nekar fel SHA-256 före extraktion, fel arkitektur eller annan runtime-version.
+Ingen äldre Java-distribution kopieras till pilotimagen.
+
+| Underlag | SHA-256 |
+|---|---|
+| `OpenJDK21U-jdk_x64_linux_hotspot_21.0.13_9.tar.gz` | `d7f5d5cf865a2902b70ff549b97586a7d3f234e016f041ab447ea740c7d66d1c` |
+| `OpenJDK21U-jre_x64_linux_hotspot_21.0.13_9.tar.gz` | `a535a1df9c6284d9618872984e026ae0352d1f7e9e0605425c0e6114f47351dd` |
+| `OpenJDK21U-sbom_x64_linux_hotspot_21.0.13_9.json` | `5431b6d3ad286a41d9e20b9b0d37355f430046e333b4954c0814a8c3014bd4f4` |
+
+Upstream-SBOM binder JDK- och JRE-arkiven till källrevision
+[`2ab10ca20c191701c3a9f3153bfc6e93d63714c1`](https://github.com/adoptium/jdk21u/commit/2ab10ca20c191701c3a9f3153bfc6e93d63714c1)
+och byggrevision
+[`1cf43d7a3e77886bfea7d550a902e151a87d724d`](https://github.com/adoptium/temurin-build/commit/1cf43d7a3e77886bfea7d550a902e151a87d724d).
+JRE:s separata release-metadata binder dess arkivhash till samma version och
+byggrevision. Arkivens `legal/` och releasefil bevaras; GPL-2.0 med Classpath
+Exception och komponenternas egna licenser gäller fortsatt. Ingen Java-källkod
+ändras. Källkods- och attributionskrav ska uppfyllas före extern distribution.
+SBOM sparas i imagen och CI-artefakten. Den har fem distributionskomponenter
+(JDK, JRE, statiska bibliotek, debug- och testimage), byggverktyg och byggmetadata,
+men saknar licensdeklaration per komponent och full inventering av inbäddade
+bibliotek. Den ersätter inte OS-rapporten, Maven-SBOM eller sådan bedömning.
+
+Kompatibilitet provas med serverns Java-, signatur- och passprov samt pilotens
+SAML/OIDC-prov mot den paketerade JRE:n. Aktuella resultat hör till PR:n och
+exakt CI-revision. Byte av version ersätter inte oberoende granskning.
+Även `ops/` använder nu dessa Java-arkiv, men behåller sina tidigare Noble-
+systempaket. Uppdateringsansvaret följer förvaltningen nedan.
+
+## Python 3.12.16 från officiell källutgåva
+
+Den officiella [säkerhetsutgåvan](https://www.python.org/downloads/release/python-31216/)
+är ursprunget för runtimekoden, tagg `v3.12.16`, commit
+`2c2462afc5d978d31f3d073001fc202d269917ff`. Arkiv och officiell SPDX låses i
+[python-runtime.lock.json](deployment/build/python-runtime.lock.json).
+Källarkivets SHA-256 är
+`b5796915dc45ff745cfb4e990a7e7c93d6f546328a102ce31448d69ebc37575c`;
+SPDX-filens SHA-256 är
+`6c268edc3c8b9b12a875b3d3ed2495983b8a4a94c070927863b942722a9a216c`.
+SPDX binder CPython-arkivet och inventerar bland annat Expat 2.9.0,
+HACL*, libb2, mpdecimal och pip med inbäddade beroenden. Den är en
+källförteckning, inte en fullständig förteckning eller attest av slutimagen.
+
+Byggmiljön är digestlåst `python:3.12.15-trixie`, separat från runtime.
+Den nya interpretern installeras i en tom stagingkatalog; basens äldre
+Python, standardbibliotek och paket ersätts helt. Expat 2.9.0 byggs från
+den bundlade koden, medan OpenSSL och SQLite kommer från låsta Debian-paket.
+Upstream-proven för TLS, hashning, SQLite, XML, tar, temporära kataloger och
+cookies måste passera utan extern nätåtkomst före installation.
+
+PSF-2.0 och historiska Python-licenser i `LICENSE`, fullständig upstream
+`Doc/license.rst`, Expat-COPYING och käll-SPDX sparas i
+`/usr/share/doc/openid-python/`. Byggreceptet är anpassat från
+docker-library/python vid `2a3b794c223ab067d122719541cdd54a068732a5`;
+dess [MIT-licens](deployment/build/licenses/docker-library-python-LICENSE.txt)
+bevaras i repo och image. `BUILD-NOTICE.txt` beskriver bygg-/paketeringsändringen.
+Runtimekällan modifieras inte. En testförväntan från upstream backporteras
+med filhashar och PSF-attribution; inga tester hoppas över. OS-bibliotekens
+egna licenser ligger kvar.
+
+Pip **26.2.2** används endast för paketinstallation under bygget. Hjulet har
+SHA-256 `fd7f4dfa8190e014013b9f08f3e973f4e4c26ffd179a204895533a7254813a70`;
+inbäddad CycloneDX har SHA-256
+`7be976001ba70fe6b38530af13063bea96e1bd894c271c4e57908c737079ef93`.
+Körningen startar från det verifierade hjulet utan nät och kräver en faktisk
+installation även om byggmiljön redan har pip. Inga runtimefiler i ensurepip
+modifieras. Efter paketinstallationen tas både pip och hela ensurepip bort
+ur det färdiga driftfilsystemet. Separat inventering verifierar borttagningen.
+Historiska bygglager omfattas inte av denna borttagningskontroll.
+
+Pips MIT-licens och transitiva licens-/attributionsfiler kopieras till
+`/usr/share/doc/openid-python/pip-licenses/` före borttagning: bland annat
+Apache-2.0, BSD, ISC, PSF och certifis MPL-2.0. Inbäddad SBOM bevaras också.
+Pythonkällans SPDX beskriver upstreams ursprungliga pip 25.0.1, medan
+byggverktygets SBOM beskriver 26.2.2; ingendera innebär att pip finns i runtime.
+Ingen licens för hela projektet härleds från detta.
+
+Pips version ingår i OSV-kontrollen. Separat kontroll av dess bundlade
+komponenter gav fynd för urllib3, msgpack och setuptools. De kräver bedömning
+av faktisk medlevererad kod och bygganvändning; inga undantag eller påståenden
+om fullständig rättning följer av versionsbytet. Borttagning ur runtime
+ersätter inte granskning av byggverktyget.
+Pilot- och registerbyggen installerar nu applikationshjulen från ett lokalt,
+skrivskyddat BuildKit-steg utan nätåtkomst. Filadresserna kommer från PyPI:s
+officiella distributionsmetadata respektive PyTorchs CPU-index, som för
+det låsta torch-hjulet hänvisar till `download-r2.pytorch.org`.
+`deployment/build/python-wheels.lock.json` binder ursprung till befintliga
+paketversioner och hashkrav; inga nya paket, versioner eller licenser införs.
+Installationsrapport och verklig paketlista kontrolleras i båda images.
+Åtgärden begränsar pips nätverksexponering under imagebygget; värdens CI-pip,
+BuildKit och andra nedladdare behöver fortsatt egen bedömning. Existerande
+komponentregister, licenser och SBOM kvarstår; hjullåset ersätter dem inte.
+Förvaltaren ansvarar för versions-, licens- och advisorybevakning samt byte
+till en verifierad officiell container när en sådan finns. Oberoende
+granskning, integrationstester och behörigt releasebeslut krävs fortsatt.
 
 ## Projektlicens och förvaltning
 

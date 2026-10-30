@@ -5,6 +5,49 @@ kontroller beskriver den lästa versionen, inte dagens driftstatus eller
 ett formellt godkännande. Beroenden och licenser finns i
 [THIRD_PARTY.md](../THIRD_PARTY.md).
 
+Bildarbetarnas fil-/systemanropspolicy: Linux
+[Landlock](https://docs.kernel.org/userspace-api/landlock.html),
+[seccomp-filter](https://www.kernel.org/doc/html/v6.12/userspace-api/seccomp_filter.html),
+[Landlock UAPI](https://github.com/torvalds/linux/blob/v6.12/include/uapi/linux/landlock.h)
+och [x86-64-systemanrop](https://github.com/torvalds/linux/blob/v6.12/arch/x86/entry/syscalls/syscall_64.tbl),
+lästa 2026-10-27. Policyn kräver ABI 3, kontrollerar seccomp-arkitekturen
+och nekar nya/okända systemanrop. Egna register/layout-definitioner används
+för anrop från Python; ingen Linux-implementation kopieras. Policyns
+tillåtna filer/anrop är projektdesign och kräver separat kompatibilitets-
+och säkerhetsgranskning. Se [bildarbetare](bildarbetare.md).
+
+SQLite-gallring: [URI mode=ro/rw](https://sqlite.org/uri.html),
+[secure_delete](https://sqlite.org/pragma.html#pragma_secure_delete) och
+[transaktioner](https://sqlite.org/lang_transaction.html), kontrollerade
+2026-10-27. Funktionens konfigurationsgränser är projektdesign, inte fastställda
+lagringstider eller rättsligt beslut. Backup/WAL och avveckling bedöms separat.
+
+Bildprocessernas begränsningar: Python 3.12
+[subprocess](https://docs.python.org/3.12/library/subprocess.html) och
+[resource](https://docs.python.org/3.12/library/resource.html), lästa 2026-10-27.
+Pipe-utdata måste begränsas under läsningen; communicate-buffring ger ingen
+minnesgräns. Processstart kan inte avbrytas på alla plattformar. Resursgränser
+är operativsystemsberoende och utgör inte fil-/nätisolering.
+
+Bildarbetarnas kraschdumpar: Linux man-pages
+[core(5)](https://man7.org/linux/man-pages/man5/core.5.html),
+[PR_SET_DUMPABLE](https://man7.org/linux/man-pages/man2/PR_SET_DUMPABLE.2const.html)
+och [PR_GET_DUMPABLE](https://man7.org/linux/man-pages/man2/PR_GET_DUMPABLE.2const.html),
+lästa 2026-10-27. RLIMIT_CORE=0 räcker inte vid en pipad kraschinsamlare.
+Bildarbetarna sätter även dumpable=0 på Linux och kräver lyckad återläsning
+innan de läser bilddata. Detta gäller arbetarnas vanliga kraschförlopp,
+inte skydd mot en komprometterad kärna, administratör eller arbetarkod.
+
+Containerhärdning: [Linux no_new_privs](https://docs.kernel.org/userspace-api/no_new_privs.html)
+och [Docker Engine security](https://docs.docker.com/engine/security/), lästa
+2026-10-27. `no_new_privs` hindrar exec från att ge nya set-ID-/filcapability-
+privilegier men begränsar inte alla andra privilegieövergångar. Borttagna
+setuid/setgid-filrättigheter i våra images är ett kompletterande designval,
+inte ett påstående om att paketens sårbarheter är rättade.
+Inspektionsbehörigheten följer [Docker: Linux capabilities](https://docs.docker.com/engine/containers/run/#runtime-privilege-and-linux-capabilities),
+läst 2026-10-27: `DAC_READ_SEARCH` används bara i den skrivskyddade CI-kontrollen
+för att läsa imagekataloger som ägs av andra systemkonton.
+
 ## Avgränsad klientadress genom betans ingress, 2026-10-26
 
 [nginx proxy_set_header](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_set_header)
@@ -12,6 +55,83 @@ och [remote_addr](https://nginx.org/en/docs/http/ngx_http_core_module.html#var_r
 ligger till grund för att ersätta klientens adresshuvud med anslutningens
 adress. Inga `real_ip`-regler ingår. Eget proxyläge begränsas till explicit
 loopbacklyssnare; det provas med förfalskade huvuden genom riktig nginx.
+
+## OS-kontroll och Debian-rättningar, 2026-10-26
+
+[Trivy 0.76.1](https://github.com/aquasecurity/trivy/releases/tag/v0.76.1),
+officiella distributionshashar, källrevision, LICENSE, NOTICE och upstream-SBOM
+kontrollerades. [Debian-täckningen](https://trivy.dev/docs/latest/coverage/os/debian/)
+skiljer dpkg-paket från egenbyggda binärer och använder Debians säkerhetsbedömning.
+[Databasdokumentationen](https://trivy.dev/docs/latest/configuration/db/)
+anger officiell OCI-källa och uppdateringsflöde. Projektet kräver aktuell
+databas och jämför hela dpkg-inventeringen med skannerns paketlista.
+
+Komplettering 2026-10-27: [Trivys containerkällor](https://trivy.dev/docs/latest/target/container_image/)
+beskriver den lokala Docker-källan. Båda applikationsimagernas OS-kontroll
+begränsas till denna källa och validerar fullständigt image-ID.
+[GitHubs statusuttryck](https://docs.github.com/en/actions/reference/workflows-and-actions/expressions#status-check-functions)
+ligger till grund för registerskanning efter testfel med `!cancelled()` och
+bevisuppladdning med `always()`. Skanningsfel får inte omvandlas till godkänt jobb.
+
+[Debian Securitys Trixie-index](https://security.debian.org/debian-security/dists/trixie-security/main/binary-amd64/Packages.xz)
+anger OpenSSL `3.5.7-1~deb13u3`.
+[Trixie-updates](https://deb.debian.org/debian/dists/trixie-updates/main/binary-amd64/Packages.xz)
+anger version, fil och SHA-256 för tzdata `2026e-0+deb13u1`; den hämtade
+filens bytes har verifierats.
+[CVE-2025-7458](https://security-tracker.debian.org/tracker/CVE-2025-7458)
+är rättad i Trixies SQLite `3.46.1-7+deb13u2`, men kvar i Bookworm.
+[Debian 13:s ändringar](https://www.debian.org/releases/trixie/release-notes/whats-new.en.html)
+och [kända begränsningar](https://www.debian.org/releases/trixie/release-notes/issues.en.html)
+har granskats för amd64-containerbasen; ingen värd-OS-uppgradering görs.
+Docker Official Images-manifest och källfil för Python 3.12.15-slim-trixie
+anger källrevision `2a3b794c223ab067d122719541cdd54a068732a5`.
+Index-/amd64-digest finns i komponentregistret. Detta är upstream-proveniens,
+ingen oberoende byggattest eller fullständig OS-säkerhetsbedömning.
+
+## Runtime-uppföljning, 2026-10-26
+
+[Node 24.22.1](https://nodejs.org/en/blog/release/v24.22.1) är en säkerhetsrelease.
+Version, officiell distributionshash, Docker-digest och LICENSE kontrollerades.
+Den nya runtime-versionen används även i protokoll- och signaturproven.
+[Python 3.12.16](https://www.python.org/downloads/release/python-31216/)
+och [Temurin 21.0.13+9](https://github.com/adoptium/temurin21-binaries/releases/tag/jdk-21.0.13%2B9)
+är publicerade säkerhetsuppdateringar. Temurins officiella Linux x64-arkiv,
+kontrollsummor, releaseuppgifter och CycloneDX kontrollerades. JDK/JRE används
+nu i pilotbygget och serverproven enligt komponentregistret.
+[Adoptiums arkivinstruktion](https://adoptium.net/installation/archives) och
+[BuildKits checksum-kontroll](https://docs.docker.com/reference/dockerfile/#add---checksum)
+ligger till grund för installationen, även i `ops/`-imagen.
+
+Python 3.12.16:s officiella XZ-arkiv och
+[käll-SPDX](https://www.python.org/ftp/python/3.12.16/Python-3.12.16.tar.xz.spdx.json)
+har hämtats och hashkontrollerats. Taggen pekar på commit
+`2c2462afc5d978d31f3d073001fc202d269917ff`. Utgåvan rättar bland annat
+komprometterade CA-nycklar, Expat, tarfile och tempfile.
+[Dockerprojektets byggrecept](https://github.com/docker-library/python/blob/2a3b794c223ab067d122719541cdd54a068732a5/3.12/trixie/Dockerfile)
+och MIT-licens ligger till grund för det separata källbygget. Bygget behåller
+Python-/komponentlicenser, SPDX och testresultat.
+[Pips ändringslogg](https://pip.pypa.io/en/stable/news/) och PyPI:s officiella
+hjul för 26.2.2 kontrollerades: uppdaterade CA-certifikat och tidigare
+säkerhetsrättningar ingår. Hjulhash, MIT-licens, transitiva licenser och
+inbäddad CycloneDX är dokumenterade i komponentregistret. Pips nya version
+används som byggverktyg; pip och ensurepip tas sedan bort ur driftfilsystemet.
+Ursprunglig Python-SPDX beskriver källutgåvan före denna paketering. Bevakning får inte stanna vid
+systempaketlistan; andra inbäddade beroenden återstår.
+
+[Upstreams TLS-testförväntan](https://github.com/python/cpython/blob/540b3d0a7fa7cd842f064f79b1410cbd6868bffa/Lib/test/test_ssl.py)
+för avvisad post-handshake-autentisering utan certifikat används i ett
+avgränsat testbackport. Referensen innehåller mönstret; den anges inte som
+committen som introducerade det. Filhashar och teständring bevaras i bygglåset.
+Runtime-TLS-koden ändras inte.
+
+[BuildKits nätisolering](https://docs.docker.com/reference/dockerfile/#run---networknone),
+[skrivskyddade byggmonteringar](https://docs.docker.com/reference/dockerfile/#run---mounttypebind)
+och [pips lokala installation](https://pip.pypa.io/en/stable/cli/pip_install/#cmdoption-no-index)
+ligger till grund för imagebyggens installation från hashlåsta hjul utan nät.
+PyPI:s JSON-metadata och [PyTorchs officiella CPU-index](https://download.pytorch.org/whl/cpu/torch/)
+identifierar de exakta befintliga hjulen. Metadataadress och dess SHA-256
+finns i `python-wheels.lock.json`; själva filens befintliga hash verifieras
+separat av BuildKit och pip. En metadatahash ensam verifierar inte hjulfilen.
 
 ## Separat byggmiljö, 2026-10-26
 
@@ -35,8 +155,10 @@ engångsprovet anger egna temporära sökvägar för samtliga nginx-moduler.
 [Ubuntu Server: Install and manage packages](https://ubuntu.com/server/docs/how-to/software/package-management/)
 anger `ubuntu.sources`, huvudarkivet och `Signed-By` för Ubuntu 24.04.
 [Huvudarkivet via HTTPS](https://archive.ubuntu.com/ubuntu/) har kontrollerats.
-CI byter endast URI för Azure-spegeln; APT:s befintliga signaturkontroll,
-suites och komponenter behålls.
+[GitHubs runnerkonfiguration](https://github.com/actions/runner-images/blob/c74a28e5f8943ae6a39cac7c3701dd6bd0a2ea51/images/ubuntu/scripts/build/configure-apt-sources.sh)
+pekar Ubuntu 24.04 på `mirror+file:/etc/apt/apt-mirrors.txt`, med Azure först.
+CI ersätter både denna URI och direktadressen till Azure med huvudarkivets
+HTTPS-adress. APT:s befintliga signaturkontroll, suites och komponenter behålls.
 
 ## Synligt PDF-kvitto och tillit, omkontroll 2026-10-26
 
@@ -162,3 +284,16 @@ fälten är valfria. Detta bevisar inte förekomst i ett visst svenskt pass.
 - R02: [SPAR, exempelfiler för avisering](https://www.statenspersonadressregister.se/master/start/teknisk-info/filtransport/filer-foer-aviseringar/).
   Två publicerade exempelidentifierare återanvänds enbart i lokala
   adaptertester; inga produktionsuppslag görs.
+
+## Bildbibliotek 2026-10-26
+
+- [OpenCV Python release 94](https://github.com/opencv/opencv-python/releases/tag/94),
+  revision `2ba8bf62f2f1215ab620416b041c9659005fa25c`; FFmpeg 8.1.2 och
+  rättningar i Pythonbindningarna.
+- [OpenCV 4.14.0](https://github.com/opencv/opencv/releases/tag/4.14.0),
+  revision `0654a42e19215ef25b1d367d822f3c630447e7c7`.
+- [PyPI 4.14.0.94](https://pypi.org/project/opencv-python-headless/4.14.0.94/):
+  Linux/amd64-hjulets bytes, licenstexter och upstream-SBOM kontrollerade.
+- [AlmaLinux ALSA-2026-85968](https://errata.almalinux.org/8/ALSA-2026-85968.html),
+  2026-10-21: OpenSSL-fix `1.1.1k-18.el8_6`. Hjulets SBOM anger `-17`,
+  så denna versionsmatchade lucka är fortfarande öppen.

@@ -1,7 +1,8 @@
 {
-  "date": "2026-10-24T14:12:56.815721+00:00",
+  "date": "2026-10-26T21:39:09.173837+00:00",
   "manifests": {
-    "verification/requirements.lock": "d0a1724190c07e36d790c6598db3019745d128c77ee95f100c1d26894773d2ad"
+    "verification/requirements.lock": "66cbac0f57b845fb4aba62a5752398d6bcd5b79434e9303781ad926fb0d17d58",
+    "verification/cluster-requirements.lock": "92f915ae252397e6924bab26d110c437708baa954dfd7da8fc9f35d5de4b54e9"
   },
   "results": [
     {
@@ -101,7 +102,7 @@
           "ecosystem": "PyPI",
           "name": "opencv-python-headless"
         },
-        "version": "4.13.0.92"
+        "version": "4.14.0.94"
       },
       "sources": [
         "verification/requirements.lock"
@@ -178,6 +179,8 @@
   "complete": true,
   "limits": [
     "OSV has incomplete advisory coverage, including source-commit mappings.",
-    "Base images, OS packages, JDK, Node, OpenBao, PostgreSQL, models and deployed configuration require separate monitoring."
-  ]
+    "Base images, OS packages, JDK, Node, OpenBao, PostgreSQL, models and deployed configuration require separate monitoring.",
+    "The OpenCV wheel bundles native libraries not covered by its PyPI package query; see opencv-upstream-sbom.cdx.json and THIRD_PARTY.md."
+  ],
+  "requests": 1
 }

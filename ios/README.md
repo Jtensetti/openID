@@ -11,10 +11,15 @@ Appen använder [verifieringsservern](../verification/README.md).
   Inskickad till Apples betagranskning den 29 oktober 2026. Då var status
   *Waiting for Review* och den publika inbjudningslänken avstängd. Kontrollera
   aktuell status i App Store Connect före nya inbjudningar. Piloten avser Sverige.
-- **Nästa utvecklingsbygge: 0.2.0 (113)**. Kameraguiden och den lokala
-  passbildskontrollen nedan ingår i källkoden. Ett signerat enhetsbygge från
+- **Nästa utvecklingsbygge: 0.2.0 (114)**. Innehåller kameraguiden,
+  lokal passbildskontroll samt versionsbunden information, separata val och
+  kvittohantering före registrering. Kräver serverns nya `/native/notice`
+  och `/native/consent` samt konfigurerad informationsfil; se
+  [registreringsflödet](../docs/registreringsinformation.md).
+  Bygge 114 är källkod under utveckling, inte en ny TestFlight-pilot.
+- **Tidigare lokalt bygge: 0.2.0 (113)** från
   `8b6a83ce0cd3b3b3ae7e11232a96d5f9ec88327f` installerades den 30 oktober.
-  Det är inte uppladdat till TestFlight; fysisk kamera- och helkedjeprovning återstår.
+  Den installationen omfattar inte de nya registreringskvittona.
 
 Källkod, installerad app och TestFlight-utgåva kan alltså skilja sig.
 Läs version och byggnummer i appens Inställningar och knyt prov till exakt

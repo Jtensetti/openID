@@ -1,6 +1,6 @@
 """Device credentials, signed operations and revocation in SQLite."""
 import base64
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 import hashlib
 import json
 import os
@@ -12,7 +12,8 @@ import subprocess
 import threading
 import time
 from datetime import date, datetime, timedelta, timezone
-from identity import IdentityVault, VerifiedDocument
+from identity import IdentityVault, VerifiedDocument, sqlite_key_history
+import acceptance_journal
 
 ROOT = Path(__file__).parent
 RP_NAME = 'openID lokal testtjänst'
@@ -77,6 +78,7 @@ def identifier(value):
     if not isinstance(value, str) or not re.fullmatch('[a-f0-9]{64}', value):
         raise ValueError('identifier')
     return value
+
 
 class Wallet:
     def __init__(self, path, origin, clock=time.time, crypto=device_crypto, vault_runner=None, revocation=None, notifications=False, test_beta=False):
@@ -145,6 +147,15 @@ class Wallet:
                 CREATE INDEX IF NOT EXISTS event_recent ON events(credential,id DESC);
                 CREATE INDEX IF NOT EXISTS profile_person ON profiles(person);
                 CREATE INDEX IF NOT EXISTS federation_pending ON federation_requests(state,expires);
+                CREATE TABLE IF NOT EXISTS retention_runs (
+                    id INTEGER PRIMARY KEY, time INTEGER NOT NULL,
+                    policy_ref TEXT NOT NULL, policy_sha256 TEXT NOT NULL,
+                    profile_days INTEGER NOT NULL, request_days INTEGER NOT NULL,
+                    counts TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS profile_evidence (
+                    credential TEXT PRIMARY KEY REFERENCES credentials(id),
+                    version TEXT NOT NULL, verified INTEGER NOT NULL,
+                    document_expires INTEGER NOT NULL, purged INTEGER NOT NULL);
             ''')
             db.execute('CREATE TABLE IF NOT EXISTS biometric_failures (document_tag TEXT NOT NULL, time INTEGER NOT NULL)')
             db.execute('CREATE TABLE IF NOT EXISTS enrollment_quarantine (id INTEGER PRIMARY KEY CHECK(id=1), until_epoch INTEGER NOT NULL CHECK(until_epoch>=0))')
@@ -152,6 +163,11 @@ class Wallet:
             db.execute('''CREATE TABLE IF NOT EXISTS security_codes (credential TEXT PRIMARY KEY REFERENCES credentials(id),
                 hash TEXT NOT NULL, failures INTEGER NOT NULL, locked INTEGER NOT NULL, updated INTEGER NOT NULL)''')
             db.execute('CREATE INDEX IF NOT EXISTS biometric_failure_document ON biometric_failures(document_tag,time)')
+            acceptance_journal.install_sqlite(db)
+            from consent_retention import install_sqlite
+            install_sqlite(db)
+            from erasure_policy import install_sqlite as install_erasure
+            install_erasure(db)
             columns = {row['name'] for row in db.execute('PRAGMA table_info(federation_requests)')}
             if 'sign_message' not in columns:
                 db.execute('ALTER TABLE federation_requests ADD COLUMN sign_message TEXT')
@@ -194,9 +210,8 @@ class Wallet:
     def health(self):
         # Readiness must not wait behind a writer or create a missing database.
         if not self.path.is_file() or self.path.is_symlink(): raise ValueError('database unavailable')
-        with sqlite3.connect(self.path.as_uri()+'?mode=ro', uri=True, timeout=0.1) as db:
-            if (db.execute('SELECT 1 FROM profiles LIMIT 1').fetchone()
-                    or db.execute('SELECT 1 FROM biometric_failures LIMIT 1').fetchone()): self.vault.key()
+        with closing(sqlite3.connect(self.path.as_uri()+'?mode=ro', uri=True, timeout=0.1)) as db:
+            if sqlite_key_history(db): self.vault.key()
             db.execute('SELECT 1 FROM credentials LIMIT 1').fetchone()
 
     def event(self, db, credential, kind, request=None):
@@ -224,7 +239,7 @@ class Wallet:
         if self.state(row) != 'ACTIVE': raise ValueError('credential inactive')
         return row
 
-    def enroll(self, public_key, document=None, *, activate_test=False):
+    def enroll(self, public_key, document=None, *, activate_test=False, acceptance_receipt=None):
         if activate_test and (not self.test_beta or not isinstance(document, VerifiedDocument)):
             raise ValueError('verified test beta registration required')
         if document is not None:
@@ -236,10 +251,14 @@ class Wallet:
         ident = hashlib.sha256(der).hexdigest()
         with self.transaction() as db:
             self.enrollment_open(db)
+            if db.execute('SELECT 1 FROM erasure_subjects WHERE credential=?', (ident,)).fetchone():
+                raise ValueError('key retired by rights decision')
             if db.execute('SELECT 1 FROM credentials WHERE id=?', (ident,)).fetchone():
                 raise ValueError('key already enrolled')
             db.execute('INSERT INTO credentials VALUES(?,?,?,?,?,?,?)',
                 (ident, public_key, 'PENDING_REVIEW', int(self.clock()), None, None, secrets.token_hex(32)))
+            if acceptance_receipt is not None:
+                acceptance_journal.bind(db, ident, acceptance_receipt, public_key, int(self.clock()))
             if document is not None:
                 if not isinstance(document, VerifiedDocument): raise ValueError('verified document required')
                 expiry = int(datetime.combine(date.fromisoformat(document.identity['documentExpires']) + timedelta(days=1),
@@ -247,7 +266,7 @@ class Wallet:
                 if expiry <= self.clock(): raise ValueError('expired document')
                 history = db.execute('SELECT 1 FROM profiles LIMIT 1').fetchone()
                 if getattr(self, 'document_links_enabled', False):
-                    history = history or db.execute('SELECT 1 FROM biometric_failures LIMIT 1').fetchone()
+                    history = sqlite_key_history(db)
                 self.vault.key(create=not history)
                 tag = self.vault.document_tag(document)
                 if getattr(self, 'document_links_enabled', False) and db.execute(
@@ -267,6 +286,8 @@ class Wallet:
             # Recheck after profile encryption; expiry during work must roll back
             # the entire enrollment, including PostgreSQL's inherited path.
             if document is not None: document.require_current_revocation(self.clock())
+            if acceptance_receipt is not None:
+                acceptance_journal.require_bound(db, ident, acceptance_receipt, int(self.clock()))
             self.event(db, ident, 'CAPTURE_VERIFIED')
             if activate_test:
                 # Only NativeSessions calls this after all passport, chip, device
@@ -278,6 +299,11 @@ class Wallet:
                 # The remote call can outlive the document signer's CRL validity.
                 document.require_current_revocation(self.clock())
                 self._activate(db, ident, TEST_BETA_DECISION, test_beta=True)
+            # Registration and activation both call the remote authority. Neither
+            # may commit proof that expired while those calls were in progress.
+            if document is not None: document.require_current_revocation(self.clock())
+            if acceptance_receipt is not None:
+                acceptance_journal.require_bound(db, ident, acceptance_receipt, int(self.clock()))
         return {'id': ident, 'state': 'ACTIVE' if activate_test else 'PENDING_REVIEW'}
 
     def activate(self, ident, decision, hours=24):
@@ -369,8 +395,7 @@ class Wallet:
         document.require_current_revocation(self.clock())
         with self.transaction() as db:
             self.enrollment_open(db)
-            self.vault.key(create=not (db.execute('SELECT 1 FROM profiles LIMIT 1').fetchone()
-                or db.execute('SELECT 1 FROM biometric_failures LIMIT 1').fetchone()))
+            self.vault.key(create=not sqlite_key_history(db))
             tag = self.vault.document_tag(document)
             db.execute('DELETE FROM biometric_failures WHERE time<=?', (int(self.clock())-BIOMETRIC_WINDOW,))
             used = db.execute('SELECT count(*) FROM biometric_failures WHERE document_tag=?', (tag,)).fetchone()[0]
@@ -388,6 +413,50 @@ class Wallet:
 
     def enrollment_available(self):
         with self.transaction() as db: self.enrollment_open(db)
+
+    def record_acceptance(self, public_key, policy, proof, receipt):
+        self.crypto('validate', publicKey=public_key)
+        acceptance_journal.identifier(receipt)
+        with self.transaction() as db:
+            self.enrollment_open(db)
+            if db.execute('SELECT 1 FROM erasure_subjects WHERE credential=?',
+                          (acceptance_journal.subject(public_key),)).fetchone():
+                raise ValueError('key retired by rights decision')
+            acceptance_journal.store(db, receipt, public_key, policy, proof, int(self.clock()))
+        return receipt
+
+    def require_acceptance(self, receipt, public_key):
+        with self.transaction() as db:
+            self.enrollment_open(db)
+            if db.execute('SELECT 1 FROM erasure_subjects WHERE credential=?',
+                          (acceptance_journal.subject(public_key),)).fetchone():
+                raise ValueError('key retired by rights decision')
+            acceptance_journal.require_pending(db, receipt, public_key, int(self.clock()))
+
+    def withdraw_acceptance(self, request):
+        # An idempotent, origin-bound device signature works even after process
+        # restart, session expiry or registration pause. It authorizes withdrawal
+        # only: it cannot approve, erase evidence, revoke or reissue a credential.
+        from enrollment_policy import unique_object
+        if not isinstance(request, dict) or set(request) != {'publicKey','payload','signature'}:
+            raise ValueError('withdrawal fields')
+        who = acceptance_journal.subject(request['publicKey'])
+        if (not isinstance(request['payload'], str) or len(request['payload']) > 2048
+                or not isinstance(request['signature'], str) or len(request['signature']) > 256):
+            raise ValueError('withdrawal size')
+        raw = base64.b64decode(request['payload'], validate=True)
+        data = json.loads(raw, object_pairs_hook=unique_object)
+        if (not isinstance(data, dict) or set(data) != {'action','origin','receipt'}
+                or data['action'] != 'withdraw-enrollment-consent' or data['origin'] != self.origin):
+            raise ValueError('withdrawal binding')
+        receipt = acceptance_journal.identifier(data['receipt'])
+        self.crypto('verify', **request)
+        with self.transaction() as db:
+            acceptance_journal.lock(db, receipt)
+            row = db.execute('SELECT subject FROM enrollment_consents WHERE id=?', (receipt,)).fetchone()
+            if row is None or row[0] != who: raise ValueError('withdrawal subject')
+            acceptance_journal.withdraw(db, receipt, int(self.clock()))
+        return {'withdrawn': True, 'receipt': receipt}
 
     def start_request(self, ident):
         # Fixed local RP: caller cannot supply a name, domain, purpose or callback.

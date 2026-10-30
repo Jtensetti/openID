@@ -45,6 +45,9 @@ byggen och behålls i källträdet; gamla fristående testresultat gör det inte
 | Biometri | Modellinferens, huvudordning, parallax, försöksbudget, fel och samtidighet. | Kalibrerad felacceptans/felavvisning, presentationer, injektion och fysisk kamerakedja. |
 | iPhone | Nyckelflöde, nätverksgräns, avbrott, registreringsåterhämtning, kameraguide och UI-fixturer. | Secure Enclave, App Attest, NFC, Face ID och fysisk användbarhet. |
 | Livscykel | Aktivering enligt valt läge, utgång, spärr, engångsbruk och nyckelbyte. | Aktuell serverkonfiguration och sammanhängande telefonprov. |
+| Registreringsval | Exakt text, separata val, signerade kvitton, återkallelse och utgång under automatisk aktivering. | Beslutad information, faktisk app-/serverkombination och deltagarnas tidigare registreringar. |
+| Datahantering | Avgränsade personutdrag, hemliga fält uteslutna, beslutsbunden radering och återspelning vid restore, även i TestFlight-registret. | Riktiga ärenden, lagringstider, externa kopior och operativ återläsning. |
+| Bildarbetare | Formatgränser, resursbudget, pipe-/tidsgränser och Linux fil-/systemanropsisolering. | Faktisk värdkärna och oberoende angreppsprov. |
 | SAML/OIDC | Signatur, mottagare, state, nonce, PKCE, klientintyg, tider, återspelning, nekande och spärr. | Oberoende interoperabilitet och federationsanslutning. |
 | Webb/nginx | Stora SAML-svar, skydd mot för stora POST, HSTS, klient-IP och synliga slutlägen vid OIDC-återgång. | Den installerade ingressen och fysisk webbläsare/app. |
 | PDF | Signerade bytes, synligt kvitto, förändrat innehåll och separat OpenSSL-validering. | Betrodd certifikatkedja, tid och långtidsvalidering. |
@@ -52,8 +55,7 @@ byggen och behålls i källträdet; gamla fristående testresultat gör det inte
 | Arkiv och infrastruktur | Export, manipulation, åtkomstroller, kvittenskontrakt och CloudFormation Guard. | Verklig mottagning, återläsning, larm och molnkonfiguration. |
 
 En grön CI bevisar täckningen ovan, inte ISO 27001-nivå, Digg-godkännande
-eller att alla beroenden saknar sårbarheter. Öppna begränsningar och
-separata kodutkast beskrivs i [SECURITY.md](../SECURITY.md#kända-begränsningar-och-separata-utkast).
+eller att alla beroenden saknar sårbarheter. Öppna begränsningar beskrivs i [SECURITY.md](../SECURITY.md#kända-begränsningar).
 
 ## Fysisk iPhone
 

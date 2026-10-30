@@ -91,14 +91,19 @@ sårbarhetsdetaljer i öppna kanaler.
 Bemannad beredskap och garanterad svarstid är inte fastställda.
 Kontaktadressen ersätter inte användarens separata spärrfunktion.
 
-## Kända begränsningar och separata utkast
+## Kända begränsningar
 
-Kod i öppna PR:er är inte del av `main` eller den driftsatta betan.
-[PR #52](https://github.com/Jtensetti/openID/pull/52) innehåller ytterligare
-OS-paketkontroll och runtime-uppdateringar. [PR #53](https://github.com/Jtensetti/openID/pull/53)
-innehåller bland annat registreringskvitton, personutdrag och raderingsjournal.
-Båda är separata utkast med underkända OS-kontroller på de senast redovisade
-revisionerna. Den ordinarie CI-körningen på `main` stänger inte dessa fynd.
+Källkoden innehåller [versionsbunden registreringsinformation och kvitton](docs/registreringsinformation.md),
+[personutdrag](docs/personuppgiftsutdrag.md), [beslutad radering](docs/radering-rattighetsarende.md)
+och [isolerade bildarbetare](docs/bildarbetare.md). Dessa kräver rätt
+serverkonfiguration, databasversion och kompatibel app innan införande.
+En merge innebär inte att skydden är driftsatta eller att tidigare
+registreringar har giltiga kvitton.
+
+[OS-paketkontrollen](deployment/build/README.md#systempaket-och-säkerhetsunderlag)
+stoppar leverans vid fynd eller ofullständiga underlag. De kvarvarande
+OS-/biblioteksfynden behöver åtgärdas eller bedömas med granskat underlag;
+borttagna provbyggen innebär inte att fynden är stängda.
 
 Fysisk biometri-/PAD-kalibrering, injektion/relä, operativ återställning,
 nyckelförvaltning och oberoende säkerhetsgranskning återstår. Projektet har

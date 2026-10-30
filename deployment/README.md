@@ -13,6 +13,9 @@ Serverpaket byggs och provas i den
 [separata byggmiljön](build/README.md), exporteras med proveniens och importeras
 utan ombygge på betavärden. Lokala labbinstruktioner nedan är för separata
 utvecklingsdatorer; använd dem inte som byggprocedur på en körande betaserver.
+Betans programkod, inklusive SAML-brygga och hälsoprob, ingår i samma image.
+Endast data och driftkonfiguration monteras utifrån. Leveranskontrollen
+nekar äldre kodmonteringar även om de är skrivskyddade.
 
 Instruktionerna nedan gäller den egna privata miljön. Betan använder i stället
 `beta-compose.yaml` tillsammans med `continuity-compose.yaml`, produktions-App
@@ -131,6 +134,13 @@ och en anslutningskö på 32. En fillåsning hindrar två runtime-processer frå
 att använda samma databas. Flera repliker stöds inte: NFC-sessioner och
 signeringsutmaningar finns i processminnet.
 
+Linux x86-64-värden måste stödja Landlock ABI minst 3 och seccomp-filter.
+Bildarbetarna aktiverar [fil-/systemanropspolicyn](../docs/bildarbetare.md)
+före bildinläsning. Saknat skydd stoppar även modellkontrollen vid start.
+Kod, modeller och runtime ska vara skrivskyddade och hållas åtskilda från
+personakter, säkerhetskopior och nycklar. Värdens stöd behöver verifieras
+innan denna kandidat driftsätts.
+
 - Högst ett native-anrop och åtta wallet-anrop behandlas samtidigt. Extra
   anrop får 503 och `Retry-After: 2`, utan att läsas in eller köas för analys.
 - TLS/HTTP-huvuden har en tidsgräns på 10 sekunder, request-body 15 sekunder.
@@ -187,14 +197,29 @@ Mätresultat hör till respektive maskin och revision och redovisas i PR:n.
 
 ## Säkerhetskopiering och återställning
 
+Kör som registerkatalogens ägare och använd en separat privat lagringsplats.
+Backupens och återställningens målkatalog ska ligga direkt under en befintlig
+katalog som ägs av användaren, har läge 0700 och inte är en symbolisk länk.
+Verktyget avvisar delade målföräldrar innan en kopia skapas. Överordnade
+kataloger och filsystemets åtkomstregler behöver också skyddas av operatören.
+
 ```sh
 cd verification
 .venv/bin/python recovery.py backup --db /privat/data/wallet.sqlite \
   --destination /privat/backups/kopia-001
 .venv/bin/python recovery.py restore --backup /privat/backups/kopia-001/wallet.sqlite \
   --destination /privat/aterstalld \
-  --identity-key /separat/nyckelforvaring/wallet.identity-key --require-continuity
+  --identity-key /separat/nyckelforvaring/wallet.identity-key \
+  --binding /privat/aterstallningsunderlag/kopia-001.json \
+  --binding-sha256 "$RECOVERY_BINDING_SHA256" --require-continuity \
+  --erasure-ledger /separat/forvarare/raderingsbeslut.json \
+  --erasure-ledger-sha256 "$CURRENT_ERASURE_LEDGER_SHA256"
 ```
+
+Före återläsning måste förvararen skapa och oberoende förankra
+[återställningsbindningen](../docs/aterstallningsbindning.md) med `recovery.py bind`.
+Den binder exakta backupbyte till originalnyckelns båda halvor; den krävs
+även när inga profiler finns kvar. Variabeln ovan hämtas från det externa ankaret.
 
 Säkerhetskopian använder SQLite backup-API i läsläge, utan Wallet-start,
 schemaändring eller nätverksanrop, och innehåller ingen profilnyckel. En befintlig

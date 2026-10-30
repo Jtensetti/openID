@@ -9,10 +9,12 @@ class AuditTests(unittest.TestCase):
         self.assertGreater(len(items), 100)
         for path in ('verification/requirements.lock', 'verification/cluster-requirements.lock',
                      'verification/runtime-requirements.lock', 'verification/rp-requirements.lock',
-                     'deployment/aws/requirements.lock', 'prototype/dependencies.lock.json',
+                     'deployment/aws/requirements.lock', 'deployment/build/python-runtime.lock.json', 'prototype/dependencies.lock.json',
                      'prototype/package-lock.json', 'verification/package-lock.json'):
             self.assertIn(path, manifests)
         self.assertTrue(all(set(item['query']) in ({'commit'}, {'package', 'version'}) for item in items))
+        self.assertTrue(any(item['query'] == {'package': {'ecosystem': 'PyPI', 'name': 'pip'},
+                                            'version': '26.2.2'} for item in items))
 
     def test_pagination_is_per_query_and_empty_page_is_not_success(self):
         items = [{'query': {'commit': 'a'*40}, 'sources': ['a']}, {'query': {'commit': 'b'*40}, 'sources': ['b']}]

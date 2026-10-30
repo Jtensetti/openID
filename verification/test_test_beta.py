@@ -11,7 +11,8 @@ from unittest.mock import Mock, patch
 
 from identity import VerifiedDocument
 from native import NativeSessions
-from recovery import backup, restore
+from recovery import backup, bind_backup
+from test_erasure_helpers import sqlite_restore as restore
 from test_chip_fixture import ChipFixture, capture_ready, fixture_order, pose_matcher, signed
 from test_wallet import crypt
 from wallet import Wallet, TEST_BETA_END
@@ -121,6 +122,18 @@ class TestBetaTests(unittest.TestCase):
                           lambda:self.enroll(1), self.wallet.enrollment_available]:
             with self.assertRaises(ValueError): operation()
 
+    def test_crl_expiry_during_final_authority_status_check_rolls_back(self):
+        self.document = replace(self.document, revocation_valid_until=self.time+60)
+        allowed = self.remote.assert_allowed
+        def expires(ident):
+            allowed(ident)
+            self.time = self.document.revocation_valid_until
+        with patch.object(self.remote, 'assert_allowed', side_effect=expires):
+            with self.assertRaises(ValueError): self.enroll()
+        with self.wallet.transaction() as db:
+            for table in ('credentials', 'profiles', 'test_beta_revocation_codes', 'events'):
+                self.assertEqual(0, db.execute('SELECT count(*) FROM '+table).fetchone()[0])
+
     def test_manual_pending_and_expired_credentials_also_revoked_at_end(self):
         ident = self.wallet.enroll(self.keys[0]['publicKey'], self.document)['id']
         self.assertEqual('PENDING_REVIEW', self.state(ident)['state'])
@@ -182,7 +195,11 @@ class TestBetaTests(unittest.TestCase):
     def test_old_backup_and_changed_configuration_cannot_reopen_campaign(self):
         ident = self.enroll()
         saved = backup(self.wallet, Path(self.tmp.name)/'backup')
-        restored = restore(saved, Path(self.tmp.name)/'restored', self.wallet.vault.path)
+        binding = Path(self.tmp.name)/'binding.json'
+        anchor = bind_backup(saved, self.wallet.vault.path,
+            hashlib.sha256(self.wallet.vault.key()).hexdigest(), binding)
+        restored = restore(saved, Path(self.tmp.name)/'restored', self.wallet.vault.path,
+            binding=binding, binding_sha256=anchor)
         with self.assertRaises(ValueError): Wallet(restored, 'legacy')
         recovered = Wallet(restored, 'test', clock=lambda:TEST_BETA_END,
             revocation=self.remote, notifications=True, test_beta=True)

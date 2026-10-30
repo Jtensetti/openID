@@ -16,12 +16,14 @@ import sys
 
 from runtime import Runtime, validate_origin
 from ingress_client import proxy_config
+from bounded_process import image_worker_environment, run_bounded
 
 ROOT = Path(__file__).resolve().parent
 
 
 def private_file(path):
-    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    # Reject a FIFO before an open without a writer can block validation.
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     with os.fdopen(fd, 'rb') as stream:
         info = os.fstat(stream.fileno())
         if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077:
@@ -35,8 +37,8 @@ def score_frames(portrait, frames):
     payload = json.dumps({'portrait': base64.b64encode(portrait).decode(),
         'frames': [base64.b64encode(frame).decode() for frame in frames]}).encode()
     try:
-        result = subprocess.run([sys.executable, str(ROOT/'biometric_worker.py')], input=payload,
-            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=45, check=False)
+        result = run_bounded([sys.executable, str(ROOT/'biometric_worker.py')], input=payload,
+            timeout=45, max_input=11_000_000, max_output=4096, env=image_worker_environment())
     except subprocess.TimeoutExpired:
         print(json.dumps({'event': 'biometric_failure', 'stage': 'WORKER', 'reason': 'TIMEOUT'}), file=sys.stderr, flush=True)
         raise
@@ -70,9 +72,18 @@ def proofing_commands(config):
 def load_config(path):
     value = json.loads(Path(path).read_text())
     required = {'bind', 'origin', 'team', 'bundle', 'developmentAttestation', 'tlsCert', 'tlsKey', 'csca', 'database', 'pairingFile'}
-    if not required <= set(value) or set(value) - required - {'listenPort', 'publicEnrollment', 'cscaCrl', 'poseCheck', 'trustedProxy'}:
+    if not required <= set(value) or set(value) - required - {'listenPort', 'publicEnrollment', 'cscaCrl', 'poseCheck', 'trustedProxy', 'newRegistrationsEnabled', 'enrollmentPolicyFile'}:
         raise ValueError('Configuration fields do not match the example')
     if type(value.get('publicEnrollment', False)) is not bool: raise ValueError('Public enrollment flag')
+    if type(value.get('newRegistrationsEnabled', False)) is not bool: raise ValueError('New registration flag')
+    if value.get('newRegistrationsEnabled', False) and 'enrollmentPolicyFile' not in value:
+        raise ValueError('Explicit enrollment policy required for new registrations')
+    if 'enrollmentPolicyFile' in value:
+        if not isinstance(value['enrollmentPolicyFile'], str) or not Path(value['enrollmentPolicyFile']).is_absolute():
+            raise ValueError('Absolute enrollment policy path required')
+        if value.get('newRegistrationsEnabled', False):
+            from enrollment_policy import read_policy
+            read_policy(value['enrollmentPolicyFile'])
     # 'log' keeps registration open while the uncalibrated pose limits are measured on real devices.
     if value.get('poseCheck', 'enforce') not in ('enforce', 'log'): raise ValueError('Pose check mode')
     if value.get('publicEnrollment', False) and (value['developmentAttestation'] is not False or value['origin'] != 'https://api.openid.tensetti.io'):
@@ -181,7 +192,8 @@ def main():
     # Reject overrides which could split in-memory NFC sessions across workers.
     if os.environ.get('GUNICORN_CMD_ARGS'): raise ValueError('GUNICORN_CMD_ARGS is not supported')
     subprocess.run([sys.executable, str(ROOT/'biometric_worker.py'), '--check'],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=60)
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=60,
+        env=image_worker_environment())
     lease = Lease(config['database'])
     wallet = open_wallet(config['database'], config['origin'])
     if args.check:
@@ -216,12 +228,14 @@ def main():
             from chip import ChipProcess
             from server import verify_document
             command, chip_command = proofing_commands(config)
+            from enrollment_policy import read_policy
+            policy = read_policy(config['enrollmentPolicyFile']) if config.get('newRegistrationsEnabled', False) else None
             native = NativeSessions(AppAttest(config['team'], config['bundle'], config['developmentAttestation']),
                 lambda data: verify_document(command, data), None, None, wallet=wallet,
                 chip_factory=lambda data: ChipProcess(chip_command, data),
-                biometrics=score_frames, pose_enforced=config.get('poseCheck', 'enforce') == 'enforce')
+                biometrics=score_frames, pose_enforced=config.get('poseCheck', 'enforce') == 'enforce', enrollment_policy=policy)
             app = Runtime(native, wallet, config['origin'], config['pairing'], public_enrollment=config.get('publicEnrollment', False),
-                trusted_proxy=config.get('trustedProxy'))
+                trusted_proxy=config.get('trustedProxy'), new_registrations_enabled=config.get('newRegistrationsEnabled', False))
             app.crypto = crypto
             return app
 

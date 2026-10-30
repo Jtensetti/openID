@@ -29,10 +29,14 @@ beroenden; verifierar- och protokollproven körs utan externt nät.
    dokumentera kopplingen. En manuell serverkörning ersätter inte den grinden.
 
 Paketet innehåller `image.tar.gz`, `source.tar.gz`, `manifest.json`,
-`python-packages.json` och syntetiska `protocol-results.json`. Manifestet
-binder filernas storlekar och SHA-256 till Git-revision/träd, image-ID,
-plattform och byggkörning. Källarkivet innehåller också låsfiler, SBOM,
-licenser och de källfiler som betans befintliga Compose-konfiguration monterar.
+`python-packages.json`, syntetiska `protocol-results.json` och sju `os-*`-filer:
+OS-bedömning, Trivy-rapport, CycloneDX, dpkg-lista, databasmetadata,
+skannerlås och skanner-SBOM. Manifestet binder filernas storlekar och SHA-256
+till Git-revision/träd, image-ID, plattform och byggkörning. Exporten nekar
+ofullständig, gammal eller underkänd OS-skanning, fel image-ID/revision och
+paketlistor som inte stämmer. Källarkivet innehåller också låsfiler, SBOM,
+licenser och motsvarande källkod. SAML-bryggan, federationsmodulen och
+hälsoproben ingår i imagen; betans Compose-filer monterar ingen programkod.
 Övriga komponenters test- och advisoryartefakter bevaras separat från samma
 helhetskörning enligt [releaseinstruktionen](../../docs/releasekandidat.md).
 
@@ -63,9 +67,12 @@ python3 deployment/image_bundle.py import \
 Import kräver en lokal Linux/amd64-Dockerdaemon och läsbart Docker-datalager.
 Fritt utrymme i det lagret måste vara minst två gånger image-storleken plus
 512 MiB, utöver det nedladdade paketets plats. Skriptet avvisar fel revision,
-manifest, filhash, saknad fil, symlänk, plattform eller ofullständiga
-protokollresultat innan Docker ändras. Efter laddning måste image-ID och
-plattform stämma. Ingen container startas eller ersätts; inga data återläses.
+manifest, filhash, saknad fil, symlänk, plattform, ofullständiga
+protokollresultat eller OS-bevis innan Docker ändras. OS-skanningens aktualitet
+kontrolleras mot **paketeringstiden**; ett äldre paket kan fortfarande behövas
+för återgång, medan en ny release kräver ett aktuellt säkerhetsbeslut.
+Efter laddning måste image-ID och plattform stämma. Ingen container startas
+eller ersätts; inga data återläses.
 Operatören måste skydda paketkatalogen mot samtidiga ändringar under import.
 
 Om utrymmet inte räcker: välj större lagring eller arkivera/ta bort enbart
@@ -75,11 +82,42 @@ identifierade, oanvända byggartefakter enligt en granskad åtgärd. Kör inte
 ## Installera i den privata betan
 
 Följ [kandidat och återgång](../../docs/releasekandidat.md). Registrera aktuell
-konfiguration och image-ID för varje tjänst. Verifiera att monterade kodfiler
-kommer från samma revision; imagebyte ensamt byter inte bind-mountade filer.
+konfiguration och image-ID för varje tjänst. Vid övergång från äldre
+uppsättningar ska deras kodmonteringar tas bort genom samma granskade
+Compose-byte; imagebyte ensamt tar inte bort dem.
 Bevara register, nycklar, spärrar, privata miljövärden och aktuella volymer.
-Ändra image-referenser till manifestets fullständiga `sha256:...` i den valda
-konfigurationen och använd `up -d --no-build --pull never` med rätt Compose-projekt.
+Sätt `OPENID_BETA_IMAGE_ID` till manifestets fullständiga `sha256:...` efter
+verifiering. Både `beta-compose.yaml` och `continuity-compose.yaml` kräver
+variabeln. Kontrollera den sammanslagna konfigurationen före ett godkänt byte:
+
+```sh
+docker compose -f deployment/beta-compose.yaml -f deployment/continuity-compose.yaml \
+  config --format json | python3 deployment/image_bundle.py check-beta-compose \
+  --image-id "$OPENID_BETA_IMAGE_ID"
+```
+
+Kontrollen kräver samma fullständiga image-ID för alla fem tjänster,
+skrivskyddad rot och exakt tjänstens data-/konfigurationsmonteringar under
+`/srv/openid`. Övriga volymer, configs/secrets/volumes_from och tmpfs utanför
+`/tmp` nekas. Ingen image byggs eller tjänst startas av kontrollen.
+Använd `up -d --no-build --pull never` med
+rätt Compose-projekt. Efteråt kan samma verifierade paket användas för en
+läsande driftkontroll:
+
+```sh
+python3 deployment/image_bundle.py check-beta \
+  --directory /privat/kandidat \
+  --expected-revision FULL_COMMIT_SHA \
+  --expected-manifest-sha256 SHA256_FRAN_GITHUB_KORNINGEN
+```
+
+Kontrollen nekar saknad, stoppad, extra eller felaktig container, rörlig
+tagg, skrivbar rot och monteringar utanför samma data-/konfigurationsgräns.
+Även en skrivskyddad kodmontering nekas eftersom den ersätter imagens kod.
+[Docker beskriver att bindmonteringar skymmer befintliga filer](https://docs.docker.com/engine/storage/bind-mounts/#bind-mounting-over-existing-data).
+Docker-metadatan läses utan att ändra tjänster eller läsa privata filer.
+Kontrollen verifierar inte datainnehåll, värd-OS, hela runtimekonfigurationen
+eller efterföljande ändringar av en betrodd Dockeradministratör.
 Kontrollera readiness, åtkomstskydd och färska telefonflöden efter bytet.
 
 Betavärden behöver fortsatt Docker för drift. Dess operatör kan fortfarande
@@ -88,10 +126,111 @@ oberoende administrativ spärr mot värdens administratör. Sådan rollseparatio
 och produktionsbeslut hanteras separat. iPhone-distributionssignering sker
 fortsatt i den privata Xcode-miljön; inga Apple-certifikat flyttas till CI.
 
-## Prov
+## Systempaket och säkerhetsunderlag
+
+Pilot- och registerjobben kör `.github/scripts/audit_image_os.py` mot det
+exakta byggda image-ID:t. Trivy jämför Debian-paketen med en säkerhetsdatabas
+som får vara högst 24 timmar gammal. Hela paketlistan måste stämma mot
+`dpkg-query`. Okänt OS, saknad täckning, fel image-ID, verktygsfel och fynd
+stoppar komponentjobbet, leveransexporten och `assurance-gate`.
+
+Alla rapporterade fynd, även låg/okänd allvarlighetsgrad och fynd utan
+publicerad rättning, stoppar exporten. Ingen ignore-fil, statusfiltrering
+eller automatisk riskacceptans används. Det är projektets konservativa
+releasekontroll, inte ett krav på noll skannerfynd i ISO 27001. Bedöm faktisk
+påverkan separat; ett källpakets advisory bevisar inte att varje binär eller
+funktion är exploaterbar. En källkodsmerge stänger inga kvarvarande fynd.
+
+Trivy och dess upstream-SBOM hämtas från officiell release och verifieras mot
+[trivy.lock.json](trivy.lock.json). Verktyget körs på byggmaskinen utan
+molnbehörigheter eller verksamhetsdata och installeras inte i serverimagen.
+Skanningen sker lokalt med avstängd telemetri. Internet behövs för
+verktygsdistribution och aktuell databas.
+
+`pilot-image-inventory` och `cluster-os-inventory` sparar paketlistor,
+Trivy-rapport, CycloneDX, databasdatum/hash, verktygslås/SBOM och bedömning i
+90 dagar, även vid fynd. Bevara underlagen från vald revision separat inför
+release. OS-kontrollen täcker inte separat byggd/kopierad Python, Node,
+Temurin, OpenCV:s inbäddade bibliotek, modeller, andra images eller värd-OS.
+OSV-kontrollen av applikationslåsen är ett separat komplement.
+
+### Färdig image och rättigheter
+
+`image_surface.py` inventerar paketfiler, kända komponenter och SQLite-motorn
+utan att köra administrativa verktyg eller läsa register. `--whole-image`
+läser fysiska kataloger utom `/dev`, `/proc` och `/sys`; symlänkar följs inte.
+Läsfel och mål utanför omfånget ger ofullständigt resultat. Rapporten binder
+image-ID, revision, insamlarhash och kontrollprocessens privilegier. Namnsökning
+täcker inte omdöpt eller inbäddad kod och utgör inget sårbarhetsundantag.
+
+`file_privileges.py` tar bort setuid/setgid från reguljära filer efter
+installation, utan att ändra innehåll, ägare eller katalogers setgid.
+Före-/efterrättigheter och filhashar sparas. CI nekar nya privilegierade
+filer, ändrat innehåll och ofullständig läsning. Inspektionen körs nätlöst
+med skrivskyddad rot och enbart `DAC_READ_SEARCH`; tjänsterna behåller UID
+10001. Filcapabilities, volymer och värd-OS ingår inte i denna kontroll.
+`no-new-privileges`, `cap_drop` och separat driftverifiering behövs fortsatt.
+
+### Låst runtime
+
+Pilot och register använder Debian 13/Trixie enligt
+[debian-runtime.lock.json](debian-runtime.lock.json). `patch_debian.py`
+verifierar baspaketen, installerar bara den hashlåsta tzdata-filen och nekar
+nedgradering eller delvis installerade paket. Egna paketexperiment för
+util-linux, ACL, ncurses och alternativ OpenCV ingår inte i bygget.
+
+Python 3.12.16 byggs i ett separat steg från officiellt källarkiv och SPDX,
+låsta i [python-runtime.lock.json](python-runtime.lock.json). PGO/LTO-bygget
+ersätter hela basens äldre `/usr/local`. Upstream-prov för TLS, hashning,
+SQLite, XML, tar, temporära kataloger och cookies krävs. En hashlåst patch
+anpassar ett TLS-tests förväntade avbrottsfel; den ändrar ingen runtimekod
+eller hoppar över prov. Källor, licenser och testlogg sparas under
+`/usr/share/doc/openid-python/`.
+
+Applikationshjul hämtas via BuildKits `ADD --checksum` från
+[python-wheels.lock.json](python-wheels.lock.json), som matchar verifierarens
+requirements-lås. BuildKit med stöd för Dockerfile 1.6+ krävs. Pip installeras
+från ett verifierat hjul och körs utan nät eller paketindex. Efter installation
+tas pip, dess inbäddade paket och ensurepip bort från runtime. CI verifierar
+borttagningen och den faktiska paketlistan. Byggverktygets advisories och
+historiska lager omfattas inte av denna runtimehärdning.
+
+Node och Temurin kommer från digest-/hashlåsta officiella distributioner.
+Versioner, upstream-SBOM och biblioteksdata registreras i byggartefakterna;
+se [komponentregistret](../../THIRD_PARTY.md). Versionsbyte kräver nya lås,
+licens-/advisorykontroll och full CI. Ingen ombyggnad eller paketinstallation
+ska göras på betavärden.
+
+`sqlite_transition.py` skapar ett syntetiskt register och en äldre backup
+med den tidigare, låsta Bookworm-basen. Den nya imagen måste läsa registret
+och återställa backupen med bevarad spärr och registreringskarantän. Den
+äldre imagen används endast som testverktyg och levereras inte.
+
+## Prov av leverans och paketkontroll
 
 `python3 -m unittest discover -s deployment -p test_image_bundle.py -v`
 provar skadade filer, fel revision/manifest/plattform, saknade filer,
 symlänkar, misslyckade/dubbla/ofullständiga protokollresultat, utrymmesstopp
 och fel inläst image-ID. Actions provar dessutom verklig export, borttagning
 av byggtaggar, återinläsning och Java-start utan nät från det inlästa paketet.
+Monteringsproven avvisar ersatt kod, saknade datamonteringar, skrivbara
+konfigurationsfiler och överlagring via tmpfs. CI startar dessutom bildens
+faktiska SAML-brygga som vanlig användare med tom privat tmpfs-lagring,
+kontrollerar rätt/fel audience och socketstädning efter SIGTERM.
+Protokollproven importerar bildens federationsmodul utan en värdmonterad kopia.
+
+`python3 .github/scripts/test_audit_image_os.py -v` provar fel image/verktyg/OS,
+saknade/extra/dubbla paket, ändrade versioner, gammal/framtida databas,
+dolda/felaktiga fynd, korrupta distributionsfiler, skadliga arkivmedlemmar
+och att tidigare resultat eller skannerfel inte kan ge godkänt.
+Linux-jobbet provar dessutom verklig paketinstallation och skanning av sin image.
+
+Bildproven körs också i den faktiskt byggda serverimagen med avstängt nät
+och skrivskyddat filsystem: JPEG/JP2/rå JPEG 2000, andra format, korrupta
+bilder och YuNet/SFace. `runtime-components.json` inkluderar OpenCV:s
+byggkonfiguration, upstream-SBOM och hash för binären och de medlevererade
+delade biblioteken. Se verifierarens [licens- och komponentregister](../../verification/THIRD_PARTY.md)
+för de kvarvarande inbäddade biblioteksfynd som OS- och PyPI-skanning inte täcker.
+
+Registerjobbets tidsgräns är 30 minuter för källbygget och de efterföljande
+integrationsproven; det inför inget nytt jobb, schema eller molnbehörighet.

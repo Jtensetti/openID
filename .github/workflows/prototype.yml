@@ -26,11 +26,11 @@ jobs:
       - name: Install exact Temurin JDK with verified archive checksum
         shell: bash
         run: |
-          curl --fail --location --retry 3 'https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jdk_x64_linux_hotspot_21.0.12.1_1.tar.gz' --output "$RUNNER_TEMP/lab-jdk.tar.gz"
-          printf '%s  %s\n' 'ce79869e1307ed8ee1e2baa86a412b1eb5b75d10a01006d788a6f968bcfaee94' "$RUNNER_TEMP/lab-jdk.tar.gz" | sha256sum --check --strict
+          curl --fail --location --retry 3 'https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13%2B9/OpenJDK21U-jdk_x64_linux_hotspot_21.0.13_9.tar.gz' --output "$RUNNER_TEMP/lab-jdk.tar.gz"
+          printf '%s  %s\n' 'd7f5d5cf865a2902b70ff549b97586a7d3f234e016f041ab447ea740c7d66d1c' "$RUNNER_TEMP/lab-jdk.tar.gz" | sha256sum --check --strict
           tar --extract --gzip --file "$RUNNER_TEMP/lab-jdk.tar.gz" --directory "$RUNNER_TEMP"
-          printf 'JAVA_HOME=%s\n' "$RUNNER_TEMP/jdk-21.0.12.1+1" >> "$GITHUB_ENV"
-          printf '%s\n' "$RUNNER_TEMP/jdk-21.0.12.1+1/bin" >> "$GITHUB_PATH"
+          printf 'JAVA_HOME=%s\n' "$RUNNER_TEMP/jdk-21.0.13+9" >> "$GITHUB_ENV"
+          printf '%s\n' "$RUNNER_TEMP/jdk-21.0.13+9/bin" >> "$GITHUB_PATH"
       - name: Compile and test HTTPS, SAML and lifecycle
         run: ./mvnw -B -ntp clean verify dependency:list -DoutputAbsoluteArtifactFilename=true -DoutputFile=target/dependencies.txt -Dsignature.fixtureDirectory=target/signature-fixtures
       - name: Verify document signature using the independent OpenSSL implementation
@@ -45,7 +45,7 @@ jobs:
         run: python3 -m unittest discover -s ../ops/tests -v
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: '24.19.0'
+          node-version: '24.22.1'
       - name: Test browser feedback for failed and blocked completion
         run: node ../verification/test-phone-feedback.cjs
       - name: Install pinned browser test tooling
@@ -56,7 +56,8 @@ jobs:
           from pathlib import Path
           source = Path('/etc/apt/sources.list.d/ubuntu.sources')
           original = source.read_text()
-          updated = original
+          updated = original.replace('mirror+file:/etc/apt/apt-mirrors.txt',
+                                     'https://archive.ubuntu.com/ubuntu')
           for scheme in ('http', 'https'):
               updated = updated.replace(f'{scheme}://azure.archive.ubuntu.com/ubuntu',
                                         'https://archive.ubuntu.com/ubuntu')
@@ -86,10 +87,13 @@ jobs:
           export PROOFING_FIXTURES=/tmp/openid-proofing-fixtures
           export PROOFING_JAVA="$JAVA_HOME/bin/java"
           export PROOFING_PYTHON="$PWD/.venv/bin/python"
-          .venv/bin/python -m unittest -v test_verification test_biometric_diagnostics test_native test_chip test_wallet test_relying_party test_identity test_identity_key test_registry_binding test_runtime test_recovery_operations test_crypto_runtime test_revocation test_notices test_continuity_config test_continuity_operator test_pose test_security_code test_biometric_budget test_passport_revocation
+          .venv/bin/python -m unittest -v test_verification test_image_input test_biometric_diagnostics test_native test_native_retention test_chip test_wallet test_relying_party test_identity test_identity_key test_registry_binding test_runtime test_recovery_operations test_recovery_binding test_crypto_runtime test_revocation test_notices test_continuity_config test_continuity_operator test_pose test_security_code test_biometric_budget test_passport_revocation test_cluster_revocation
           .venv/bin/python -m unittest -v test_audit_archive
+          .venv/bin/python -m unittest -v test_enrollment_policy test_acceptance_journal test_enrollment_consent
+          .venv/bin/python -m unittest -v test_sqlite_retention test_consent_retention test_subject_access test_subject_erasure
           .venv/bin/python -m unittest -v test_test_beta test_crl_maintenance
           .venv/bin/python -m unittest -v test_ingress_client
+          .venv/bin/python -m unittest -v test_bounded_process test_profile_worker test_worker_confinement
           .venv/bin/python -m unittest discover -s ../deployment/continuity -p 'test_*.py' -v
           .venv/bin/python runtime_smoke.py
           .venv/bin/python load_runtime.py --requests 400 --concurrency 32 --output "$RUNNER_TEMP/runtime-load.json"

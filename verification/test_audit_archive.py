@@ -1,5 +1,6 @@
 """Actual SQLite snapshots and adversarial offline archive verification."""
 import hashlib
+from contextlib import closing
 import json
 import os
 from pathlib import Path
@@ -20,7 +21,7 @@ class ArchiveTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name); self.db = self.root/'wallet.sqlite'
         self.destination = self.root/'archive'
-        with sqlite3.connect(self.db) as db:
+        with closing(sqlite3.connect(self.db)) as db, db:
             db.executescript('''PRAGMA journal_mode=WAL;
                 CREATE TABLE credentials(id TEXT PRIMARY KEY,public_key TEXT,state TEXT,created INTEGER,
                     expires INTEGER,decision TEXT,subject TEXT);
@@ -36,10 +37,25 @@ class ArchiveTests(unittest.TestCase):
     def export(self, **kwargs):
         return archive.export_snapshot(archive.sqlite_snapshot(self.db), self.destination, 'sqlite', REVISION, **kwargs)
 
+    def journal_schema(self, insert=True):
+        policy = {'version': 1, 'reference': 'TEST_POLICY_001', 'profileDays': 7,
+                  'authenticationRequestDays': 1}
+        digest = hashlib.sha256(json.dumps(policy, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+        counts = json.dumps(dict(profiles=1, security_codes=1, requests=2, federation_requests=0))
+        row = [1, 2000, policy['reference'], digest, 7, 1, counts]
+        with closing(sqlite3.connect(self.db)) as db, db:
+            db.executescript('''CREATE TABLE profile_evidence(credential TEXT,version TEXT,
+                verified INTEGER,document_expires INTEGER,purged INTEGER);
+                CREATE TABLE retention_runs(id INTEGER PRIMARY KEY,time INTEGER,policy_ref TEXT,
+                policy_sha256 TEXT,profile_days INTEGER,request_days INTEGER,counts TEXT);''')
+            if insert: db.execute('INSERT INTO retention_runs VALUES(?,?,?,?,?,?,?)', row)
+        return row
+
     def test_roundtrip_offline_without_identity_keys_and_minimal_private_data(self):
         receipt = self.export()
         self.db.unlink()  # Verification has no database, application or key dependency.
         result = archive.verify(self.destination, receipt['manifestSha256'])
+        self.assertEqual(1, json.loads((self.destination/'manifest.json').read_bytes())['format'])
         self.assertEqual('VERIFIED', result['state']); self.assertEqual(3, result['rows'])
         self.assertEqual(receipt['bytes'], result['bytes'])
         combined = b''.join(p.read_bytes() for p in self.destination.iterdir())
@@ -53,7 +69,7 @@ class ArchiveTests(unittest.TestCase):
         def concurrent(*args):
             result = original(*args)
             if args[2] == 'credentials':
-                with sqlite3.connect(self.db) as db:
+                with closing(sqlite3.connect(self.db)) as db, db:
                     db.execute("UPDATE credentials SET state='REVOKED'")
                     db.execute("INSERT INTO events VALUES(2,'credential','REVOKED',1001,NULL)")
             return result
@@ -61,7 +77,7 @@ class ArchiveTests(unittest.TestCase):
         archive.verify(self.destination, receipt['manifestSha256'])
         self.assertIn('ACTIVE', (self.destination/'credentials.jsonl').read_text())
         self.assertNotIn('REVOKED', (self.destination/'events.jsonl').read_text())
-        with sqlite3.connect(self.db) as db:self.assertEqual('REVOKED', db.execute('SELECT state FROM credentials').fetchone()[0])
+        with closing(sqlite3.connect(self.db)) as db, db:self.assertEqual('REVOKED', db.execute('SELECT state FROM credentials').fetchone()[0])
 
     def test_changed_data_and_rewritten_manifest_do_not_match_external_anchor(self):
         receipt = self.export(); path = self.destination/'events.jsonl'
@@ -97,12 +113,12 @@ class ArchiveTests(unittest.TestCase):
         self.assertEqual('existing', sentinel.read_text())
 
     def test_failed_read_transaction_never_publishes_manifest(self):
-        with sqlite3.connect(self.db) as db:db.execute('DROP TABLE events')
+        with closing(sqlite3.connect(self.db)) as db, db:db.execute('DROP TABLE events')
         with self.assertRaises(sqlite3.Error):self.export()
         self.assertFalse(self.destination.exists())
 
     def test_invalid_database_types_do_not_publish_an_unverifiable_archive(self):
-        with sqlite3.connect(self.db) as db:db.execute('UPDATE credentials SET created=1.25')
+        with closing(sqlite3.connect(self.db)) as db, db:db.execute('UPDATE credentials SET created=1.25')
         with self.assertRaises(ValueError):self.export()
         self.assertFalse(self.destination.exists())
 
@@ -146,6 +162,130 @@ class ArchiveTests(unittest.TestCase):
                               '--manifest-sha256', 'b'*64], capture_output=True)
         self.assertEqual(2, run.returncode); self.assertEqual(b'', run.stdout)
         self.assertNotIn(b'PRIVATE', run.stderr); self.assertNotIn(b'Traceback', run.stderr)
+
+    def test_retention_journal_v2_offline_roundtrip_and_minimal_fields(self):
+        row = self.journal_schema(); receipt = self.export()
+        self.db.unlink()
+        manifest = json.loads((self.destination/'manifest.json').read_bytes())
+        self.assertEqual(2, manifest['format'])
+        self.assertEqual(row, json.loads((self.destination/'retention_runs.jsonl').read_bytes()))
+        self.assertEqual(4, archive.verify(self.destination, receipt['manifestSha256'])['rows'])
+        self.assertNotIn(b'PRIVATE_', b''.join(p.read_bytes() for p in self.destination.iterdir()))
+        journal = self.destination/'retention_runs.jsonl'
+        self.assertEqual(0o600, journal.stat().st_mode & 0o777)
+        journal.write_bytes(journal.read_bytes().replace(b'TEST_POLICY', b'FAKE_POLICY'))
+        with self.assertRaises(ValueError): archive.verify(self.destination, receipt['manifestSha256'])
+
+    def test_empty_journal_and_concurrent_insert_share_snapshot(self):
+        row = self.journal_schema(insert=False); original = archive.write_table
+        def concurrent(*args):
+            result = original(*args)
+            if args[2] == 'credentials':
+                with closing(sqlite3.connect(self.db)) as db, db:
+                    db.execute('INSERT INTO retention_runs VALUES(?,?,?,?,?,?,?)', row)
+            return result
+        with patch.object(archive, 'write_table', side_effect=concurrent): receipt = self.export()
+        self.assertEqual(b'', (self.destination/'retention_runs.jsonl').read_bytes())
+        self.assertEqual(3, archive.verify(self.destination, receipt['manifestSha256'])['rows'])
+        with closing(sqlite3.connect(self.db)) as db:
+            self.assertEqual(1, db.execute('SELECT count(*) FROM retention_runs').fetchone()[0])
+
+    def test_partial_retention_schema_cannot_downgrade_export(self):
+        self.journal_schema()
+        with closing(sqlite3.connect(self.db)) as db, db: db.execute('DROP TABLE retention_runs')
+        with self.assertRaisesRegex(ValueError, 'incomplete retention schema'): self.export()
+        self.assertFalse(self.destination.exists())
+        with closing(sqlite3.connect(self.db)) as db, db:
+            db.execute('DROP TABLE profile_evidence'); db.execute('CREATE TABLE retention_runs(id INTEGER)')
+        with self.assertRaisesRegex(ValueError, 'incomplete retention schema'): self.export()
+        self.assertFalse(self.destination.exists())
+        with closing(sqlite3.connect(self.db)) as db, db:
+            db.executescript('''DROP TABLE retention_runs;
+                CREATE VIEW retention_runs AS SELECT 1 AS id;
+                CREATE VIEW profile_evidence AS SELECT 1 AS credential;''')
+        with self.assertRaisesRegex(ValueError, 'incomplete retention schema'): self.export()
+        self.assertFalse(self.destination.exists())
+
+    def test_invalid_journal_rejected_at_export_and_even_with_new_trusted_digest(self):
+        row = self.journal_schema(); self.export()
+        manifest_path = self.destination/'manifest.json'
+        manifest = json.loads(manifest_path.read_bytes())
+        for column, value in [(0, 0), (1, -1), (2, 'PRIVATE PERSON'), (3, 'a'*64),
+                (4, 0), (5, 3651), (6, '{}'), (6, '{"profiles":1,"profiles":2}'),
+                (6, json.dumps(dict(profiles=True, security_codes=0, requests=0, federation_requests=0))),
+                (6, json.dumps(dict(profiles=1001, security_codes=0, requests=0, federation_requests=0)))]:
+            with self.subTest(column=column, value=value):
+                changed = row.copy(); changed[column] = value
+                with closing(sqlite3.connect(self.db)) as db, db:
+                    db.execute('DELETE FROM retention_runs')
+                    db.execute('INSERT INTO retention_runs VALUES(?,?,?,?,?,?,?)', changed)
+                dest = self.root/'invalid-export'
+                with self.assertRaises(ValueError):
+                    archive.export_snapshot(archive.sqlite_snapshot(self.db), dest, 'sqlite', REVISION)
+                self.assertFalse(dest.exists())
+                raw = archive.encoded(changed)
+                (self.destination/'retention_runs.jsonl').write_bytes(raw)
+                info = manifest['files']['retention_runs.jsonl']
+                info.update(bytes=len(raw), sha256=hashlib.sha256(raw).hexdigest())
+                raw_manifest = archive.encoded(manifest); manifest_path.write_bytes(raw_manifest)
+                with self.assertRaises(ValueError):
+                    archive.verify(self.destination, hashlib.sha256(raw_manifest).hexdigest())
+
+    def test_v2_requires_journal_and_rejects_unknown_or_postgres_versions(self):
+        self.journal_schema(); receipt = self.export()
+        journal = self.destination/'retention_runs.jsonl'; journal.unlink()
+        with self.assertRaises(ValueError): archive.verify(self.destination, receipt['manifestSha256'])
+        manifest_path = self.destination/'manifest.json'; manifest = json.loads(manifest_path.read_bytes())
+        del manifest['files']['retention_runs.jsonl']
+        raw = archive.encoded(manifest); manifest_path.write_bytes(raw)
+        with self.assertRaises(ValueError): archive.verify(self.destination, hashlib.sha256(raw).hexdigest())
+        for version, backend in [(5, 'sqlite'), (True, 'sqlite'), (2, 'postgresql')]:
+            manifest.update(format=version, backend=backend)
+            raw = archive.encoded(manifest); manifest_path.write_bytes(raw)
+            with self.assertRaises(ValueError): archive.verify(self.destination, hashlib.sha256(raw).hexdigest())
+
+    def test_offline_postgres_later_schemas_use_v4_layout_and_reject_mismatch(self):
+        # A deliberately empty, synthetic archive tests the offline wire format;
+        # real PostgreSQL export is exercised separately by test_cluster.
+        self.destination.mkdir(mode=0o700);files={}
+        for name in archive.tables('postgresql',4):
+            target=self.destination/(name+'.jsonl');target.write_bytes(b'');target.chmod(0o600)
+            files[target.name]={'columns':list(archive.TABLES[name]),'rows':0,'bytes':0,
+                'sha256':hashlib.sha256(b'').hexdigest()}
+        manifest={'format':4,'backend':'postgresql','source_revision':REVISION,'files':files,
+            'snapshot':{'database_schema':6,'read_at':'2026-01-01T00:00:00+00:00'}}
+        path=self.destination/'manifest.json'
+        for schema in (6,5,4,3,7,True,None):
+            with self.subTest(schema=schema):
+                manifest['snapshot']['database_schema']=schema
+                raw=archive.encoded(manifest);path.write_bytes(raw);path.chmod(0o600)
+                digest=hashlib.sha256(raw).hexdigest()
+                if type(schema) is int and schema in (4,5,6):
+                    self.assertEqual(0,archive.verify(self.destination,digest)['rows'])
+                else:
+                    with self.assertRaises(ValueError):archive.verify(self.destination,digest)
+
+
+    def test_offline_postgres_v5_requires_schema7_and_both_erasure_tables(self):
+        self.destination.mkdir(mode=0o700);files={}
+        for name in archive.tables('postgresql',5):
+            target=self.destination/(name+'.jsonl');target.write_bytes(b'');target.chmod(0o600)
+            files[target.name]={'columns':list(archive.TABLES[name]),'rows':0,'bytes':0,
+                'sha256':hashlib.sha256(b'').hexdigest()}
+        manifest={'format':5,'backend':'postgresql','source_revision':REVISION,'files':files,
+            'snapshot':{'database_schema':7,'read_at':'2026-01-01T00:00:00+00:00'}}
+        path=self.destination/'manifest.json'
+        for schema in (7,6,4,8,True,None):
+            manifest['snapshot']['database_schema']=schema
+            raw=archive.encoded(manifest);path.write_bytes(raw);path.chmod(0o600)
+            digest=hashlib.sha256(raw).hexdigest()
+            if type(schema) is int and schema==7:self.assertEqual(0,archive.verify(self.destination,digest)['rows'])
+            else:
+                with self.assertRaises(ValueError):archive.verify(self.destination,digest)
+        manifest['snapshot']['database_schema']=7
+        del files['erasure_subjects.jsonl']
+        raw=archive.encoded(manifest);path.write_bytes(raw)
+        with self.assertRaises(ValueError):archive.verify(self.destination,hashlib.sha256(raw).hexdigest())
 
 
 if __name__ == '__main__': unittest.main()

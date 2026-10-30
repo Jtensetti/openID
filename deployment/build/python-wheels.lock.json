@@ -1,0 +1,301 @@
+{
+  "format": 1,
+  "target": "CPython 3.12 Linux amd64",
+  "requirements": {
+    "verification/requirements.lock": "66cbac0f57b845fb4aba62a5752398d6bcd5b79434e9303781ad926fb0d17d58",
+    "verification/rp-requirements.lock": "6300949b7c50937bc4e02d99a59ef9edabe33ea0540381c8453055f625b43c24",
+    "verification/runtime-requirements.lock": "314fedb6b2fac5bfdeb1228c993cbc3df4fac47f1e5e61020bff4f9c2d70cad6",
+    "deployment/aws/requirements.lock": "192e7110f611f6e7156ad1870763461ecd791e6496ff49d789246e424ab8e69a",
+    "verification/cluster-requirements.lock": "92f915ae252397e6924bab26d110c437708baa954dfd7da8fc9f35d5de4b54e9"
+  },
+  "profiles": {
+    "pilot": {
+      "requirements": [
+        "verification/requirements.lock",
+        "verification/rp-requirements.lock",
+        "verification/runtime-requirements.lock",
+        "deployment/aws/requirements.lock"
+      ],
+      "packages": [
+        "boto3",
+        "botocore",
+        "filelock",
+        "fsspec",
+        "gunicorn",
+        "jinja2",
+        "jmespath",
+        "markupsafe",
+        "mpmath",
+        "networkx",
+        "numpy",
+        "opencv-python-headless",
+        "python-dateutil",
+        "qrcode",
+        "s3transfer",
+        "setuptools",
+        "six",
+        "sympy",
+        "torch",
+        "typing-extensions",
+        "urllib3"
+      ]
+    },
+    "registry": {
+      "requirements": [
+        "verification/cluster-requirements.lock",
+        "verification/rp-requirements.lock",
+        "verification/runtime-requirements.lock"
+      ],
+      "packages": [
+        "gunicorn",
+        "psycopg",
+        "psycopg-binary",
+        "psycopg-pool",
+        "qrcode",
+        "typing-extensions"
+      ]
+    }
+  },
+  "wheels": [
+    {
+      "name": "boto3",
+      "version": "1.43.115",
+      "sha256": "6667a0c21d48dc125dbba88444bc8a601ce881a99341a0e6169f9333898e620d",
+      "url": "https://files.pythonhosted.org/packages/be/bc/40dffae3238ef8d3415393132751fe2c88e8663ef84a31f0950e439ed2d5/boto3-1.43.115-py3-none-any.whl",
+      "filename": "boto3-1.43.115-py3-none-any.whl",
+      "bytes": 140044,
+      "metadataSource": "https://pypi.org/pypi/boto3/1.43.115/json",
+      "metadataSHA256": "0993d9c20aa99f5d9a878477cfdae55f881bbb9272324e60efd902fd0dceb5ca"
+    },
+    {
+      "name": "botocore",
+      "version": "1.43.115",
+      "sha256": "9ceda640c868bc15f5399129e8cfdef8cbb4b350e8a99547c9b5f477cfb9619a",
+      "url": "https://files.pythonhosted.org/packages/77/2d/4b6b6f5704d1ec9b412c1dd9700bda0c315619dbac4a21418180a81a2780/botocore-1.43.115-py3-none-any.whl",
+      "filename": "botocore-1.43.115-py3-none-any.whl",
+      "bytes": 16085101,
+      "metadataSource": "https://pypi.org/pypi/botocore/1.43.115/json",
+      "metadataSHA256": "977deeb3a32c746c58009e494914255ad245f54e26355dc347f73420e6cf4ff2"
+    },
+    {
+      "name": "filelock",
+      "version": "4.2.1",
+      "sha256": "7be2662e9e826b9bba28afc0f843a123280d799a2ea44bb5d35ccec67905ae44",
+      "url": "https://files.pythonhosted.org/packages/28/00/db89d339bc4ecdc8087fa7b8607ba22ffc27bf96286f340c9620bea428b3/filelock-4.2.1-py3-none-any.whl",
+      "filename": "filelock-4.2.1-py3-none-any.whl",
+      "bytes": 162455,
+      "metadataSource": "https://pypi.org/pypi/filelock/4.2.1/json",
+      "metadataSHA256": "26b5c358e98a3812b9e561b224f617d396d8fdb40c67b9644d8bde68d6ae8547"
+    },
+    {
+      "name": "fsspec",
+      "version": "2026.7.0",
+      "sha256": "b57ddbafedfaef7018c1ecab32aa200a9d7ca26b77965f64e48b70061249d279",
+      "url": "https://files.pythonhosted.org/packages/fd/3c/6a2bf344106328fd04963664a60b9bb6496fc25df8e962fcdc1367285fb9/fsspec-2026.7.0-py3-none-any.whl",
+      "filename": "fsspec-2026.7.0-py3-none-any.whl",
+      "bytes": 206583,
+      "metadataSource": "https://pypi.org/pypi/fsspec/2026.7.0/json",
+      "metadataSHA256": "55eeed4d2aa6c53010b8dc6ac67ce83f2620ef17203c5922f5a642f479b484b0"
+    },
+    {
+      "name": "gunicorn",
+      "version": "26.2.0",
+      "sha256": "bd249d0b3f7972f7432f0a6b6ff3b3ee2d129f70cd1ff6c09a9dd9e29a2b88e3",
+      "url": "https://files.pythonhosted.org/packages/fe/85/7522a52e5e2f42faf1a129113ab63e548c42e103e9af395b7bfe65e403e2/gunicorn-26.2.0-py3-none-any.whl",
+      "filename": "gunicorn-26.2.0-py3-none-any.whl",
+      "bytes": 228389,
+      "metadataSource": "https://pypi.org/pypi/gunicorn/26.2.0/json",
+      "metadataSHA256": "69f431e8da68bf196649f83f6ba5adcf5fc66231a0fe04463a1988953feb8481"
+    },
+    {
+      "name": "jinja2",
+      "version": "3.1.6",
+      "sha256": "85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67",
+      "url": "https://files.pythonhosted.org/packages/62/a1/3d680cbfd5f4b8f15abc1d571870c5fc3e594bb582bc3b64ea099db13e56/jinja2-3.1.6-py3-none-any.whl",
+      "filename": "jinja2-3.1.6-py3-none-any.whl",
+      "bytes": 134899,
+      "metadataSource": "https://pypi.org/pypi/jinja2/3.1.6/json",
+      "metadataSHA256": "1bc757d7065f3e67d3a49e72ebc731d0774055575732592eede9820c136329cc"
+    },
+    {
+      "name": "jmespath",
+      "version": "1.1.0",
+      "sha256": "a5663118de4908c91729bea0acadca56526eb2698e83de10cd116ae0f4e97c64",
+      "url": "https://files.pythonhosted.org/packages/14/2f/967ba146e6d58cf6a652da73885f52fc68001525b4197effc174321d70b4/jmespath-1.1.0-py3-none-any.whl",
+      "filename": "jmespath-1.1.0-py3-none-any.whl",
+      "bytes": 20419,
+      "metadataSource": "https://pypi.org/pypi/jmespath/1.1.0/json",
+      "metadataSHA256": "de5bfed61841dea8dd10c05206276a42f526f10cd96a57717e24fa8d94f98111"
+    },
+    {
+      "name": "markupsafe",
+      "version": "3.0.3",
+      "sha256": "d6dd0be5b5b189d31db7cda48b91d7e0a9795f31430b7f271219ab30f1d3ac9d",
+      "url": "https://files.pythonhosted.org/packages/3c/2e/8d0c2ab90a8c1d9a24f0399058ab8519a3279d1bd4289511d74e909f060e/markupsafe-3.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "filename": "markupsafe-3.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "bytes": 22947,
+      "metadataSource": "https://pypi.org/pypi/markupsafe/3.0.3/json",
+      "metadataSHA256": "0de4f18187d0fc2318de8504c4178f2297bc7cfa7a55adfb6d013190aff8cff4"
+    },
+    {
+      "name": "mpmath",
+      "version": "1.3.0",
+      "sha256": "a0b2b9fe80bbcd81a6647ff13108738cfb482d481d826cc0e02f5b35e5c88d2c",
+      "url": "https://files.pythonhosted.org/packages/43/e3/7d92a15f894aa0c9c4b49b8ee9ac9850d6e63b03c9c32c0367a13ae62209/mpmath-1.3.0-py3-none-any.whl",
+      "filename": "mpmath-1.3.0-py3-none-any.whl",
+      "bytes": 536198,
+      "metadataSource": "https://pypi.org/pypi/mpmath/1.3.0/json",
+      "metadataSHA256": "87119e683fa33e0fcbca594469c138ecd42294fa5194f525c86787eefdfb77aa"
+    },
+    {
+      "name": "networkx",
+      "version": "3.6.1",
+      "sha256": "d47fbf302e7d9cbbb9e2555a0d267983d2aa476bac30e90dfbe5669bd57f3762",
+      "url": "https://files.pythonhosted.org/packages/9e/c9/b2622292ea83fbb4ec318f5b9ab867d0a28ab43c5717bb85b0a5f6b3b0a4/networkx-3.6.1-py3-none-any.whl",
+      "filename": "networkx-3.6.1-py3-none-any.whl",
+      "bytes": 2068504,
+      "metadataSource": "https://pypi.org/pypi/networkx/3.6.1/json",
+      "metadataSHA256": "086ea20eae0bce8c0100f4ad27141818546f904be441a713ce4c3a7f2d650d19"
+    },
+    {
+      "name": "numpy",
+      "version": "2.2.6",
+      "sha256": "fd83c01228a688733f1ded5201c678f0c53ecc1006ffbc404db9f7a899ac6249",
+      "url": "https://files.pythonhosted.org/packages/8c/3d/1e1db36cfd41f895d266b103df00ca5b3cbe965184df824dec5c08c6b803/numpy-2.2.6-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "filename": "numpy-2.2.6-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "bytes": 16527618,
+      "metadataSource": "https://pypi.org/pypi/numpy/2.2.6/json",
+      "metadataSHA256": "51dd78a65b122d87244ebf772615784f4cf57f2695cab22a14a58802160f9489"
+    },
+    {
+      "name": "opencv-python-headless",
+      "version": "4.14.0.94",
+      "sha256": "211e581f5a4670acbbe08fff36a35e9946039d2eea28b80394632d036d1be527",
+      "url": "https://files.pythonhosted.org/packages/ae/ce/7f538891722a4f06921419d55bac6f41729258d54442861edb2de0dbdf5e/opencv_python_headless-4.14.0.94-cp37-abi3-manylinux_2_28_x86_64.whl",
+      "filename": "opencv_python_headless-4.14.0.94-cp37-abi3-manylinux_2_28_x86_64.whl",
+      "bytes": 61960165,
+      "metadataSource": "https://pypi.org/pypi/opencv-python-headless/4.14.0.94/json",
+      "metadataSHA256": "fffd4d8cfce3ac567a57eff464a9ccd9a2eeba2b9dd67f910d04968ec1f57d0f"
+    },
+    {
+      "name": "psycopg",
+      "version": "3.3.6",
+      "sha256": "a1db9f7148b06a28606767efaca51fa6f9398c5c0a3810519be69d7000bdb631",
+      "url": "https://files.pythonhosted.org/packages/4e/de/748bd7609c71cae5d737f0ba9192f19329f70180ecda8fff3cac02c5abe3/psycopg-3.3.6-py3-none-any.whl",
+      "filename": "psycopg-3.3.6-py3-none-any.whl",
+      "bytes": 215490,
+      "metadataSource": "https://pypi.org/pypi/psycopg/3.3.6/json",
+      "metadataSHA256": "67267f5b63adf658b4d04848e36f70fc4b32ffc31e3bc6ea9086117bce8cc96a"
+    },
+    {
+      "name": "psycopg-binary",
+      "version": "3.3.6",
+      "sha256": "1679a1cb93fbe5a6d1fd58d82cbddcc6fcb8c61446ba7cae6eb2a7b19bc585de",
+      "url": "https://files.pythonhosted.org/packages/0a/42/948bb3d2617795093512613fd96ba380e922992c7908fbc073858147d196/psycopg_binary-3.3.6-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+      "filename": "psycopg_binary-3.3.6-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+      "bytes": 5235723,
+      "metadataSource": "https://pypi.org/pypi/psycopg-binary/3.3.6/json",
+      "metadataSHA256": "73c5e31cb3c5d454391b3e218a5c7f2d1e693c2cd338e1b63a65cc667a83bfaf"
+    },
+    {
+      "name": "psycopg-pool",
+      "version": "3.3.3",
+      "sha256": "9b9cd6a4fcec47a410f7e82d408540e7f77b478509e91b44c1a5457a13e5ff37",
+      "url": "https://files.pythonhosted.org/packages/5d/b4/452c6607a0f479465cd8a9b0d9956919fcb150050c1f83f9f11e6b8ee8dc/psycopg_pool-3.3.3-py3-none-any.whl",
+      "filename": "psycopg_pool-3.3.3-py3-none-any.whl",
+      "bytes": 40304,
+      "metadataSource": "https://pypi.org/pypi/psycopg-pool/3.3.3/json",
+      "metadataSHA256": "b4d1d00413587c2f8c439d424eea1d53d0e2d29feb4620fd908148de3a1e199a"
+    },
+    {
+      "name": "python-dateutil",
+      "version": "2.9.0.post0",
+      "sha256": "a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427",
+      "url": "https://files.pythonhosted.org/packages/ec/57/56b9bcc3c9c6a792fcbaf139543cee77261f3651ca9da0c93f5c1221264b/python_dateutil-2.9.0.post0-py2.py3-none-any.whl",
+      "filename": "python_dateutil-2.9.0.post0-py2.py3-none-any.whl",
+      "bytes": 229892,
+      "metadataSource": "https://pypi.org/pypi/python-dateutil/2.9.0.post0/json",
+      "metadataSHA256": "f3a0d4d44ef5e71ff77e4dd013b39b1d1bd173fb04f8b0aecc83e5502c44d858"
+    },
+    {
+      "name": "qrcode",
+      "version": "8.2",
+      "sha256": "16e64e0716c14960108e85d853062c9e8bba5ca8252c0b4d0231b9df4060ff4f",
+      "url": "https://files.pythonhosted.org/packages/dd/b8/d2d6d731733f51684bbf76bf34dab3b70a9148e8f2cef2bb544fccec681a/qrcode-8.2-py3-none-any.whl",
+      "filename": "qrcode-8.2-py3-none-any.whl",
+      "bytes": 45986,
+      "metadataSource": "https://pypi.org/pypi/qrcode/8.2/json",
+      "metadataSHA256": "2761ab5af63a844c325eb61712dc37b169d8a169ad23b9be2c1af18696fc097d"
+    },
+    {
+      "name": "s3transfer",
+      "version": "0.19.3",
+      "sha256": "24eb7535804306355e31c952a90022bf5b2f9d760f9a11062c7493a217c08553",
+      "url": "https://files.pythonhosted.org/packages/e2/a4/88f9e10498759121060b8050a1554753dfc04df39bbbcc7aad9ecc8d9440/s3transfer-0.19.3-py3-none-any.whl",
+      "filename": "s3transfer-0.19.3-py3-none-any.whl",
+      "bytes": 90252,
+      "metadataSource": "https://pypi.org/pypi/s3transfer/0.19.3/json",
+      "metadataSHA256": "05e5e0fe25ff2a54e775257f557bd60e2648803eb487e23945f1583820cb62e5"
+    },
+    {
+      "name": "setuptools",
+      "version": "84.1.0",
+      "sha256": "5231689c6ac8156cd155cfb98c3fd6fb252c3e7e9bd3d78b64d3c55f132624c9",
+      "url": "https://files.pythonhosted.org/packages/18/02/b4bbb90f8f29e334898ff45c6d9b1fffaa6f378017052b3023a06262b5f7/setuptools-84.1.0-py3-none-any.whl",
+      "filename": "setuptools-84.1.0-py3-none-any.whl",
+      "bytes": 819380,
+      "metadataSource": "https://pypi.org/pypi/setuptools/84.1.0/json",
+      "metadataSHA256": "75427bb7a4289a8f06fe176e3eab998710051b36706c80c1df7e796000372f02"
+    },
+    {
+      "name": "six",
+      "version": "1.17.0",
+      "sha256": "4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274",
+      "url": "https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl",
+      "filename": "six-1.17.0-py2.py3-none-any.whl",
+      "bytes": 11050,
+      "metadataSource": "https://pypi.org/pypi/six/1.17.0/json",
+      "metadataSHA256": "d8de39dd52b73048d81a8fd78022ee2bc72f8b568bcf0d88e5d5069c302b1208"
+    },
+    {
+      "name": "sympy",
+      "version": "1.14.0",
+      "sha256": "e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5",
+      "url": "https://files.pythonhosted.org/packages/a2/09/77d55d46fd61b4a135c444fc97158ef34a095e5681d0a6c10b75bf356191/sympy-1.14.0-py3-none-any.whl",
+      "filename": "sympy-1.14.0-py3-none-any.whl",
+      "bytes": 6299353,
+      "metadataSource": "https://pypi.org/pypi/sympy/1.14.0/json",
+      "metadataSHA256": "7f17c97b2d9ccec17969f30bd7e43c58db3de1145cd1cf00773e48991048d176"
+    },
+    {
+      "name": "torch",
+      "version": "2.13.0+cpu",
+      "sha256": "4ca4a9394b0c771238a4f73590fdbbc4debad85ed0fa63d026ae1b085da7d6e2",
+      "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp312-cp312-manylinux_2_28_x86_64.whl",
+      "filename": "torch-2.13.0+cpu-cp312-cp312-manylinux_2_28_x86_64.whl",
+      "bytes": null,
+      "metadataSource": "https://download.pytorch.org/whl/cpu/torch/",
+      "metadataSHA256": "89758455508383626ea9cfb954affd22a967280562154b5d52c5474e4849b0f3"
+    },
+    {
+      "name": "typing-extensions",
+      "version": "4.16.0",
+      "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
+      "url": "https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl",
+      "filename": "typing_extensions-4.16.0-py3-none-any.whl",
+      "bytes": 45571,
+      "metadataSource": "https://pypi.org/pypi/typing-extensions/4.16.0/json",
+      "metadataSHA256": "2140da00d62dde967f52d0be0ae28444f1d6a3fe603f52c83c23988c32122d5a"
+    },
+    {
+      "name": "urllib3",
+      "version": "2.8.0",
+      "sha256": "0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3",
+      "url": "https://files.pythonhosted.org/packages/92/9d/c4e665119135114480843e7ab388fa94d8480650450e6f8e26b70d323a4c/urllib3-2.8.0-py3-none-any.whl",
+      "filename": "urllib3-2.8.0-py3-none-any.whl",
+      "bytes": 135717,
+      "metadataSource": "https://pypi.org/pypi/urllib3/2.8.0/json",
+      "metadataSHA256": "5315e7401db3cacccd0c2ce5daf81f752a9cc3614b18c37f2b79930b7159ce2f"
+    }
+  ]
+}

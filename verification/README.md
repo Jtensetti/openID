@@ -1,5 +1,9 @@
 # Passverifierare och testtjänst
 
+WSGI-servern håller nyregistrering pausad om `newRegistrationsEnabled` inte
+uttryckligen är `true`. Befintliga wallet-funktioner har kvar sina separata
+skydd. Se [registreringspaus och införande](../docs/registreringspaus.md).
+
 Server för passkontroll, ansiktsjämförelse, liveness och iPhone-appens
 pilotregister. [SAML-inloggningen](#saml-inloggning-med-passets-identitet) binder
 appens nyckel till passets personuppgifter och använder bibliotek från Sweden Connect.
@@ -41,8 +45,34 @@ Detta analysgränssnitt registrerar ingen nyckel.
 ## Appens privata pilotregister
 
 För telefonprov med paketerad server används [pilotmiljön](../deployment/README.md).
-Den kör Gunicorn med separata kapacitetsgränser och processisolering för
-bildanalys. Kommandot nedan startar den äldre seriella testservern.
+Den kör Gunicorn med separata kapacitetsgränser och kortlivade processer för
+bildanalys och profilminiatyrer. Kommandot nedan startar den äldre seriella testservern.
+
+Profilavkodning/omkodning körs med 15 sekunders väntetid, högst 10 sekunders
+CPU-tid och 1 GiB virtuellt minne på Linux. Endast
+porträttets bildbytes skickas på stdin; personfälten stannar i föräldern.
+Utdata begränsas medan den läses: högst 24 000 byte JPEG för profilen och
+4096 byte diagnostik/poäng från biometriarbetaren, som har 45 sekunders
+väntetid. Timeout, för stor utdata och krasch får inte skapa någon profil;
+registreringstransaktionen och dess CRL-efterkontroll består.
+
+Båda bildarbetarna sätter core-gränsen till noll före modell-/codec-laddning
+och inläsning. På Linux stängs också processens dumpbarhet av med återläsning;
+enbart core-gränsen räcker inte för pipade kraschinsamlare. Kan skyddet inte
+aktiveras avslutas arbetaren utan bild-/poängsvar. Det är skydd vid vanliga
+krascher, inte en spärr mot en komprometterad arbetare eller administratör.
+Övriga processer och värdens kraschinsamling behöver separat driftkontroll.
+
+Bildarbetarna får bara fasta tråd-/lokalinställningar, standardsökväg och
+den fasta granskade OpenCV-kandidatens PYTHONPATH, om exakt den är vald.
+Andra PYTHONPATH-värden ärvs inte; användarens Python-site inaktiveras. Serverns övriga
+miljövariabler ärvs inte, även vid modellkontrollen under start.
+På Linux x86-64 begränsar [Landlock och seccomp](../docs/bildarbetare.md)
+filinnehållsläsning till kod/modeller/runtime och nekar skrivning, nätverk,
+nya processer och åtkomst till förälderns minne. Landlock ABI minst 3 krävs;
+saknat skydd stoppar arbetaren. Kontot delas fortfarande med tjänsten.
+Isoleringen är inget bevis på rättade avkodarsårbarheter eller korrekt
+driftskonfiguration. macOS-utveckling har inte detta Linux-skydd.
 
 [iPhone-appen](../ios/README.md) läser passet, tar tre kamerabilder och binder
 underlaget till telefonens publika nyckel med App Attest. Starta servern med
@@ -331,20 +361,31 @@ Katalog och fil kräver 0700/0600. Personprofiler krypteras med Node 24.19.0 AES
 nonce och credential/person-ID som autentiserade kontextdata. Separata
 256-bitars nycklar används för kryptering och HMAC-SHA-256. Nyckelfilen
 `wallet.identity-key` skapas med 0600. Saknad eller fel nyckel stoppar
-profilåtkomst; den ersätts inte automatiskt när profiler finns.
+profilåtkomst. Om profiler, person-/dokumentkopplingar, försökshistorik, PIN
+eller spärrkoder finns kvar skapar readiness, biometrisk försöksreservation
+och nyregistrering ingen ersättningsnyckel.
 
 Nyckeln ligger i samma privata katalog som databasen, utan HSM. Detta
 skyddar en separat databasfil men inte ett övertaget serverkonto eller en
 kopia av hela katalogen. Metadata och händelser är okrypterade. Profiler
-behålls efter spärr men lämnas inte ut till appen eller tjänsten. Automatisk
-gallring och nyckelrotation saknas; operatören måste fastställa lagringstid
-och radera pilotens data och nyckel efter provet.
+behålls efter spärr men lämnas inte ut till appen eller tjänsten.
+[SQLite-gallring](../docs/gallring-sqlite.md) har läsande förhandsvisning,
+uttrycklig policy, begränsade transaktioner och journal. Profilmetadata och
+spärr-/nyckelhistorik bevaras. Schemaläggning, beslutade tider, nyckelrotation
+och fullständig avveckling återstår; radera inte nyckeln så länge skyddade
+person-/dokumentkopplingar behöver fungera.
 **Återläsning av gamla databasfiler stöds inte**: den kan återställa en spärrad
 nyckel. Använd `recovery.py restore`, som spärrar återställda nycklar och
 blockerar ny registrering och biometrisk analys i minst 24 timmar. Spärren
 lagras i databasen och överlever omstart. Den skyddar mot att en äldre
 backup saknar senare biometriförsök. Identitetsnyckeln måste bevaras separat
-även när det bara finns försökshistorik och inga profiler.
+även när det bara finns försökshistorik, personkopplingar eller spärrkoder
+och inga profiler. [Återställningsbindningen](../docs/aterstallningsbindning.md)
+kräver originalnyckelns oberoende inventerade fingeravtryck och binder det
+till exakt backuphash. Återläsning kräver bindningsfil och externt förankrad
+kontrollsumma, även för kopior utan nyckeldata. Kvarvarande profiler dekrypteras
+och kontrolleras också. Saknat originalunderlag får inte ersättas med ett
+nyberäknat fingeravtryck från en godtycklig nyckel.
 Den publika betan kontrollerar dessutom den separata aktuella spärrtabellen;
 dess konfiguration och migrationsmarkör måste bevaras. `recovery.py backup`
 kopierar markören utan att starta Wallet; `restore` bevarar den och kan dessutom
@@ -359,7 +400,8 @@ För ett separat, privat uttag av befintliga registerjournaler används
 [`audit_archive.py`](../docs/arkivexport.md). Det stöder SQLite och PostgreSQL,
 fungerar utan profilnycklar och kan verifieras offline mot en separat
 bevarad manifestkontrollsumma. Det ersätter inte återställningsbackup eller
-fullständigt utgivningsbevis.
+fullständigt utgivningsbevis. SQLite med gallringsschema använder format 2
+och inkluderar körjournalen; äldre arkiv i format 1 kan fortfarande verifieras.
 
 | Del | Kontroll |
 |---|---|
@@ -591,6 +633,13 @@ Ansiktsdetektionen görs i originalskala och, för bilder större än 480 pixlar
 
 ### Beräkning per registreringsförsök
 
+`image_input.py` är den gemensamma bildgränsen för ansiktskontrollen och
+profilens miniatyr. Endast JPEG, JP2 och rå JPEG 2000 tillåts före native-
+avkodning, med högst 2 MB indata, 4096 pixlar per sida och åtta miljoner
+bildpunkter. Profilen kan därför inte välja andra avkodare genom sin separata
+konvertering. Trunkerade tillåtna format måste fortfarande avvisas av
+avkodaren. Detta ersätter inte uppdatering av inbäddade bildbibliotek.
+
 Den isolerade biometriarbetaren avkodar och detekterar varje bild en gång
 per registreringsförsök. Passporträttets SFace-vektor beräknas en gång och
 används för de tre jämförelserna; PAD får samma kontrollerade kamerabild och
@@ -609,3 +658,7 @@ för båda dokumenten och separat manuell aktivering. En förlorad telefon kan
 spärras med befintlig `wallet_cli.py revoke`; den gamla nyckeln återaktiveras inte.
 Syntetiska prov använder interna test-ID:n och lämnar aldrig ut personnummer.
 Se [operatörsflöde, adapterkontrakt och begränsningar](../docs/registerbindning.md).
+
+Nyregistrering kräver en privat `enrollmentPolicyFile`; se [information, versionsbundna val och återkallelse](../docs/registreringsinformation.md). Standardläget kräver separat aktivering; [TestFlight-läget](../docs/testflight-beta.md) aktiverar automatiskt efter godkända kontroller. PostgreSQL kräver schema 7. [Gallring av registreringskvitton](../docs/gallring-samtycken.md) kräver separat beslutad policy.
+
+Beslutad radering och aktuell beslutsförteckning vid återställning beskrivs i [radering i rättighetsärende](../docs/radering-rattighetsarende.md). Skyddsreferenser och externa kopior kräver separat prövning.
