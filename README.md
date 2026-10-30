@@ -30,6 +30,14 @@ Spärr när testservern är avstängd kräver att innehavaren har hämtat sin sp
 [avisering och spärr](docs/avisering-och-sparr.md) för provade funktioner och begränsningar.
 Projektet är inte anslutet till Sweden Connect-federationen.
 
+## Repository och åtkomst
+
+Repot är privat sedan 30 oktober 2026. Projektsidan och betans testsida har
+separat hosting; repoändringen publicerar eller stänger inte dessa tjänster.
+GitHubs nuvarande plan verkställer inte skyddsregler i det privata repot.
+PR och godkänd CI ska därför kontrolleras av förvaltaren före merge; se
+[repoägarskap och kontroller](docs/utveckling.md#obligatoriska-kontroller-och-repoägarskap).
+
 ## Kör och utveckla
 
 | Del | Innehåll |

@@ -61,16 +61,20 @@ beroendekontroll har passerat. Fel, avbrott och överhoppade jobb nekar grinden.
 Komponentprov kan även startas manuellt. Inga produktionshemligheter skickas
 till dessa jobb; jobben har enbart läsbehörighet till koden.
 
-`main` skyddas i GitHub. Ett mergeförsök den 30 oktober 2026 nekades eftersom
-den senaste pushen saknade godkännande från en annan person. Versionshanterad
-önskad konfiguration finns i `.github/branch-protection.json`; kontrollera
-samtliga aktuella inställningar i GitHub före en release. Förslaget binder kontrollen till GitHub Actions,
-kräver aktuell branch, en granskare och godkännande efter senaste push,
-avfärdar gamla godkännanden, omfattar administratörer och förbjuder force-push
-och borttagning. CODEOWNERS anger ansvarig förvaltare; det utgör inte en
-oberoende säkerhetsgranskning. En sådan granskare måste utses och ges en
-beslutad roll. Kodägargodkännande är inte aktiverat i förslaget eftersom en
-ensam ägare inte kan godkänna sin egen PR.
+Repot gjordes privat på ägarens begäran den 30 oktober 2026. GitHub visar
+`main-security-gate` som **Not enforced** på den nuvarande planen. Därmed
+verkställs varken granskningskravet, CI-kravet eller force-push-skyddet av
+den regeln. En lyckad merge är inte bevis på godkänd CI. Förvaltaren ska
+kontrollera resultatet och undvika direkt-/force-push enligt projektets arbetsgång.
+
+`.github/branch-protection.json` bevarar önskad skyddskonfiguration för en
+miljö där GitHub-planen stöder den: aktuell branch, GitHub Actions-kontrollen,
+en annan granskare, aktuellt godkännande samt förbud mot force-push/borttagning.
+Filen beskriver inte det privata repots verkställda skydd. GitHub tillåter
+inte att PR-författaren godkänner sin egen PR; anslutningens ändringar skapas
+under repoägarens konto. Återinför ett fungerande, verifierat skydd före
+bredare samarbete eller produktionsrelease. CODEOWNERS och agentgranskning
+ersätter inte oberoende säkerhetsgranskning.
 
 Vid installation i ett nytt repo kan förslaget granskas och tillämpas
 med en behörig GitHub CLI-session:
@@ -83,7 +87,7 @@ python3 .github/scripts/configure_repository.py --apply
 Skriptet ersätter inte ett befintligt branchskydd. Det kontrollerar svaret
 efter ändringen och aktiverar därefter GitHubs privata sårbarhetsrapportering.
 En fil i repot verifierar inte driftinställningarna; skriptet ska inte användas
-för att skriva över eller försvaga det befintliga skyddet.
+utan att först kontrollera aktuell plan, faktisk regel och godkänd ändringsomfattning.
 Lägg inte en administratörstoken i CI för att köra detta.
 
 ## Säkerhetsbevakning
@@ -103,3 +107,10 @@ driftägaren. Swift-commitfrågor ersätter inte bevakning av inbäddade OpenSSL
 Verifiera dagliga körningar och en mottagare för fel efter aktivering på
 `main`. GitHub-artefakterna med 90 dagars retention är inte långtidsarkiv
 för utgivningsbevis.
+
+Efter privatbytet är dependency graph och Dependabot alerts aktiverade.
+GitHubs Advanced Security och den tidigare publika sårbarhetskanalen ska
+inte antas finnas kvar; aktuell rapporteringsväg anges i [SECURITY.md](../SECURITY.md).
+[GitHubs planvillkor för skyddade grenar](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches)
+kontrollerades den 30 oktober 2026. Privat Actions-användning följer kontots
+kvot och debitering; lägg inte till överflödiga omkörningar.

@@ -81,12 +81,16 @@ commit räcker inte. Historikändring kräver separat beslut.
 
 ## Rapportera problem
 
-Rapportera via [GitHubs privata sårbarhetsrapportering](https://github.com/Jtensetti/openID/security/advisories/new).
-Ange berörd version, förutsättningar, konsekvens och minsta syntetiska exempel
-som visar problemet. Skicka inte pass, biometrik, personakter, privata nycklar
-eller lösenord. Publicera inte känsliga sårbarhetsdetaljer i öppna issues.
-Kanalen är aktiverad; bemannad beredskap och garanterad svarstid är ännu inte
-fastställda. Den ersätter inte användarens separata spärrfunktion.
+Repot är privat sedan 30 oktober 2026. Rapportera säkerhetsproblem till
+[Jonatan@tensetti.se](mailto:Jonatan@tensetti.se). Ange berörd version,
+förutsättningar, konsekvens och en kort beskrivning. Skicka inte pass,
+biometrik, personakter, privata nycklar eller lösenord. Be om en överenskommen
+säker överföringsväg för känsliga tekniska bilagor. Publicera inte känsliga
+sårbarhetsdetaljer i öppna kanaler.
+
+Den tidigare GitHub-länken för publik sårbarhetsrapportering är inte längre
+angiven som aktiv kanal. Bemannad beredskap och garanterad svarstid är inte
+fastställda. Kontaktadressen ersätter inte användarens separata spärrfunktion.
 
 ## Test och release
 
