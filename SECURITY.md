@@ -101,12 +101,11 @@ En merge innebär inte att skydden är driftsatta eller att tidigare
 registreringar har giltiga kvitton.
 
 [OS-paketkontrollen](deployment/build/README.md#systempaket-och-säkerhetsunderlag)
-stoppar leverans vid fynd eller ofullständiga underlag. De kvarvarande
-OS-/biblioteksfynden behöver åtgärdas eller bedömas med granskat underlag;
-en mindre Wolfi-bas innebär inte att fynden är stängda. Öppna leverantörsärenden
-för Python och Expat kvarstår i paketlåset från 2026-10-30. Kontrollen omfattar
-även leverantörsstatusar som Trivys Wolfi-feed inte rapporterar. Se
-[komponentregistret](THIRD_PARTY.md#wolfi-bas-och-apko-kontrollerat-2026-10-30).
+bevarar samtliga råa fynd och stoppar leverans när ett fynd är tillämpligt,
+obehandlat eller saknar aktuellt underlag. Exakta versionsbundna beslut
+kräver runtimeprov och granskade dataflöden. En godkänd bedömning för dessa
+images är inget generellt påstående att Debian, Python eller Expat saknar
+sårbarheter. Se [komponentregistret](THIRD_PARTY.md#debianbas-kontrollerad-2026-10-30).
 
 Fysisk biometri-/PAD-kalibrering, injektion/relä, operativ återställning,
 nyckelförvaltning och oberoende säkerhetsgranskning återstår. Projektet har

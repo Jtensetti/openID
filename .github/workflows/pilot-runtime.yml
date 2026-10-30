@@ -30,7 +30,7 @@ jobs:
       - name: Test OS scan coverage, stale databases and rejected evidence
         run: |
           python3 .github/scripts/test_audit_image_os.py -v
-          python3 deployment/build/test_runtime_base.py -v
+          python3 deployment/build/test_runtime_policy.py -v
       - name: Reject altered package origins and unsafe image permissions
         run: |
           python3 deployment/build/test_python_wheels.py -v
@@ -153,7 +153,7 @@ jobs:
           opencv_sbom = opencv.locate_file(sbom_paths[0]).read_bytes()
           print(json.dumps({
               'python': sys.version,
-              'wolfiPackageLockSHA256': hashlib.sha256(Path('/usr/share/doc/openid-runtime/wolfi-runtime.lock.json').read_bytes()).hexdigest(),
+              'pythonImageLockSHA256': hashlib.sha256(Path('/usr/share/doc/openid-python/build-lock.json').read_bytes()).hexdigest(),
               'pythonOpenSSL': ssl.OPENSSL_VERSION,
               'pythonSQLite': sqlite3.sqlite_version,
               'pythonExpat': pyexpat.EXPAT_VERSION,
@@ -176,7 +176,7 @@ jobs:
           }, indent=2))
           PY
           docker cp openid-pilot:/opt/java/openjdk/upstream-sbom.cdx.json "$RUNNER_TEMP/temurin-upstream-sbom.cdx.json"
-          docker cp openid-pilot:/usr/share/doc/openid-runtime "$RUNNER_TEMP/wolfi-runtime-evidence"
+          docker cp openid-pilot:/usr/share/doc/openid-runtime "$RUNNER_TEMP/debian-runtime-evidence"
           docker cp openid-pilot:/usr/share/doc/openid-python "$RUNNER_TEMP/python-runtime-evidence"
           docker image inspect openid-pilot:ci --format '{{.Id}}' > "$RUNNER_TEMP/image-id.txt"
           timeout 120s docker run --rm --network none --read-only --cap-drop ALL --cap-add DAC_READ_SEARCH --user 0:0 \
@@ -220,7 +220,7 @@ jobs:
           name: protocol-evidence
           path: '${{ runner.temp }}/protocol-evidence'
           retention-days: 90
-      - name: Audit every installed Wolfi package in the built image
+      - name: Audit every installed Debian package in the built image
         run: |
           python3 .github/scripts/audit_image_os.py \
             --image "$(cat "$RUNNER_TEMP/image-id.txt")" \
@@ -240,7 +240,7 @@ jobs:
             ${{ runner.temp }}/runtime-components.json
             ${{ runner.temp }}/sqlite-transition.json
             ${{ runner.temp }}/python-runtime-evidence
-            ${{ runner.temp }}/wolfi-runtime-evidence
+            ${{ runner.temp }}/debian-runtime-evidence
             ${{ runner.temp }}/temurin-upstream-sbom.cdx.json
             ${{ runner.temp }}/image-os-audit/
           if-no-files-found: error

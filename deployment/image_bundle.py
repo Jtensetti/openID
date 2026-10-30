@@ -2,9 +2,9 @@
 import argparse
 from datetime import datetime, timedelta, timezone
 import gzip
+import importlib.util
 import hashlib
 import json
-import importlib.util
 import os
 from pathlib import Path
 import re
@@ -13,13 +13,17 @@ import subprocess
 import sys
 
 
-spec = importlib.util.spec_from_file_location('wolfi_advisories', Path(__file__).parent/'build/wolfi_advisories.py')
-wolfi_advisories = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(wolfi_advisories)
+def build_module(name):
+    spec=importlib.util.spec_from_file_location(name,Path(__file__).parent/'build'/(name+'.py'))
+    value=importlib.util.module_from_spec(spec);spec.loader.exec_module(value);return value
+
+runtime_policy=build_module('runtime_policy')
+component_advisories=build_module('component_advisories')
 
 SCHEMA = "openid-image-bundle-v3"
 OS_FILES = ("assessment.json", "database-metadata.json", "os-sbom.cdx.json",
-            "scanner-lock.json", "scanner-sbom.json", "system-packages.tsv", "trivy-os.json", "wolfi-advisories.json")
+            "scanner-lock.json", "scanner-sbom.json", "system-packages.tsv", "trivy-os.json", "runtime-policy.json",
+            "runtime-evidence.json", "component-advisories.json", "applicability.json")
 PAYLOADS = ("image.tar.gz", "source.tar.gz", "protocol-results.json", "python-packages.json") + tuple(
     "os-" + name for name in OS_FILES)
 BETA_MOUNTS = {
@@ -83,13 +87,12 @@ def os_passed(directory, image_id, revision, bundle_created):
     created = instant(bundle_created)
     require(-timedelta(minutes=5) <= created - checked <= timedelta(hours=1),
             "OS assessment is stale or future-dated at packaging")
-    require(assessment.get("format") == 2 and assessment.get("complete") is True
+    require(assessment.get("format") == 3 and assessment.get("complete") is True
             and assessment.get("passed") is True
-            and type(assessment.get("findingCount")) is int and assessment["findingCount"] == 0
-            and type(assessment.get("vendorUnresolvedCount")) is int
-            and assessment["vendorUnresolvedCount"] == 0
+            and type(assessment.get("findingCount")) is int and assessment["findingCount"] >= 0
             and type(assessment.get("uniqueAdvisoryCount")) is int
-            and assessment["uniqueAdvisoryCount"] == 0
+            and assessment["uniqueAdvisoryCount"] >= 0
+            and type(assessment.get("unresolvedCount")) is int and assessment["unresolvedCount"] == 0
             and assessment.get("imageID") == image_id
             and assessment.get("sourceRevision") == revision,
             "Complete passing OS assessment for this image and revision required")
@@ -98,8 +101,8 @@ def os_passed(directory, image_id, revision, bundle_created):
             and re.fullmatch(r"[0-9a-f]{64}", assessment.get("scannerLockSha256", ""))
             and scan.get("SchemaVersion") == 2
             and scan.get("Metadata", {}).get("ImageID") == image_id
-            and scan.get("Metadata", {}).get("OS", {}).get("Family") == "wolfi"
-            and scan.get("Metadata", {}).get("OS", {}).get("Name") == "20230201"
+            and scan.get("Metadata", {}).get("OS", {}).get("Family") == "debian"
+            and re.fullmatch(r"13(?:\.\d+)?", scan.get("Metadata", {}).get("OS", {}).get("Name", ""))
             and scan.get("Metadata", {}).get("OS", {}).get("EOSL", False) is False
             and scan.get("Trivy", {}).get("Version") == assessment.get("scannerVersion")
             and scan.get("ArtifactType") == "container_image",
@@ -109,10 +112,11 @@ def os_passed(directory, image_id, revision, bundle_created):
     results = scan.get("Results")
     require(isinstance(results, list) and len(results) == 1
             and results[0].get("Class") == "os-pkgs"
-            and results[0].get("Type") == "wolfi"
-            and not results[0].get("ExperimentalModifiedFindings")
+            and results[0].get("Type") == "debian"
             and len(results[0].get("Packages", [])) == assessment["packageCount"]
-            and results[0].get("Vulnerabilities", []) == [],
+            and not results[0].get("ExperimentalModifiedFindings")
+            and len(results[0].get("Vulnerabilities", [])) == assessment["findingCount"]
+            and len({v.get("VulnerabilityID") for v in results[0].get("Vulnerabilities", [])}) == assessment["uniqueAdvisoryCount"],
             "OS scanner report does not support passing assessment")
     installed = set()
     for line in (directory / "os-system-packages.tsv").read_text().splitlines():
@@ -121,26 +125,36 @@ def os_passed(directory, image_id, revision, bundle_created):
         installed.add(tuple(fields[:3]))
     scanned = set()
     for package in results[0]["Packages"]:
-        require(not package.get("Release") and not package.get("Epoch"), "Invalid APK version")
-        version = package["Version"]
+        version = package["Version"] + ("-" + package["Release"] if package.get("Release") else "")
+        if package.get("Epoch"):
+            version = str(package["Epoch"]) + ":" + version
         scanned.add((package["Name"], version, package["Arch"]))
     require(len(installed) == len(scanned) == assessment["packageCount"] and installed == scanned,
             "OS package inventory differs from scanner report")
-    vendor = json.loads((directory / "os-wolfi-advisories.json").read_text())
-    require(vendor.get("format") == 1 and vendor.get("complete") is True
-            and set(map(tuple, vendor.get("packages", []))) == installed
-            and vendor.get("findings") == []
-            and wolfi_advisories.unresolved(vendor["records"], installed) == [],
-            "Unresolved vendor advisory or incomplete package coverage")
-    require(-timedelta(minutes=5) <= checked - instant(vendor.get("checkedAt")) <= timedelta(hours=1)
-            and type(vendor.get("recordCount")) is int and vendor["recordCount"] > 0,
-            "Invalid vendor advisory collection")
-    for name in ("index", "archive"):
-        feed = vendor[name]
-        require(feed.get("url", "").startswith(wolfi_advisories.BASE)
-                and re.fullmatch(r"[0-9a-f]{64}", feed.get("sha256", ""))
-                and -timedelta(minutes=5) <= checked - instant(feed.get("lastModified")) <= timedelta(hours=24),
-                "Vendor advisory feed was not current at scan time")
+    policy=json.loads((directory/'os-runtime-policy.json').read_text())
+    require(policy==json.loads(runtime_policy.POLICY.read_text()), 'Applicability policy differs from trusted checkout')
+    require(policy['reviewed'] <= datetime.now(timezone.utc).date().isoformat() < policy['reviewBefore'],
+            'Applicability review is not currently valid')
+    evidence=json.loads((directory/'os-runtime-evidence.json').read_text())
+    require(evidence.get('imageID')==image_id and evidence.get('sourceRevision')==revision
+            and evidence.get('policySHA256')==digest(runtime_policy.POLICY), 'Applicability image/source mismatch')
+    component=json.loads((directory/'os-component-advisories.json').read_text())
+    component_advisories.verify_runtime(component,policy)
+    require(-timedelta(minutes=5)<=checked-instant(component.get('checkedAt'))<=timedelta(hours=1),
+            'Stale supplemental advisory collection')
+    for name in ('index','archive'):
+        feed=component[name]
+        require(feed.get('url','').startswith(component_advisories.BASE)
+                and re.fullmatch(r'[a-f0-9]{64}',feed.get('sha256',''))
+                and -timedelta(minutes=5)<=checked-instant(feed.get('lastModified'))<=timedelta(hours=24),
+                'Stale or incomplete supplemental advisory feed')
+    findings=[{'id':v['VulnerabilityID'],'package':v['PkgName'],'version':v['InstalledVersion']}
+              for v in results[0].get('Vulnerabilities',[])]
+    findings += component_advisories.runtime_findings(component)
+    disposition=runtime_policy.decisions(policy,evidence,findings,checked,source_sha=runtime_policy.source_fingerprint())
+    require(disposition==json.loads((directory/'os-applicability.json').read_text())
+            and all(r['status'] in ('fixed','not_affected') for r in disposition),
+            'Unknown, affected or unsupported applicability decision')
     components = sbom.get("components")
     require(sbom.get("bomFormat") == "CycloneDX" and isinstance(components, list)
             and sbom.get("metadata", {}).get("component", {}).get("type") == "container"
@@ -291,6 +305,8 @@ def check_beta_compose(config, image_id):
                 "Every beta service must use the verified image without building")
         require(not any(service.get(key) for key in ("configs", "secrets", "volumes_from")),
                 "Unexpected additional beta mounts")
+        require(service.get("environment", {}).get("LOCALDOMAIN", "") == "",
+                "DNS search-list mitigation cannot be overridden")
         volumes = service.get("volumes", [])
         require(all(v.get("type") == "bind" and type(v.get("read_only", False)) is bool for v in volumes),
                 "Only explicit beta bind mounts are supported")
@@ -315,6 +331,8 @@ def check_beta_running(image_id):
                 and container.get("Image") == image_id
                 and container.get("Config", {}).get("Image") == image_id,
                 "Beta container is stopped, uses a mutable tag or has image drift")
+        require([e for e in container["Config"].get("Env", []) if e.startswith("LOCALDOMAIN=")] == ["LOCALDOMAIN="],
+                "DNS search-list mitigation missing in running service")
         service = container["Config"]["Labels"]["com.docker.compose.service"]
         mounts = container.get("Mounts", [])
         require(all(m.get("Type") == "bind" and type(m.get("RW")) is bool for m in mounts),

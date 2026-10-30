@@ -6,9 +6,9 @@ ett avbrott i en pågående NFC-session kräver att registreringen startas om.
 Det befintliga SQLite-läget finns kvar för en lokal pilot.
 
 Det befintliga CI-jobbet bygger autentiseringsimagen, provar dess integration
-och skannar därefter samtliga APK-paket med Trivy och Wolfis aktuella leverantörsadvisories.
+och skannar därefter samtliga Debianpaket med Trivy och kontrollerar aktuell tillämplighet.
 Bas, lås och stoppvillkor beskrivs i [bygginstruktionen](../build/README.md).
-Kontrollen binds till den byggda imagens exakta ID och nekar fynd eller
+Kontrollen binds till den byggda imagens exakta ID och nekar tillämpliga/obehandlade fynd eller
 ofullständig täckning. OS-resultat bevaras i `cluster-os-inventory` även när
 grinden underkänns. Detta omfattar inte PostgreSQL-/OpenBao-tjänsternas
 egna paket eller driftsatta värdar. Se [byggkontrollerna](../build/README.md).

@@ -186,7 +186,7 @@ säkerhetsbedömning av den egna integrationen.
 HTTP/2, proxyprotokoll, kontrollsocket och automatiska omstarter efter ett
 visst antal anrop används inte. NFC-sessionerna tillhör en enda worker.
 
-`deployment/Dockerfile` använder den låsta Wolfi-basen med Python 3.12.16-r1,
+`deployment/Dockerfile` använder den låsta officiella Debianbasen med Python 3.12.16,
 Node 24.22.1 och Temurin 21.0.13+9. Ursprung, källrevisioner, licenser,
 distributionshashar och SBOM beskrivs i [komponentregistret](../THIRD_PARTY.md).
 JRE:s `legal/`, Nodes LICENSE och paketens medlevererade licenser bevaras.

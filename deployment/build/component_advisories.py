@@ -116,3 +116,65 @@ def collect(installed, now):
             'packages': [list(p) for p in sorted(installed)], 'records': records,
             'findings': findings,
             'scope': 'Unresolved vendor statuses; Trivy separately evaluates fixed-version ranges.'}
+
+# The runtime uses the identical upstream Python/Expat releases, not Wolfi
+# binaries. This feed is supplemental change detection, not Debian package status.
+COMPONENTS={('python-3.12','3.12.16-r1','x86_64'),('libexpat1','2.9.0-r0','x86_64')}
+DISPUTED={'CVE-2019-1010022','CVE-2019-1010024','CVE-2019-1010025','CVE-2021-45346'}
+
+
+def canonical_sha(value):
+    return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+
+
+def cna_record(identity):
+    year,number=identity.split('-')[1:]
+    url=f'https://raw.githubusercontent.com/CVEProject/cvelistV5/main/cves/{year}/{number[:-3]}xxx/{identity}.json'
+    with urllib.request.urlopen(url,timeout=30) as response:
+        raw=response.read(2*1024*1024+1)
+    if len(raw)>2*1024*1024:raise ValueError('oversize CNA record')
+    record=json.loads(raw)
+    if record['cveMetadata']['cveId']!=identity or record['cveMetadata']['state']!='PUBLISHED':
+        raise ValueError('unexpected CNA identity/state')
+    return {'url':url,'cna':record['containers']['cna']}
+
+
+def verify_runtime(report,policy):
+    if report.get('format')!=1 or report.get('complete') is not True:
+        raise ValueError('incomplete supplemental advisory evidence')
+    if {r['id']:canonical_sha(r) for r in report['records']}!=policy['componentFeedSHA256']:
+        raise ValueError('Python/Expat advisory feed changed; re-review required')
+    if {k:canonical_sha(v['cna']) for k,v in report['cna'].items()}!=policy['cnaSHA256']:
+        raise ValueError('upstream CNA evidence changed; re-review required')
+    for identity in DISPUTED:
+        if 'disputed' not in report['cna'][identity]['cna'].get('tags',[]):
+            raise ValueError('upstream dispute no longer applies')
+    # Recompute instead of trusting a stored findings array.
+    if unresolved(report['records'],COMPONENTS)!=report['findings']:
+        raise ValueError('altered component findings')
+    return True
+
+
+def collect_runtime(policy,now):
+    from concurrent.futures import ThreadPoolExecutor
+    report=collect(COMPONENTS,now)
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        identities=sorted(policy['cnaSHA256'])
+        report['cna']=dict(zip(identities,pool.map(cna_record,identities)))
+    report['scope']='Supplemental upstream component change detection; does not describe installed Wolfi packages.'
+    verify_runtime(report,policy)
+    return report
+
+# Confirmed upstream record newer than the vendor feed at the initial review.
+EXTRA_COMPONENT_FINDINGS=[{'id':'CVE-2026-118370','package':'expat','version':'2.9.0'}]
+
+
+def runtime_findings(report):
+    findings={(f['id'],f['package'],f['version']) for f in EXTRA_COMPONENT_FINDINGS}
+    for finding in unresolved(report['records'],COMPONENTS):
+        component={'python-3.12':('cpython','3.12.16'),'libexpat1':('expat','2.9.0')}[finding['package']]
+        ids=[i for i in finding['upstream'] if i.startswith('CVE-')]
+        # A new vendor-only identity still requires an explicit reviewed rule.
+        for identity in ids or [finding['id']]:
+            findings.add((identity,*component))
+    return [dict(zip(('id','package','version'),f)) for f in sorted(findings)]

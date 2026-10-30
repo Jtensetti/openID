@@ -26,7 +26,7 @@ def beta_configuration(image):
 
 
 def running_containers(config):
-    return [{"Config": {"Image": s["image"], "Labels": {"com.docker.compose.service": name}},
+    return [{"Config": {"Image": s["image"], "Env": ["LOCALDOMAIN="], "Labels": {"com.docker.compose.service": name}},
              "Image": s["image"], "State": {"Running": True},
              "HostConfig": {"ReadonlyRootfs": s["read_only"], "Tmpfs": {"/tmp": "size=16m"}},
              "Mounts": [{"Type": v["type"], "Destination": v["target"], "RW": not v["read_only"]}
@@ -54,30 +54,43 @@ class BundleTests(unittest.TestCase):
             "image": {"id": "sha256:" + "c" * 64, "tag": "openid-pilot:commit-" + self.revision,
                       "sizeBytes": 1024, "platform": "linux/amd64"},
             "files": {}, "productionApproved": False}
-        self.assessment = {"format": 2, "complete": True, "passed": True,
+        self.assessment = {"format": 3, "complete": True, "passed": True,
                            "checkedAt": now, "imageID": self.data["image"]["id"],
                            "sourceRevision": self.revision, "scannerVersion": "0.76.1",
-                           "packageCount": 1, "findingCount": 0, "vendorUnresolvedCount": 0, "uniqueAdvisoryCount": 0,
+                           "packageCount": 1, "findingCount": 0, "unresolvedCount": 0, "uniqueAdvisoryCount": 0,
                            "databaseSha256": "f" * 64}
+        cna={identity:{'cna':{'tags':['disputed']}} for identity in bundle.component_advisories.DISPUTED}
+        policy={'format':1,'reviewed':'2020-01-01','reviewBefore':'2999-01-01','sourceSHA256':'e'*64,
+                'removedPackages':[],'advisories':[], 'componentFeedSHA256':{},
+                'cnaSHA256':{k:bundle.component_advisories.canonical_sha(v['cna']) for k,v in cna.items()}}
+        trusted=self.root/'trusted-policy.json';trusted.write_text(json.dumps(policy))
+        for patcher in (patch.object(bundle.runtime_policy,'POLICY',trusted),
+                        patch.object(bundle.runtime_policy,'source_fingerprint',return_value='e'*64),
+                        patch.object(bundle.component_advisories,'EXTRA_COMPONENT_FINDINGS',[])):
+            patcher.start();self.addCleanup(patcher.stop)
+        evidence={'format':1,'python':'3.12.16','architecture':'x86_64','elfFiles':1,'strictDecoderCalls':1,
+            'removedPackages':[],'removedPathCount':1,'checks':[],'sensitiveImports':{},
+            'imageID':self.data['image']['id'],'sourceRevision':self.revision,
+            'policySHA256':bundle.digest(trusted)}
         os_files = {
-            "wolfi-advisories.json": {"format": 1, "complete": True, "checkedAt": now,
-                "packages": [["synthetic", "1", "x86_64"]], "records": [], "findings": [], "recordCount": 1,
-                "index": {"url": bundle.wolfi_advisories.BASE+"all.json", "lastModified": now, "sha256": "a"*64},
-                "archive": {"url": bundle.wolfi_advisories.BASE+"chainguard-osv.tar.gz", "lastModified": now, "sha256": "b"*64}},
-
+            'runtime-policy.json':policy, 'runtime-evidence.json':evidence, 'applicability.json':[],
+            'component-advisories.json':{'format':1,'complete':True,'checkedAt':now,'records':[],
+                'findings':[],'cna':cna,
+                'index':{'url':bundle.component_advisories.BASE+'all.json','lastModified':now,'sha256':'d'*64},
+                'archive':{'url':bundle.component_advisories.BASE+'chainguard-osv.tar.gz','lastModified':now,'sha256':'d'*64}},
             "database-metadata.json": {"Version": 2, "UpdatedAt": now, "DownloadedAt": now},
             "os-sbom.cdx.json": {"bomFormat": "CycloneDX", "metadata": {
                 "component": {"type": "container", "name": self.data["image"]["id"]}}, "components": [
                 {"name": "synthetic", "version": "1", "type": "library"}]},
             "scanner-lock.json": {"version": "0.76.1"},
             "scanner-sbom.json": {"components": [{"name": "scanner"}]},
-            "system-packages.tsv": "synthetic\t1\tx86_64\tinstalled\n",
+            "system-packages.tsv": "synthetic\t1\tamd64\tinstalled\n",
             "trivy-os.json": {"SchemaVersion": 2, "CreatedAt": now,
                               "ArtifactType": "container_image", "Metadata": {"ImageID": self.data["image"]["id"],
-                              "OS": {"Family": "wolfi", "Name": "20230201"}},
+                              "OS": {"Family": "debian", "Name": "13.7"}},
                               "Trivy": {"Version": "0.76.1"}, "Results": [{"Class": "os-pkgs",
-                              "Type": "wolfi", "Packages": [{"Name": "synthetic", "Version": "1",
-                              "Arch": "x86_64"}], "Vulnerabilities": []}]},
+                              "Type": "debian", "Packages": [{"Name": "synthetic", "Version": "1",
+                              "Arch": "amd64"}], "Vulnerabilities": []}]},
         }
         for name, value in os_files.items():
             (self.root / ("os-" + name)).write_text(value if isinstance(value, str) else json.dumps(value))
@@ -159,34 +172,27 @@ class BundleTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "scanner report"):
             self.verify()
 
-    def test_vendor_open_range_cannot_be_hidden_by_empty_findings(self):
-        path = self.root / "os-wolfi-advisories.json"
-        data = json.loads(path.read_text())
-        data['records'] = [{'id': 'CGA-synthetic', 'schema_version': '1.7.5', 'affected': [{
-            'package': {'ecosystem': 'Wolfi', 'name': 'synthetic', 'purl': 'pkg:apk/wolfi/synthetic?arch=x86_64'},
-            'ranges': [{'type': 'ECOSYSTEM', 'events': [{'introduced': '0'}]}],
-            'ecosystem_specific': {'components': [{'latest_event_status': 'pending_upstream_fix'}]}}]}]
-        path.write_text(json.dumps(data)); self.seal_os(); self.seal()
-        with self.assertRaisesRegex(ValueError, 'Unresolved vendor'):
+    def test_expired_policy_blocks_import_even_for_historically_passing_scan(self):
+        trusted=bundle.runtime_policy.POLICY
+        policy=json.loads(trusted.read_text());policy['reviewBefore']='2026-11-30'
+        trusted.write_text(json.dumps(policy))
+        (self.root/'os-runtime-policy.json').write_text(json.dumps(policy))
+        path=self.root/'os-runtime-evidence.json';evidence=json.loads(path.read_text())
+        evidence['policySHA256']=bundle.digest(trusted);path.write_text(json.dumps(evidence))
+        self.seal_os();self.seal()
+        class FutureClock(datetime):
+            @classmethod
+            def now(cls,tz=None):return datetime(2026,12,1,tzinfo=timezone.utc)
+        with patch.object(bundle,'datetime',FutureClock),self.assertRaisesRegex(ValueError,'currently valid'):
             self.verify()
-
-    def test_vendor_stale_feed_and_missing_package_coverage_block(self):
-        path = self.root / "os-wolfi-advisories.json"
-        original = json.loads(path.read_text())
-        for field in ('packages', 'index'):
-            data = json.loads(json.dumps(original))
-            if field == 'packages': data['packages'] = []
-            else: data['index']['lastModified'] = '2020-01-01T00:00:00Z'
-            path.write_text(json.dumps(data)); self.seal_os(); self.seal()
-            with self.subTest(field=field), self.assertRaises(ValueError): self.verify()
 
     def test_os_package_mismatch_and_stale_database_are_rejected(self):
         inventory = self.root / "os-system-packages.tsv"
-        inventory.write_text("different\t1\tx86_64\tinstalled\n")
+        inventory.write_text("different\t1\tamd64\tinstalled\n")
         self.seal_os(); self.seal()
         with self.assertRaisesRegex(ValueError, "package inventory"):
             self.verify()
-        inventory.write_text("synthetic\t1\tx86_64\tinstalled\n")
+        inventory.write_text("synthetic\t1\tamd64\tinstalled\n")
         metadata = self.root / "os-database-metadata.json"
         data = json.loads(metadata.read_text()); data["UpdatedAt"] = "2020-01-01T00:00:00+00:00"
         metadata.write_text(json.dumps(data)); self.seal_os(); self.seal()

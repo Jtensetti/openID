@@ -1,4 +1,4 @@
-"""Audit the built image's Wolfi packages. Findings and incomplete evidence block export."""
+"""Audit the built image's Debian packages. Findings and incomplete evidence block export."""
 import argparse
 from collections import Counter
 from datetime import datetime, timedelta, timezone
@@ -17,16 +17,18 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parents[2]
 LOCK = ROOT / 'deployment/build/trivy.lock.json'
-spec = importlib.util.spec_from_file_location('wolfi_advisories', ROOT/'deployment/build/wolfi_advisories.py')
-wolfi_advisories = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(wolfi_advisories)
-spec = importlib.util.spec_from_file_location('apk_inventory', ROOT/'deployment/build/apk_inventory.py')
-apk_inventory = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(apk_inventory)
+
+def module(name):
+    spec=importlib.util.spec_from_file_location(name,ROOT/'deployment/build'/(name+'.py'))
+    value=importlib.util.module_from_spec(spec);spec.loader.exec_module(value);return value
+
+runtime_policy=module('runtime_policy')
+component_advisories=module('component_advisories')
+
 DB_REPOSITORY = 'ghcr.io/aquasecurity/trivy-db:2'
 LIMITS = [
-    'Only APK-managed packages in the exact scanned image are covered by this gate.',
-    'Copied Node and Temurin runtimes, embedded libraries, models, '
+    'Only dpkg-managed packages in the exact scanned image are covered by this gate.',
+    'Copied/built Python, Node and Temurin runtimes, embedded libraries, models, '
     'host OS, other images and deployed configuration need separate assessment.',
     'An advisory database is not exhaustive and this report is not an independent attestation.',
 ]
@@ -73,12 +75,12 @@ def installed_packages(raw):
     for line in raw.splitlines():
         fields = line.split('\t')
         if len(fields) != 4 or not all(fields):
-            raise ValueError('invalid APK inventory')
+            raise ValueError('invalid dpkg inventory')
         name, version, arch, status = fields
         # This minimal image must not contain partly installed/removed packages.
-        if status != 'installed' or not re.fullmatch(r'[a-z0-9][a-z0-9+_.-]*', name):
+        if status != 'installed' or not re.fullmatch(r'[a-z0-9][a-z0-9+.-]+', name):
             raise ValueError('unexpected package state or name')
-        if arch not in ('x86_64', 'noarch') or any(c.isspace() for c in version):
+        if arch not in ('amd64', 'all') or any(c.isspace() for c in version):
             raise ValueError('unexpected package version or architecture')
         item = (name, version, arch)
         if item in result or any(p[0] == name and p[2] == arch for p in result):
@@ -90,11 +92,19 @@ def installed_packages(raw):
 
 
 def package_version(package):
-    # APK versions include their revision in Version, unlike dpkg reports.
+    # Trivy's dpkg analyzer separates epoch, upstream version and Debian revision.
+    # Reconstruct the complete binary version; never discard Debian security revisions.
     version = package['Version']
-    if (not isinstance(version, str) or not version or any(c.isspace() for c in version)
-            or package.get('Release') or package.get('Epoch')):
+    release = package.get('Release', '')
+    epoch = package.get('Epoch', 0)
+    if not isinstance(version, str) or not version or not isinstance(release, str):
         raise ValueError('invalid scanner package version')
+    if type(epoch) is not int or epoch < 0:
+        raise ValueError('invalid package epoch')
+    if release:
+        version += '-' + release
+    if epoch:
+        version = str(epoch) + ':' + version
     return version
 
 
@@ -109,7 +119,7 @@ def assess(scan, installed, image_id, version, now):
     if metadata.get('ImageID') != image_id:
         raise ValueError('report belongs to another image')
     system = metadata['OS']
-    if system.get('Family') != 'wolfi' or system.get('Name') != '20230201':
+    if system.get('Family') != 'debian' or not re.fullmatch(r'13(?:\.\d+)?', system.get('Name', '')):
         raise ValueError('unexpected or unidentified operating system')
     if system.get('EOSL', False) is not False:
         raise ValueError('operating system outside support')
@@ -117,8 +127,8 @@ def assess(scan, installed, image_id, version, now):
     if not isinstance(results, list) or len(results) != 1:
         raise ValueError('missing or unexpected scan targets')
     result = results[0]
-    if result.get('Class') != 'os-pkgs' or result.get('Type') != 'wolfi':
-        raise ValueError('missing Wolfi assessment')
+    if result.get('Class') != 'os-pkgs' or result.get('Type') != 'debian':
+        raise ValueError('missing Debian assessment')
     packages = result['Packages']
     if not isinstance(packages, list) or not packages:
         raise ValueError('missing package coverage')
@@ -171,10 +181,10 @@ def install(lock, work, output):
 
 def audit(image_id, output):
     output.mkdir(parents=True, exist_ok=False)
-    report = {'format': 2, 'complete': False, 'passed': False,
+    report = {'format': 3, 'complete': False, 'passed': False,
               'checkedAt': datetime.now(timezone.utc).isoformat(),
               'imageID': image_id, 'limits': LIMITS, 'databaseRepository': DB_REPOSITORY,
-              'policy': 'Every reported vulnerability blocks; no severity/status exceptions.'}
+              'policy': 'Unknown, affected or unproven findings block. Exact-version fixed/not-affected decisions require current source-bound evidence; raw findings are retained.'}
     code = 2
     try:
         if not re.fullmatch(r'sha256:[a-f0-9]{64}', image_id):
@@ -186,15 +196,11 @@ def audit(image_id, output):
         report['scannerLockSha256'] = digest(LOCK)
         report['scannerVersion'] = lock['version']
         save(output / 'scanner-lock.json', lock)
-        apk_raw = subprocess.check_output([
+        raw = subprocess.check_output([
             'docker', 'run', '--rm', '--network', 'none', '--read-only', '--cap-drop', 'ALL',
             '--security-opt', 'no-new-privileges', '--pids-limit', '32', '--memory', '128m',
-            '--cpus', '1', '--entrypoint', 'python', image_id, '-I', '-c',
-            "from pathlib import Path; print(Path('/usr/lib/apk/db/installed').read_text(), end='')"],
-            text=True, timeout=60)
-        inventory = apk_inventory.parse(apk_raw)
-        raw = ''.join(p['name']+'\t'+p['version']+'\t'+p['architecture']+'\tinstalled\n'
-                      for p in inventory['packages'])
+            '--cpus', '1', '--entrypoint', 'dpkg-query', image_id, '-W',
+            '-f=${Package}\t${Version}\t${Architecture}\t${db:Status-Status}\n'], text=True, timeout=60)
         (output / 'system-packages.tsv').write_text(raw)
         installed = installed_packages(raw)
         with tempfile.TemporaryDirectory(prefix='openid-os-audit-') as directory:
@@ -221,11 +227,39 @@ def audit(image_id, output):
                 env=env, cwd=work, check=True, timeout=60)
             report.update(assess(json.loads((output / 'trivy-os.json').read_text()), installed,
                                  image_id, lock['version'], datetime.now(timezone.utc)))
-            vendor = wolfi_advisories.collect(installed, datetime.now(timezone.utc))
-            save(output / 'wolfi-advisories.json', vendor)
-            report['vendorUnresolvedCount'] = len(vendor['findings'])
+            policy=json.loads(runtime_policy.POLICY.read_text())
+            save(output/'runtime-policy.json',policy)
+            source_sha=runtime_policy.source_fingerprint()
+            if source_sha!=policy['sourceSHA256']:
+                raise ValueError('runtime source changed since applicability review')
+            component=component_advisories.collect_runtime(policy,datetime.now(timezone.utc))
+            save(output/'component-advisories.json',component)
+            subprocess.run(['c++','-std=c++17','-O2',str(ROOT/'deployment/build/aligned_new.cpp'),
+                            '-o',str(work/'aligned-new')],check=True,timeout=60)
+            (work/'resolv.conf').write_text('nameserver 127.0.0.1\nsearch '+('a'*210)+'.invalid\n')
+            probe=subprocess.check_output(['docker','run','--rm','--network','none','--read-only',
+                '--cap-drop','ALL','--security-opt','no-new-privileges','--pids-limit','32',
+                '--memory','512m','--cpus','1','--tmpfs','/tmp:size=16m,mode=1777',
+                '-v',str(work/'aligned-new')+':/checks/aligned-new:ro',
+                '-v',str(work/'resolv.conf')+':/etc/resolv.conf:ro',
+                '-v',str(ROOT/'deployment/build/runtime_evidence.py')+':/checks/probe.py:ro',
+                '--entrypoint','python',image_id,'-B','/checks/probe.py'],text=True,timeout=180)
+            evidence=json.loads(probe)
+            if evidence.get('policySHA256')!=digest(runtime_policy.POLICY):
+                raise ValueError('image applicability policy differs from reviewed source')
+            evidence.update(imageID=image_id,sourceRevision=report['sourceRevision'],
+                            sourceSHA256=source_sha,vendorDisputesVerified=True)
+            save(output/'runtime-evidence.json',evidence)
+            scan=json.loads((output/'trivy-os.json').read_text())
+            findings=[{'id':v['VulnerabilityID'],'package':v['PkgName'],'version':v['InstalledVersion']}
+                      for v in scan['Results'][0].get('Vulnerabilities',[])]
+            findings += component_advisories.runtime_findings(component)
+            disposition=runtime_policy.decisions(policy,evidence,findings,datetime.now(timezone.utc),source_sha=source_sha)
+            save(output/'applicability.json',disposition)
+            report['componentFindingCount']=sum(r['package'] in ('cpython','expat') for r in disposition)
+            report['unresolvedCount']=sum(r['status']=='under_investigation' for r in disposition)
             report['complete'] = True
-            report['passed'] = report['findingCount'] == 0 and report['vendorUnresolvedCount'] == 0
+            report['passed'] = report['unresolvedCount'] == 0
             code = 0 if report['passed'] else 1
     except Exception as error:
         report['errorType'] = type(error).__name__
@@ -235,7 +269,7 @@ def audit(image_id, output):
     finally:
         report['files'] = {p.name: digest(p) for p in sorted(output.iterdir()) if p.is_file()}
         save(output / 'assessment.json', report)
-    print(f"Image OS audit: complete={report['complete']}; passed={report['passed']}; findings={report.get('findingCount', 'unknown')}; unresolved={report.get('vendorUnresolvedCount', 'unknown')}; exit={code}")
+    print(f"Image OS audit: complete={report['complete']}; passed={report['passed']}; raw={report.get('findingCount', 'unknown')}; unresolved={report.get('unresolvedCount', 'unknown')}; exit={code}")
     return code
 
 

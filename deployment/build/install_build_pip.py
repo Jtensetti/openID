@@ -12,22 +12,25 @@ import sysconfig
 def main():
     if sys.platform != 'linux' or os.geteuid() != 0 or sys.version_info[:3] != (3, 12, 16):
         raise RuntimeError('requires the isolated Python 3.12.16 image build')
-    if sysconfig.get_path('stdlib') != '/usr/lib/python3.12':
+    if sysconfig.get_path('stdlib') != '/usr/local/lib/python3.12':
         raise ValueError('unexpected Python installation')
     root = Path('/usr/share/doc/openid-python')
     lock = json.loads((root/'build-lock.json').read_text())['pip']
     wheel = Path('/tmp')/lock['wheelName']
     if hashlib.sha256(wheel.read_bytes()).hexdigest() != lock['sha256']:
         raise ValueError('pip wheel checksum mismatch')
+    # Remove the upstream installer before bootstrapping the exact reviewed wheel.
+    for target in Path(sysconfig.get_path('purelib')).glob('pip*'):
+        if target.is_dir() and not target.is_symlink(): shutil.rmtree(target)
+        else: raise ValueError('unexpected upstream pip path')
     # Run pip directly from the verified wheel, even when no pip is installed.
     environment = dict(os.environ, PYTHONPATH=str(wheel))
     subprocess.run([sys.executable, '-m', 'pip', '--isolated', '--disable-pip-version-check',
                     'install', '--ignore-installed', '--no-index', '--no-deps', '--no-cache-dir',
                     '--only-binary=:all:', str(wheel)], env=environment, check=True)
-    # Wolfi has no site-packages directory until this first installation. The
-    # parent interpreter's startup path therefore needs the newly created path.
+    # The bootstrap subprocess may create a package directory absent at startup.
     packages = sysconfig.get_path('purelib')
-    if packages != '/usr/lib/python3.12/site-packages':
+    if packages != '/usr/local/lib/python3.12/site-packages':
         raise ValueError('unexpected package installation directory')
     if packages not in sys.path:
         sys.path.append(packages)

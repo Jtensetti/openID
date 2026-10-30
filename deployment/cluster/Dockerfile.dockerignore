@@ -17,9 +17,5 @@
 !deployment/build/install_build_pip.py
 !deployment/build/remove_build_pip.py
 !deployment/build/python-wheels.lock.json
-!deployment/build/build_runtime.py
-!deployment/build/apk_inventory.py
-!deployment/build/wolfi-runtime.yaml
-!deployment/build/wolfi-runtime.lock.json
-!deployment/build/runtime-tools.lock.json
-!deployment/build/licenses/Apko-LICENSE.txt
+!deployment/build/runtime_hardening.py
+!deployment/build/runtime-policy.json

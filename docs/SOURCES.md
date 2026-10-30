@@ -58,16 +58,15 @@ loopbacklyssnare; det provas med förfalskade huvuden genom riktig nginx.
 
 ## OS-kontroll och minimal runtime, 2026-10-30
 
-[Apko 1.4.13](https://github.com/chainguard-dev/apko/releases/tag/v1.4.13) och
-[Wolfis byggrecept](https://github.com/wolfi-dev/os/tree/65e46148155ff624c83ce3c02321614adc4d23b1)
-är källor för den versionslåsta basen. [Wolfis paketindex](https://packages.wolfi.dev/os/x86_64/APKINDEX.tar.gz)
-anger paketversioner, ursprung, licensuttryck och kontrollsummor. Låset omfattar
-alla transitiva paket. [Trivy 0.76.1](https://github.com/aquasecurity/trivy/releases/tag/v0.76.1)
-och dess officiella distributionshashar, LICENSE, NOTICE och upstream-SBOM
-används för slutimagen. [Trivys Wolfi-detektor](https://github.com/aquasecurity/trivy/blob/e713f67f7d54decdcd9b3132c9751833dcced698/pkg/detector/ospkg/wolfi/wolfi.go)
-utvärderar rättade versionsintervall. Därför kontrolleras även öppna statusar
-från [leverantörens OSV-index](https://advisories.cgr.dev/chainguard/v2/osv/all.json)
-och dess fullständiga arkiv. Hela APK-inventeringen måste stämma med skannern.
+[Docker Official Images](https://github.com/docker-library/official-images/blob/master/library/python)
+och dess [låsta Pythonrecept](https://github.com/docker-library/python/blob/3d7e95597e56a415d9e4abc0f15877e005d2cb2e/3.12/slim-trixie/Dockerfile)
+är källor för Debianbasen. [Trivy 0.76.1](https://github.com/aquasecurity/trivy/releases/tag/v0.76.1)
+kontrollerar den fullständiga dpkg-inventeringen. Kompletterande
+[komponentfeed](https://advisories.cgr.dev/chainguard/v2/osv/all.json) och
+[CNA-poster](https://github.com/CVEProject/cvelistV5) följer Python/Expat.
+Varje beslut i [runtimepolicyn](../deployment/build/runtime-policy.json) har egna källor.
+Glibcs resolverbegränsning följer
+[Debians exakta res_init.c](https://sources.debian.org/src/glibc/2.41-12%2Bdeb13u4/resolv/res_init.c/).
 
 [Databasdokumentationen](https://trivy.dev/docs/latest/configuration/db/) anger
 OCI-källa och uppdatering. [Containerkällorna](https://trivy.dev/docs/latest/target/container_image/)
@@ -90,8 +89,7 @@ nu i pilotbygget och serverproven enligt komponentregistret.
 ligger till grund för installationen, även i `ops/`-imagen.
 
 Python 3.12.16:s upstreamtagg pekar på commit
-`2c2462afc5d978d31f3d073001fc202d269917ff`. Runtime använder Wolfis paket
-med distributionens byggrecept och patchar, enligt OS-avsnittet ovan.
+`2c2462afc5d978d31f3d073001fc202d269917ff`. Runtime använder Docker Official Images recept, enligt OS-avsnittet ovan.
 [Pips ändringslogg](https://pip.pypa.io/en/stable/news/) och PyPI:s officiella
 hjul för 26.2.2 kontrollerades: uppdaterade CA-certifikat och tidigare
 säkerhetsrättningar ingår. Hjulhash, MIT-licens, transitiva licenser och

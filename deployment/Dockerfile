@@ -22,15 +22,10 @@ ADD --checksum=sha256:4ca4a9394b0c771238a4f73590fdbbc4debad85ed0fa63d026ae1b085d
 ADD --checksum=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8 https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl /wheels/typing_extensions-4.16.0-py3-none-any.whl
 ADD --checksum=sha256:0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3 https://files.pythonhosted.org/packages/92/9d/c4e665119135114480843e7ab388fa94d8480650450e6f8e26b70d323a4c/urllib3-2.8.0-py3-none-any.whl /wheels/urllib3-2.8.0-py3-none-any.whl
 
-FROM python:3.12.15-slim-trixie@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704 AS build-tools
-ADD --checksum=sha256:2377cd4a2efed58905da580f835fbdf2a6ed4ad0f10ff541827153a42d491cee https://github.com/chainguard-dev/apko/releases/download/v1.4.13/apko_1.4.13_linux_amd64.tar.gz /tmp/apko.tar.gz
-COPY deployment/build/build_runtime.py deployment/build/apk_inventory.py deployment/build/wolfi-runtime.yaml deployment/build/wolfi-runtime.lock.json deployment/build/runtime-tools.lock.json /build-runtime/
-COPY deployment/build/licenses/Apko-LICENSE.txt /build-runtime/Apko-LICENSE.txt
-RUN tar -xzf /tmp/apko.tar.gz -C /tmp --strip-components=1 apko_1.4.13_linux_amd64/apko && python /build-runtime/build_runtime.py
+FROM python:3.12.16-slim-trixie@sha256:8523d6abeb48ceae0b7240d30c5808fc26cb79c1a635bacdf19cf3baecfbec07 AS build-tools
 
-FROM scratch AS python-base
-COPY --from=build-tools /runtime/ /
-ENV PATH="/usr/local/bin:/usr/bin:/bin" LANG=C.UTF-8
+FROM build-tools AS python-base
+ENV LOCALDOMAIN=""
 COPY deployment/build/python-runtime.lock.json /usr/share/doc/openid-python/build-lock.json
 ADD --checksum=sha256:fd7f4dfa8190e014013b9f08f3e973f4e4c26ffd179a204895533a7254813a70 https://files.pythonhosted.org/packages/3f/06/3e4420302363fbb71be3c7f35ce042f54bfca330e3e66b3a2e3c4cca579f/pip-26.2.2-py3-none-any.whl /tmp/pip-26.2.2-py3-none-any.whl
 COPY deployment/build/install_build_pip.py /tmp/install_build_pip.py
@@ -109,6 +104,8 @@ COPY verification/rp_web ./rp_web
 COPY deployment/probe.py ./probe.py
 COPY deployment/build/remove_build_pip.py /tmp/remove_build_pip.py
 RUN --network=none ["python", "-c", "import runpy; from pathlib import Path; runpy.run_path('/tmp/remove_build_pip.py', run_name='__main__'); Path('/tmp/remove_build_pip.py').unlink()"]
+COPY deployment/build/runtime_hardening.py deployment/build/runtime-policy.json /runtime-build/
+RUN --network=none ["python", "/runtime-build/runtime_hardening.py", "apply"]
 COPY deployment/build/file_privileges.py /tmp/file_privileges.py
 RUN --network=none ["python", "-c", "import runpy, sys; from pathlib import Path; sys.argv = ['/tmp/file_privileges.py', 'apply']; runpy.run_path('/tmp/file_privileges.py', run_name='__main__'); Path('/tmp/file_privileges.py').unlink()"]
 USER 10001:10001

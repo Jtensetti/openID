@@ -152,47 +152,26 @@ Upstream-SBOM har 458 komponentposter och sparas i CI-artefakten; den saknar
 licensdeklarationer per komponent och utgör inte en fullständig licensrevision.
 Vid eventuell egen distribution av verktyget krävs separat transitiv licensgranskning.
 
-### Wolfi-bas och apko, kontrollerat 2026-10-30
+### Debianbas, kontrollerad 2026-10-30
 
-Pilot och register byggs från offentliga [Wolfi-paket](https://packages.wolfi.dev/os/).
-De 32 exakta paketversionerna och deras kontrollsummor finns i
-[wolfi-runtime.lock.json](deployment/build/wolfi-runtime.lock.json).
-Receptkällan är [wolfi-dev/os@65e46148155ff624c83ce3c02321614adc4d23b1](https://github.com/wolfi-dev/os/tree/65e46148155ff624c83ce3c02321614adc4d23b1).
-Basen omfattar bland annat glibc 2.44-r11, OpenSSL 4.0.3-r8,
-SQLite 3.54.1-r0, Expat 2.9.0-r0 och Python 3.12.16-r1.
-Paketens egna licenser gäller, bland annat LGPL-2.1-or-later (glibc),
-Apache-2.0 (OpenSSL), MIT (Expat), PSF-2.0 (Python) och GCC:s runtimeundantag.
-SQLite anges som public domain. SPDX/CycloneDX från varje bygge bevarar
-paketidentiteter, deklarerade licenser och källreferenser. Paketens medlevererade
-licensfiler raderas inte. Wolfi-paketen innehåller inte fullständiga licenstexter
-för alla komponenter: komplett licens- och källleverans måste säkerställas
-före extern distribution. Paketlåset och SBOM utgör inte ett sådant godkännande.
+Båda serverimages använder den officiella `python:3.12.16-slim-trixie`.
+Indexdigest, amd64-manifest och receptrevision finns i
+[Pythonlåset](deployment/build/python-runtime.lock.json).
+[Docker Official Images manifest](https://github.com/docker-library/official-images/blob/master/library/python)
+anger [receptrevision 3d7e95597e56a415d9e4abc0f15877e005d2cb2e](https://github.com/docker-library/python/blob/3d7e95597e56a415d9e4abc0f15877e005d2cb2e/3.12/slim-trixie/Dockerfile).
+Receptets [MIT-licens](deployment/build/licenses/docker-library-python-LICENSE.txt)
+bevaras; Debianpaketen har egna licenser under `/usr/share/doc/`.
+Komponenterna omfattar glibc 2.41, OpenSSL 3.5.7, SQLite 3.46.1 och Python
+3.12.16 med inbäddad Expat 2.9.0. Versionsrevisioner finns i faktisk dpkg-inventering.
 
-[Apko 1.4.13](https://github.com/chainguard-dev/apko/releases/tag/v1.4.13),
-commit `217f25a71fd6f18f00fb1024f9b251dc7127bfd5`, sammanställer basen utan
-att kompilera om paketen. Linux amd64-arkivets SHA-256 är
-`2377cd4a2efed58905da580f835fbdf2a6ed4ad0f10ff541827153a42d491cee`.
-[Apache-2.0-licensen](deployment/build/licenses/Apko-LICENSE.txt) bevaras.
-Verktygets Go-beroenden levereras inte i runtime. Verktygslås, paketlås,
-konfiguration och bas-SBOM sparas i imagen och CI-underlaget.
-
-Byggverktygssteget använder fortsatt digestlåst Python 3.12.15-slim-trixie,
-`sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704`.
-Dess [MIT-licens](deployment/build/licenses/docker-library-python-LICENSE.txt)
-bevaras i repot. Debian-filsystemet följer inte med till slutimagen.
-CI använder dessutom den tidigare Bookworm-basen enbart för syntetiska
-SQLite-fixturer. Återläsningsproven kräver bevarad spärr och karantän.
-
-Trivy kompletteras med [Wolfis fullständiga OSV-feed](https://advisories.cgr.dev/chainguard/v2/osv/all.json)
-för öppna ärenden som saknar rättad version. Den kompletteringen krävs för
-att ett byte av distribution inte ska ge falskt godkänt resultat. Inventeringen
-2026-10-30 hade nio öppna leverantörsposter för Python/Expat. Expat hade dessutom
-[en ny upstreamrättning](https://github.com/libexpat/libexpat/pull/1450)
-för CVE-2026-118370 som ännu inte ingick i den låsta paketversionen.
-Bytet gör därför inte kandidaten fri från kända fynd.
-Aktuella resultat och stoppvillkor hör till den exakta CI-revisionen;
-se [bygginstruktionen](deployment/build/README.md#systempaket-och-säkerhetsunderlag).
-Förvaltaren ansvarar för låsuppdatering och ny licens-/advisorykontroll.
+Oanvända administrationsverktyg och Pythonmoduler tas bort med en verifierbar
+filmanifest. Paketmetadata, attributionsfiler och råa skannerresultat bevaras.
+[Bygginstruktionen](deployment/build/README.md#systempaket-och-säkerhetsunderlag)
+beskriver versionbunden tillämplighetsbedömning, källor, prov och stoppvillkor.
+Råa fynd får inte beskrivas som generellt rättade när bedömningen gäller enbart
+vår användning. Upstreambevakning av Python/Expat kompletterar Debians paketdata.
+Den äldre Bookworm-basen används endast för syntetiska SQLite-återläsningsprov.
+Förvaltaren ansvarar för lås, licenser, motsvarande källor och advisorybevakning.
 
 ## Node-säkerhetsuppdatering 2026-10-26
 
@@ -253,15 +232,13 @@ systempaket. Uppdateringsansvaret följer förvaltningen nedan.
 
 ## Python 3.12.16 och installationsverktyg
 
-Runtime använder Wolfis Python 3.12.16-r1. Upstream är den officiella
-[säkerhetsutgåvan](https://www.python.org/downloads/release/python-31216/),
-commit `2c2462afc5d978d31f3d073001fc202d269917ff`, tillsammans med
-[distributionens recept och patchar](https://github.com/wolfi-dev/os/blob/65e46148155ff624c83ce3c02321614adc4d23b1/python-3.12.yaml).
-Paketet länkar mot distributionens OpenSSL, SQLite och Expat. Projektets
-privata Python-kompilering och dess testpatch har tagits bort.
-Paketlås, bas-SBOM och Python-paketets licens följer med. Kompatibilitet
-provas i slutimagen med verifierare, nyckeltjänst, bildarbetare, återställning,
-SAML och OIDC. En ny bas är inte godkänd innan dessa prov passerar.
+Runtime använder officiell Python 3.12.16 från Docker Official Images.
+Upstream är [säkerhetsutgåvan](https://www.python.org/downloads/release/python-31216/),
+commit `2c2462afc5d978d31f3d073001fc202d269917ff`. Projektets privata
+Python-kompilering och testpatch har tagits bort. Python länkar mot Debians
+OpenSSL och SQLite; Expat 2.9.0 är inbyggd i Pythonextensionen.
+PSF-licensen och komponentlicenser bevaras. Kompatibilitet provas i slutimagen
+med verifierare, bildarbetare, återställning, SAML och OIDC.
 
 Pip **26.2.2** används endast för paketinstallation under bygget. Hjulet har
 SHA-256 `fd7f4dfa8190e014013b9f08f3e973f4e4c26ffd179a204895533a7254813a70`;
@@ -276,9 +253,8 @@ Historiska bygglager omfattas inte av denna borttagningskontroll.
 Pips MIT-licens och transitiva licens-/attributionsfiler kopieras till
 `/usr/share/doc/openid-python/pip-licenses/` före borttagning: bland annat
 Apache-2.0, BSD, ISC, PSF och certifis MPL-2.0. Inbäddad SBOM bevaras också.
-Basens SBOM beskriver även installeringshjulet `py3-pip-wheel`. Detta hjul
-tas bort tillsammans med pip och ensurepip. Borttagna filers hash sparas i
-`pip-removal.json`; APK-metadata och SBOM behålls som proveniens.
+Borttagna filers hash sparas i `pip-removal.json`; originalmetadata och
+licensunderlag behålls som proveniens.
 Ingen licens för hela projektet härleds från detta.
 
 Pips version ingår i OSV-kontrollen. Separat kontroll av dess bundlade
@@ -296,7 +272,7 @@ Installationsrapport och verklig paketlista kontrolleras i båda images.
 Åtgärden begränsar pips nätverksexponering under imagebygget; värdens CI-pip,
 BuildKit och andra nedladdare behöver fortsatt egen bedömning. Existerande
 komponentregister, licenser och SBOM kvarstår; hjullåset ersätter dem inte.
-Förvaltaren ansvarar för versions-, licens- och advisorybevakning och uppdatering av den låsta Wolfi-basen. Oberoende
+Förvaltaren ansvarar för versions-, licens- och advisorybevakning och uppdatering av den låsta Debianbasen. Oberoende
 granskning, integrationstester och behörigt releasebeslut krävs fortsatt.
 
 ## Projektlicens och förvaltning

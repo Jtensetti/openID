@@ -93,7 +93,7 @@ if __name__ == '__main__':
     parser.add_argument('mode', choices=['seed', 'check'])
     parser.add_argument('directory', type=Path)
     args = parser.parse_args()
-    expected = '3.40.1' if args.mode == 'seed' else '3.54.1'
+    expected = '3.40.1' if args.mode == 'seed' else '3.46.1'
     if sqlite3.sqlite_version != expected:
         raise SystemExit('unexpected SQLite version for transition test')
     (seed if args.mode == 'seed' else check)(args.directory)

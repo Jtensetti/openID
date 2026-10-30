@@ -1,0 +1,2407 @@
+{
+  "format": 1,
+  "reviewed": "2026-10-30",
+  "reviewBefore": "2026-11-30",
+  "sourceSHA256": "8c23376cc68891a50f0af0ac658a377437605357fd30b86d954494bd8f61e731",
+  "scope": "The two Linux/amd64 application images built from the locked Docker Official Python image. Not a distribution-wide VEX, host assessment, or risk acceptance.",
+  "removedPackages": [
+    "apt",
+    "bash",
+    "bsdutils",
+    "coreutils",
+    "dash",
+    "diffutils",
+    "libacl1",
+    "libapt-pkg7.0",
+    "libattr1",
+    "libblkid1",
+    "liblastlog2-2",
+    "libmount1",
+    "libncursesw6",
+    "libpam-modules",
+    "libpam-modules-bin",
+    "libpam-runtime",
+    "libpam0g",
+    "libsmartcols1",
+    "libsystemd0",
+    "libtinfo6",
+    "libudev1",
+    "login",
+    "login.defs",
+    "mount",
+    "ncurses-base",
+    "ncurses-bin",
+    "passwd",
+    "perl-base",
+    "sysvinit-utils",
+    "tar",
+    "util-linux",
+    "grep",
+    "debianutils",
+    "libc-bin",
+    "libsemanage2",
+    "libsemanage-common"
+  ],
+  "advisories": [
+    {
+      "id": "CVE-2011-3374",
+      "package": "apt",
+      "version": "3.0.3",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2011-3374"
+      ]
+    },
+    {
+      "id": "TEMP-0841856-B18BAF",
+      "package": "bash",
+      "version": "5.2.37-2+b10",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/TEMP-0841856-B18BAF"
+      ]
+    },
+    {
+      "id": "CVE-2026-76642",
+      "package": "bsdutils",
+      "version": "1:2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-76642"
+      ]
+    },
+    {
+      "id": "CVE-2026-78408",
+      "package": "bsdutils",
+      "version": "1:2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-78408"
+      ]
+    },
+    {
+      "id": "CVE-2026-78409",
+      "package": "bsdutils",
+      "version": "1:2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-78409"
+      ]
+    },
+    {
+      "id": "CVE-2026-78410",
+      "package": "bsdutils",
+      "version": "1:2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-78410"
+      ]
+    },
+    {
+      "id": "CVE-2026-3184",
+      "package": "bsdutils",
+      "version": "1:2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-3184"
+      ]
+    },
+    {
+      "id": "CVE-2022-0563",
+      "package": "bsdutils",
+      "version": "1:2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2022-0563"
+      ]
+    },
+    {
+      "id": "CVE-2017-18018",
+      "package": "coreutils",
+      "version": "9.7-3",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2017-18018"
+      ]
+    },
+    {
+      "id": "CVE-2025-5278",
+      "package": "coreutils",
+      "version": "9.7-3",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2025-5278"
+      ]
+    },
+    {
+      "id": "CVE-2026-56391",
+      "package": "coreutils",
+      "version": "9.7-3",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-56391"
+      ]
+    },
+    {
+      "id": "CVE-2026-56392",
+      "package": "coreutils",
+      "version": "9.7-3",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-56392"
+      ]
+    },
+    {
+      "id": "CVE-2026-102473",
+      "package": "dash",
+      "version": "0.5.12-12",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-102473"
+      ]
+    },
+    {
+      "id": "CVE-2026-102474",
+      "package": "dash",
+      "version": "0.5.12-12",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-102474"
+      ]
+    },
+    {
+      "id": "CVE-2026-53910",
+      "package": "diffutils",
+      "version": "1:3.10-4",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-53910"
+      ]
+    },
+    {
+      "id": "CVE-2026-102010",
+      "package": "gcc-14-base",
+      "version": "14.2.0-19",
+      "status": "not_affected",
+      "checks": [
+        "gcc_runtime_only"
+      ],
+      "reason": "The affected PBDS binary_heap erase_if is a compiler header, absent from these Debian runtime binaries. This OS-package decision does not attest separately compiled/inlined code in copied wheels.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-102010"
+      ]
+    },
+    {
+      "id": "CVE-2026-95619",
+      "package": "gcc-14-base",
+      "version": "14.2.0-19",
+      "status": "not_affected",
+      "checks": [
+        "posix_aligned_new"
+      ],
+      "reason": "The affected fallback implementation is not used on this GNU/Linux libstdc++ build, which imports posix_memalign. The aligned-allocation boundary probe tests overflow rejection.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-95619"
+      ]
+    },
+    {
+      "id": "CVE-2026-54369",
+      "package": "libacl1",
+      "version": "2.3.2-2+b1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-54369"
+      ]
+    },
+    {
+      "id": "CVE-2026-54370",
+      "package": "libacl1",
+      "version": "2.3.2-2+b1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-54370"
+      ]
+    },
+    {
+      "id": "CVE-2011-3374",
+      "package": "libapt-pkg7.0",
+      "version": "3.0.3",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2011-3374"
+      ]
+    },
+    {
+      "id": "CVE-2026-54371",
+      "package": "libattr1",
+      "version": "1:2.5.2-3",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-54371"
+      ]
+    },
+    {
+      "id": "CVE-2026-76642",
+      "package": "libblkid1",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-76642"
+      ]
+    },
+    {
+      "id": "CVE-2026-78408",
+      "package": "libblkid1",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-78408"
+      ]
+    },
+    {
+      "id": "CVE-2026-78409",
+      "package": "libblkid1",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-78409"
+      ]
+    },
+    {
+      "id": "CVE-2026-78410",
+      "package": "libblkid1",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-78410"
+      ]
+    },
+    {
+      "id": "CVE-2026-3184",
+      "package": "libblkid1",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-3184"
+      ]
+    },
+    {
+      "id": "CVE-2022-0563",
+      "package": "libblkid1",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2022-0563"
+      ]
+    },
+    {
+      "id": "CVE-2026-42250",
+      "package": "libbz2-1.0",
+      "version": "1.0.8-6",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "Only bzip2recover is affected; that utility is absent. libbz2 decompression is not the affected component.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-42250"
+      ]
+    },
+    {
+      "id": "CVE-2026-18374",
+      "package": "libc-bin",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "fopen_mode_validated"
+      ],
+      "reason": "Application filenames never supply a libc fopen mode. Python validates modes; Node uses numeric open flags and Java uses fixed modes. Native codecs use fixed modes, not request-supplied ccs strings.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-18374"
+      ]
+    },
+    {
+      "id": "CVE-2026-19499",
+      "package": "libc-bin",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "no_strfmon"
+      ],
+      "reason": "No application/dependency import of strfmon or strfmon_l; the service does not offer locale monetary formatting.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-19499"
+      ]
+    },
+    {
+      "id": "CVE-2026-19542",
+      "package": "libc-bin",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "no_tdelete"
+      ],
+      "reason": "No external tdelete caller; loader/unwind bookkeeping handles the fixed application libraries, not an attacker-supplied million-node search tree.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-19542"
+      ]
+    },
+    {
+      "id": "CVE-2026-5435",
+      "package": "libc-bin",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "no_dns_debug"
+      ],
+      "reason": "The affected DNS diagnostic formatting APIs are not the ordinary getaddrinfo resolver and have no application imports.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-5435"
+      ]
+    },
+    {
+      "id": "CVE-2026-6238",
+      "package": "libc-bin",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "no_dns_debug"
+      ],
+      "reason": "No use of the affected DNS diagnostic formatter, including through native libraries.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-6238"
+      ]
+    },
+    {
+      "id": "CVE-2026-6368",
+      "package": "libc-bin",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "no_wordexp"
+      ],
+      "reason": "No shell or native wordexp caller. Python subprocess passes fixed argument arrays.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-6368"
+      ]
+    },
+    {
+      "id": "CVE-2026-6791",
+      "package": "libc-bin",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "no_wordexp"
+      ],
+      "reason": "No wordexp/tilde expansion of untrusted values; shell payload removed.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-6791"
+      ]
+    },
+    {
+      "id": "CVE-2026-77117",
+      "package": "libc-bin",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "gconv_absent"
+      ],
+      "reason": "The affected SHIFT_JISX0213 gconv module is physically removed and its removal verified.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-77117"
+      ]
+    },
+    {
+      "id": "CVE-2026-80489",
+      "package": "libc-bin",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "gconv_absent"
+      ],
+      "reason": "The affected EUC-JISX0213 gconv module is physically removed and its removal verified.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-80489"
+      ]
+    },
+    {
+      "id": "CVE-2026-8674",
+      "package": "libc-bin",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "resolver_search_disabled"
+      ],
+      "reason": "Empty LOCALDOMAIN selects the bounded empty search list and skips resolv.conf search/domain/hostname fallback. Python startup enforces it for itself and subprocesses; CI initializes and reloads against a long search list.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-8674"
+      ]
+    },
+    {
+      "id": "CVE-2026-86805",
+      "package": "libc-bin",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "no_setid_or_filecaps"
+      ],
+      "reason": "The attack requires AT_SECURE privileged execution. No set-ID files or file capabilities remain; the service uses an unprivileged UID with no-new-privileges.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-86805"
+      ]
+    },
+    {
+      "id": "CVE-2026-89092",
+      "package": "libc-bin",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "The nscd daemon is absent; the ordinary stub resolver is a different component.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-89092"
+      ]
+    },
+    {
+      "id": "CVE-2026-95818",
+      "package": "libc-bin",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "no_setid_or_filecaps"
+      ],
+      "reason": "The affected secure loader path requires privilege-changing execution, which the runtime image and process policy exclude.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-95818"
+      ]
+    },
+    {
+      "id": "CVE-2010-4756",
+      "package": "libc-bin",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "no_native_glob"
+      ],
+      "reason": "No untrusted patterns reach libc glob. Python glob is a separate implementation; no FTP service or command shell is shipped.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2010-4756"
+      ]
+    },
+    {
+      "id": "CVE-2018-20796",
+      "package": "libc-bin",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "no_posix_regex"
+      ],
+      "reason": "No application imports of glibc regcomp/regexec; Python and Java regular expressions use different engines.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2018-20796"
+      ]
+    },
+    {
+      "id": "CVE-2019-1010022",
+      "package": "libc-bin",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "vendor_disputed"
+      ],
+      "reason": "Upstream classifies this stack-guard claim as a non-security bug/no real threat. It assumes an independently exploitable stack overflow. This determination does not assert that memory-safety bugs are impossible.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2019-1010022"
+      ]
+    },
+    {
+      "id": "CVE-2019-1010023",
+      "package": "libc-bin",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "ldd is physically removed. The application does not inspect or execute user-supplied ELF files.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2019-1010023"
+      ]
+    },
+    {
+      "id": "CVE-2019-1010024",
+      "package": "libc-bin",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "vendor_disputed"
+      ],
+      "reason": "Upstream disputes this ASLR claim; predictable layout after allocation is not an independently demonstrated disclosure in these services.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2019-1010024"
+      ]
+    },
+    {
+      "id": "CVE-2019-1010025",
+      "package": "libc-bin",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "vendor_disputed"
+      ],
+      "reason": "Upstream disputes treating pthread_t address information, available to code already executing in the process, as an independent vulnerability.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2019-1010025"
+      ]
+    },
+    {
+      "id": "CVE-2019-9192",
+      "package": "libc-bin",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "no_posix_regex"
+      ],
+      "reason": "No application imports of glibc regcomp/regexec; Python and Java regular expressions use different engines.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2019-9192"
+      ]
+    },
+    {
+      "id": "CVE-2026-97399",
+      "package": "libc-bin",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "amd64"
+      ],
+      "reason": "The reported implementation is Power8-specific; these images are restricted to Linux amd64.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-97399"
+      ]
+    },
+    {
+      "id": "CVE-2026-18374",
+      "package": "libc6",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "fopen_mode_validated"
+      ],
+      "reason": "Application filenames never supply a libc fopen mode. Python validates modes; Node uses numeric open flags and Java uses fixed modes. Native codecs use fixed modes, not request-supplied ccs strings.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-18374"
+      ]
+    },
+    {
+      "id": "CVE-2026-19499",
+      "package": "libc6",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "no_strfmon"
+      ],
+      "reason": "No application/dependency import of strfmon or strfmon_l; the service does not offer locale monetary formatting.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-19499"
+      ]
+    },
+    {
+      "id": "CVE-2026-19542",
+      "package": "libc6",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "no_tdelete"
+      ],
+      "reason": "No external tdelete caller; loader/unwind bookkeeping handles the fixed application libraries, not an attacker-supplied million-node search tree.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-19542"
+      ]
+    },
+    {
+      "id": "CVE-2026-5435",
+      "package": "libc6",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "no_dns_debug"
+      ],
+      "reason": "The affected DNS diagnostic formatting APIs are not the ordinary getaddrinfo resolver and have no application imports.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-5435"
+      ]
+    },
+    {
+      "id": "CVE-2026-6238",
+      "package": "libc6",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "no_dns_debug"
+      ],
+      "reason": "No use of the affected DNS diagnostic formatter, including through native libraries.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-6238"
+      ]
+    },
+    {
+      "id": "CVE-2026-6368",
+      "package": "libc6",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "no_wordexp"
+      ],
+      "reason": "No shell or native wordexp caller. Python subprocess passes fixed argument arrays.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-6368"
+      ]
+    },
+    {
+      "id": "CVE-2026-6791",
+      "package": "libc6",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "no_wordexp"
+      ],
+      "reason": "No wordexp/tilde expansion of untrusted values; shell payload removed.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-6791"
+      ]
+    },
+    {
+      "id": "CVE-2026-77117",
+      "package": "libc6",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "gconv_absent"
+      ],
+      "reason": "The affected SHIFT_JISX0213 gconv module is physically removed and its removal verified.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-77117"
+      ]
+    },
+    {
+      "id": "CVE-2026-80489",
+      "package": "libc6",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "gconv_absent"
+      ],
+      "reason": "The affected EUC-JISX0213 gconv module is physically removed and its removal verified.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-80489"
+      ]
+    },
+    {
+      "id": "CVE-2026-8674",
+      "package": "libc6",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "resolver_search_disabled"
+      ],
+      "reason": "Empty LOCALDOMAIN selects the bounded empty search list and skips resolv.conf search/domain/hostname fallback. Python startup enforces it for itself and subprocesses; CI initializes and reloads against a long search list.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-8674"
+      ]
+    },
+    {
+      "id": "CVE-2026-86805",
+      "package": "libc6",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "no_setid_or_filecaps"
+      ],
+      "reason": "The attack requires AT_SECURE privileged execution. No set-ID files or file capabilities remain; the service uses an unprivileged UID with no-new-privileges.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-86805"
+      ]
+    },
+    {
+      "id": "CVE-2026-89092",
+      "package": "libc6",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "The nscd daemon is absent; the ordinary stub resolver is a different component.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-89092"
+      ]
+    },
+    {
+      "id": "CVE-2026-95818",
+      "package": "libc6",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "no_setid_or_filecaps"
+      ],
+      "reason": "The affected secure loader path requires privilege-changing execution, which the runtime image and process policy exclude.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-95818"
+      ]
+    },
+    {
+      "id": "CVE-2010-4756",
+      "package": "libc6",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "no_native_glob"
+      ],
+      "reason": "No untrusted patterns reach libc glob. Python glob is a separate implementation; no FTP service or command shell is shipped.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2010-4756"
+      ]
+    },
+    {
+      "id": "CVE-2018-20796",
+      "package": "libc6",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "no_posix_regex"
+      ],
+      "reason": "No application imports of glibc regcomp/regexec; Python and Java regular expressions use different engines.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2018-20796"
+      ]
+    },
+    {
+      "id": "CVE-2019-1010022",
+      "package": "libc6",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "vendor_disputed"
+      ],
+      "reason": "Upstream classifies this stack-guard claim as a non-security bug/no real threat. It assumes an independently exploitable stack overflow. This determination does not assert that memory-safety bugs are impossible.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2019-1010022"
+      ]
+    },
+    {
+      "id": "CVE-2019-1010023",
+      "package": "libc6",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "ldd is physically removed. The application does not inspect or execute user-supplied ELF files.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2019-1010023"
+      ]
+    },
+    {
+      "id": "CVE-2019-1010024",
+      "package": "libc6",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "vendor_disputed"
+      ],
+      "reason": "Upstream disputes this ASLR claim; predictable layout after allocation is not an independently demonstrated disclosure in these services.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2019-1010024"
+      ]
+    },
+    {
+      "id": "CVE-2019-1010025",
+      "package": "libc6",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "vendor_disputed"
+      ],
+      "reason": "Upstream disputes treating pthread_t address information, available to code already executing in the process, as an independent vulnerability.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2019-1010025"
+      ]
+    },
+    {
+      "id": "CVE-2019-9192",
+      "package": "libc6",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "no_posix_regex"
+      ],
+      "reason": "No application imports of glibc regcomp/regexec; Python and Java regular expressions use different engines.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2019-9192"
+      ]
+    },
+    {
+      "id": "CVE-2026-97399",
+      "package": "libc6",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "amd64"
+      ],
+      "reason": "The reported implementation is Power8-specific; these images are restricted to Linux amd64.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-97399"
+      ]
+    },
+    {
+      "id": "CVE-2026-102010",
+      "package": "libgcc-s1",
+      "version": "14.2.0-19",
+      "status": "not_affected",
+      "checks": [
+        "gcc_runtime_only"
+      ],
+      "reason": "The affected PBDS binary_heap erase_if is a compiler header, absent from these Debian runtime binaries. This OS-package decision does not attest separately compiled/inlined code in copied wheels.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-102010"
+      ]
+    },
+    {
+      "id": "CVE-2026-95619",
+      "package": "libgcc-s1",
+      "version": "14.2.0-19",
+      "status": "not_affected",
+      "checks": [
+        "posix_aligned_new"
+      ],
+      "reason": "The affected fallback implementation is not used on this GNU/Linux libstdc++ build, which imports posix_memalign. The aligned-allocation boundary probe tests overflow rejection.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-95619"
+      ]
+    },
+    {
+      "id": "CVE-2026-76642",
+      "package": "liblastlog2-2",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-76642"
+      ]
+    },
+    {
+      "id": "CVE-2026-78408",
+      "package": "liblastlog2-2",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-78408"
+      ]
+    },
+    {
+      "id": "CVE-2026-78409",
+      "package": "liblastlog2-2",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-78409"
+      ]
+    },
+    {
+      "id": "CVE-2026-78410",
+      "package": "liblastlog2-2",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-78410"
+      ]
+    },
+    {
+      "id": "CVE-2026-3184",
+      "package": "liblastlog2-2",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-3184"
+      ]
+    },
+    {
+      "id": "CVE-2022-0563",
+      "package": "liblastlog2-2",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2022-0563"
+      ]
+    },
+    {
+      "id": "CVE-2026-76642",
+      "package": "libmount1",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-76642"
+      ]
+    },
+    {
+      "id": "CVE-2026-78408",
+      "package": "libmount1",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-78408"
+      ]
+    },
+    {
+      "id": "CVE-2026-78409",
+      "package": "libmount1",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-78409"
+      ]
+    },
+    {
+      "id": "CVE-2026-78410",
+      "package": "libmount1",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-78410"
+      ]
+    },
+    {
+      "id": "CVE-2026-3184",
+      "package": "libmount1",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-3184"
+      ]
+    },
+    {
+      "id": "CVE-2022-0563",
+      "package": "libmount1",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2022-0563"
+      ]
+    },
+    {
+      "id": "CVE-2025-69720",
+      "package": "libncursesw6",
+      "version": "6.5+20250216-2",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2025-69720"
+      ]
+    },
+    {
+      "id": "CVE-2025-6141",
+      "package": "libncursesw6",
+      "version": "6.5+20250216-2",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2025-6141"
+      ]
+    },
+    {
+      "id": "CVE-2026-54411",
+      "package": "libpam-modules",
+      "version": "1.7.0-5",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-54411"
+      ]
+    },
+    {
+      "id": "CVE-2026-54411",
+      "package": "libpam-modules-bin",
+      "version": "1.7.0-5",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-54411"
+      ]
+    },
+    {
+      "id": "CVE-2026-54411",
+      "package": "libpam-runtime",
+      "version": "1.7.0-5",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-54411"
+      ]
+    },
+    {
+      "id": "CVE-2026-54411",
+      "package": "libpam0g",
+      "version": "1.7.0-5",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-54411"
+      ]
+    },
+    {
+      "id": "CVE-2026-76642",
+      "package": "libsmartcols1",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-76642"
+      ]
+    },
+    {
+      "id": "CVE-2026-78408",
+      "package": "libsmartcols1",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-78408"
+      ]
+    },
+    {
+      "id": "CVE-2026-78409",
+      "package": "libsmartcols1",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-78409"
+      ]
+    },
+    {
+      "id": "CVE-2026-78410",
+      "package": "libsmartcols1",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-78410"
+      ]
+    },
+    {
+      "id": "CVE-2026-3184",
+      "package": "libsmartcols1",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-3184"
+      ]
+    },
+    {
+      "id": "CVE-2022-0563",
+      "package": "libsmartcols1",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2022-0563"
+      ]
+    },
+    {
+      "id": "CVE-2026-50812",
+      "package": "libsqlite3-0",
+      "version": "3.46.1-7+deb13u2",
+      "status": "not_affected",
+      "checks": [
+        "no_sqlite_session"
+      ],
+      "reason": "SQLite Session changeset APIs are not exposed by CPython sqlite3 or imported by the application. Extension loading is disabled. ENABLE_SESSION may be compiled in; the claim is not code absence.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-50812"
+      ]
+    },
+    {
+      "id": "CVE-2026-50813",
+      "package": "libsqlite3-0",
+      "version": "3.46.1-7+deb13u2",
+      "status": "not_affected",
+      "checks": [
+        "no_sqlite_session"
+      ],
+      "reason": "The service uses fixed SQL and bound parameters, not Session changeset merge/apply APIs. Dynamic extension loading is disabled.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-50813"
+      ]
+    },
+    {
+      "id": "CVE-2021-45346",
+      "package": "libsqlite3-0",
+      "version": "3.46.1-7+deb13u2",
+      "status": "not_affected",
+      "checks": [
+        "vendor_disputed"
+      ],
+      "reason": "SQLite upstream states this reads bytes from the supplied database file, not unrelated process memory. Recovery uses fixed queries and verified backup bindings; corrupt database content remains untrusted. Not justified by assuming all backup files are trustworthy.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2021-45346"
+      ]
+    },
+    {
+      "id": "CVE-2025-70873",
+      "package": "libsqlite3-0",
+      "version": "3.46.1-7+deb13u2",
+      "status": "not_affected",
+      "checks": [
+        "sqlite_extension_disabled"
+      ],
+      "reason": "Debian does not build the optional zipfile extension; the live module list excludes it and SQL extension loading is unauthorized.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2025-70873"
+      ]
+    },
+    {
+      "id": "CVE-2026-102010",
+      "package": "libstdc++6",
+      "version": "14.2.0-19",
+      "status": "not_affected",
+      "checks": [
+        "gcc_runtime_only"
+      ],
+      "reason": "The affected PBDS binary_heap erase_if is a compiler header, absent from these Debian runtime binaries. This OS-package decision does not attest separately compiled/inlined code in copied wheels.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-102010"
+      ]
+    },
+    {
+      "id": "CVE-2026-95619",
+      "package": "libstdc++6",
+      "version": "14.2.0-19",
+      "status": "not_affected",
+      "checks": [
+        "posix_aligned_new"
+      ],
+      "reason": "The affected fallback implementation is not used on this GNU/Linux libstdc++ build, which imports posix_memalign. The aligned-allocation boundary probe tests overflow rejection.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-95619"
+      ]
+    },
+    {
+      "id": "CVE-2026-16742",
+      "package": "libsystemd0",
+      "version": "257.13-1~deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-16742"
+      ]
+    },
+    {
+      "id": "CVE-2026-15059",
+      "package": "libsystemd0",
+      "version": "257.13-1~deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-15059"
+      ]
+    },
+    {
+      "id": "CVE-2013-4392",
+      "package": "libsystemd0",
+      "version": "257.13-1~deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2013-4392"
+      ]
+    },
+    {
+      "id": "CVE-2023-31437",
+      "package": "libsystemd0",
+      "version": "257.13-1~deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2023-31437"
+      ]
+    },
+    {
+      "id": "CVE-2023-31438",
+      "package": "libsystemd0",
+      "version": "257.13-1~deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2023-31438"
+      ]
+    },
+    {
+      "id": "CVE-2023-31439",
+      "package": "libsystemd0",
+      "version": "257.13-1~deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2023-31439"
+      ]
+    },
+    {
+      "id": "CVE-2026-40228",
+      "package": "libsystemd0",
+      "version": "257.13-1~deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-40228"
+      ]
+    },
+    {
+      "id": "CVE-2025-69720",
+      "package": "libtinfo6",
+      "version": "6.5+20250216-2",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2025-69720"
+      ]
+    },
+    {
+      "id": "CVE-2025-6141",
+      "package": "libtinfo6",
+      "version": "6.5+20250216-2",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2025-6141"
+      ]
+    },
+    {
+      "id": "CVE-2026-16742",
+      "package": "libudev1",
+      "version": "257.13-1~deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-16742"
+      ]
+    },
+    {
+      "id": "CVE-2026-15059",
+      "package": "libudev1",
+      "version": "257.13-1~deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-15059"
+      ]
+    },
+    {
+      "id": "CVE-2013-4392",
+      "package": "libudev1",
+      "version": "257.13-1~deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2013-4392"
+      ]
+    },
+    {
+      "id": "CVE-2023-31437",
+      "package": "libudev1",
+      "version": "257.13-1~deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2023-31437"
+      ]
+    },
+    {
+      "id": "CVE-2023-31438",
+      "package": "libudev1",
+      "version": "257.13-1~deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2023-31438"
+      ]
+    },
+    {
+      "id": "CVE-2023-31439",
+      "package": "libudev1",
+      "version": "257.13-1~deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2023-31439"
+      ]
+    },
+    {
+      "id": "CVE-2026-40228",
+      "package": "libudev1",
+      "version": "257.13-1~deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-40228"
+      ]
+    },
+    {
+      "id": "CVE-2026-76642",
+      "package": "libuuid1",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "uuid_library_only"
+      ],
+      "reason": "The reported source-package defects concern mount/nsenter/login/chfn/chsh, not libuuid. Those utility payloads are removed; UUID generation remains available.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-76642"
+      ]
+    },
+    {
+      "id": "CVE-2026-78408",
+      "package": "libuuid1",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "uuid_library_only"
+      ],
+      "reason": "The reported source-package defects concern mount/nsenter/login/chfn/chsh, not libuuid. Those utility payloads are removed; UUID generation remains available.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-78408"
+      ]
+    },
+    {
+      "id": "CVE-2026-78409",
+      "package": "libuuid1",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "uuid_library_only"
+      ],
+      "reason": "The reported source-package defects concern mount/nsenter/login/chfn/chsh, not libuuid. Those utility payloads are removed; UUID generation remains available.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-78409"
+      ]
+    },
+    {
+      "id": "CVE-2026-78410",
+      "package": "libuuid1",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "uuid_library_only"
+      ],
+      "reason": "The reported source-package defects concern mount/nsenter/login/chfn/chsh, not libuuid. Those utility payloads are removed; UUID generation remains available.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-78410"
+      ]
+    },
+    {
+      "id": "CVE-2026-3184",
+      "package": "libuuid1",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "uuid_library_only"
+      ],
+      "reason": "The reported source-package defects concern mount/nsenter/login/chfn/chsh, not libuuid. Those utility payloads are removed; UUID generation remains available.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-3184"
+      ]
+    },
+    {
+      "id": "CVE-2022-0563",
+      "package": "libuuid1",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "uuid_library_only"
+      ],
+      "reason": "The reported source-package defects concern mount/nsenter/login/chfn/chsh, not libuuid. Those utility payloads are removed; UUID generation remains available.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2022-0563"
+      ]
+    },
+    {
+      "id": "CVE-2026-76642",
+      "package": "login",
+      "version": "1:4.16.0-2+really2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-76642"
+      ]
+    },
+    {
+      "id": "CVE-2026-78408",
+      "package": "login",
+      "version": "1:4.16.0-2+really2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-78408"
+      ]
+    },
+    {
+      "id": "CVE-2026-78409",
+      "package": "login",
+      "version": "1:4.16.0-2+really2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-78409"
+      ]
+    },
+    {
+      "id": "CVE-2026-78410",
+      "package": "login",
+      "version": "1:4.16.0-2+really2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-78410"
+      ]
+    },
+    {
+      "id": "CVE-2026-3184",
+      "package": "login",
+      "version": "1:4.16.0-2+really2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-3184"
+      ]
+    },
+    {
+      "id": "CVE-2022-0563",
+      "package": "login",
+      "version": "1:4.16.0-2+really2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2022-0563"
+      ]
+    },
+    {
+      "id": "CVE-2007-5686",
+      "package": "login.defs",
+      "version": "1:4.17.4-2",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2007-5686"
+      ]
+    },
+    {
+      "id": "CVE-2024-56433",
+      "package": "login.defs",
+      "version": "1:4.17.4-2",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2024-56433"
+      ]
+    },
+    {
+      "id": "TEMP-0628843-DBAD28",
+      "package": "login.defs",
+      "version": "1:4.17.4-2",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/TEMP-0628843-DBAD28"
+      ]
+    },
+    {
+      "id": "CVE-2026-76642",
+      "package": "mount",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-76642"
+      ]
+    },
+    {
+      "id": "CVE-2026-78408",
+      "package": "mount",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-78408"
+      ]
+    },
+    {
+      "id": "CVE-2026-78409",
+      "package": "mount",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-78409"
+      ]
+    },
+    {
+      "id": "CVE-2026-78410",
+      "package": "mount",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-78410"
+      ]
+    },
+    {
+      "id": "CVE-2026-3184",
+      "package": "mount",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-3184"
+      ]
+    },
+    {
+      "id": "CVE-2022-0563",
+      "package": "mount",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2022-0563"
+      ]
+    },
+    {
+      "id": "CVE-2025-69720",
+      "package": "ncurses-base",
+      "version": "6.5+20250216-2",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2025-69720"
+      ]
+    },
+    {
+      "id": "CVE-2025-6141",
+      "package": "ncurses-base",
+      "version": "6.5+20250216-2",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2025-6141"
+      ]
+    },
+    {
+      "id": "CVE-2025-69720",
+      "package": "ncurses-bin",
+      "version": "6.5+20250216-2",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2025-69720"
+      ]
+    },
+    {
+      "id": "CVE-2025-6141",
+      "package": "ncurses-bin",
+      "version": "6.5+20250216-2",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2025-6141"
+      ]
+    },
+    {
+      "id": "CVE-2007-5686",
+      "package": "passwd",
+      "version": "1:4.17.4-2",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2007-5686"
+      ]
+    },
+    {
+      "id": "CVE-2024-56433",
+      "package": "passwd",
+      "version": "1:4.17.4-2",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2024-56433"
+      ]
+    },
+    {
+      "id": "TEMP-0628843-DBAD28",
+      "package": "passwd",
+      "version": "1:4.17.4-2",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/TEMP-0628843-DBAD28"
+      ]
+    },
+    {
+      "id": "CVE-2026-9538",
+      "package": "perl-base",
+      "version": "5.40.1-6+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-9538"
+      ]
+    },
+    {
+      "id": "CVE-2026-15534",
+      "package": "perl-base",
+      "version": "5.40.1-6+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-15534"
+      ]
+    },
+    {
+      "id": "CVE-2011-4116",
+      "package": "perl-base",
+      "version": "5.40.1-6+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2011-4116"
+      ]
+    },
+    {
+      "id": "CVE-2026-82560",
+      "package": "perl-base",
+      "version": "5.40.1-6+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-82560"
+      ]
+    },
+    {
+      "id": "TEMP-0517018-A83CE6",
+      "package": "sysvinit-utils",
+      "version": "3.14-4",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/TEMP-0517018-A83CE6"
+      ]
+    },
+    {
+      "id": "CVE-2026-18477",
+      "package": "tar",
+      "version": "1.35+dfsg-3.1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-18477"
+      ]
+    },
+    {
+      "id": "CVE-2026-18508",
+      "package": "tar",
+      "version": "1.35+dfsg-3.1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-18508"
+      ]
+    },
+    {
+      "id": "CVE-2026-5704",
+      "package": "tar",
+      "version": "1.35+dfsg-3.1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-5704"
+      ]
+    },
+    {
+      "id": "CVE-2005-2541",
+      "package": "tar",
+      "version": "1.35+dfsg-3.1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2005-2541"
+      ]
+    },
+    {
+      "id": "TEMP-0290435-0B57B5",
+      "package": "tar",
+      "version": "1.35+dfsg-3.1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/TEMP-0290435-0B57B5"
+      ]
+    },
+    {
+      "id": "CVE-2026-76642",
+      "package": "util-linux",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-76642"
+      ]
+    },
+    {
+      "id": "CVE-2026-78408",
+      "package": "util-linux",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-78408"
+      ]
+    },
+    {
+      "id": "CVE-2026-78409",
+      "package": "util-linux",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-78409"
+      ]
+    },
+    {
+      "id": "CVE-2026-78410",
+      "package": "util-linux",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-78410"
+      ]
+    },
+    {
+      "id": "CVE-2026-3184",
+      "package": "util-linux",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-3184"
+      ]
+    },
+    {
+      "id": "CVE-2022-0563",
+      "package": "util-linux",
+      "version": "2.41.5-0+deb13u1",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All non-documentation payload of this package is physically removed. dpkg records and licenses are retained; CI checks every recorded removed path for reappearance.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2022-0563"
+      ]
+    },
+    {
+      "id": "CVE-2026-27171",
+      "package": "zlib1g",
+      "version": "1:1.3.dfsg+really1.3.1-1+b1",
+      "status": "not_affected",
+      "checks": [
+        "no_zlib_combine"
+      ],
+      "reason": "No external callers of crc32_combine64/crc32_combine_gen64 accept a negative length. Python 3.12 does not expose these entry points.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-27171"
+      ]
+    },
+    {
+      "id": "CVE-2026-85091",
+      "package": "zlib1g",
+      "version": "1:1.3.dfsg+really1.3.1-1+b1",
+      "status": "not_affected",
+      "checks": [
+        "no_zlib_printf"
+      ],
+      "reason": "No caller of gzprintf/gzvprintf exists; ordinary bounded inflate/deflate operations do not reach this nonblocking gzwrite-then-format sequence.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-85091"
+      ]
+    },
+    {
+      "id": "CVE-2026-12345",
+      "package": "cpython",
+      "version": "3.12.16",
+      "status": "fixed",
+      "checks": [
+        "temporary_directory_safe"
+      ],
+      "reason": "PSF fixes the Linux symlink-safe cleanup path in 3.12.15; 3.12.16 includes the fix. CI requires rmtree.avoids_symlink_attacks and tests cleanup without following symlinks.",
+      "references": [
+        "https://www.cve.org/CVERecord?id=CVE-2026-12345"
+      ]
+    },
+    {
+      "id": "CVE-2025-15366",
+      "package": "cpython",
+      "version": "3.12.16",
+      "status": "not_affected",
+      "checks": [
+        "mail_modules_absent"
+      ],
+      "reason": "The unused imaplib module and bytecode are removed; no IMAP client is exposed.",
+      "references": [
+        "https://www.cve.org/CVERecord?id=CVE-2025-15366"
+      ]
+    },
+    {
+      "id": "CVE-2025-15367",
+      "package": "cpython",
+      "version": "3.12.16",
+      "status": "not_affected",
+      "checks": [
+        "mail_modules_absent"
+      ],
+      "reason": "The unused poplib module and bytecode are removed; no POP client is exposed.",
+      "references": [
+        "https://www.cve.org/CVERecord?id=CVE-2025-15367"
+      ]
+    },
+    {
+      "id": "CVE-2025-12781",
+      "package": "cpython",
+      "version": "3.12.16",
+      "status": "not_affected",
+      "checks": [
+        "strict_base64"
+      ],
+      "reason": "Project decoding uses only the standard alphabet with validate=True, never altchars or urlsafe_b64decode. Identity verification does not use dependency decoders as an authorization boundary.",
+      "references": [
+        "https://www.cve.org/CVERecord?id=CVE-2025-12781"
+      ]
+    },
+    {
+      "id": "CVE-2026-3446",
+      "package": "cpython",
+      "version": "3.12.16",
+      "status": "not_affected",
+      "checks": [
+        "strict_base64"
+      ],
+      "reason": "Every application Base64 decode uses validate=True, the PSF mitigation. Trailing padded groups/junk are rejected in runtime probes.",
+      "references": [
+        "https://www.cve.org/CVERecord?id=CVE-2026-3446"
+      ]
+    },
+    {
+      "id": "CVE-2026-3479",
+      "package": "cpython",
+      "version": "3.12.16",
+      "status": "not_affected",
+      "checks": [
+        "reviewed_source_apis"
+      ],
+      "reason": "No request-supplied pkgutil.get_data path; upstream disputes this documentation/API-contract report. Locked dependency resource loads use trusted package resources.",
+      "references": [
+        "https://www.cve.org/CVERecord?id=CVE-2026-3479"
+      ]
+    },
+    {
+      "id": "CVE-2026-6019",
+      "package": "cpython",
+      "version": "3.12.16",
+      "status": "not_affected",
+      "checks": [
+        "reviewed_source_apis"
+      ],
+      "reason": "SimpleCookie parses HTTP headers; no Morsel.js_output or generated cookie JavaScript is used.",
+      "references": [
+        "https://www.cve.org/CVERecord?id=CVE-2026-6019"
+      ]
+    },
+    {
+      "id": "CVE-2026-113351",
+      "package": "expat",
+      "version": "2.9.0",
+      "status": "not_affected",
+      "checks": [
+        "python_xml_not_exposed"
+      ],
+      "reason": "No XML_ParserReset exposed in the Python service. pyexpat parsers are single-document; ordinary ElementTree creates/frees parsers. Public payloads are JSON; SAML is parsed by Java, not Expat.",
+      "references": [
+        "https://www.cve.org/CVERecord?id=CVE-2026-113351"
+      ]
+    },
+    {
+      "id": "CVE-2026-115506",
+      "package": "expat",
+      "version": "2.9.0",
+      "status": "not_affected",
+      "checks": [
+        "python_xml_not_exposed"
+      ],
+      "reason": "No attacker-supplied XML reaches Expat: public handlers accept bounded JSON, and the three fixed AWS runtime clients use JSON protocols. S3/STS operator tooling is outside these images. Native image codecs and fixed local models are separate parsers.",
+      "references": [
+        "https://www.cve.org/CVERecord?id=CVE-2026-115506"
+      ]
+    },
+    {
+      "id": "CVE-2026-118370",
+      "package": "expat",
+      "version": "2.9.0",
+      "status": "not_affected",
+      "checks": [
+        "python_xml_not_exposed"
+      ],
+      "reason": "No attacker-supplied XML reaches Expat; the greater-than-2^30-attribute trigger also exceeds all service request limits. Java SAML does not use this parser.",
+      "references": [
+        "https://www.cve.org/CVERecord?id=CVE-2026-118370"
+      ]
+    }
+  ],
+  "componentFeedSHA256": {
+    "CGA-wp44-6jjx-9fc4": "360bc119da7b6454d85e83ae69f1b47270da085751397d6673ba25fbd14d294c",
+    "CGA-pjgm-mfph-cxr6": "a193eb2f0f3630159a700aa04b285342582daf4211af37c44f153dc68045db56",
+    "CGA-677h-pf23-hqmp": "1c246a7848260395bb17347368d80f09270cd00cccc136a66ff5edc61041f573",
+    "CGA-qr78-9fg9-c676": "2dea181c5dd2533b97015483ac33d566f799bff53466f9cf6af62f04f2df978d",
+    "CGA-6qp7-9r8g-vg6m": "105d503fda7911969f954204a3491953d1ffe2b5820d8d08a8daef7464fd980f",
+    "CGA-q36p-p2gv-8p7v": "f9fb8d50c612b00ef466ef60842d3a8e403071b5462eaf7d5cf96a8a5b1dc742",
+    "CGA-wjx3-hqwp-78pc": "a161f59d489054b0d399962bc01af87ed35dbd73cb236e0cb8cf714af55b6bfc",
+    "CGA-2wjh-6ccq-ffgc": "49ea18b4f695ba9998103e9af1d622de9d6bcbc50406ea0351aa9333c830781a",
+    "CGA-pv5x-4jfj-wqvj": "633f273eae5731a5e1fa775f6a1d8f337c199df96b0c509b0fae7589e3bd6764",
+    "CGA-6xvr-hm4r-272f": "07fd6c765b1fb1de78686b8a62cc1ea9029067de3f60a293179caaaf348ce18d",
+    "CGA-7p22-p3hv-6q3w": "4d65cfe15183fb668fa5a364940c0d6bdf722649b74d3f979e12f91258ec8933",
+    "CGA-g5qm-4qwx-5v9f": "5e469ffcfcfcab32355fea9616b9f1be7919d9e1e906556cb195d5419ccd9ccc",
+    "CGA-49qp-h3gj-c2h5": "74d69cab363aed1a60a31a8533c7045e24235beb2bd8d59942d992224d528450",
+    "CGA-m7x7-v6v6-v355": "f9aa9bf90ef21b6f54f171f55b8c0797829a591541a0f30b6d53634de2e12778",
+    "CGA-v285-6rg6-mrf4": "eedb65b20489ff3ac8d9c2a6c8854f587340fb7fd5dac018178e55bcb04915cd",
+    "CGA-73rh-q5gp-5hcc": "aaecdd3fb13a3fe1cf6dafe24ab98468b9a820199aee31a7737b4007fc5628aa",
+    "CGA-fr3r-p288-gqg5": "e03cd7b8cae98c7b6e2d4777745836920575fc312a3fa8113d22745a5b9edb78",
+    "CGA-qrcf-92jm-xh4v": "80c9190e3b05f60257c99605f879a2ade348b83b816c1699645d2c3c4deb63d5",
+    "CGA-5c52-mxq5-wvjj": "d1aa85f7c5778c473cae971ceda0d73025658ab467b054ae2bfd850338801e32",
+    "CGA-mq6v-qm72-mrxm": "e881bb1cf22e5263bf83ad79580e432f00534b56475cf27deb8f9a51207b4634",
+    "CGA-rpv2-h7fc-3m48": "20bbb7599c9d1032c06972acf65b30fdaac1b70303d2d4439241cc63020bc361",
+    "CGA-q8pr-wxrw-3vx3": "db590a2e7ac3ce165685feefd6507d37bcba807077f1e4776b201be6e619219a",
+    "CGA-w7r7-76wj-xg3r": "4e9fe18d0a59014931064e4dca372154130ae9051a546ef406f0079266c6d6d3",
+    "CGA-4fj7-28j9-5v6j": "6bed023e8fe667f560e7e01cc40aacae8cf4ac62a601e3ad36396e73d18d0110",
+    "CGA-m5w4-vf4q-538c": "1621df0f36417e078fa9261f1d596880e0e8eedfc444e8333d3b3d09caa74d40",
+    "CGA-9983-7642-5rjm": "03a64b6232684af679d883a8e37c864c0ea7aef74d9ae413a6b8dc1b3b257dbc",
+    "CGA-62cm-pj6f-6398": "771a0e825df8176b8711914d74f90b170ee53cca9d314ee1e28e013f39a80567",
+    "CGA-9x2h-jjvc-66mh": "f9bf10e5bc9ad4b8d31b0041130d31a091c68bd8e7959ebd73af3d14fda1d056",
+    "CGA-93c7-pmh4-f4m2": "667a6e049c38154d858af33a22b88bfd1272f1df86b1be932347911e16cf1174",
+    "CGA-252r-8vp6-7f2v": "729579a55079d7abd9ef299e43a7990629c6938e380007e4dfa90f4679842110",
+    "CGA-38jr-x953-j4jx": "2b770cbf0db4069e30a597854b23122f6917be7c13e2652b80f7c51ab6924726",
+    "CGA-r84j-6hp9-23xm": "0b5720cb5663c7051296dff35b6e0f1dc6f4c49383bf733d9d9a2f6452f9f9fc",
+    "CGA-g475-xr4q-qf74": "6abc039efff171a50e146ef6342cc17b07d422fe66174ee9d9f17825b4e7a3a8",
+    "CGA-ww88-c2fm-562f": "6679ca6dd915618b04c61695759cbfe2d560a302a63c5289757dd29f78b6e43b",
+    "CGA-hr32-mjp4-9qhj": "c97cd6701fc68bb1a81cd544fa87e08b1a6ec78ea76d7af45534236b23b0b62c",
+    "CGA-j22q-88r7-qqp3": "8fd3e2f1004c79ab1e40785f54a548f6869316886985e76cdee7d34e22ff0767",
+    "CGA-x5hr-2777-6g5p": "05a736ec3ce8b7c340f94085506429c35ee75a234ad68511c8c058350a169c31",
+    "CGA-7cmx-g75p-7hfh": "1e3acc2c56e0d2c326c4967e2cc63e2f24f2f1a51b7d85c9e72f8841ae5e109b",
+    "CGA-3p6w-cc5r-c372": "360e86a76f6c69a0429156c7bf687e10a563f51e830dd06422f1e7d4c09529a1",
+    "CGA-hfw3-q3ph-5fq4": "e8660229cb86391381e7c340f79338eb0716aee6154b8f1804a0b86ad6036d6e",
+    "CGA-mhhx-w3qv-3796": "8fec94aa0c55e58cd2ad13703e994e7a84ff7c29e32b2178cd1de202bef327d1",
+    "CGA-4x86-7m8f-54p5": "4d1ca648bb5cb25f0cb11545ee2e8583d7b235fa30f7cd7bab902825e17b8c6f",
+    "CGA-f3xq-534h-274w": "8425eaa436f3ea86b7104c4b7cf7378e2eb6e0ae6f4b1c64e2621bbbfa993599",
+    "CGA-pf6p-6fjc-h933": "6e02e8b3777e125d1d7ff62c42f867c778cdf67b8c8af0289c7fd055d3c58d53",
+    "CGA-3hm5-gv2v-vgw8": "1ea6dbc83e032a1170989e736048f289d442dc254bbd4f21d93b0580bbbd590e",
+    "CGA-4p82-rx99-f2mg": "f94ecc25b90c26e083ced12ecd4c0c4a9af1cbf8574a0e00eab2cc4871e6f054",
+    "CGA-mqh9-m9rm-23q7": "06e21f9d2d26e19bb2bad0909a0598a3cad78c9e01f2097e6d0999cdf66adabb",
+    "CGA-mwjj-543v-2qxw": "f6b84d72111d9b64db1194b8d7ec1b6d3beba0e82fd5bdac96b02a51c46799d8",
+    "CGA-gw64-r736-v492": "cab3c27c7e823541148e98629c786052b6912f5432769cd0f43fda917a1310e3",
+    "CGA-94jq-8xf3-wq3h": "4b55d0e7dd35d40032f3dae68a7742dffe2fbc7986d188b6006aae38736089f5",
+    "CGA-rjwr-43v6-f337": "2fece2b9542c673f146780c4c1c9b6c6e6e5337f9d35c8433a185c0c2f713d3a",
+    "CGA-2mjr-3r9q-f75m": "f3a89c90df1fe307d644583ea64bf6981064d7bc6106c3bfb685f12863fcf332",
+    "CGA-x3jx-7xjp-vpm8": "626819092ac52ae611344b769a77c89fc11896785a61eaf7fb593f4ad033fdd0",
+    "CGA-x52p-3rjh-fg35": "04062408280c6ca38fdf73ff14066fc830d89663e9edb95cffcb0c3250a9480a",
+    "CGA-5p54-hmw4-q476": "d0fb46cd600233bbc0f7c80d86b668b9ec59c6caf6f8e2836fec2ca49b79a91a",
+    "CGA-5gxf-7323-jhp2": "f51a7e29e07a5d845ae745ef5a523347e77ec0a28bdbf3ed53211d2bb296000b",
+    "CGA-38xq-jhr9-7p8p": "ff11baa760750aa3d5f83df9b3656b051bb9edf3c2321a03bfde3cd7b84f7bc0",
+    "CGA-cp3f-r43j-qh98": "1cdeace17f35963d4cdfdd536e51ed89c566b745bb0c2c02082493fbb70585ea",
+    "CGA-5mfj-x876-gfg8": "61c34f3841b5a07eb953de2a32c5791a9e4733db15158fcfb16632f1d312a33c",
+    "CGA-5hv6-5ccm-5wj9": "c80177b2aff8fcb193ad104e665d81a9120ab9e5551c40bb3133a943caab14e3",
+    "CGA-p9wh-4mxh-99fj": "8934a6b4d14b4d361da4a28511686cfdd2507713165b3647a0bed7b43a5d6719",
+    "CGA-3jxx-qmh5-7q8p": "052adbff3bfc1ffb7e6b010235652a2984fc75fb505c8936395165be637450a3",
+    "CGA-pc6g-f7g9-qmgw": "c2855aec4f56a14ce094470eb211fcc241fdc0559d1a14644b48aaf19fa81629",
+    "CGA-prfc-8p4x-jjjh": "5ccf6f1917b18f5ed9577dd057b401387fbbf12a5395e92824d087e383b0afb7",
+    "CGA-872m-7xj4-h457": "5cf72893789c5fe29980e799708030b7195126fe727e35da2cc5ffe8cc3ec705",
+    "CGA-87wc-m3c5-v3pm": "64ca44cdc0014f724d2da4ae7444f316082286fa441636da22e8f80e53bc2cbc",
+    "CGA-vh77-pg27-2xpj": "fd825a92b2c59fd79ca77b237f91e03191453ec0f4eab798f0568bdb1520c51d",
+    "CGA-6gw2-65p5-m27x": "b6cb74931b992c296ff803e591844c5b07c980d8b94c1f536365625c1e6b73fe",
+    "CGA-g3hc-7hgr-hfv4": "ce8b7139793521e5d3c02158a678f3f961e14e48ebef24356b5d589160adb1da",
+    "CGA-m33w-fcq7-wmg3": "696fdc696637313d0a5678248be97849b5f92347dbfa273f32bb54b4f5a9b2c3",
+    "CGA-j63h-vp6v-ph85": "e7c47e3b1967be52fe8d3e4c8afe7ea43dc2210dc84d34b22607e7a093cc3e85",
+    "CGA-m8qw-87rc-5pgj": "6baca2bc15c6619dfd81f2dbc76af195166def9c29c326e09a504c32fdef7a90",
+    "CGA-r9hf-494w-36f7": "8139eb5a485482df3a16d67c7db4dc532af38bf753589e6823682ded3288a13d",
+    "CGA-gjp2-qvw3-j4qm": "28f0a270eca4373aed65870be7feb21ad8eabd3e7199e70733e0c7d581fd3dd1",
+    "CGA-8r82-m95x-v555": "5dfb2ab816f692dc6e8035d05bbbc920f92e5472c62d69f2525892621a266d76",
+    "CGA-w33q-f28h-3vj7": "259d56640e199728e9e54e56b61a7b714f8f57911718af9e5ea74e83ee25eaa0",
+    "CGA-59jp-p3fg-vcq8": "70f2744ac82310c440d42b41783482e65eb2a32cac4573f24514d33a5c12b5a0",
+    "CGA-hx5r-4h53-pj3x": "b6f7a6e184fcf19410a62c1ce41bed57560ccfdbe1af4e4ac4f0ef90e4cfef9a",
+    "CGA-56x7-w5g7-cp2r": "3e495e91b549d34a23c72ad81d6ba92bf903c810ae9175855ee53c71ead4c10e",
+    "CGA-w27g-mvvc-9237": "58a0579171dd884d99e7df2ccadb1dd042fa243a38b5f3e17ed11997bebb9a66"
+  },
+  "cnaSHA256": {
+    "CVE-2019-1010022": "3f53b4b1fafa0c4750765deafadf427498cb63f7a7d948181b79feb66863d0d3",
+    "CVE-2019-1010024": "60f268149624fad624279d103a6e9d3c024e96aadb83505f002f703b8b48c380",
+    "CVE-2019-1010025": "f82d1d3b56d45b9d0cbcfef8de49c8d4fad23c5b236077e42ece5bc4cc3146e6",
+    "CVE-2021-45346": "7703a7e2b0e4d2818f7195ce391b60261e2f202f426f9d9de10f32315cc7ce9b",
+    "CVE-2025-12781": "149321b0d7870893cf1ce1edd3a53adec6ef215d762d37619c995629e4775693",
+    "CVE-2025-15366": "ea0a58bc70505d49fe27d3ee4c3ff216ebbd2eeee7dae50a7cdb04c197d8d835",
+    "CVE-2025-15367": "5562b5982b303c7a304668b1c77f3414117a05507ff47e2a4ef6d8071ee0bc09",
+    "CVE-2026-113351": "f0a9d59ffdec5e69c8a99af11b104fc8602ac0cadb780a21c126df3775334878",
+    "CVE-2026-115506": "f49b0c43a8d0fe01de91ecdac601ede6553deb6f169537894c6ebce55e894f41",
+    "CVE-2026-118370": "4dc59242796fdbc1e8dc92a00c76775280e543220e89f2277ebe01bf6fa70824",
+    "CVE-2026-12345": "7ce5d7bf84072bd201bf3fd52c6e9c05c9e07880a5b769480f3a297f52140e88",
+    "CVE-2026-3446": "38da1abb4c83fdc3a9c719059066eacacdca037ec06649e0fb9117d5d095d280",
+    "CVE-2026-3479": "060376b0821f38f40bf630190e8c54a1ffce1ab07bc56f0f43f593a6a3fe47c7",
+    "CVE-2026-6019": "8281acee341982121f28469965e2bd0767627b6e3da689c363106fab16a749db"
+  }
+}
