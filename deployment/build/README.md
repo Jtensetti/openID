@@ -202,7 +202,7 @@ Uppdatera låset med samma verifierade apko-version i isolerad byggmiljö:
 
 ```sh
 apko lock deployment/build/wolfi-runtime.yaml --arch x86_64 \
-  --lockfile deployment/build/wolfi-runtime.lock.json
+  --output deployment/build/wolfi-runtime.lock.json
 ```
 
 Granska hela paketdiffen, ursprung, licenser och advisories före incheckning.
