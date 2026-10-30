@@ -56,37 +56,23 @@ ligger till grund för att ersätta klientens adresshuvud med anslutningens
 adress. Inga `real_ip`-regler ingår. Eget proxyläge begränsas till explicit
 loopbacklyssnare; det provas med förfalskade huvuden genom riktig nginx.
 
-## OS-kontroll och Debian-rättningar, 2026-10-26
+## OS-kontroll och minimal runtime, 2026-10-30
 
-[Trivy 0.76.1](https://github.com/aquasecurity/trivy/releases/tag/v0.76.1),
-officiella distributionshashar, källrevision, LICENSE, NOTICE och upstream-SBOM
-kontrollerades. [Debian-täckningen](https://trivy.dev/docs/latest/coverage/os/debian/)
-skiljer dpkg-paket från egenbyggda binärer och använder Debians säkerhetsbedömning.
-[Databasdokumentationen](https://trivy.dev/docs/latest/configuration/db/)
-anger officiell OCI-källa och uppdateringsflöde. Projektet kräver aktuell
-databas och jämför hela dpkg-inventeringen med skannerns paketlista.
+[Docker Official Images](https://github.com/docker-library/official-images/blob/master/library/python)
+och dess [låsta Pythonrecept](https://github.com/docker-library/python/blob/3d7e95597e56a415d9e4abc0f15877e005d2cb2e/3.12/slim-trixie/Dockerfile)
+är källor för Debianbasen. [Trivy 0.76.1](https://github.com/aquasecurity/trivy/releases/tag/v0.76.1)
+kontrollerar den fullständiga dpkg-inventeringen. Kompletterande
+[komponentfeed](https://advisories.cgr.dev/chainguard/v2/osv/all.json) och
+[CNA-poster](https://github.com/CVEProject/cvelistV5) följer Python/Expat.
+Varje beslut i [runtimepolicyn](../deployment/build/runtime-policy.json) har egna källor.
+Glibcs resolverbegränsning följer
+[Debians exakta res_init.c](https://sources.debian.org/src/glibc/2.41-12%2Bdeb13u4/resolv/res_init.c/).
 
-Komplettering 2026-10-27: [Trivys containerkällor](https://trivy.dev/docs/latest/target/container_image/)
-beskriver den lokala Docker-källan. Båda applikationsimagernas OS-kontroll
-begränsas till denna källa och validerar fullständigt image-ID.
+[Databasdokumentationen](https://trivy.dev/docs/latest/configuration/db/) anger
+OCI-källa och uppdatering. [Containerkällorna](https://trivy.dev/docs/latest/target/container_image/)
+beskriver lokal Docker-skanning; projektet kräver exakt image-ID.
 [GitHubs statusuttryck](https://docs.github.com/en/actions/reference/workflows-and-actions/expressions#status-check-functions)
-ligger till grund för registerskanning efter testfel med `!cancelled()` och
-bevisuppladdning med `always()`. Skanningsfel får inte omvandlas till godkänt jobb.
-
-[Debian Securitys Trixie-index](https://security.debian.org/debian-security/dists/trixie-security/main/binary-amd64/Packages.xz)
-anger OpenSSL `3.5.7-1~deb13u3`.
-[Trixie-updates](https://deb.debian.org/debian/dists/trixie-updates/main/binary-amd64/Packages.xz)
-anger version, fil och SHA-256 för tzdata `2026e-0+deb13u1`; den hämtade
-filens bytes har verifierats.
-[CVE-2025-7458](https://security-tracker.debian.org/tracker/CVE-2025-7458)
-är rättad i Trixies SQLite `3.46.1-7+deb13u2`, men kvar i Bookworm.
-[Debian 13:s ändringar](https://www.debian.org/releases/trixie/release-notes/whats-new.en.html)
-och [kända begränsningar](https://www.debian.org/releases/trixie/release-notes/issues.en.html)
-har granskats för amd64-containerbasen; ingen värd-OS-uppgradering görs.
-Docker Official Images-manifest och källfil för Python 3.12.15-slim-trixie
-anger källrevision `2a3b794c223ab067d122719541cdd54a068732a5`.
-Index-/amd64-digest finns i komponentregistret. Detta är upstream-proveniens,
-ingen oberoende byggattest eller fullständig OS-säkerhetsbedömning.
+styr bevisinsamling efter fel. Ett skanningsfel får inte ge godkänt jobb.
 
 ## Runtime-uppföljning, 2026-10-26
 
@@ -102,27 +88,15 @@ nu i pilotbygget och serverproven enligt komponentregistret.
 [BuildKits checksum-kontroll](https://docs.docker.com/reference/dockerfile/#add---checksum)
 ligger till grund för installationen, även i `ops/`-imagen.
 
-Python 3.12.16:s officiella XZ-arkiv och
-[käll-SPDX](https://www.python.org/ftp/python/3.12.16/Python-3.12.16.tar.xz.spdx.json)
-har hämtats och hashkontrollerats. Taggen pekar på commit
-`2c2462afc5d978d31f3d073001fc202d269917ff`. Utgåvan rättar bland annat
-komprometterade CA-nycklar, Expat, tarfile och tempfile.
-[Dockerprojektets byggrecept](https://github.com/docker-library/python/blob/2a3b794c223ab067d122719541cdd54a068732a5/3.12/trixie/Dockerfile)
-och MIT-licens ligger till grund för det separata källbygget. Bygget behåller
-Python-/komponentlicenser, SPDX och testresultat.
+Python 3.12.16:s upstreamtagg pekar på commit
+`2c2462afc5d978d31f3d073001fc202d269917ff`. Runtime använder Docker Official Images recept, enligt OS-avsnittet ovan.
 [Pips ändringslogg](https://pip.pypa.io/en/stable/news/) och PyPI:s officiella
 hjul för 26.2.2 kontrollerades: uppdaterade CA-certifikat och tidigare
 säkerhetsrättningar ingår. Hjulhash, MIT-licens, transitiva licenser och
 inbäddad CycloneDX är dokumenterade i komponentregistret. Pips nya version
 används som byggverktyg; pip och ensurepip tas sedan bort ur driftfilsystemet.
-Ursprunglig Python-SPDX beskriver källutgåvan före denna paketering. Bevakning får inte stanna vid
-systempaketlistan; andra inbäddade beroenden återstår.
-
-[Upstreams TLS-testförväntan](https://github.com/python/cpython/blob/540b3d0a7fa7cd842f064f79b1410cbd6868bffa/Lib/test/test_ssl.py)
-för avvisad post-handshake-autentisering utan certifikat används i ett
-avgränsat testbackport. Referensen innehåller mönstret; den anges inte som
-committen som introducerade det. Filhashar och teständring bevaras i bygglåset.
-Runtime-TLS-koden ändras inte.
+Bevakning får inte stanna vid systempaketlistan; inbäddade beroenden i
+kopierade runtimebinärer behöver separat kontroll.
 
 [BuildKits nätisolering](https://docs.docker.com/reference/dockerfile/#run---networknone),
 [skrivskyddade byggmonteringar](https://docs.docker.com/reference/dockerfile/#run---mounttypebind)

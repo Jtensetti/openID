@@ -19,11 +19,21 @@ def main():
     wheel = Path('/tmp')/lock['wheelName']
     if hashlib.sha256(wheel.read_bytes()).hexdigest() != lock['sha256']:
         raise ValueError('pip wheel checksum mismatch')
+    # Remove the upstream installer before bootstrapping the exact reviewed wheel.
+    for target in Path(sysconfig.get_path('purelib')).glob('pip*'):
+        if target.is_dir() and not target.is_symlink(): shutil.rmtree(target)
+        else: raise ValueError('unexpected upstream pip path')
     # Run pip directly from the verified wheel, even when no pip is installed.
     environment = dict(os.environ, PYTHONPATH=str(wheel))
     subprocess.run([sys.executable, '-m', 'pip', '--isolated', '--disable-pip-version-check',
                     'install', '--ignore-installed', '--no-index', '--no-deps', '--no-cache-dir',
                     '--only-binary=:all:', str(wheel)], env=environment, check=True)
+    # The bootstrap subprocess may create a package directory absent at startup.
+    packages = sysconfig.get_path('purelib')
+    if packages != '/usr/local/lib/python3.12/site-packages':
+        raise ValueError('unexpected package installation directory')
+    if packages not in sys.path:
+        sys.path.append(packages)
     from importlib.metadata import distribution
     installed = distribution('pip')
     if installed.version != lock['version']:
@@ -53,6 +63,8 @@ def main():
               'licenseSHA256': licenses, 'scope': 'Build tool; removed after package installation.',
               'limits': ['Vendored components require separate build-time advisory assessment.']}
     (root/'pip-build-tool.json').write_text(json.dumps(report, indent=2)+'\n')
+    wheel.unlink()
+    Path(__file__).unlink()
     print('PASS: hash-locked pip installed without using builder site-packages')
 
 

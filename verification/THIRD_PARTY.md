@@ -186,17 +186,14 @@ säkerhetsbedömning av den egna integrationen.
 HTTP/2, proxyprotokoll, kontrollsocket och automatiska omstarter efter ett
 visst antal anrop används inte. NFC-sessionerna tillhör en enda worker.
 
-`deployment/Dockerfile` låser officiella Python **3.12.15 slim-bookworm** och
-Node **24.22.1 bookworm-slim** med image-digests. Temurin **21.0.13+9** hämtas
-som SHA-256-låsta Linux x64-arkiv för JDK och JRE. Python har PSF-licens,
-Node MIT med tredjepartslicenser och Temurin GPL-2.0 med Classpath Exception.
-[Komponentregistret](../THIRD_PARTY.md#temurin-säkerhetsuppdatering-2026-10-26)
-anger ursprung, källrevision, distributions- och SBOM-hashar.
-Basimagens Debian-licenser, JRE:s `legal/` och Nodes LICENSE bevaras.
+`deployment/Dockerfile` använder den låsta officiella Debianbasen med Python 3.12.16,
+Node 24.22.1 och Temurin 21.0.13+9. Ursprung, källrevisioner, licenser,
+distributionshashar och SBOM beskrivs i [komponentregistret](../THIRD_PARTY.md).
+JRE:s `legal/`, Nodes LICENSE och paketens medlevererade licenser bevaras.
 Maven 3.9.11 hämtas som samma SHA-256-låsta ZIP som wrappern; hela grafens
 180 beroendehashar kontrolleras även i containerbygget. Bildvikter och
 Python-/npm-paket hämtas enbart vid bygge med befintliga lås. CI inventerar
-installerade Python-paket. OS-paket täcks av imagen, inte paket-SBOM:erna.
+installerade Python-paket. OS-paket har separat inventering, SBOM och advisorykontroll.
 
 ## Delat register, kontrollerat 2026-10-20
 
@@ -258,7 +255,10 @@ statiskt inbäddade bibliotek. Hjulets `LICENSE.txt` (MIT) och
 `LICENSE-3RD-PARTY.txt` bevaras vid installation. Jämfört med föregående
 hjul tillkommer dav1d-attribution med BSD-2-Clause; övrig licenstext är
 oförändrad. FFmpeg och andra bibliotek omfattas fortsatt av egna villkor.
-Inga källfiler eller binärer i hjulet modifieras.
+OpenCV-hjulets källfiler och binärer modifieras inte. Serverimagen stänger
+av FFmpeg-video genom `OPENCV_VIDEOIO_PRIORITY_FFMPEG=0`; den används
+inte av JPEG/JP2-gränsen. Runtimeprovet kontrollerar också ett explicit
+FFmpeg-öppningsförsök.
 
 4.14.0.94 innehåller FFmpeg 8.1.2 och AlmaLinux OpenSSL
 `1.1.1k-17.el8_6`, vilket tar in tidigare saknade rättningar.

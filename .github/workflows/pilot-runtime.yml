@@ -28,7 +28,9 @@ jobs:
           docker compose -f deployment/beta-compose.yaml -f deployment/continuity-compose.yaml \
             config --format json | python3 deployment/image_bundle.py check-beta-compose --image-id "$OPENID_BETA_IMAGE_ID"
       - name: Test OS scan coverage, stale databases and rejected evidence
-        run: python3 .github/scripts/test_audit_image_os.py -v
+        run: |
+          python3 .github/scripts/test_audit_image_os.py -v
+          python3 deployment/build/test_runtime_policy.py -v
       - name: Reject altered package origins and unsafe image permissions
         run: |
           python3 deployment/build/test_python_wheels.py -v
@@ -112,8 +114,8 @@ jobs:
           docker exec openid-pilot python --version > "$RUNNER_TEMP/runtime-versions.txt"
           docker exec openid-pilot node --version >> "$RUNNER_TEMP/runtime-versions.txt"
           docker exec openid-pilot java -version >> "$RUNNER_TEMP/runtime-versions.txt" 2>&1
-          if docker exec openid-pilot touch /app/must-not-write; then exit 1; fi
-          docker exec openid-pilot sh -c 'test ! -e /app/verification/test_runtime.py && test ! -e /app/verification/test_chip_fixture.py'
+          if docker exec openid-pilot python -c "from pathlib import Path; Path('/app/must-not-write').touch()"; then exit 1; fi
+          docker exec openid-pilot python -c "from pathlib import Path; assert not Path('/app/verification/test_runtime.py').exists(); assert not Path('/app/verification/test_chip_fixture.py').exists(); assert not Path('/bin/sh').exists()"
       - name: Run packaged local test service
         run: |
           docker run --detach --name openid-rp --network container:openid-pilot --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 32 --memory 256m --cpus 1 --user "$(id -u):$(id -g)" --tmpfs /tmp:size=16m,mode=1777 -v "$OPENID_DIRECTORY/data:/srv/openid/data" --entrypoint python openid-pilot:ci relying_party.py --db /srv/openid/data/wallet.sqlite
@@ -151,15 +153,13 @@ jobs:
           opencv_sbom = opencv.locate_file(sbom_paths[0]).read_bytes()
           print(json.dumps({
               'python': sys.version,
+              'pythonImageLockSHA256': hashlib.sha256(Path('/usr/share/doc/openid-python/build-lock.json').read_bytes()).hexdigest(),
               'pythonOpenSSL': ssl.OPENSSL_VERSION,
               'pythonSQLite': sqlite3.sqlite_version,
               'pythonExpat': pyexpat.EXPAT_VERSION,
               'pythonExecutableSHA256': hashlib.sha256(Path(sys.executable).read_bytes()).hexdigest(),
-              'pythonSourceSbomSHA256': hashlib.sha256(Path('/usr/share/doc/openid-python/source.spdx.json').read_bytes()).hexdigest(),
-              'pythonUpstreamTestsSHA256': hashlib.sha256(Path('/usr/share/doc/openid-python/upstream-tests.log').read_bytes()).hexdigest(),
               'pipBuildTool': json.loads(Path('/usr/share/doc/openid-python/pip-build-tool.json').read_text()),
               'pipRemoval': json.loads(Path('/usr/share/doc/openid-python/pip-removal.json').read_text()),
-              'pythonTlsTestPatch': json.loads(Path('/usr/share/doc/openid-python/tls-test-patch.json').read_text()),
               'pipUpstreamSbomSHA256': hashlib.sha256(Path('/usr/share/doc/openid-python/pip-upstream-sbom.cdx.json').read_bytes()).hexdigest(),
               'node': json.loads(subprocess.check_output(['node', '-p', 'JSON.stringify(process.versions)'], text=True)),
               'temurinRelease': Path('/opt/java/openjdk/release').read_text(),
@@ -176,6 +176,7 @@ jobs:
           }, indent=2))
           PY
           docker cp openid-pilot:/opt/java/openjdk/upstream-sbom.cdx.json "$RUNNER_TEMP/temurin-upstream-sbom.cdx.json"
+          docker cp openid-pilot:/usr/share/doc/openid-runtime "$RUNNER_TEMP/debian-runtime-evidence"
           docker cp openid-pilot:/usr/share/doc/openid-python "$RUNNER_TEMP/python-runtime-evidence"
           docker image inspect openid-pilot:ci --format '{{.Id}}' > "$RUNNER_TEMP/image-id.txt"
           timeout 120s docker run --rm --network none --read-only --cap-drop ALL --cap-add DAC_READ_SEARCH --user 0:0 \
@@ -239,6 +240,7 @@ jobs:
             ${{ runner.temp }}/runtime-components.json
             ${{ runner.temp }}/sqlite-transition.json
             ${{ runner.temp }}/python-runtime-evidence
+            ${{ runner.temp }}/debian-runtime-evidence
             ${{ runner.temp }}/temurin-upstream-sbom.cdx.json
             ${{ runner.temp }}/image-os-audit/
           if-no-files-found: error

@@ -4,6 +4,7 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone
 import hashlib
 import io
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -16,6 +17,14 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parents[2]
 LOCK = ROOT / 'deployment/build/trivy.lock.json'
+
+def module(name):
+    spec=importlib.util.spec_from_file_location(name,ROOT/'deployment/build'/(name+'.py'))
+    value=importlib.util.module_from_spec(spec);spec.loader.exec_module(value);return value
+
+runtime_policy=module('runtime_policy')
+component_advisories=module('component_advisories')
+
 DB_REPOSITORY = 'ghcr.io/aquasecurity/trivy-db:2'
 LIMITS = [
     'Only dpkg-managed packages in the exact scanned image are covered by this gate.',
@@ -172,10 +181,10 @@ def install(lock, work, output):
 
 def audit(image_id, output):
     output.mkdir(parents=True, exist_ok=False)
-    report = {'format': 1, 'complete': False, 'passed': False,
+    report = {'format': 3, 'complete': False, 'passed': False,
               'checkedAt': datetime.now(timezone.utc).isoformat(),
               'imageID': image_id, 'limits': LIMITS, 'databaseRepository': DB_REPOSITORY,
-              'policy': 'Every reported vulnerability blocks; no severity/status exceptions.'}
+              'policy': 'Unknown, affected or unproven findings block. Exact-version fixed/not-affected decisions require current source-bound evidence; raw findings are retained.'}
     code = 2
     try:
         if not re.fullmatch(r'sha256:[a-f0-9]{64}', image_id):
@@ -218,8 +227,40 @@ def audit(image_id, output):
                 env=env, cwd=work, check=True, timeout=60)
             report.update(assess(json.loads((output / 'trivy-os.json').read_text()), installed,
                                  image_id, lock['version'], datetime.now(timezone.utc)))
+            policy=json.loads(runtime_policy.POLICY.read_text())
+            save(output/'runtime-policy.json',policy)
+            source_sha=runtime_policy.source_fingerprint()
+            if source_sha!=policy['sourceSHA256']:
+                raise ValueError('runtime source changed since applicability review')
+            component=component_advisories.collect_runtime(policy,datetime.now(timezone.utc))
+            save(output/'component-advisories.json',component)
+            component_advisories.verify_runtime(component,policy)
+            subprocess.run(['c++','-std=c++17','-O2',str(ROOT/'deployment/build/aligned_new.cpp'),
+                            '-o',str(work/'aligned-new')],check=True,timeout=60)
+            (work/'resolv.conf').write_text('nameserver 127.0.0.1\nsearch '+('a'*210)+'.invalid\n')
+            probe=subprocess.check_output(['docker','run','--rm','--network','none','--read-only',
+                '--cap-drop','ALL','--security-opt','no-new-privileges','--pids-limit','32',
+                '--memory','512m','--cpus','1','--tmpfs','/tmp:size=16m,mode=1777',
+                '-v',str(work/'aligned-new')+':/checks/aligned-new:ro',
+                '-v',str(work/'resolv.conf')+':/etc/resolv.conf:ro',
+                '-v',str(ROOT/'deployment/build/runtime_evidence.py')+':/checks/probe.py:ro',
+                '--entrypoint','python',image_id,'-B','/checks/probe.py'],text=True,timeout=180)
+            evidence=json.loads(probe)
+            if evidence.get('policySHA256')!=digest(runtime_policy.POLICY):
+                raise ValueError('image applicability policy differs from reviewed source')
+            evidence.update(imageID=image_id,sourceRevision=report['sourceRevision'],
+                            sourceSHA256=source_sha,vendorDisputesVerified=True)
+            save(output/'runtime-evidence.json',evidence)
+            scan=json.loads((output/'trivy-os.json').read_text())
+            findings=[{'id':v['VulnerabilityID'],'package':v['PkgName'],'version':v['InstalledVersion']}
+                      for v in scan['Results'][0].get('Vulnerabilities',[])]
+            findings += component_advisories.runtime_findings(component)
+            disposition=runtime_policy.decisions(policy,evidence,findings,datetime.now(timezone.utc),source_sha=source_sha)
+            save(output/'applicability.json',disposition)
+            report['componentFindingCount']=sum(r['package'] in ('cpython','expat') for r in disposition)
+            report['unresolvedCount']=sum(r['status']=='under_investigation' for r in disposition)
             report['complete'] = True
-            report['passed'] = report['findingCount'] == 0
+            report['passed'] = report['unresolvedCount'] == 0
             code = 0 if report['passed'] else 1
     except Exception as error:
         report['errorType'] = type(error).__name__
@@ -229,7 +270,7 @@ def audit(image_id, output):
     finally:
         report['files'] = {p.name: digest(p) for p in sorted(output.iterdir()) if p.is_file()}
         save(output / 'assessment.json', report)
-    print(f"Image OS audit: complete={report['complete']}; passed={report['passed']}; exit={code}")
+    print(f"Image OS audit: complete={report['complete']}; passed={report['passed']}; raw={report.get('findingCount', 'unknown')}; unresolved={report.get('unresolvedCount', 'unknown')}; exit={code}")
     return code
 
 

@@ -152,37 +152,27 @@ Upstream-SBOM har 458 komponentposter och sparas i CI-artefakten; den saknar
 licensdeklarationer per komponent och utgör inte en fullständig licensrevision.
 Vid eventuell egen distribution av verktyget krävs separat transitiv licensgranskning.
 
-Python **3.12.15-slim-trixie** använder indexdigest
-`sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704`.
-Docker Official Images anger
-[docker-library/python@2a3b794c223ab067d122719541cdd54a068732a5](https://github.com/docker-library/python/tree/2a3b794c223ab067d122719541cdd54a068732a5/3.12/slim-trixie)
-som källa. amd64-manifest och känsliga paketversioner finns i
-[debian-runtime.lock.json](deployment/build/debian-runtime.lock.json).
-Dockerfiles har MIT-licens; Python och Debian-paketen har egna licenser.
+### Debianbas, kontrollerad 2026-10-30
 
-Basen är Debian 13.7 med OpenSSL `3.5.7-1~deb13u3`, SQLite
-`3.46.1-7+deb13u2` och CA-certifikat `20250419+deb13u1`. Installationstillstånd
-och exakta OpenSSL-/SQLite-versioner verifieras i bygget. Tzdata
-`2026e-0+deb13u1` hämtas från officiella Debian med versions- och hashlås;
-den faktiska paketfilens SHA-256 kontrollerades 2026-10-26. Copyright och
-paketlicenser i `/usr/share/doc` bevaras genom Debians installation.
+Båda serverimages använder den officiella `python:3.12.16-slim-trixie`.
+Indexdigest, amd64-manifest och receptrevision finns i
+[Pythonlåset](deployment/build/python-runtime.lock.json).
+[Docker Official Images manifest](https://github.com/docker-library/official-images/blob/master/library/python)
+anger [receptrevision 3d7e95597e56a415d9e4abc0f15877e005d2cb2e](https://github.com/docker-library/python/blob/3d7e95597e56a415d9e4abc0f15877e005d2cb2e/3.12/slim-trixie/Dockerfile).
+Receptets [MIT-licens](deployment/build/licenses/docker-library-python-LICENSE.txt)
+bevaras; Debianpaketen har egna licenser under `/usr/share/doc/`.
+Komponenterna omfattar glibc 2.41, OpenSSL 3.5.7, SQLite 3.46.1 och Python
+3.12.16 med inbäddad Expat 2.9.0. Versionsrevisioner finns i faktisk dpkg-inventering.
 
-[CVE-2025-7458](https://security-tracker.debian.org/tracker/CVE-2025-7458)
-är rättad i denna SQLite-version enligt Debian. Det innebär inte att
-alla OS- eller runtimefynd är åtgärdade. Basens hela `/usr/local` ersätts av
-det nya Python-källbygget nedan. Node och Temurin uppdateras separat.
-
-CI använder den tidigare, digestlåsta Bookworm-basen enbart för att skapa
-en syntetisk SQLite 3.40.1-fixture utan nät, privilegier eller riktiga uppgifter.
-Den följer inte med i leveransimagen. Nya imagen provar läsning och säker
-återställning med SQLite 3.46.1 samt Wallet-/runtimeproven med riktiga
-signaturer och krypterad profilåterställning. Förvaltaren ansvarar för nästa
-versions- och licensgranskning; oberoende godkännande krävs före införande.
-
-Den daterade OS-inventeringen och CycloneDX sparas för varje byggd pilotimage.
-Den är skild från Maven-/Python-SBOM och omfattar inte de kopierade runtime-
-binärerna. Resultat, täckning och stoppvillkor beskrivs i
-[bygginstruktionen](deployment/build/README.md#systempaket-och-säkerhetsunderlag).
+Oanvända administrationsverktyg och Pythonmoduler tas bort med en verifierbar
+filmanifest. PyTorchs oanvända native-testprogram tas också bort;
+inferensbibliotek, paketmetadata och licenser bevaras. Paketmetadata, attributionsfiler och råa skannerresultat bevaras.
+[Bygginstruktionen](deployment/build/README.md#systempaket-och-säkerhetsunderlag)
+beskriver versionbunden tillämplighetsbedömning, källor, prov och stoppvillkor.
+Råa fynd får inte beskrivas som generellt rättade när bedömningen gäller enbart
+vår användning. Upstreambevakning av Python/Expat kompletterar Debians paketdata.
+Den äldre Bookworm-basen används endast för syntetiska SQLite-återläsningsprov.
+Förvaltaren ansvarar för lås, licenser, motsvarande källor och advisorybevakning.
 
 ## Node-säkerhetsuppdatering 2026-10-26
 
@@ -241,36 +231,15 @@ exakt CI-revision. Byte av version ersätter inte oberoende granskning.
 Även `ops/` använder nu dessa Java-arkiv, men behåller sina tidigare Noble-
 systempaket. Uppdateringsansvaret följer förvaltningen nedan.
 
-## Python 3.12.16 från officiell källutgåva
+## Python 3.12.16 och installationsverktyg
 
-Den officiella [säkerhetsutgåvan](https://www.python.org/downloads/release/python-31216/)
-är ursprunget för runtimekoden, tagg `v3.12.16`, commit
-`2c2462afc5d978d31f3d073001fc202d269917ff`. Arkiv och officiell SPDX låses i
-[python-runtime.lock.json](deployment/build/python-runtime.lock.json).
-Källarkivets SHA-256 är
-`b5796915dc45ff745cfb4e990a7e7c93d6f546328a102ce31448d69ebc37575c`;
-SPDX-filens SHA-256 är
-`6c268edc3c8b9b12a875b3d3ed2495983b8a4a94c070927863b942722a9a216c`.
-SPDX binder CPython-arkivet och inventerar bland annat Expat 2.9.0,
-HACL*, libb2, mpdecimal och pip med inbäddade beroenden. Den är en
-källförteckning, inte en fullständig förteckning eller attest av slutimagen.
-
-Byggmiljön är digestlåst `python:3.12.15-trixie`, separat från runtime.
-Den nya interpretern installeras i en tom stagingkatalog; basens äldre
-Python, standardbibliotek och paket ersätts helt. Expat 2.9.0 byggs från
-den bundlade koden, medan OpenSSL och SQLite kommer från låsta Debian-paket.
-Upstream-proven för TLS, hashning, SQLite, XML, tar, temporära kataloger och
-cookies måste passera utan extern nätåtkomst före installation.
-
-PSF-2.0 och historiska Python-licenser i `LICENSE`, fullständig upstream
-`Doc/license.rst`, Expat-COPYING och käll-SPDX sparas i
-`/usr/share/doc/openid-python/`. Byggreceptet är anpassat från
-docker-library/python vid `2a3b794c223ab067d122719541cdd54a068732a5`;
-dess [MIT-licens](deployment/build/licenses/docker-library-python-LICENSE.txt)
-bevaras i repo och image. `BUILD-NOTICE.txt` beskriver bygg-/paketeringsändringen.
-Runtimekällan modifieras inte. En testförväntan från upstream backporteras
-med filhashar och PSF-attribution; inga tester hoppas över. OS-bibliotekens
-egna licenser ligger kvar.
+Runtime använder officiell Python 3.12.16 från Docker Official Images.
+Upstream är [säkerhetsutgåvan](https://www.python.org/downloads/release/python-31216/),
+commit `2c2462afc5d978d31f3d073001fc202d269917ff`. Projektets privata
+Python-kompilering och testpatch har tagits bort. Python länkar mot Debians
+OpenSSL och SQLite; Expat 2.9.0 är inbyggd i Pythonextensionen.
+PSF-licensen och komponentlicenser bevaras. Kompatibilitet provas i slutimagen
+med verifierare, bildarbetare, återställning, SAML och OIDC.
 
 Pip **26.2.2** används endast för paketinstallation under bygget. Hjulet har
 SHA-256 `fd7f4dfa8190e014013b9f08f3e973f4e4c26ffd179a204895533a7254813a70`;
@@ -285,8 +254,8 @@ Historiska bygglager omfattas inte av denna borttagningskontroll.
 Pips MIT-licens och transitiva licens-/attributionsfiler kopieras till
 `/usr/share/doc/openid-python/pip-licenses/` före borttagning: bland annat
 Apache-2.0, BSD, ISC, PSF och certifis MPL-2.0. Inbäddad SBOM bevaras också.
-Pythonkällans SPDX beskriver upstreams ursprungliga pip 25.0.1, medan
-byggverktygets SBOM beskriver 26.2.2; ingendera innebär att pip finns i runtime.
+Borttagna filers hash sparas i `pip-removal.json`; originalmetadata och
+licensunderlag behålls som proveniens.
 Ingen licens för hela projektet härleds från detta.
 
 Pips version ingår i OSV-kontrollen. Separat kontroll av dess bundlade
@@ -304,8 +273,7 @@ Installationsrapport och verklig paketlista kontrolleras i båda images.
 Åtgärden begränsar pips nätverksexponering under imagebygget; värdens CI-pip,
 BuildKit och andra nedladdare behöver fortsatt egen bedömning. Existerande
 komponentregister, licenser och SBOM kvarstår; hjullåset ersätter dem inte.
-Förvaltaren ansvarar för versions-, licens- och advisorybevakning samt byte
-till en verifierad officiell container när en sådan finns. Oberoende
+Förvaltaren ansvarar för versions-, licens- och advisorybevakning och uppdatering av den låsta Debianbasen. Oberoende
 granskning, integrationstester och behörigt releasebeslut krävs fortsatt.
 
 ## Projektlicens och förvaltning

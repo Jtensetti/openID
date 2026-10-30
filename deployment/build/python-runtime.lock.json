@@ -1,22 +1,7 @@
 {
   "version": "3.12.16",
   "sourceCommit": "2c2462afc5d978d31f3d073001fc202d269917ff",
-  "source": {
-    "url": "https://www.python.org/ftp/python/3.12.16/Python-3.12.16.tar.xz",
-    "sha256": "b5796915dc45ff745cfb4e990a7e7c93d6f546328a102ce31448d69ebc37575c"
-  },
-  "sbom": {
-    "url": "https://www.python.org/ftp/python/3.12.16/Python-3.12.16.tar.xz.spdx.json",
-    "sha256": "6c268edc3c8b9b12a875b3d3ed2495983b8a4a94c070927863b942722a9a216c"
-  },
-  "builder": "python:3.12.15-trixie@sha256:0d0db5b17f11b1b7d1aafa74ceadaa64ba0944b267ff6fc22008a197acd6b9ad",
-  "builderSourceCommit": "2a3b794c223ab067d122719541cdd54a068732a5",
-  "recipeLicenseSHA256": "0a3ffdfc4f368b76ae1140b5fbe2f2f69ee76ee00a3024e8a09ca9b2e265186f",
-  "limits": [
-    "Upstream SPDX describes source, not the complete final runtime.",
-    "Source SPDX describes original bundled pip 25.0.1; pip 26.2.2 is a build tool only, and both pip and ensurepip are removed from the final runtime filesystem.",
-    "A source build does not provide an independent build attestation."
-  ],
+  "distribution": "Docker Official Image: Debian 13 / Python 3.12.16",
   "pip": {
     "version": "26.2.2",
     "wheelName": "pip-26.2.2-py3-none-any.whl",
@@ -24,11 +9,7 @@
     "sha256": "fd7f4dfa8190e014013b9f08f3e973f4e4c26ffd179a204895533a7254813a70",
     "sbomSHA256": "7be976001ba70fe6b38530af13063bea96e1bd894c271c4e57908c737079ef93"
   },
-  "tlsTestPatch": {
-    "sourceURL": "https://raw.githubusercontent.com/python/cpython/540b3d0a7fa7cd842f064f79b1410cbd6868bffa/Lib/test/test_ssl.py",
-    "upstreamFileSHA256": "2fcce92b2e387c5db3a77b48ce6c1526cc408ad354d52f6406bed30bec2c3e90",
-    "originalSHA256": "a76687f22bcf7f442009f30cb814025101b7f40757d3dd07a1cb693a703cb858",
-    "patchedSHA256": "a5ec49ea3608865b18f9ee819ed9c9bb4621c4a4141fab46f8f2f1f7e9752926",
-    "scope": "Only test_pha_required_nocert expected connection-abort exceptions; runtime TLS code unchanged."
-  }
+  "image": "python:3.12.16-slim-trixie@sha256:8523d6abeb48ceae0b7240d30c5808fc26cb79c1a635bacdf19cf3baecfbec07",
+  "amd64Manifest": "sha256:1148dbb014615300fa7e713b2f94f550c0d1c69780c0805f84f093ceee34dd0b",
+  "recipeCommit": "3d7e95597e56a415d9e4abc0f15877e005d2cb2e"
 }

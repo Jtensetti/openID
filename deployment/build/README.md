@@ -29,9 +29,10 @@ beroenden; verifierar- och protokollproven körs utan externt nät.
    dokumentera kopplingen. En manuell serverkörning ersätter inte den grinden.
 
 Paketet innehåller `image.tar.gz`, `source.tar.gz`, `manifest.json`,
-`python-packages.json`, syntetiska `protocol-results.json` och sju `os-*`-filer:
+`python-packages.json`, syntetiska `protocol-results.json` och elva `os-*`-filer:
 OS-bedömning, Trivy-rapport, CycloneDX, dpkg-lista, databasmetadata,
-skannerlås och skanner-SBOM. Manifestet binder filernas storlekar och SHA-256
+skannerlås, skanner-SBOM, tillämplighetspolicy, runtimeprov, komponentadvisories
+och tillämplighetsresultat. Manifestet binder filernas storlekar och SHA-256
 till Git-revision/träd, image-ID, plattform och byggkörning. Exporten nekar
 ofullständig, gammal eller underkänd OS-skanning, fel image-ID/revision och
 paketlistor som inte stämmer. Källarkivet innehåller också låsfiler, SBOM,
@@ -47,8 +48,9 @@ repoägare, byggmiljö eller Actions-tjänst. Paketet är inte produktionsgodkä
 
 ## Importera utan att bygga eller starta tjänster
 
-Använd Python 3.9+ och ett granskat `deployment/image_bundle.py` från den
-valda kodrevisionen. Hämta skriptet genom den betrodda kodkanalen, inte genom
+Använd Python 3.9+ och en granskad checkout av den valda kodrevisionen.
+`deployment/image_bundle.py` använder även hjälparna under `deployment/build/`.
+Hämta koden genom den betrodda kodkanalen, inte genom
 att först köra okänd kod ur ett overifierat paket. Packa upp Actions ZIP i
 en egen privat katalog. Behåll image- och källarkiven i paketet som filer.
 
@@ -69,8 +71,9 @@ Fritt utrymme i det lagret måste vara minst två gånger image-storleken plus
 512 MiB, utöver det nedladdade paketets plats. Skriptet avvisar fel revision,
 manifest, filhash, saknad fil, symlänk, plattform, ofullständiga
 protokollresultat eller OS-bevis innan Docker ändras. OS-skanningens aktualitet
-kontrolleras mot **paketeringstiden**; ett äldre paket kan fortfarande behövas
-för återgång, medan en ny release kräver ett aktuellt säkerhetsbeslut.
+kontrolleras mot **paketeringstiden**, men tillämplighetspolicyn måste även
+vara giltig vid import. En utgången bedömning stoppar alltså också ett äldre
+återgångspaket tills en ny granskad kandidat finns.
 Efter laddning måste image-ID och plattform stämma. Ingen container startas
 eller ersätts; inga data återläses.
 Operatören måste skydda paketkatalogen mot samtidiga ändringar under import.
@@ -129,30 +132,50 @@ fortsatt i den privata Xcode-miljön; inga Apple-certifikat flyttas till CI.
 ## Systempaket och säkerhetsunderlag
 
 Pilot- och registerjobben kör `.github/scripts/audit_image_os.py` mot det
-exakta byggda image-ID:t. Trivy jämför Debian-paketen med en säkerhetsdatabas
-som får vara högst 24 timmar gammal. Hela paketlistan måste stämma mot
-`dpkg-query`. Okänt OS, saknad täckning, fel image-ID, verktygsfel och fynd
-stoppar komponentjobbet, leveransexporten och `assurance-gate`.
+exakta byggda image-ID:t. Trivy kontrollerar alla Debianpaket, alla
+allvarlighetsgrader och även fynd utan rättning. Paketlistan måste stämma
+exakt med dpkg. Rårapporten sparas ofiltrerad; ingen ignore-fil används.
 
-Alla rapporterade fynd, även låg/okänd allvarlighetsgrad och fynd utan
-publicerad rättning, stoppar exporten. Ingen ignore-fil, statusfiltrering
-eller automatisk riskacceptans används. Det är projektets konservativa
-releasekontroll, inte ett krav på noll skannerfynd i ISO 27001. Bedöm faktisk
-påverkan separat; ett källpakets advisory bevisar inte att varje binär eller
-funktion är exploaterbar. En källkodsmerge stänger inga kvarvarande fynd.
+[Runtimepolicyn](runtime-policy.json) skiljer råa paketträffar från faktisk
+påverkan i dessa två Linux/amd64-images. Varje beslut anger CVE, paketversion,
+underlag och obligatoriska kontroller. Oanvända paketdelar tas bort fysiskt,
+med filhashar i `removal.json`; dpkg-metadata och licenser bevaras. Därför kan
+en borttagen komponent fortfarande ge en rå paketträff. Glibcs DNS-söklista
+begränsas med tom `LOCALDOMAIN`, även vid Pythonstart. Inga DNS-suffix läggs
+till automatiskt; konfigurera tjänster med fullständiga namn. Compose- och
+driftkontrollen nekar att skyddet ersätts.
 
-Trivy och dess upstream-SBOM hämtas från officiell release och verifieras mot
-[trivy.lock.json](trivy.lock.json). Verktyget körs på byggmaskinen utan
-molnbehörigheter eller verksamhetsdata och installeras inte i serverimagen.
-Skanningen sker lokalt med avstängd telemetri. Internet behövs för
-verktygsdistribution och aktuell databas.
+`runtime_evidence.py` provar den färdiga imagen: borttagna filer/moduler,
+Base64-avvisning, temporärkataloger, DNS-initiering med lång sökdomän,
+SQLite och native-symboler. Ett separat C++-prov testar allokeringsgränsen.
+PyTorchs medlevererade testprogram tas bort. FFmpegs videobakände är
+avstängd och ett explicit öppningsförsök ska nekas; JPEG/JP2-avkodningen
+provas separat. Databasklienten kräver TLS/SCRAM och nekar GSS/Kerberos.
+De få kvarvarande native-anropen kräver exakt bibliotekshash och dessa
+körningsskydd. Statisk symbolfrånvaro är stöd för den dokumenterade anropsanalysen,
+inte ensam bevisning för att all kod är oåtkomlig.
 
-`pilot-image-inventory` och `cluster-os-inventory` sparar paketlistor,
-Trivy-rapport, CycloneDX, databasdatum/hash, verktygslås/SBOM och bedömning i
-90 dagar, även vid fynd. Bevara underlagen från vald revision separat inför
-release. OS-kontrollen täcker inte separat byggd/kopierad Python, Node,
-Temurin, OpenCV:s inbäddade bibliotek, modeller, andra images eller värd-OS.
-OSV-kontrollen av applikationslåsen är ett separat komplement.
+Python/Expat följs dessutom med Chainguards aktuella komponentfeed och
+CNA-poster från CVE-programmet. Detta är kompletterande upstreambevakning,
+inte ett påstående att Wolfi-paket finns i imagen. Nya/ändrade poster kräver
+ny bedömning. Python är 3.12.16, med inbäddad Expat 2.9.0. De öppna
+Expat-fynden bedöms mot JSON-gränserna, de låsta AWS-klienterna och Python-API:t;
+Java-SAML använder en annan parser. Det är inget generellt friskintyg för Expat.
+
+Grinden kräver noll **obearbetade eller tillämpliga** fynd. Nya CVE:er,
+nya versioner, ändrad runtimekod, saknade prov och utgånget granskningsdatum
+stoppar bygget. Besluten gäller till datumet i policyn, längst till betans slut.
+Vid kod- eller beroendeändring måste berörda dataflöden omprövas innan
+`sourceSHA256` uppdateras. Att bara byta hash är inte en säkerhetsgranskning.
+Import/export räknar om besluten från rådata och kräver policyn från den
+betrodda checkouten. Bedömningar är inte oberoende attestation eller riskacceptans.
+
+Skanner och upstream-SBOM verifieras mot [trivy.lock.json](trivy.lock.json).
+Databasen och komponentfeedens index/arkiv får vara högst 24 timmar gamla.
+Ofullständighet och verktygsfel stoppar exporten. `pilot-image-inventory` och
+`cluster-os-inventory` behåller rådata, inventering, källor, prov och beslut
+i 90 dagar även vid fel. Kopierad Node/Temurin, inbäddade hjulbibliotek,
+andra tjänsteimages och värd-OS behöver fortsatt egen kontroll.
 
 ### Färdig image och rättigheter
 
@@ -173,25 +196,25 @@ med skrivskyddad rot och enbart `DAC_READ_SEARCH`; tjänsterna behåller UID
 
 ### Låst runtime
 
-Pilot och register använder Debian 13/Trixie enligt
-[debian-runtime.lock.json](debian-runtime.lock.json). `patch_debian.py`
-verifierar baspaketen, installerar bara den hashlåsta tzdata-filen och nekar
-nedgradering eller delvis installerade paket. Egna paketexperiment för
-util-linux, ACL, ncurses och alternativ OpenCV ingår inte i bygget.
+Pilot och register använder samma officiella Debianbaserade
+`python:3.12.16-slim-trixie`, låst med indexdigest och amd64-manifest i
+[python-runtime.lock.json](python-runtime.lock.json). Projektet kompilerar
+inte egen Python eller egna Debianpaket och har ingen alternativ runtimebas.
+Ursprung, receptrevision och licenser finns i [komponentregistret](../../THIRD_PARTY.md).
 
-Python 3.12.16 byggs i ett separat steg från officiellt källarkiv och SPDX,
-låsta i [python-runtime.lock.json](python-runtime.lock.json). PGO/LTO-bygget
-ersätter hela basens äldre `/usr/local`. Upstream-prov för TLS, hashning,
-SQLite, XML, tar, temporära kataloger och cookies krävs. En hashlåst patch
-anpassar ett TLS-tests förväntade avbrottsfel; den ändrar ingen runtimekod
-eller hoppar över prov. Källor, licenser och testlogg sparas under
-`/usr/share/doc/openid-python/`.
+Byt digest först efter upstream-/licens-/advisorykontroll. Kör hela CI och
+ompröva tillämplighetspolicyn mot den nya slutimagen; installera inte paket
+vid serverstart. Debianmetadata beskriver den ursprungliga installationen,
+med dokumenterad borttagning av oanvänd kod. Licenserna bevaras.
 
 Applikationshjul hämtas via BuildKits `ADD --checksum` från
 [python-wheels.lock.json](python-wheels.lock.json), som matchar verifierarens
 requirements-lås. BuildKit med stöd för Dockerfile 1.6+ krävs. Pip installeras
 från ett verifierat hjul och körs utan nät eller paketindex. Efter installation
-tas pip, dess inbäddade paket och ensurepip bort från runtime. CI verifierar
+tas pip, dess inbäddade paket, ensurepip bort från runtime. `pip-removal.json` anger borttagna filer och deras hash.
+dpkg-databasen och basens metadata bevaras oförändrade: de beskriver installerade
+paket före den dokumenterade borttagningen. Filsysteminventeringen visar
+faktiskt kvarvarande kod. CI verifierar
 borttagningen och den faktiska paketlistan. Byggverktygets advisories och
 historiska lager omfattas inte av denna runtimehärdning.
 

@@ -1,5 +1,6 @@
 """Remove unused package installers from the final runtime filesystem."""
 import importlib.metadata
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -24,14 +25,26 @@ def main():
     for target in targets:
         if target.is_symlink() or not target.is_dir():
             raise ValueError('unexpected package path: '+str(target))
+    # Record removed installer files; retain original component metadata/SBOM.
     removed = []
+    removed_files = {}
+    def record_files(directory):
+        for item in directory.rglob('*'):
+            if item.is_symlink():
+                raise ValueError('unexpected installer symlink')
+            if item.is_file():
+                removed_files[str(item)] = hashlib.sha256(item.read_bytes()).hexdigest()
     for target in targets:
+        record_files(target)
         shutil.rmtree(target)
         removed.append(str(target))
     for name in ('pip', 'pip3', 'pip3.12'):
         target = Path('/usr/local/bin')/name
-        if not target.is_file() or target.is_symlink():
+        if not target.is_file():
             raise ValueError('unexpected pip launcher: '+str(target))
+        if target.is_symlink() and target.resolve().parent != Path('/usr/local/bin'):
+            raise ValueError('unexpected launcher symlink target')
+        removed_files[str(target)] = hashlib.sha256(target.read_bytes()).hexdigest()
         target.unlink()
         removed.append(str(target))
     subprocess.run([sys.executable, '-I', '-c',
@@ -39,7 +52,8 @@ def main():
                     "assert importlib.util.find_spec('ensurepip') is None"], check=True)
     if list(packages.glob('pip*')) or list(Path('/usr/local/bin').glob('pip*')):
         raise ValueError('remaining pip package or launcher')
-    report = {'removed': removed, 'pipImportable': False, 'ensurepipImportable': False,
+    report = {'removed': removed, 'removedFileSHA256': removed_files,
+              'pipImportable': False, 'ensurepipImportable': False,
               'scope': 'Final runtime filesystem; historical build layers and build-tool risks are separate.'}
     (root/'pip-removal.json').write_text(json.dumps(report, indent=2)+'\n')
     with (root/'BUILD-NOTICE.txt').open('a') as notice:

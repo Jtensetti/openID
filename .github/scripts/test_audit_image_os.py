@@ -11,10 +11,6 @@ from unittest.mock import patch
 
 import audit_image_os as audit
 
-spec = importlib.util.spec_from_file_location('patch_debian', audit.ROOT / 'deployment/build/patch_debian.py')
-patcher = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(patcher)
-
 NOW = datetime(2026, 10, 26, 20, 0, tzinfo=timezone.utc)
 IMAGE = 'sha256:' + 'a' * 64
 TSV = 'libc6\t2.41-12+deb13u4\tamd64\tinstalled\ntzdata\t2026e-0+deb13u1\tall\tinstalled\n'
@@ -198,6 +194,7 @@ class ImageAuditTests(unittest.TestCase):
                             'NextUpdate': (NOW + timedelta(hours=6)).isoformat()})
                     elif 'convert' in command:
                         audit.save(Path(command[command.index('--output') + 1]), {})
+                    elif command[0]=='c++': return
                     else:
                         self.assertEqual(command[-1], second_image)
                         self.assertEqual(command[command.index('--image-src') + 1], 'docker')
@@ -206,7 +203,12 @@ class ImageAuditTests(unittest.TestCase):
                 with patch.object(audit, 'datetime', FixedClock), \
                      patch.object(audit.platform, 'system', return_value='Linux'), \
                      patch.object(audit.platform, 'machine', return_value='x86_64'), \
-                     patch.object(audit.subprocess, 'check_output', side_effect=[('a'*40)+'\n', TSV]), \
+                     patch.object(audit.subprocess, 'check_output', side_effect=[('a'*40)+'\n', TSV, json.dumps({'policySHA256':audit.digest(audit.runtime_policy.POLICY)})]), \
+                     patch.object(audit.runtime_policy,'source_fingerprint',return_value=json.loads(audit.runtime_policy.POLICY.read_text())['sourceSHA256']), \
+                     patch.object(audit.component_advisories,'collect_runtime',return_value={}), \
+                     patch.object(audit.component_advisories,'verify_runtime',return_value=True), \
+                     patch.object(audit.component_advisories,'runtime_findings',return_value=[]), \
+                     patch.object(audit.runtime_policy,'decisions',side_effect=lambda policy,evidence,findings,now,source_sha: [dict(f,status='under_investigation' if f['id']=='CVE-TEST-REGISTRY' else 'not_affected') for f in findings]), \
                      patch.object(audit, 'install', side_effect=lambda lock, work, output: work/'trivy'), \
                      patch.object(audit.subprocess, 'run', side_effect=run):
                     self.assertEqual(audit.audit(second_image, out), expected)
@@ -222,38 +224,13 @@ class ImageAuditTests(unittest.TestCase):
                 if case == 'wrong-image':
                     self.assertEqual(assessment['error'], 'report belongs to another image')
 
-    def test_debian_patch_download_requires_exact_hash_and_official_source(self):
-        item = {'url': 'https://security.debian.org/debian-security/pool/updates/main/test.deb',
-                'sha256': hashlib.sha256(b'package').hexdigest()}
-        with patch.object(patcher.urllib.request, 'urlopen', return_value=io.BytesIO(b'package')):
-            self.assertEqual(patcher.download(item), b'package')
-        with patch.object(patcher.urllib.request, 'urlopen', return_value=io.BytesIO(b'changed')):
-            with self.assertRaises(ValueError): patcher.download(item)
-        with self.assertRaises(ValueError): patcher.download(dict(item, url='https://unknown.invalid/test.deb'))
-        with patch.object(patcher.urllib.request, 'urlopen', return_value=io.BytesIO(b'package')):
-            self.assertEqual(patcher.download(dict(item, url='https://deb.debian.org/debian/pool/main/t/test.deb')), b'package')
-
-    def test_runtime_package_lock_rejects_old_partial_or_different_installations(self):
-        packages = [{'name': 'libsqlite3-0', 'version': '3.46.1-7+deb13u2'}]
-        with patch.object(patcher.subprocess, 'check_output', return_value='3.46.1-7+deb13u2\tinstalled'):
-            patcher.verify_versions(packages)
-        for actual in ['3.40.1-2+deb12u2\tinstalled', '3.46.1-7+deb13u1\tinstalled',
-                       '3.46.1-7+deb13u2\tunpacked', '']:
-            with self.subTest(actual=actual), patch.object(patcher.subprocess, 'check_output', return_value=actual):
-                with self.assertRaises(ValueError): patcher.verify_versions(packages)
-
     def test_server_images_use_the_locked_runtime_base(self):
-        lock = json.loads((audit.ROOT/'deployment/build/debian-runtime.lock.json').read_text())
         python = json.loads((audit.ROOT/'deployment/build/python-runtime.lock.json').read_text())
         for name in ('deployment/Dockerfile', 'deployment/cluster/Dockerfile'):
-            python_bases = [line.split()[1] for line in (audit.ROOT/name).read_text().splitlines()
-                            if line.startswith('FROM python:')]
-            expected = [python['builder'], lock['base']['image']]
-            self.assertEqual(expected, python_bases)
-            dockerfile = (audit.ROOT/name).read_text()
-            for artifact in ('source', 'sbom', 'pip'):
-                item = python[artifact]
-                self.assertIn('ADD --checksum=sha256:'+item['sha256']+' '+item['url'], dockerfile)
+            dockerfile=(audit.ROOT/name).read_text()
+            self.assertEqual([python['image']], [line.split()[1] for line in dockerfile.splitlines() if line.startswith('FROM python:')])
+            item=python['pip']
+            self.assertIn('ADD --checksum=sha256:'+item['sha256']+' '+item['url'],dockerfile)
 
     def test_existing_output_cannot_reuse_a_previous_success(self):
         with tempfile.TemporaryDirectory() as directory:

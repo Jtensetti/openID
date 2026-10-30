@@ -22,40 +22,24 @@ ADD --checksum=sha256:4ca4a9394b0c771238a4f73590fdbbc4debad85ed0fa63d026ae1b085d
 ADD --checksum=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8 https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl /wheels/typing_extensions-4.16.0-py3-none-any.whl
 ADD --checksum=sha256:0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3 https://files.pythonhosted.org/packages/92/9d/c4e665119135114480843e7ab388fa94d8480650450e6f8e26b70d323a4c/urllib3-2.8.0-py3-none-any.whl /wheels/urllib3-2.8.0-py3-none-any.whl
 
-FROM python:3.12.15-trixie@sha256:0d0db5b17f11b1b7d1aafa74ceadaa64ba0944b267ff6fc22008a197acd6b9ad AS python-build
-ADD --checksum=sha256:b5796915dc45ff745cfb4e990a7e7c93d6f546328a102ce31448d69ebc37575c https://www.python.org/ftp/python/3.12.16/Python-3.12.16.tar.xz /tmp/python-source.tar.xz
-ADD --checksum=sha256:6c268edc3c8b9b12a875b3d3ed2495983b8a4a94c070927863b942722a9a216c https://www.python.org/ftp/python/3.12.16/Python-3.12.16.tar.xz.spdx.json /tmp/python-source.spdx.json
-COPY deployment/build/build_python.sh /build-python.sh
-COPY deployment/build/patch_python_test.py /patch-python-test.py
-COPY deployment/build/python-runtime.lock.json /tmp/python-runtime.lock.json
-COPY deployment/build/licenses/docker-library-python-LICENSE.txt /tmp/docker-library-python-LICENSE
-RUN --network=none bash /build-python.sh
+FROM python:3.12.16-slim-trixie@sha256:8523d6abeb48ceae0b7240d30c5808fc26cb79c1a635bacdf19cf3baecfbec07 AS build-tools
 
-FROM python:3.12.15-slim-trixie@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704 AS python-base
-# Replace the entire previous Python installation, including its standard library.
-RUN rm -rf /usr/local
-COPY --from=python-build /stage/usr/local /usr/local
-COPY --from=python-build /stage/usr/share/doc/openid-python /usr/share/doc/openid-python
-ENV PYTHON_VERSION=3.12.16 PYTHON_SHA256=b5796915dc45ff745cfb4e990a7e7c93d6f546328a102ce31448d69ebc37575c
-RUN ldconfig && python -c 'import sys,ssl,sqlite3,pyexpat,bz2,lzma,ctypes,hashlib; assert sys.version_info[:3] == (3,12,16); assert pyexpat.EXPAT_VERSION == "expat_2.9.0"'
+FROM build-tools AS python-base
+ENV LOCALDOMAIN=""
+COPY deployment/build/python-runtime.lock.json /usr/share/doc/openid-python/build-lock.json
 ADD --checksum=sha256:fd7f4dfa8190e014013b9f08f3e973f4e4c26ffd179a204895533a7254813a70 https://files.pythonhosted.org/packages/3f/06/3e4420302363fbb71be3c7f35ce042f54bfca330e3e66b3a2e3c4cca579f/pip-26.2.2-py3-none-any.whl /tmp/pip-26.2.2-py3-none-any.whl
 COPY deployment/build/install_build_pip.py /tmp/install_build_pip.py
-RUN --network=none python /tmp/install_build_pip.py && rm /tmp/install_build_pip.py /tmp/pip-26.2.2-py3-none-any.whl
-COPY deployment/build/patch_debian.py deployment/build/debian-runtime.lock.json /tmp/openid-os-patches/
-RUN python /tmp/openid-os-patches/patch_debian.py && rm -rf /tmp/openid-os-patches
+RUN --network=none ["python", "/tmp/install_build_pip.py"]
 
-FROM python-base AS maven-tool
+FROM build-tools AS maven-tool
 RUN python -c "import urllib.request,hashlib,zipfile,io; data=urllib.request.urlopen('https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.9.11/apache-maven-3.9.11-bin.zip').read(); assert hashlib.sha256(data).hexdigest()=='0d7125e8c91097b36edb990ea5934e6c68b4440eef4ea96510a0f6815e7eeadb'; zipfile.ZipFile(io.BytesIO(data)).extractall('/opt')"
 RUN chmod +x /opt/apache-maven-3.9.11/bin/mvn
 
 # The official versioned container tags are not yet available. Use the exact
 # upstream Linux x64 distribution, checked by BuildKit before extraction.
-FROM python-base AS java-build
+FROM build-tools AS java-build
 ADD --checksum=sha256:d7f5d5cf865a2902b70ff549b97586a7d3f234e016f041ab447ea740c7d66d1c https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13%2B9/OpenJDK21U-jdk_x64_linux_hotspot_21.0.13_9.tar.gz /tmp/jdk.tar.gz
-RUN test "$(dpkg --print-architecture)" = amd64 && mkdir -p /opt/java/openjdk \
-    && tar --extract --gzip --file /tmp/jdk.tar.gz --directory /opt/java/openjdk --strip-components=1 --no-same-owner \
-    && rm /tmp/jdk.tar.gz \
-    && grep -Fx 'JAVA_RUNTIME_VERSION="21.0.13+9-LTS"' /opt/java/openjdk/release
+RUN test "$(dpkg --print-architecture)" = amd64 && mkdir -p /opt/java/openjdk      && tar --extract --gzip --file /tmp/jdk.tar.gz --directory /opt/java/openjdk --strip-components=1 --no-same-owner      && rm /tmp/jdk.tar.gz      && grep -Fx 'JAVA_RUNTIME_VERSION="21.0.13+9-LTS"' /opt/java/openjdk/release
 ENV JAVA_HOME=/opt/java/openjdk
 ENV PATH="/opt/java/openjdk/bin:$PATH"
 RUN java -version && javac -version
@@ -78,13 +62,9 @@ WORKDIR /app/verification
 COPY verification/package.json verification/package-lock.json ./
 RUN npm ci --ignore-scripts --omit=dev
 
-FROM python-base AS java-runtime
+FROM build-tools AS java-runtime
 ADD --checksum=sha256:a535a1df9c6284d9618872984e026ae0352d1f7e9e0605425c0e6114f47351dd https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13%2B9/OpenJDK21U-jre_x64_linux_hotspot_21.0.13_9.tar.gz /tmp/jre.tar.gz
-RUN test "$(dpkg --print-architecture)" = amd64 && mkdir -p /opt/java/openjdk \
-    && tar --extract --gzip --file /tmp/jre.tar.gz --directory /opt/java/openjdk --strip-components=1 --no-same-owner \
-    && rm /tmp/jre.tar.gz \
-    && grep -Fx 'JAVA_RUNTIME_VERSION="21.0.13+9-LTS"' /opt/java/openjdk/release \
-    && /opt/java/openjdk/bin/java -version
+RUN test "$(dpkg --print-architecture)" = amd64 && mkdir -p /opt/java/openjdk      && tar --extract --gzip --file /tmp/jre.tar.gz --directory /opt/java/openjdk --strip-components=1 --no-same-owner      && rm /tmp/jre.tar.gz      && grep -Fx 'JAVA_RUNTIME_VERSION="21.0.13+9-LTS"' /opt/java/openjdk/release      && /opt/java/openjdk/bin/java -version
 ADD --checksum=sha256:5431b6d3ad286a41d9e20b9b0d37355f430046e333b4954c0814a8c3014bd4f4 https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13%2B9/OpenJDK21U-sbom_x64_linux_hotspot_21.0.13_9.json /opt/java/openjdk/upstream-sbom.cdx.json
 RUN chmod 644 /opt/java/openjdk/upstream-sbom.cdx.json
 FROM python-base AS pilot
@@ -99,11 +79,8 @@ WORKDIR /app/verification
 COPY verification/requirements.lock verification/rp-requirements.lock verification/runtime-requirements.lock ./
 COPY deployment/aws/requirements.lock /app/aws-requirements.lock
 COPY deployment/build/python-wheels.lock.json /usr/share/doc/openid-python/python-wheels.lock.json
-RUN --network=none --mount=type=bind,from=python-wheels,source=/wheels,target=/wheels \
-    python -m pip --isolated --disable-pip-version-check install \
-    --no-index --find-links=/wheels --no-cache-dir --require-hashes --only-binary=:all: \
-    --report=/usr/share/doc/openid-python/wheel-installation.json -r requirements.lock -r rp-requirements.lock -r runtime-requirements.lock -r /app/aws-requirements.lock
-RUN --network=none printf '%s\n' pilot > /usr/share/doc/openid-python/wheel-profile.txt
+RUN --network=none --mount=type=bind,from=python-wheels,source=/wheels,target=/wheels ["python", "-m", "pip", "--isolated", "--disable-pip-version-check", "install", "--no-index", "--find-links=/wheels", "--no-cache-dir", "--require-hashes", "--only-binary=:all:", "--report=/usr/share/doc/openid-python/wheel-installation.json", "-r", "requirements.lock", "-r", "rp-requirements.lock", "-r", "runtime-requirements.lock", "-r", "/app/aws-requirements.lock"]
+RUN --network=none ["python", "-c", "from pathlib import Path; Path('/usr/share/doc/openid-python/wheel-profile.txt').write_text('pilot\\n')"]
 COPY --from=node-build /app/verification/node_modules ./node_modules
 COPY --from=java-verified /check/target/isolated-eid-lab.jar /app/prototype/target/isolated-eid-lab.jar
 COPY verification/face.py verification/image_input.py verification/pad.py verification/download_models.py ./
@@ -113,7 +90,7 @@ COPY verification/licenses ./licenses
 COPY prototype/licenses /app/licenses/java
 COPY verification/THIRD_PARTY.md /app/licenses/verification.md
 COPY THIRD_PARTY.md /app/licenses/components.md
-RUN python download_models.py
+RUN ["python", "download_models.py"]
 COPY deployment/aws/licenses /app/licenses/aws
 COPY deployment/aws/THIRD_PARTY.md deployment/aws/sbom.cdx.json /app/licenses/aws/
 COPY verification/crypto_runtime.py verification/serve.py verification/runtime.py verification/biometric_worker.py verification/native.py verification/chip.py verification/server.py verification/wallet.py verification/wallet_cli.py verification/registry_binding.py verification/identity.py verification/recovery.py verification/relying_party.py ./
@@ -126,9 +103,11 @@ COPY verification/erasure_policy.py verification/subject_erasure.py ./
 COPY verification/rp_web ./rp_web
 COPY deployment/probe.py ./probe.py
 COPY deployment/build/remove_build_pip.py /tmp/remove_build_pip.py
-RUN --network=none python /tmp/remove_build_pip.py && rm /tmp/remove_build_pip.py
+RUN --network=none ["python", "-c", "import runpy; from pathlib import Path; runpy.run_path('/tmp/remove_build_pip.py', run_name='__main__'); Path('/tmp/remove_build_pip.py').unlink()"]
+COPY deployment/build/runtime_hardening.py deployment/build/runtime-policy.json /runtime-build/
+RUN --network=none ["python", "/runtime-build/runtime_hardening.py", "apply"]
 COPY deployment/build/file_privileges.py /tmp/file_privileges.py
-RUN --network=none python /tmp/file_privileges.py apply && rm /tmp/file_privileges.py
+RUN --network=none ["python", "-c", "import runpy, sys; from pathlib import Path; sys.argv = ['/tmp/file_privileges.py', 'apply']; runpy.run_path('/tmp/file_privileges.py', run_name='__main__'); Path('/tmp/file_privileges.py').unlink()"]
 USER 10001:10001
 HEALTHCHECK --interval=15s --timeout=5s --start-period=90s --retries=3 CMD ["python", "probe.py", "/srv/openid/runtime.json"]
 ENTRYPOINT ["python", "serve.py"]

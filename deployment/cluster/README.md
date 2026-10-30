@@ -6,8 +6,9 @@ ett avbrott i en pågående NFC-session kräver att registreringen startas om.
 Det befintliga SQLite-läget finns kvar för en lokal pilot.
 
 Det befintliga CI-jobbet bygger autentiseringsimagen, provar dess integration
-och skannar därefter samtliga dpkg-paket mot en aktuell, hashlåst Trivy-körning.
-Kontrollen binds till den byggda imagens exakta ID och nekar fynd eller
+och skannar därefter samtliga Debianpaket med Trivy och kontrollerar aktuell tillämplighet.
+Bas, lås och stoppvillkor beskrivs i [bygginstruktionen](../build/README.md).
+Kontrollen binds till den byggda imagens exakta ID och nekar tillämpliga/obehandlade fynd eller
 ofullständig täckning. OS-resultat bevaras i `cluster-os-inventory` även när
 grinden underkänns. Detta omfattar inte PostgreSQL-/OpenBao-tjänsternas
 egna paket eller driftsatta värdar. Se [byggkontrollerna](../build/README.md).
@@ -113,6 +114,10 @@ Installera `verification/cluster-requirements.lock` och
 Kopiera `wallet.example.json` till en privat konfigurationskatalog. Databasfilen
 innehåller en libpq-anslutningssträng med `host`, `dbname`, separat `user`,
 autentiseringsuppgifter, `sslmode=verify-full` och `sslrootcert`.
+Databasen ska använda SCRAM-SHA-256. Alla anslutningar via den gemensamma
+klientgränsen tvingar `require_auth=scram-sha-256` och `gssencmode=disable`;
+GSS/Kerberos, MD5 och anslutning utan autentisering stöds inte. Det hindrar
+GSS från att ersätta den verifierade TLS-anslutningen.
 
 ```sh
 cd verification

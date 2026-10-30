@@ -79,7 +79,8 @@ def validate(lock, requirements, dockerfiles):
         require(lines[0] == 'FROM scratch AS python-wheels', 'download stage missing')
         end = next(i for i, line in enumerate(lines[1:], 1) if line.startswith('FROM '))
         require(len(lines[1:end]) == len(additions) and set(lines[1:end]) == additions, 'download stage differs from lock')
-        installs = [shlex.split(line) for line in lines if line.startswith('RUN ') and ' install ' in line and ' pip ' in line]
+        installs = [shlex.split(line[:line.index('[')]) + json.loads(line[line.index('['):])
+                    for line in lines if line.startswith('RUN ') and '"install"' in line and '"pip"' in line]
         require(len(installs) == 1, 'unexpected application pip invocation')
         args = installs[0]
         prefix = ['RUN', '--network=none', '--mount=type=bind,from=python-wheels,source=/wheels,target=/wheels',
@@ -146,7 +147,7 @@ class WheelBuildTests(unittest.TestCase):
     def test_removed_isolation_hashes_index_or_readonly_mount(self):
         original = self.dockerfiles['pilot']
         for before, after in [('--network=none --mount=', '--network=default --mount='),
-                              ('--require-hashes ', ''), ('--no-index ', ''),
+                              ('"--require-hashes", ', ''), ('"--no-index", ', ''),
                               ('source=/wheels,target=/wheels', 'source=/wheels,target=/wheels,rw')]:
             with self.subTest(before=before):
                 self.dockerfiles['pilot'] = original.replace(before, after)
@@ -154,7 +155,7 @@ class WheelBuildTests(unittest.TestCase):
                     self.check()
 
     def test_missing_install_requirement(self):
-        self.dockerfiles['pilot'] = self.dockerfiles['pilot'].replace(' -r /app/aws-requirements.lock', '')
+        self.dockerfiles['pilot'] = self.dockerfiles['pilot'].replace(', "-r", "/app/aws-requirements.lock"', '')
         with self.assertRaisesRegex(ValueError, 'installation requirement'):
             self.check()
 

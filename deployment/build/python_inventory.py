@@ -13,6 +13,7 @@ assert sys.version_info[:3] == (3, 12, 16)
 for name in ('pip', 'ensurepip'):
     assert importlib.util.find_spec(name) is None, name+' is still importable'
 assert not list(Path('/usr/local/bin').glob('pip*')), 'pip launcher remains'
+assert not Path('/usr/share/python-wheels').exists(), 'distro installer wheels remain'
 installed = sorted(({'name': d.metadata['Name'], 'version': d.version,
                      'requiresDist': d.requires or []}
                     for d in importlib.metadata.distributions()), key=lambda item: item['name'].lower())

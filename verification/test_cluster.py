@@ -3,6 +3,7 @@ import base64
 from dataclasses import replace
 from concurrent.futures import ThreadPoolExecutor
 import hashlib
+import importlib.util
 import http.client
 import json
 import os
@@ -20,6 +21,17 @@ from test_identity import document
 from wallet import Wallet
 
 DSN = os.environ.get('OPENID_TEST_POSTGRES')
+
+@unittest.skipUnless(importlib.util.find_spec('psycopg'), 'requires locked PostgreSQL client')
+class ConnectionPolicyTests(unittest.TestCase):
+    def test_caller_cannot_enable_gss_or_downgrade_scram(self):
+        from postgres import connection_options
+        for extra in ('', ' gssencmode=require require_auth=gss', ' gssencmode=prefer require_auth=none'):
+            options=connection_options('host=db.example.invalid user=fixture dbname=fixture sslmode=verify-full'+extra)
+            self.assertEqual(options['gssencmode'],'disable')
+            self.assertEqual(options['require_auth'],'scram-sha-256')
+            self.assertEqual(options['sslmode'],'verify-full')
+
 
 @unittest.skipUnless(DSN, 'requires disposable PostgreSQL')
 class ClusterTests(unittest.TestCase):
