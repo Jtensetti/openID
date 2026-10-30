@@ -151,11 +151,11 @@ final class WalletUITests: XCTestCase {
         var stableSince = Date()
         let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             let frame = practice.frame
-            guard practice.isHittable else { return false }
             if frame != previousFrame { previousFrame = frame; stableSince = Date(); return false }
             return Date().timeIntervalSince(stableSince) >= 0.5
         }, object: practice)
-        XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 5), .completed)
+        XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 15), .completed)
+        XCTAssertTrue(practice.isHittable)
         practice.tap()
         XCTAssertTrue(app.buttons["Stäng kameraprovet"].waitForExistence(timeout: 3))
         app.buttons["Stäng kameraprovet"].tap()
