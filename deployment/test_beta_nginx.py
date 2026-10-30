@@ -111,6 +111,9 @@ with tempfile.TemporaryDirectory(prefix='openid-ingress-') as temporary:
     context = ssl.create_default_context(cafile=str(cert))
 
     def request(path, authenticated=False, body=None, host='openid.tensetti.io', extra_headers=None):
+        # Keep the expanded route matrix below the real 10 r/s policy. These
+        # are routing/body checks, not a burst test; do not relax the nginx limit.
+        time.sleep(.11)
         # Connect only to loopback, while checking the generated certificate and correct SNI.
         connection = http.client.HTTPSConnection(host, public_port, timeout=5, context=context)
         connection.sock = context.wrap_socket(socket.create_connection(('127.0.0.1', public_port), timeout=5),
