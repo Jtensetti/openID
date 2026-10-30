@@ -24,6 +24,13 @@ def main():
     subprocess.run([sys.executable, '-m', 'pip', '--isolated', '--disable-pip-version-check',
                     'install', '--ignore-installed', '--no-index', '--no-deps', '--no-cache-dir',
                     '--only-binary=:all:', str(wheel)], env=environment, check=True)
+    # Wolfi has no site-packages directory until this first installation. The
+    # parent interpreter's startup path therefore needs the newly created path.
+    packages = sysconfig.get_path('purelib')
+    if packages != '/usr/lib/python3.12/site-packages':
+        raise ValueError('unexpected package installation directory')
+    if packages not in sys.path:
+        sys.path.append(packages)
     from importlib.metadata import distribution
     installed = distribution('pip')
     if installed.version != lock['version']:
