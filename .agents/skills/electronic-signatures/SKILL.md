@@ -8,7 +8,7 @@ description: >-
 
 # Elektroniska underskrifter
 
-Projektspecifik originalinstruktion. Läs `AGENTS.md`, SIG-raderna i `docs/krav.md` och avgränsningarna i `docs/arkitektur.md`. Följ T01 till den aktuella underskriftsspecifikationen och kontrollera dess version. G04 är en kandidat, inte ett godkänt utförande.
+Projektspecifik originalinstruktion. Läs `AGENTS.md`, `docs/pdf-underskrift.md` och protokollproven i `docs/provningsunderlag.md`. Kontrollera relevant primärkälla och profilversion före protokolländring. Ett bibliotek eller testcertifikat innebär inte en betrodd underskriftstjänst.
 
 ## Avgränsning
 
@@ -25,7 +25,7 @@ När den juridiska betydelsen inte är fastställd ska leveransen vara en teknis
 5. Välj granskad signerings- och valideringsimplementation med låsta versioner. Följ `supply-chain-and-release`; egen kryptografi är inte ett alternativ.
 6. Specificera vilka certifikat-, tids- och valideringsbevis som behövs för vald profil och lagringshorisont. Anta inte att en lyckad kontroll i dag garanterar validering långt senare.
 7. Kör positiva och negativa tester med syntetiska dokument. Använd en oberoende valideringsväg där det är genomförbart och redovisa begränsningar.
-8. Klassificera utfallet separat för rapportering. Följ `eid-economics-and-reporting` innan en underskrift räknas som ersättningsgrundande.
+8. Dokumentera faktiskt testutfall och kvarvarande begränsningar utan påståenden om avtal eller ersättningsrätt.
 
 ## Negativa tester
 

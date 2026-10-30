@@ -1,62 +1,44 @@
 # Arbetsinstruktioner för kodagenter
 
-Repot innehåller en iPhone-app, pass- och bildverifiering, ett personregister,
-SAML-integration, en separat WebAuthn-labb och en driftcontainer utan e-id.
-Aktuell implementation och verifierade begränsningar styr arbetet.
+Repot är en kodbas för iPhone-appen, verifieraren, registret och
+SAML-/OIDC-tjänsterna. Läs [README.md](README.md), berörd komponents README,
+[arkitekturen](docs/arkitektur.md), [testinstruktionen](docs/testning.md),
+[SECURITY.md](SECURITY.md) och [THIRD_PARTY.md](THIRD_PARTY.md) före ändring.
 
-## Läs före ändring
+## Arbetsgång
 
-1. `README.md` och den berörda komponentens README för start och tester.
-2. `docs/arkitektur.md`, `docs/krav.md` och `docs/testning.md`.
-3. `SECURITY.md`, `THIRD_PARTY.md` och relevant skill nedan.
-4. `docs/SOURCES.md` och aktuella primärkällor när normativa villkor,
-   API:er, licenser eller upstream-status berörs.
-
-## Skills
-
-| Uppgift | Fil under `.agents/skills/` |
-|---|---|
-| Digg, tillitsnivå, avtal eller godkännandepåståenden | `digg-compliance/SKILL.md` |
-| SAML, OIDC, Sweden Connect, metadata eller sessionsbindning | `sweden-connect-integration/SKILL.md` |
-| Identitetskontroll, enhetsnyckel, spärr eller återställning | `eid-lifecycle-security/SKILL.md` |
-| Dokumentunderskrift och valideringsbevis | `electronic-signatures/SKILL.md` |
-| Beroenden, licens, byggkedja, CI eller release | `supply-chain-and-release/SKILL.md` |
-| Transaktionsklassificering, rapportering eller ersättning | `eid-economics-and-reporting/SKILL.md` |
-
-Läs flera skills när ändringen korsar områden. Instruktionerna är
-projektspecifika; de utgör inte myndighetskrav.
+- Utgå från aktuell `main`; följ [utvecklingsinstruktionen](docs/utveckling.md).
+- Ändra kod, relevanta tester och tillhörande körinstruktion tillsammans.
+- Ange faktisk revision, körda kontroller och kvarstående begränsningar i PR:n.
+- Behåll lås, SBOM, licenser och attribution. Verifiera upstream innan versionsbyte.
+- Håll dokumentationen till implementation, byggning, testning och drift.
+  Arbetsloggar, historiska rapporter, affärsplaner och organisationsunderlag
+  hör inte hemma i källträdet. Använd Git-historiken för äldre material.
+- Ha en huvudsaklig plats för varje uppgift och länka dit från övriga dokument.
+  Skilj källkod, byggd artefakt, installerad app och driftsatt server.
 
 ## Säkerhetsgränser
 
-- CI, publika exempel och SAML/WebAuthn-labben använder genererade identiteter
-  och testnycklar. Verkliga handlingar används bara i en uttryckligen vald
-  privat testmiljö. Inga personakter eller hemligheter får publiceras.
-- Använd etablerade bibliotek för kryptografi och protokollvalidering.
-  Ingen generativ modell får avgöra identitet, tillitsnivå eller godkännande.
-- Skilj teknisk funktion från tillitsgodkännande, anslutningsavtal och rätt
-  till ersättning. Använd inte myndighetslogotyper eller kvalitetsmärken utan stöd.
-- Säkerhetskritisk produktionsrelease kräver oberoende granskning och
-  behörigt mänskligt beslut. En agent får inte attestera sin egen release.
-- Spärr och återställning får inte kringgås av cache, gamla säkerhetskopior
-  eller administrativa genvägar. Testa ändrade livscykelövergångar.
-- Testtrafik, avbrott, dubbletter och icke kvalificerande motparter får inte
-  bli ersättningsanspråk.
-- Ändra inte skydd, behörigheter, hemligheter, produktionsmiljö eller externa
-  avtal som bieffekt. Ingen force-push eller borttagning av befintligt arbete
-  utan uttryckligt uppdrag.
+Använd syntetiska identiteter i CI. Publicera aldrig personakter, pass,
+biometrik, privata nycklar eller hemligheter. Verkliga handlingar får bara
+användas i uttryckligen vald privat testmiljö.
 
-## Genomförande och redovisning
+Spärr och återställning får inte kringgås via gamla backuper eller
+administrativa genvägar. Testa ändrade tillståndsövergångar. Använd etablerade
+kryptografiska bibliotek; generativa modeller får inte avgöra identitet.
 
-Arbeta på separat branch och rikta PR:n mot `main`. Följ
-`docs/utveckling.md`. Beroenden kräver låst version, ursprung, licens,
-attribution, SBOM och dokumenterat uppdateringsansvar. Bevara NOTICE och
-licenshuvuden. Kontrollera upstream-status på nytt före ett versionsbyte.
+En merge eller grön CI är inget produktionsgodkännande. Säkerhetskritisk
+produktionsrelease kräver oberoende granskning och behörigt mänskligt beslut.
+En agent får inte attestera sin egen release. Ändra inte drift, åtkomst eller
+externa avtal som en bieffekt av en kodändring. Ingen force-push utan uttryckligt uppdrag.
 
-Kör relevanta tester och ange revision, resultat och delar som inte kunde
-köras. Uppdatera berörda krav-ID när beteendet ändras; höj inte formell
-status utan motsvarande bevis och rätt beslutsfattare.
+## Komponentspecifika instruktioner
 
-Skriv kort och sakligt. Dokumentera hur programvaran fungerar, hur den
-körs och vilka begränsningar som gäller. Affärsunderlag, kontaktutkast och
-intern kommunikation hör inte hemma i den publika dokumentationen.
-Tillfälliga arbetsloggar och granskningsresultat hör hemma i PR:n.
+Läs relevant fil under `.agents/skills/` när uppgiften berör området:
+
+| Område | Skill |
+|---|---|
+| Identitet, nycklar, spärr och återställning | `eid-lifecycle-security/SKILL.md` |
+| SAML, OIDC, metadata och sessionsbindning | `sweden-connect-integration/SKILL.md` |
+| Dokumentunderskrift och validering | `electronic-signatures/SKILL.md` |
+| Beroenden, byggkedja och leverans | `supply-chain-and-release/SKILL.md` |

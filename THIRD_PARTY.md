@@ -6,7 +6,7 @@ Underhålls- och sårbarhetsuppgifter nedan avser dessa kontrolltillfällen.
 
 ## Lås och licensfiler
 
-Maven-grafen innehåller **192 JAR-artefakter**, låsta med version och SHA-256 i
+Maven-grafens JAR-artefakter är låsta med version och SHA-256 i
 [dependencies.lock.json](prototype/dependencies.lock.json).
 [CycloneDX-SBOM](prototype/evidence/bom.json) innehåller paket och deklarerade
 licenser; [OSV-resultatet](prototype/evidence/osv.json) innehåller den daterade
@@ -153,7 +153,8 @@ Samtliga nya komponenter deklarerar Apache-2.0 i hämtade Maven-underlag;
 JAR-innehållens licens- och NOTICE-filer bevaras. Inga upstream-källfiler
 har kopierats till OIDC-adaptern.
 
-Låset innehåller 189 artefakter med SHA-256. Tre tidigare testberoenden
+Vid OIDC-införandet omfattade låset 189 artefakter. Det aktuella innehållet
+styrs av `prototype/dependencies.lock.json`. Tre tidigare testberoenden
 (json-smart, accessors-smart och ASM) ingår nu vid körning; deras versioner
 och checksummor är oförändrade. CycloneDX-SBOM och daterad OSV-kontroll
 är uppdaterade. OSV gav inga matchande fynd för de 189 koordinaterna;

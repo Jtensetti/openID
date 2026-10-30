@@ -1,7 +1,7 @@
 ## Ändring
 
 Beskriv problemet, ändringen och det resulterande beteendet. Hänvisa till
-berörda krav-ID när funktion eller säkerhet ändras.
+berörd komponent och körinstruktion när funktion eller säkerhet ändras.
 
 ## Verifiering
 

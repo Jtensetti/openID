@@ -27,22 +27,22 @@ Indexet T01 länkar samtidigt till den samlade decemberutgåvan 2024.
 
 ## Vad som går att visa
 
-| Krav-ID | Källa / kontroll | Körbar evidens | Avgränsning |
-|---|---|---|---|
-| FED-01, SEC-01 | T02 §§5–6: signerad begäran, krypterat/signerat svar, mottagare och engångsbruk | `FlowTest`, `WebAuthnFlowTest`, `saml-negative-test.py` | Fasta lokala metadata och egna testmotparter. |
-| FED-02, ID-10 | Avsikt, aktiv credential och spärr före/efter inloggning | `saml-negative-test.py`, `oidc-negative-test.py`, `test_identity` | Testnyckel ersätter fysisk telefon i automatiska prov. |
-| FED-03 | T07 §§2–3: Code, S256, state, nonce och klientautentisering | OIDC-01–06 i `protocol-results.json` | Intern integration; inte OpenID Foundations svit. |
-| FED-03 | T03 §2.3.1: private_key_jwt; felaktigt och återanvänt intyg avvisas | OIDC-03 | Även redan använd kod provas med ursprunglig verifierare och ny klientassertion. |
-| FED-03/04 | T03 §3.1.1: begär och kontrollera essential acr | OIDC-02, OIDC-04, OIDC-09 | Endast egen pilotkontext; aldrig påhittad LoA. |
-| FED-03 | T07 / OIDC Core: färsk autentisering | OIDC-02 med `max_age=0`; saknat/gammalt auth_time avvisas | Egen tidsgräns; ingen SSO i piloten. |
-| SIG-01 | Exakt dokument och separat uttrycklig avsikt | `SigningFlowTest`, Chromium USB/plattform | Fast syntetiskt UTF-8-dokument, ingen uppladdning eller PDF-konvertering. |
-| SIG-01, ID-10 | Fel signerare, byte av dokument, avbrott, spärr, utgång och samtidighet | `SigningCeremonyTest`, `SigningFlowTest` | Inloggningens WebAuthn-svar kan inte användas för underskrift. |
-| SIG-02 | Dokumentets CMS-signatur och certifikatbindning | `DocumentSignatureTest`, SIG-OPENSSL-01–06 | Två kryptografiska implementationer; inte oberoende organisatorisk granskning. |
-| SIG-01, FED-01/03 | T02 §7, T03 §2.4: underskrift får inte bli vanlig inloggning | `SignatureRequestPolicyTest`, `test_identity`, `WalletSecurityTests` | Underskrift kräver separat `sign`-åtgärd över exakt text; inloggningsgodkännande avvisas. |
-| SIG-01, FED-01 | DP 1.9 §7.1: SignMessage visas (MustShow), signMessageDigest, text som inte kan visas ger fel | Testkonsolen: `sign`, `sign-encrypted`, `sign-html`, `sign-from-service` i `federation-browser-test.cjs` | Endast ren text, högst 400 tecken. Egen underskriftstjänst, inte Sweden Connects SignService. |
-| SIG-01 | SAP §3: SAD signerad av IdP, bunden till SADRequest, SignRequestID och dokumentantal | Testkonsolen `sign`, `sad-only`; validering med `SADParser.SADValidator` | IdP annonserar `scal2`. Ingen extern signeringstjänst har provat SAD:en. |
-| SIG-02 | PAdES-B-B: hela filen täcks, DER-kodad CMS, signingCertificateV2, ingen signing-time | `PadesSignerTest` inklusive OpenSSL `cms -verify` | Test-CA i processminnet; ingen betrodd tid, LTV eller extern valideringsrapport. |
-| FED-01 | DP 1.9 §§5.3, 5.4.4–5.4.5, 6.4: IsPassive, ej stödd kontext, ny legitimering, cancel-status | Testkonsolen `passive`, `loa3`, `no-force`, `cancel` | IdP:n har ingen SSO; en ny legitimering krävs alltid. |
+| Källa / kontroll | Körbar evidens | Avgränsning |
+|---|---|---|
+| T02 §§5–6: signerad begäran, krypterat/signerat svar, mottagare och engångsbruk | `FlowTest`, `WebAuthnFlowTest`, `saml-negative-test.py` | Fasta lokala metadata och egna testmotparter. |
+| Avsikt, aktiv credential och spärr före/efter inloggning | `saml-negative-test.py`, `oidc-negative-test.py`, `test_identity` | Testnyckel ersätter fysisk telefon i automatiska prov. |
+| T07 §§2–3: Code, S256, state, nonce och klientautentisering | OIDC-01–06 i `protocol-results.json` | Intern integration; inte OpenID Foundations svit. |
+| T03 §2.3.1: private_key_jwt; felaktigt och återanvänt intyg avvisas | OIDC-03 | Även redan använd kod provas med ursprunglig verifierare och ny klientassertion. |
+| T03 §3.1.1: begär och kontrollera essential acr | OIDC-02, OIDC-04, OIDC-09 | Endast egen pilotkontext; aldrig påhittad LoA. |
+| T07 / OIDC Core: färsk autentisering | OIDC-02 med `max_age=0`; saknat/gammalt auth_time avvisas | Egen tidsgräns; ingen SSO i piloten. |
+| Exakt dokument och separat uttrycklig avsikt | `SigningFlowTest`, Chromium USB/plattform | Fast syntetiskt UTF-8-dokument, ingen uppladdning eller PDF-konvertering. |
+| Fel signerare, byte av dokument, avbrott, spärr, utgång och samtidighet | `SigningCeremonyTest`, `SigningFlowTest` | Inloggningens WebAuthn-svar kan inte användas för underskrift. |
+| Dokumentets CMS-signatur och certifikatbindning | `DocumentSignatureTest`, SIG-OPENSSL-01–06 | Två kryptografiska implementationer; inte oberoende organisatorisk granskning. |
+| T02 §7, T03 §2.4: underskrift får inte bli vanlig inloggning | `SignatureRequestPolicyTest`, `test_identity`, `WalletSecurityTests` | Underskrift kräver separat `sign`-åtgärd över exakt text; inloggningsgodkännande avvisas. |
+| DP 1.9 §7.1: SignMessage visas (MustShow), signMessageDigest, text som inte kan visas ger fel | Testkonsolen: `sign`, `sign-encrypted`, `sign-html`, `sign-from-service` i `federation-browser-test.cjs` | Endast ren text, högst 400 tecken. Egen underskriftstjänst, inte Sweden Connects SignService. |
+| SAP §3: SAD signerad av IdP, bunden till SADRequest, SignRequestID och dokumentantal | Testkonsolen `sign`, `sad-only`; validering med `SADParser.SADValidator` | IdP annonserar `scal2`. Ingen extern signeringstjänst har provat SAD:en. |
+| PAdES-B-B: hela filen täcks, DER-kodad CMS, signingCertificateV2, ingen signing-time | `PadesSignerTest` inklusive OpenSSL `cms -verify` | Test-CA i processminnet; ingen betrodd tid, LTV eller extern valideringsrapport. |
+| DP 1.9 §§5.3, 5.4.4–5.4.5, 6.4: IsPassive, ej stödd kontext, ny legitimering, cancel-status | Testkonsolen `passive`, `loa3`, `no-force`, `cancel` | IdP:n har ingen SSO; en ny legitimering krävs alltid. |
 
 ## Underskriftslabb
 
@@ -108,22 +108,15 @@ paket. Även partiella resultat laddas upp när ett jobb misslyckas.
 Artefakterna behålls i 90 dagar; de måste bevaras i ett beslutat bevisarkiv
 innan retentionen löper ut om de ska användas i en senare granskning.
 
-## Kvar inför extern prövning
+## Integrationens gränser
 
-| Arbete | Typ | Konkret slutbevis |
-|---|---|---|
-| Full OIDC-profil: metadata, språk, public/pairwise-subjekt över omstart/nyckelbyte, attributminimering, request objects och federativ tillit | Bygga eller verifiera per profilpunkt | Tester mot oberoende OP/RP och versionsbunden metadata; bibliotekets stöd räcker inte som bevis. |
-| SAML: godkänd metadata, attributprofil, rollover, tillitsankare och samtliga tillämpliga bindningar | Bygga/verifiera + operatörsanslutning | Validerade metadata och extern interoperabilitetsrapport. |
-| Authentication for Signature: OIDC signRequest och extern DSS SignService | Bygga/verifiera | SAML SignMessage/SAD finns i telefonflödet. Kvar: OIDC Signature Extension, PrincipalSelection och prov mot Sweden Connects referens-SignService i sandlådan. |
-| Produktionsunderskrift: vald dokumentprofil, CA/HSM, certifikatpolicy, tid och långtidsbevis | Beslut + bygga/ansluta | Extern valideringsrapport för vald profil och fastställd bevarandepolicy. |
-| OpenID Foundation OP- och RP-prövning | Extern svit, därefter separat certifieringsansökan | Testplan-ID, svitrevision, profil, konfiguration och exporterade resultat. Alla erforderliga tester avslutade. |
-| Diggs tillitsprövning och Sweden Connect-anslutning | Formell granskning och avtal | Beslut från behörig part; teknikresultaten är bilagor. |
-| Huvudman, kapital, registeråtkomst, fysisk kedja, driftansvar och biometri/dataskydd | Beslut, integration och extern/fysisk provning | Se [de sju utgivningsfrågorna](infor-utgivning.md) och [fysisk acceptans](fysisk-acceptans.md). |
+Testerna använder fasta egna motparter och syntetiska identiteter. De
+prövar inte extern metadataförvaltning, federativ tillit eller en ansluten
+DSS SignService. OIDC Signature Extension och PrincipalSelection ingår inte
+i telefonflödets testade implementation. SAML SignMessage/SAD och PAdES med
+test-CA finns; certifikattillit beskrivs i [PDF-instruktionen](pdf-underskrift.md).
 
-För extern OIDC-prövning behöver en separat syntetisk testinstans registrera
-svitens klient och dess verifierade nycklar/redirects. Dagens fasta
-pilotmotpart och Basic-skyddade ingress är inte en färdig extern testinstans.
-Svitkonto, verklig registrering och en vald testprofil saknas; inga
-ansökningar eller intyg har skickats. [OpenID Foundations instruktioner](https://openid.net/certification/connect_op_testing/)
-och [Sweden Connects testmiljöer](https://www.swedenconnect.se/teknisk-dokumentation/miljoer-for-produktion-och-test)
-är utgångspunkter. Detta dokument får inte användas som ett utfärdat godkännande.
+[OpenID Foundations externa svit](https://openid.net/certification/connect_op_testing/)
+är separat från dessa tester. En lyckad intern körning är ingen extern
+certifiering. Se [säkerhetsinformationen](../SECURITY.md) och
+[proven på fysisk telefon](fysisk-acceptans.md).

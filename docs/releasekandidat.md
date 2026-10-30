@@ -2,8 +2,8 @@
 
 En kandidat sammanför granskade ändringar till en bestämd källrevision.
 Den är underlag för fortsatt prövning, inte ett produktionsgodkännande.
-Produktionskraven i [utveckling](utveckling.md) och [inför utgivning](infor-utgivning.md)
-gäller även när alla automatiska kontroller har passerat.
+Produktionsgränserna i [SECURITY.md](../SECURITY.md#test-och-release) gäller
+även när alla automatiska kontroller har passerat.
 
 ## Sammanför och verifiera
 

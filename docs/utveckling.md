@@ -2,115 +2,73 @@
 
 ## Byggmiljöer
 
-| Del | Verktyg och instruktioner |
+| Del | Miljö och källa till versioner |
 |---|---|
-| Verifierare och SAML | Linux x86_64, Python 3.12, Node 24.19.0, Temurin 21.0.12.1+1 och Maven 3.9.11. [Start och tester](../verification/README.md). |
-| iPhone | macOS och iOS 16+. CI: Xcode 16.4; signerade byggen 112/113: Xcode 27.1. [Projekt och signering](../ios/README.md). |
-| WebAuthn-labb | JDK 21 och Chromium; låst Playwright 1.62.1. [Start och tester](../prototype/README.md). |
-| Driftcontainer | Docker med digestlåst Temurin. [Körning](../ops/README.md). |
+| Verifierare och SAML | Linux x86_64. [Installation](../verification/README.md) och [serverworkflow](../.github/workflows/prototype.yml). |
+| iPhone | macOS och Xcode. [Projekt, signering och tester](../ios/README.md); CI-versionen anges i [ios.yml](../.github/workflows/ios.yml). |
+| WebAuthn-labb | JDK och Chromium. [Bygginstruktion](../prototype/README.md); låsta beroenden i POM och package-lock. |
+| Containers | Docker. [Bygg och verifierad import](../deployment/build/README.md); versioner och digests anges i Dockerfilerna. |
 
-Pass- och bilddata ska ligga utanför repot. Testfixturer genereras vid körning.
+Låsfiler, projektgenerator och workflows är källor för byggversioner.
+Uppdatera komponentens instruktion när verktyg eller kommandon ändras.
 Verifierarens Python-lås gäller Linux x86_64; ändra inte hashkraven för att
-tyst installera på en annan plattform.
+installera paket på en annan plattform.
 
 ## Ändringar
 
-För en sammanhållen leverans, följ [releasekandidat och återgång](releasekandidat.md).
-Komponenternas tidigare godkända körningar ersätter inte prov av den gemensamma revisionen.
+1. Utgå från aktuell `main` och använd en separat branch. Samla ändringen i
+   en PR, om inte repoägaren uttryckligen begärt en direktpush.
+2. Uppdatera berörd kod, relevanta tester och komponentens körinstruktion.
+   Dokumentera beteende och begränsningar där funktionen beskrivs.
+3. Kör kontroller enligt [testöversikten](testning.md). Ange revision,
+   kommandon, resultat och ej körda delar i PR:n eller commitunderlaget.
+4. Vid beroendeändringar: kontrollera ursprung, licens och advisories;
+   uppdatera lås, SBOM och attribution tillsammans med ändringen.
+5. Följ [kandidat och återgång](releasekandidat.md) före installation.
+   Merge, byggresultat och driftsättning är skilda steg.
 
-1. Utgå från aktuell `main` och arbeta på en separat branch. Rikta PR:n mot
-   `main`. En PR som bygger på en annan branch behöver föras hela vägen till
-   `main` efter att beroendet mergats.
-2. Uppdatera berörda [krav](krav.md), API-/startinstruktioner och negativa
-   testfall tillsammans med ändringen. Dokumentera fungerande beteende och
-   begränsningar där läsaren behöver dem.
-3. Kör relevanta tester enligt [testöversikten](testning.md). Ange revision,
-   resultat och ej körda delar i PR:n; återanvänd inte gamla antal som nytt bevis.
-4. För beroendeändringar: granska ursprung, licens, underhåll och advisories;
-   uppdatera lås, SBOM och komponentregister. Behåll attribution och NOTICE.
-
-Publik dokumentation ska beskriva programvaran, API:er, driftkrav och
-designbeslut. Affärskalkyler, kontaktutkast och intern korrespondens hanteras
-separat. Lokala IDE-layouter och driftsinventarier ingår inte i kodbasen.
-Versionshantera delade bygginställningar och tekniska instruktioner. Kommentarer i kod ska förklara en avsikt eller begränsning som inte
-framgår av koden. Tillfälliga arbetsloggar hör hemma i PR:n.
-
-## Nästa tekniska arbete
-
-| Område | Acceptansprov |
-|---|---|
-| Fysisk iPhone | Signerat bygge på enheten: NFC, App Attest, Secure Enclave, avbrott, ny registrering, inloggning och spärr. |
-| Biometri och fotografering | Kalibrerade trösklar samt mätning av felacceptans/felavvisning, presentationer, injektion och relä. |
-| Pass och personregister | Spärrinformation, länkcertifikat, registerkontroll och ersättning efter passförnyelse. |
-| Nycklar och återställning | Operativ rotation, gallring och PostgreSQL-/nyckelåterläsning på vald driftmiljö. |
-| Extern integration | [GrandID som integrationsmål, FED-05](grandid-integration.md): fastställd IdP-profil, metadata, mottagarstyrda attribut och kontrollerad motpart med negativa protokollprov. Leverantörens kund-API är inte ett IdP-anslutningskontrakt. |
-| Drift | Operativa roller, redundant databas/nyckeltjänst, ingress, kapacitet och larmmottagning på vald driftmiljö. |
-
-Produktionsöppning kräver oberoende säkerhetsgranskning och ett behörigt
-mänskligt beslut om utgivning, dataskydd, drift och nyckelhantering.
-Digg-godkännande och anslutningsavtal är separata beslut för sådan användning.
-Kodändringar eller passerad CI ändrar inte dessa tillstånd. Se [SECURITY.md](../SECURITY.md).
+Behåll instruktioner som behövs för att förstå, bygga, testa och driva
+programvaran. Undvik upprepade statuslistor och daterade arbetsloggar i
+README-filer. Historiska körresultat hör till GitHub Actions och den aktuella
+PR:n; driftunderlag och verkliga användarprov förvaras privat.
 
 ## Obligatoriska kontroller och repoägarskap
 
-`Assurance checks` kör alla komponenter för varje PR och för `main`, utan
-sökvägsfilter. Den återanvänder komponenternas workflows från samma revision.
-`assurance-gate` blir grön först när server/protokoll, delat register,
-pilotcontainer, iPhone, driftcontainer, infrastrukturprov och aktuell
-beroendekontroll har passerat. Fel, avbrott och överhoppade jobb nekar grinden.
-Komponentprov kan även startas manuellt. Inga produktionshemligheter skickas
-till dessa jobb; jobben har enbart läsbehörighet till koden.
+[Assurance checks](../.github/workflows/assurance.yml) kör alla komponenter
+för varje PR och för `main`. `assurance-gate` kräver godkända jobb för
+server/protokoll, register, pilotcontainer, iPhone, driftcontainer,
+infrastruktur och beroenden. Avbrott, fel och överhoppade jobb är inte
+godkännande. Jobben använder syntetiska data och läsbehörighet till koden.
 
-Repot gjordes privat på ägarens begäran den 30 oktober 2026. GitHub visar
-`main-security-gate` som **Not enforced** på den nuvarande planen. Därmed
-verkställs varken granskningskravet, CI-kravet eller force-push-skyddet av
-den regeln. En lyckad merge är inte bevis på godkänd CI. Förvaltaren ska
-kontrollera resultatet och undvika direkt-/force-push enligt projektets arbetsgång.
+Repots synlighet och verkställda skyddsregler hanteras i
+[GitHubs inställningar](https://github.com/Jtensetti/openID/settings/rules).
+[branch-protection.json](../.github/branch-protection.json) är ett förslag
+för granskad förvaltning, inte ett bevis på de aktuella inställningarna.
+Repoägaren har begärt upplåsning av `main` för sammanföringen. Det ändrar
+inte testresultat eller villkoren för produktionsutgivning.
 
-`.github/branch-protection.json` bevarar önskad skyddskonfiguration för en
-miljö där GitHub-planen stöder den: aktuell branch, GitHub Actions-kontrollen,
-en annan granskare, aktuellt godkännande samt förbud mot force-push/borttagning.
-Filen beskriver inte det privata repots verkställda skydd. GitHub tillåter
-inte att PR-författaren godkänner sin egen PR; anslutningens ändringar skapas
-under repoägarens konto. Återinför ett fungerande, verifierat skydd före
-bredare samarbete eller produktionsrelease. CODEOWNERS och agentgranskning
-ersätter inte oberoende säkerhetsgranskning.
+GitHub tillåter inte att PR-författaren godkänner sin egen PR. Före
+produktion krävs oberoende säkerhetsgranskning och ett behörigt mänskligt
+beslut; en kodagent kan inte attestera sin egen produktionsrelease.
 
-Vid installation i ett nytt repo kan förslaget granskas och tillämpas
-med en behörig GitHub CLI-session:
-
-```sh
-python3 .github/scripts/configure_repository.py
-python3 .github/scripts/configure_repository.py --apply
-```
-
-Skriptet ersätter inte ett befintligt branchskydd. Det kontrollerar svaret
-efter ändringen och aktiverar därefter GitHubs privata sårbarhetsrapportering.
-En fil i repot verifierar inte driftinställningarna; skriptet ska inte användas
-utan att först kontrollera aktuell plan, faktisk regel och godkänd ändringsomfattning.
-Lägg inte en administratörstoken i CI för att köra detta.
+För en ny installation kan skyddsförslaget granskas med
+`python3 .github/scripts/configure_repository.py`. `--apply` kräver en
+behörig GitHub CLI-session och ett separat beslut om konfigurationen.
+Skriptet ersätter inte befintligt branchskydd. Lägg ingen administratörstoken i CI.
 
 ## Säkerhetsbevakning
 
-Den dagliga `Dependency advisory monitoring` kontrollerar Maven-, Python-
-och npm-låsen samt Swift- och actionrevisioner mot OSV. Samma kontroll ingår
-i PR-grinden. Paginerade svar följs per fråga; ofullständiga svar, fel och
-otillgänglig tjänst ger felstatus. Rapporten innehåller datum, kodrevision,
-manifesthashar och täckningsgränser. Fynd kräver bedömning och rättning innan
-grinden passerar. Det finns inga automatiska undantag.
+[Dependency advisory monitoring](../.github/workflows/dependencies.yml)
+kontrollerar Maven-, Python- och npm-lås samt Swift- och actionrevisioner
+mot OSV. Fel och ofullständiga svar ger felstatus. Rapporten anger datum,
+revision, manifesthashar och täckningsgränser. Det finns inga automatiska
+undantag för fynd.
 
-Dependabot föreslår varje vecka uppdateringar för actions, Maven, npm och
-Docker. Förslag behöver licens-/advisorygranskning, nya lås och passerad CI.
-OSV:s register är inte heltäckande; särskilt OS-lager, JDK/Node, PostgreSQL,
-OpenBao, modeller och driftkonfiguration behöver separat bevakning av
-driftägaren. Swift-commitfrågor ersätter inte bevakning av inbäddade OpenSSL.
-Verifiera dagliga körningar och en mottagare för fel efter aktivering på
-`main`. GitHub-artefakterna med 90 dagars retention är inte långtidsarkiv
-för utgivningsbevis.
+Dependabot föreslår uppdateringar enligt [konfigurationen](../.github/dependabot.yml).
+En föreslagen version behöver granskas och provas innan den förs in.
+OSV:s täckning omfattar inte alla OS-lager, modeller och byggverktyg; se
+[säkerhetsinformationen](../SECURITY.md#kända-begränsningar-och-separata-utkast).
 
-Efter privatbytet är dependency graph och Dependabot alerts aktiverade.
-GitHubs Advanced Security och den tidigare publika sårbarhetskanalen ska
-inte antas finnas kvar; aktuell rapporteringsväg anges i [SECURITY.md](../SECURITY.md).
-[GitHubs planvillkor för skyddade grenar](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches)
-kontrollerades den 30 oktober 2026. Privat Actions-användning följer kontots
-kvot och debitering; lägg inte till överflödiga omkörningar.
+CI-artefakter har begränsad retention och är inte långtidsarkiv.
+Bevara nödvändiga leveransunderlag separat. Undvik dubbla omkörningar;
+privata repositories omfattas av kontots Actions-kvot och debitering.

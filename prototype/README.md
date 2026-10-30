@@ -130,8 +130,8 @@ python3 scripts/dependencies.py --write
 ```
 
 Granska diff, licenser och advisories och kör testerna.
-Resultat: [SAML](evidence/verification.md), [lagring](evidence/g2-verification.md),
-[WebAuthn](evidence/web-verification.md).
+Aktuella resultat finns i [GitHub Actions](https://github.com/Jtensetti/openID/actions).
+Bevara revision och resultat tillsammans; gamla rapporter finns i Git-historiken.
 
 ## Prova dokumentunderskrift
 
@@ -206,8 +206,8 @@ Miljövariabler och CLI kan inte byta bindning, metadata eller nycklar.
 Labben saknar verifierad personbindning, distribuerad spärr/lagring,
 HSM, oberoende bevisarkiv, produktionsåterställning och driftberedskap.
 Tillitsgodkännande och oberoende säkerhetsacceptans återstår.
-Det korta SAML-svarsfönstret och upstreams audit-varning beskrivs i
-[verifieringsrapporten](evidence/verification.md).
+SAML-valideringen använder det femsekunders svarsfönster som beskrivs i
+[komponentregistret](../THIRD_PARTY.md#anpassad-källkod).
 
 [Driftcontainern](../ops/README.md) innehåller inte labben eller dess nycklar.
 Versioner, licenser och underhåll finns i [THIRD_PARTY.md](../THIRD_PARTY.md).

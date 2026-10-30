@@ -241,8 +241,7 @@ och oberoende granskning återstår; se [verifierarens
 begränsningar](../verification/README.md#begränsningar).
 Appen utfärdar ingen godkänd e-legitimation. Myndighetsanslutning och pushnotiser
 ingår inte. Underskriftsflödet ovan är en testfunktion utan kvalificerad
-underskrift eller betrodda långtidsbevis. [Appens säkerhetsunderlag](../docs/iphone-sakerhet.md)
-knyter kontroller till GAP-punkter och skiljer dem från kvarstående beslut.
+underskrift eller betrodda långtidsbevis. [Säkerhetsinformationen](../SECURITY.md) beskriver gemensamma begränsningar.
 
 ## Kamerainläsning och fel i registreringen
 
@@ -321,8 +320,7 @@ layout finns endast i Debug och kan inte aktiveras i Release.
 
 ## TrueDepth
 
-TrueDepth ingår inte i fångstflödet. [Undersökningsspåret](../docs/truedepth-undersokning.md)
-beskriver separata prov av djupdata, synkronisering och presentationsattacker.
+TrueDepth ingår inte i fångstflödet. Kameraguiden använder AVFoundation och Vision.
 
 API-underlag för automatisk fångst, kontrollerat 2026-10-30:
 [Vision-bildval](https://developer.apple.com/documentation/vision/selecting-a-selfie-based-on-capture-quality),

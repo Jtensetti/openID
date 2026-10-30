@@ -81,16 +81,29 @@ commit räcker inte. Historikändring kräver separat beslut.
 
 ## Rapportera problem
 
-Repot är privat sedan 30 oktober 2026. Rapportera säkerhetsproblem till
+Rapportera säkerhetsproblem till
 [Jonatan@tensetti.se](mailto:Jonatan@tensetti.se). Ange berörd version,
 förutsättningar, konsekvens och en kort beskrivning. Skicka inte pass,
 biometrik, personakter, privata nycklar eller lösenord. Be om en överenskommen
 säker överföringsväg för känsliga tekniska bilagor. Publicera inte känsliga
 sårbarhetsdetaljer i öppna kanaler.
 
-Den tidigare GitHub-länken för publik sårbarhetsrapportering är inte längre
-angiven som aktiv kanal. Bemannad beredskap och garanterad svarstid är inte
-fastställda. Kontaktadressen ersätter inte användarens separata spärrfunktion.
+Bemannad beredskap och garanterad svarstid är inte fastställda.
+Kontaktadressen ersätter inte användarens separata spärrfunktion.
+
+## Kända begränsningar och separata utkast
+
+Kod i öppna PR:er är inte del av `main` eller den driftsatta betan.
+[PR #52](https://github.com/Jtensetti/openID/pull/52) innehåller ytterligare
+OS-paketkontroll och runtime-uppdateringar. [PR #53](https://github.com/Jtensetti/openID/pull/53)
+innehåller bland annat registreringskvitton, personutdrag och raderingsjournal.
+Båda är separata utkast med underkända OS-kontroller på de senast redovisade
+revisionerna. Den ordinarie CI-körningen på `main` stänger inte dessa fynd.
+
+Fysisk biometri-/PAD-kalibrering, injektion/relä, operativ återställning,
+nyckelförvaltning och oberoende säkerhetsgranskning återstår. Projektet har
+inte visats uppfylla ISO 27001-nivå eller Diggs tillitskrav. Organisations-
+och juridiska beslut hanteras utanför kodbasen.
 
 ## Test och release
 

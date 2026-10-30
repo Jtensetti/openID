@@ -8,7 +8,7 @@ description: >-
 
 # Identitetens livscykel och nyckelsäkerhet
 
-Projektspecifik originalinstruktion. Läs `AGENTS.md`, `docs/arkitektur.md`, ID-/SEC-/GOV-raderna i `docs/krav.md` samt D08/D09 via källregistret. Använd även `digg-compliance` när ett normativt krav behöver tolkas.
+Projektspecifik originalinstruktion. Läs `AGENTS.md`, livscykeln i `docs/arkitektur.md`, `SECURITY.md` och berörda tester. Kontrollera primärkällor när protokoll- eller myndighetskrav behöver tolkas; ett kodprov utgör inget tillitsgodkännande.
 
 ## Grundregel
 

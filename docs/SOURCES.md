@@ -1,4 +1,9 @@
-# Källregister
+# Tekniska källor
+
+Referenser för implementation, protokolltester och byggkedja. Daterade
+kontroller beskriver den lästa versionen, inte dagens driftstatus eller
+ett formellt godkännande. Beroenden och licenser finns i
+[THIRD_PARTY.md](../THIRD_PARTY.md).
 
 ## Avgränsad klientadress genom betans ingress, 2026-10-26
 
@@ -7,21 +12,6 @@ och [remote_addr](https://nginx.org/en/docs/http/ngx_http_core_module.html#var_r
 ligger till grund för att ersätta klientens adresshuvud med anslutningens
 adress. Inga `real_ip`-regler ingår. Eget proxyläge begränsas till explicit
 loopbacklyssnare; det provas med förfalskade huvuden genom riktig nginx.
-
-## GrandID/eID API, 2026-10-29
-
-| ID | Primärkälla och avgränsning |
-|---|---|
-| GID-01 | [Svensk e-identitet: integrationsmäklare](https://e-identitet.se/tjanst/autentisering-inloggning/integrationsmaklare), särskilt FAQ om IdP-anslutning och nya motparter. Anger SAML 2.0/OIDC samt leverantörens konfiguration. Beskriver kundspecifika IdP:er, inte ett bekräftat generellt distributionsavtal för OpenID. |
-| GID-02 | [GrandID: OpenID Connect](https://docs.grandid.com/OpenIDConnect), avsnittet Third party identity provider. Sidans dynamiskt inlästa [Markdown-källa](https://bitbucket.org/grandid/docs/raw/HEAD/OpenIDConnect/README.md) har lästs direkt. Kundexemplen gäller GrandID som OIDC-server; de fastställer inte hela profilen när GrandID är klient till OpenID. |
-| GID-03 | [GrandID: Integration Broker](https://docs.grandid.com/integrationbroker), direktläst [Markdown-källa](https://bitbucket.org/grandid/docs/raw/HEAD/IntegrationBroker/README.md), samt [integrationsprotokoll](https://e-identitet.se/tjanst/autentisering-inloggning/integrationsprotokoll). Beskriver mäklarrollen och kundens FederatedLogin/GetSession. |
-| GID-04 | [Svensk e-identitet: API: så pratar era system med våra tjänster](https://e-identitet.se/inspiration/vadarvad/api). Skiljer eID API för legitimering/signering från eAvtal API för avtalets livscykel; fastställer ingen upstream-signaturprofil för OpenID. |
-
-Dokumenten kontrollerades 2026-10-29. OIDC- och mäklardokumenten saknar
-angiven profilrevision; `HEAD` är en föränderlig läshänvisning.
-Accepterad anslutningsprofil och version ska därför bindas till det
-faktiska leverantörsprovet. [FED-05](grandid-integration.md) skiljer
-publicerat stöd, projektets designval och återstående leverantörsbesked.
 
 ## Separat byggmiljö, 2026-10-26
 
@@ -48,20 +38,6 @@ anger `ubuntu.sources`, huvudarkivet och `Signed-By` för Ubuntu 24.04.
 CI byter endast URI för Azure-spegeln; APT:s befintliga signaturkontroll,
 suites och komponenter behålls.
 
-## Omkontroll för appens GAP-arbete, 2026-10-26
-
-D08 har lästs på nytt mot den publicerade webbsidan (rubrikdatum
-2022-10-04, sidfot 2024-12-20). [ISO/IEC 27001:2022](https://www.iso.org/standard/27001)
-och [Amd 1:2024](https://www.iso.org/standard/88435.html) är underlag för
-ledningssystemets avgränsning. Fullständig bedömning förutsätter licensierad
-standardtext och beslutad SoA; appens tekniska mappning är inte en certifiering.
-
-[Apple App Attest Environment](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.developer.devicecheck.appattest-environment)
-och [förberedelser för App Attest](https://developer.apple.com/documentation/devicecheck/preparing-to-use-the-app-attest-service)
-kontrollerade 2026-10-26: utvecklings- och produktionsnycklar tillhör skilda
-miljöer. Produktion kan väljas för lokal provning, och TestFlight använder
-produktion. Appens signerade entitlement kontrolleras separat från byggläget.
-
 ## Synligt PDF-kvitto och tillit, omkontroll 2026-10-26
 
 [Diggs valideringsbeskrivning](https://www.digg.se/digitala-tjanster/e-underskrift/valideringstjanst),
@@ -81,31 +57,10 @@ beskriver gränsen för bakomliggande svarshuvuden även när response buffering
 anger kontrollen av formulärnavigationer. Telefonsidans policy behöver tillåta
 OIDC:s konfigurerade callback efter godkännandets POST, utan godtyckliga mål.
 
-## Ursprunglig inventering
-
-Referenser från inventeringen 2026-10-19. Kravnummer och avsnitt finns i
-[kravöversikten](krav.md). Originaltexternas aktuella lydelse och
-ikraftträdande behöver kontrolleras inför en formell bedömning.
-
-## Myndighetskällor och tekniska profiler
+## Tekniska profiler
 
 | ID | Källa |
 |---|---|
-| D01 | [Leverera elektronisk identifiering](https://www.digg.se/digitala-tjanster/e-legitimering/bli-godkand-utfardare-av-svensk-e-legitimation/leverera-elektronisk-identifiering-inom-auktorisationssystemet) |
-| D02 | [Administrativa föreskrifter](https://www.digg.se/digitala-tjanster/e-legitimering/bli-godkand-utfardare-av-svensk-e-legitimation/leverera-elektronisk-identifiering-inom-auktorisationssystemet/auktorisationssystem-for-elektronisk-identifiering---administrativa-foreskrifter) |
-| D03 | [Anslutningsavtal, leverantör](https://www.digg.se/digitala-tjanster/e-legitimering/bli-godkand-utfardare-av-svensk-e-legitimation/leverera-elektronisk-identifiering-inom-auktorisationssystemet/auktorisationssystem-for-elektronisk-identifiering---administrativa-foreskrifter/anslutningsavtal-for-auktorisationssystem-for-elektronisk-identifiering---leverantor) |
-| D04 | [Bilaga 1, ersättning och fakturering](https://www.digg.se/digitala-tjanster/e-legitimering/bli-godkand-utfardare-av-svensk-e-legitimation/leverera-elektronisk-identifiering-inom-auktorisationssystemet/auktorisationssystem-for-elektronisk-identifiering---administrativa-foreskrifter/anslutningsavtal-for-auktorisationssystem-for-elektronisk-identifiering---leverantor/bilaga-1---ersattning-berakning-och-fakturering) |
-| D05 | [Bilaga 2, beräkningsdata](https://www.digg.se/digitala-tjanster/e-legitimering/bli-godkand-utfardare-av-svensk-e-legitimation/leverera-elektronisk-identifiering-inom-auktorisationssystemet/auktorisationssystem-for-elektronisk-identifiering---administrativa-foreskrifter/anslutningsavtal-for-auktorisationssystem-for-elektronisk-identifiering---leverantor/bilaga-2---teknisk-specifikation-for-berakningsdata) |
-| D06 | [Rapporteringsrutin](https://www.digg.se/digitala-tjanster/e-legitimering/bli-godkand-utfardare-av-svensk-e-legitimation/leverera-elektronisk-identifiering-inom-auktorisationssystemet/rutin-for-rapportering-inom-auktorisationssystem-for-elektronisk-identifiering) |
-| D07 | [Bli godkänd utfärdare](https://www.digg.se/digitala-tjanster/e-legitimering/bli-godkand-utfardare-av-svensk-e-legitimation) |
-| D08 | [Tillitsramverket](https://www.digg.se/digitala-tjanster/e-legitimering/om-e-legitimering/tillitsnivaer-for-e-legitimering/tillitsramverk-for-svensk-e-legitimation) |
-| D09 | [Vägledning för utfärdare](https://www.digg.se/digitala-tjanster/e-legitimering/om-e-legitimering/tillitsnivaer-for-e-legitimering/tillitsramverk-for-svensk-e-legitimation/vagledning-for-utfardare) |
-| D10 | [Teknisk anslutning hos offentlig aktör](https://www.digg.se/digitala-tjanster/e-legitimering/erbjud-inloggning-med-svenska-e-legitimationer/teknisk-information-gallande-auktorisationssystem-for-elektronisk-identifiering) |
-| D11 | [Erkännandeskyldigheten från december 2026](https://www.digg.se/digitala-tjanster/e-legitimering/om-e-legitimering/krav-pa-offentliga-aktorer-att-erkanna-flera-e-legitimationer) |
-| D12 | [Samlad ersättningsöversikt](https://www.digg.se/digitala-tjanster/digital-post/digital-post-for-dig-som-offentlig-aktor/infor-anslutning/avgifter-och-ersattning-inom-auktorisationssystem-elektronisk-identifiering-och-digital-post) |
-| D13 | [Myndigheternas införandedatum](https://www.digg.se/om-oss/nyheter/digital-identitet/nyheter/2026-04-02-krav-pa-fler-e-legitimationer-i-myndigheters-e-tjanster---nu-starker-vi-robustheten) |
-| L01 | [Lag (2026:1358)](https://www.riksdagen.se/sv/dokument-och-lagar/dokument/svensk-forfattningssamling/lag-20261358-om-statlig-e-legitimation-och_sfs-2026-1358/) |
-| L02 | [Förordning (2023:709)](https://www.riksdagen.se/sv/dokument-och-lagar/dokument/svensk-forfattningssamling/forordning-2023709-om-auktorisationssystem-i_sfs-2023-709/) |
 | T01 | [Sweden Connect, specifikationsindex](https://docs.swedenconnect.se/technical-framework/) |
 | T02 | [SAML Deployment Profile](https://docs.swedenconnect.se/technical-framework/latest/02_-_Deployment_Profile_for_the_Swedish_eID_Framework.html) |
 | T03 | [OpenID Connect Profile for Sweden Connect](https://docs.swedenconnect.se/technical-framework/latest/OpenID_Connect_Profile_for_Sweden_Connect.html) |
@@ -160,23 +115,19 @@ Exakta revisioner, licenser och underhållskontroller finns i
 [THIRD_PARTY.md](../THIRD_PARTY.md). Pass-, NFC- och modellkällor finns i
 [verifierarens komponentregister](../verification/THIRD_PARTY.md).
 
-## Komplettering 2026-10-21: OIDC, tillitsnivåer och EU
+## Protokollidentifierare
 
-| ID | Primärkälla och avgränsning |
-|---|---|
-| T04 | [Sweden Connect identifierarregister](https://docs.swedenconnect.se/technical-framework/latest/03_-_Registry_for_Identifiers.html), §3.1.1. Identifierare är inte certifiering. |
-| D14 | [Diggs författningssamling](https://www.digg.se/om-oss/forfattningssamling): MDFFS 2025:1 samt 2025:2/2025:3 med ändringar 2026:3/2026:4. Fullständig tillämpningsbedömning återstår. |
-| EU01 | [eIDAS, förordning 910/2014](https://eur-lex.europa.eu/eli/reg/2014/910/oj), ändrad genom 2024/1183. |
-| EU02 | [Genomförandeförordning 2015/1502](https://eur-lex.europa.eu/eli/reg_impl/2015/1502/oj), tillitsnivåer low/substantial/high. |
-| EU03 | [SDG, förordning 2018/1724](https://eur-lex.europa.eu/eli/reg/2018/1724/oj), särskilt artikel 13. |
+T04: [Sweden Connect identifierarregister](https://docs.swedenconnect.se/technical-framework/latest/03_-_Registry_for_Identifiers.html),
+§3.1.1. Kodens testkontext är inte en godkänd tillitsnivå. Den versionsbundna
+OIDC-/SAML-källan ovan gäller protokollproven; biblioteksversionen anges separat
+i [THIRD_PARTY.md](../THIRD_PARTY.md).
 
-T03 identifierades som version 1.0, daterad 2024-12-04. Biblioteksrevisionen
-är separat: Spring Authentication Server 1.0.3,
-`dd49df31aa250eaacbd3a27466a05ec331b6dddc`. Ingen fullständig
-profilcertifiering är utförd. Direktåtkomst till EUR-Lex blockerades vid
-denna genomgång; EU-hänvisningarna ersätter inte läsning av konsoliderad
-lydelse inför juridiskt ställningstagande.
+## App Attest, kontrollerat 2026-10-26
 
+[Apple App Attest Environment](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.developer.devicecheck.appattest-environment)
+och [förberedelser för App Attest](https://developer.apple.com/documentation/devicecheck/preparing-to-use-the-app-attest-service)
+beskriver skilda utvecklings- och produktionsmiljöer. TestFlight använder
+produktion. Den signerade appens entitlement kontrolleras separat från byggläget.
 
 ## Certifikatspärr, kontrollerat 2026-10-26
 
@@ -194,23 +145,14 @@ lydelse inför juridiskt ställningstagande.
 
 - [Skatteverket: samordningsnummer](https://www.skatteverket.se/privat/folkbokforing/personnummerochsamordningsnummer/samordningsnummer.4.5c281c7015abecc2e201130b.html), kontrollerad 2026-10-21. Dagfältet ökas med 60; kontrollsiffra ingår. Formatkontroll är inte registerverifiering eller bevis på styrkt identitet.
 
+### Passfält, kontrollerat 2026-10-21
 
-### Omkontroll av passfält och ID-02, 2026-10-21
-
-D08 (webbversion daterad 2022-10-04) och D09 (2025-03-14) har lästs på nytt,
-särskilt K5.7–K5.9, K5.13 och K5.14. Ingen formell kravstatus ändras.
 [ICAO Doc 9303, del 10, åttonde upplagan med ändringar](https://www.icao.int/publications/documents/9303_p10_cons_en.pdf),
 tabell 72: DG11 kan innehålla personal number och fullständigt födelsedatum;
 fälten är valfria. Detta bevisar inte förekomst i ett visst svenskt pass.
 
-## Komplettering 2026-10-23: utgivning
+## Registeradapter, kontrollerat 2026-10-23
 
-- D08 K2.1–K2.3 och D09 vägledning till K5.13 har lästs på nytt för
-  organisation, uthållighet, kontroll av handlingens status och oberoende
-  provning. Detta ändrar inte formell kravstatus.
-- D15: [Digg, bilaga D om biometriska uppgifter](https://www.digg.se/digitala-tjanster/e-legitimering/om-e-legitimering/tillitsnivaer-for-e-legitimering/tillitsramverk-for-svensk-e-legitimation/vagledning-for-utfardare/bilaga-d-dataskyddsforordningens-bestammelser-vid-behandling-av-biometriska-uppgifter),
-  senast uppdaterad 2025-03-19. Avsnitt 3 och 5 är underlag för alternativ
-  grundidentifiering vid samtycke respektive konsekvensbedömning.
 - P01: [Polisen, kontroll av pass/nationellt id-kort](https://polisen.se/tjanster-tillstand/pass-och-nationellt-id-kort/giltiga-svenska-resehandlingar/kontroll-av-passnationellt-id-kort/),
   granskad 2025-02-27. Publik giltighetskontroll och CSCA-certifikat är
   skilda funktioner. Sidan dokumenterar inte ett API-avtal för OpenID.
