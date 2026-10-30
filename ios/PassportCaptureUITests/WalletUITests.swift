@@ -67,9 +67,11 @@ final class WalletUITests: XCTestCase {
         let app = XCUIApplication(); app.launchArguments = ["--capture-guide-preview"]; app.launch()
         XCTAssertTrue(app.staticTexts["capture.instruction"].waitForExistence(timeout: 10))
         XCTAssertEqual(app.staticTexts["capture.instruction"].label, "Titta rakt mot kameran")
+        XCTAssertTrue(app.staticTexts["capture.instruction"].isHittable)
         XCTAssertEqual(app.otherElements["capture.ring"].value as? String, "0 av 3 bilder tagna")
         app.buttons["capture.preview.next"].tap()
         XCTAssertEqual(app.staticTexts["capture.instruction"].label, "Vrid huvudet lite åt höger")
+        XCTAssertTrue(app.staticTexts["capture.instruction"].isHittable)
         XCTAssertEqual(app.otherElements["capture.ring"].value as? String, "1 av 3 bilder tagna")
         let image = XCTAttachment(screenshot: app.screenshot()); image.name = "openID-capture-guide"; image.lifetime = .keepAlways; add(image)
         app.buttons["capture.preview.missing"].tap()
@@ -79,6 +81,15 @@ final class WalletUITests: XCTestCase {
         XCTAssertEqual(app.staticTexts["capture.instruction"].label, "Vrid huvudet lite åt vänster")
         XCTAssertFalse(app.staticTexts["Verifierad"].exists)
         XCTAssertFalse(app.buttons["Godkänn"].exists)
+    }
+    func testPassportGuideInstructionAndSyntheticPreview() {
+        let app = XCUIApplication(); app.launchArguments = ["--passport-guide-preview"]; app.launch()
+        let instruction = app.staticTexts["passport.instruction"]
+        XCTAssertTrue(instruction.waitForExistence(timeout: 5))
+        XCTAssertTrue(instruction.isHittable)
+        XCTAssertLessThanOrEqual(instruction.frame.maxX, app.frame.maxX)
+        let image = XCTAttachment(screenshot: app.screenshot()); image.name = "openID-passport-guide"; image.lifetime = .keepAlways; add(image)
+        XCTAssertFalse(app.staticTexts["Verifierad"].exists)
     }
     func testControlCodePreservesLeadingZeroAtLargestTextSize() {
         let app = XCUIApplication(); app.launchArguments = ["--usability-preview"]; app.launch()

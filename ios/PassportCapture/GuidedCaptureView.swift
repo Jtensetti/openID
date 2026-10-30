@@ -9,86 +9,84 @@ struct GuidedCaptureView: View {
 }
 
 struct CaptureGuideView<Preview: View>: View {
-    @Environment(\.dynamicTypeSize) private var textSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let guidance: CaptureGuidance
     var showsDiagnostics = false
     @ViewBuilder var preview: () -> Preview
 
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 16) {
             ZStack {
                 preview()
                 GeometryReader { geometry in
-                    let width = geometry.size.width * 0.82
-                    let height = geometry.size.height * 0.66
-                    ZStack {
-                        CaptureMask().fill(.black.opacity(0.38), style: FillStyle(eoFill: true))
-                            .frame(width: geometry.size.width, height: geometry.size.height)
-                        Ellipse().stroke(.white.opacity(0.35), lineWidth: 3).frame(width: width, height: height)
-                        ForEach([false, true], id: \.self) { right in
-                            DirectionArc(right: right)
-                                .stroke(arcColor(right: right), style: StrokeStyle(lineWidth: 6, lineCap: .round))
-                                .frame(width: width, height: height)
-                        }
-                        if guidance.confirmedPose != nil {
-                            Image(systemName: "checkmark.circle.fill").font(.largeTitle).foregroundStyle(.green)
-                        } else if guidance.pose != .front {
-                            Image(systemName: guidance.pose == .side ? "arrow.right" : "arrow.left")
-                                .font(.title.bold()).foregroundStyle(.white)
-                                .offset(x: guidance.pose == .side ? width * 0.34 : -width * 0.34)
-                        }
-                    }.frame(width: geometry.size.width, height: geometry.size.height)
+                    let oval = CGRect(x: geometry.size.width * 0.09, y: geometry.size.height * 0.17,
+                                      width: geometry.size.width * 0.82, height: geometry.size.height * 0.66)
+                    CaptureMask().fill(.black.opacity(0.42), style: FillStyle(eoFill: true))
+                    ForEach(0..<72, id: \.self) { index in
+                        OvalSegment(index: index, oval: oval)
+                            .stroke(segmentColor(index), style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                    }
+                    .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: guidance.proximity)
                 }.allowsHitTesting(false).accessibilityHidden(true)
                 VStack {
-                    Text("Bild \(guidance.confirmedPose == nil ? min(3, guidance.completed + 1) : guidance.completed) av 3").font(.subheadline.monospacedDigit().weight(.medium))
-                        .padding(.horizontal, 14).padding(.vertical, 8).background(.black.opacity(0.45), in: Capsule())
+                    Label(guidance.completed == 3 ? "Tre bilder tagna" : "Automatiskt", systemImage: "camera.fill")
+                        .font(.caption.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.7).padding(10)
+                        .background(.black.opacity(0.65), in: Capsule())
+                    Spacer()
+                    if guidance.confirmedPose != nil {
+                        Image(systemName: "checkmark.circle.fill").font(.system(size: 40))
+                            .foregroundStyle(.green).padding(.bottom, 16).accessibilityHidden(true)
+                    }
                     if showsDiagnostics {
-                        HStack(spacing: 10) {
+                        HStack(spacing: 12) {
                             check("Avstånd", guidance.distanceOK)
-                            check("Centrering", guidance.centered)
+                            check("Mitten", guidance.centered)
                             check("Vinkel", guidance.angleOK)
                             check("Bild", guidance.qualityOK)
-                        }.padding(8).background(.black.opacity(0.8), in: RoundedRectangle(cornerRadius: 12))
+                        }.padding(10).background(.black.opacity(0.8), in: RoundedRectangle(cornerRadius: 12))
                     }
-                    Spacer()
-                    if !textSize.isAccessibilitySize {
-                    Text(guidance.hint).font(.subheadline.weight(.semibold))
-                        .multilineTextAlignment(.center).padding(10).frame(maxWidth: .infinity)
-                        .background(.black.opacity(0.8), in: RoundedRectangle(cornerRadius: 12))
-                        .accessibilityIdentifier("capture.instruction")
-                        .padding(8)
-                    }
-                }.foregroundStyle(.white).padding(.top, 20)
+                }.foregroundStyle(.white).padding(16)
             }
-            .aspectRatio(9.0 / 16, contentMode: .fit).frame(maxWidth: 260)
-            .background(Palette.cardStart).clipShape(RoundedRectangle(cornerRadius: 28))
-            .accessibilityElement(children: .contain).accessibilityLabel("Fotografering")
+            // Preserve the complete portrait image, while reserving room for the instruction on short phones.
+            .aspectRatio(9.0 / 16, contentMode: .fit)
+            .frame(maxWidth: min(300, max(170, (UIScreen.main.bounds.height - 330) * 9 / 16)))
+            .background(Palette.ink).clipShape(RoundedRectangle(cornerRadius: 28))
+            .accessibilityElement(children: .ignore).accessibilityLabel("Fotografering")
             .accessibilityValue("\(guidance.completed) av 3 bilder tagna").accessibilityIdentifier("capture.ring")
-            if textSize.isAccessibilitySize {
-                Text(guidance.hint).font(.headline).multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("capture.instruction")
-            }
+
+            Text(guidance.hint).font(.headline).multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("capture.instruction")
+            HStack(spacing: 12) {
+                ForEach(guidance.sequence, id: \.self) { pose in
+                    let done = guidance.completedPoses.contains(pose)
+                    Label(pose.shortTitle, systemImage: done ? "checkmark.circle.fill" : "circle")
+                        .font(.caption.weight(pose == guidance.pose ? .bold : .regular))
+                        .foregroundStyle(done ? Color.green : Palette.ink)
+                        .accessibilityLabel("\(pose.shortTitle): \(done ? "bild tagen" : "återstår")")
+                }
+            }.accessibilityIdentifier("capture.steps")
         }.frame(maxWidth: .infinity)
             .onChange(of: guidance.hint) { hint in
-                if UIAccessibility.isVoiceOverRunning {
-                    UIAccessibility.post(notification: .announcement, argument: hint)
-                }
+                if UIAccessibility.isVoiceOverRunning { UIAccessibility.post(notification: .announcement, argument: hint) }
             }
     }
 
-    private func arcColor(right: Bool) -> Color {
-        let pose = guidance.confirmedPose ?? guidance.pose
-        let active = pose == .front || (right ? pose == .side : pose == .opposite)
-        return active ? (guidance.confirmedPose == nil ? Color.purple : Color.green) : .white.opacity(0.18)
+    private func segmentColor(_ index: Int) -> Color {
+        let pose = OvalSegment.pose(for: index)
+        if guidance.completedPoses.contains(pose) { return .green }
+        guard guidance.completed < 3, guidance.pose == pose else { return .white.opacity(0.30) }
+        let indices = (0..<72).filter { OvalSegment.pose(for: $0) == pose }
+        let position = indices.firstIndex(of: index) ?? 0
+        guard Double(position + 1) / Double(indices.count) <= guidance.proximity else { return .white.opacity(0.45) }
+        // Amber means geometry is close but image quality still needs attention.
+        return guidance.acceptable ? .green : .orange
     }
-
     private func check(_ title: String, _ ready: Bool) -> some View {
         VStack(spacing: 4) {
             Image(systemName: ready ? "checkmark.circle.fill" : "circle.dashed")
                 .foregroundStyle(ready ? Palette.mint : Color.white.opacity(0.7))
             Text(title).font(.caption2)
-        }.accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(title): \(ready ? "bra" : "behöver justeras")")
+        }
     }
 }
 
@@ -100,19 +98,39 @@ private struct CaptureMask: Shape {
         return path
     }
 }
-
-private struct DirectionArc: Shape {
-    let right: Bool
+private struct OvalSegment: Shape {
+    let index: Int
+    let oval: CGRect
+    static func pose(for index: Int) -> CapturePose {
+        if (6..<30).contains(index) { return .side }
+        if (42..<66).contains(index) { return .opposite }
+        return .front
+    }
     func path(in rect: CGRect) -> Path {
+        let angle = (Double(index) * 5 - 90) * .pi / 180
+        let x = CGFloat(cos(angle)), y = CGFloat(sin(angle))
         var path = Path()
-        // Two half-ellipses with small gaps at top and bottom.
-        let start = right ? -82.0 : 98.0
-        for index in 0...80 {
-            let angle = (start + Double(index) * 164 / 80) * .pi / 180
-            let point = CGPoint(x: rect.midX + rect.width / 2 * CGFloat(Darwin.cos(angle)),
-                                y: rect.midY + rect.height / 2 * CGFloat(Darwin.sin(angle)))
-            if index == 0 { path.move(to: point) } else { path.addLine(to: point) }
-        }
+        path.move(to: CGPoint(x: oval.midX + x * oval.width / 2, y: oval.midY + y * oval.height / 2))
+        path.addLine(to: CGPoint(x: oval.midX + x * (oval.width / 2 + 9), y: oval.midY + y * (oval.height / 2 + 9)))
         return path
+    }
+}
+
+struct CaptureIntroduction: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var turned = false
+    var body: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "person.crop.circle")
+                .font(.system(size: 64, weight: .light))
+                .rotation3DEffect(.degrees(reduceMotion ? 0 : (turned ? 25 : -25)), axis: (x: 0, y: 1, z: 0))
+                .accessibilityHidden(true)
+            Text("Vi tar tre bilder automatiskt").font(.title3.bold())
+            Text("Titta mot kameran och vrid huvudet lite åt båda hållen i den ordning som visas. Strecken visar hur nära rätt position du är.")
+                .font(.subheadline).multilineTextAlignment(.center)
+        }.onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true)) { turned = true }
+        }
     }
 }

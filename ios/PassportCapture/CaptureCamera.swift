@@ -14,6 +14,8 @@ final class CaptureCamera: NSObject, ObservableObject, AVCaptureVideoDataOutputS
     private var queueRun: CaptureRun?
     private var continuation: CheckedContinuation<[Data], Error>?
     private var frames = [Data]()
+    private var candidate = CaptureCandidate<Data>()
+    private var sessionGeneration = 0
     private var guide = CaptureGuide()
     private var lastAnalysis = -Double.infinity
     private var videoOutput: AVCaptureVideoDataOutput?
@@ -35,6 +37,7 @@ final class CaptureCamera: NSObject, ObservableObject, AVCaptureVideoDataOutputS
                     guard !run.cancelled else { continuation.resume(throwing: CancellationError()); return }
                     self.queueRun = run; self.continuation = continuation
                     self.guide = CaptureGuide(sequence: sequence); self.frames = []; self.lastAnalysis = -Double.infinity
+                    self.candidate = CaptureCandidate<Data>(); self.sessionGeneration = 0
                     self.publish(run)
                     do {
                         try self.configure()
@@ -94,7 +97,7 @@ final class CaptureCamera: NSObject, ObservableObject, AVCaptureVideoDataOutputS
         guard let run = queueRun, !run.cancelled, output === videoOutput,
               let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         let time = CMTimeGetSeconds(CMSampleBufferGetPresentationTimeStamp(sampleBuffer))
-        guard time.isFinite, time - lastAnalysis >= 0.09 else { return }
+        guard time.isFinite, time - lastAnalysis >= 0.06 else { return }
         lastAnalysis = time
         var stage = "FACE_DETECTION"
         do {
@@ -118,17 +121,27 @@ final class CaptureCamera: NSObject, ObservableObject, AVCaptureVideoDataOutputS
             }
             let captureFrame = guide.observe(observations, at: time)
             guard !run.cancelled else { return }
-            publish(run)
-            guard captureFrame else { return }
-            stage = "IMAGE_ENCODING"
-            let image = CIImage(cvPixelBuffer: buffer)
-            guard let jpeg = context.jpegRepresentation(of: image, colorSpace: CGColorSpaceCreateDeviceRGB(),
-                    options: [CIImageRepresentationOption(rawValue: kCGImageDestinationLossyCompressionQuality as String): 0.85]),
-                  jpeg.count <= 2_000_000 else { throw CaptureError.unavailable }
+            if sessionGeneration != guide.sessionGeneration {
+                frames.removeAll(); sessionGeneration = guide.sessionGeneration
+            }
+            candidate.reset(to: guide.candidateGeneration)
+            if guide.candidateEligible, let quality {
+                stage = "IMAGE_ENCODING"
+                try candidate.consider(quality: quality) {
+                    let image = CIImage(cvPixelBuffer: buffer)
+                    guard let jpeg = context.jpegRepresentation(of: image, colorSpace: CGColorSpaceCreateDeviceRGB(),
+                        options: [CIImageRepresentationOption(rawValue: kCGImageDestinationLossyCompressionQuality as String): 0.85]),
+                        jpeg.count <= 2_000_000 else { throw CaptureError.unavailable }
+                    return jpeg
+                }
+            }
+            guard captureFrame else { publish(run); return }
+            guard let jpeg = candidate.value else { throw CaptureError.unavailable }
             frames.append(jpeg)
+            publish(run, captured: true)
             if frames.count == 3 {
                 let captured = frames
-                queue.asyncAfter(deadline: .now() + 0.65) { self.finish(.success(captured), run: run) }
+                queue.asyncAfter(deadline: .now() + CaptureGuide.confirmationDuration) { self.finish(.success(captured), run: run) }
             }
         } catch { finish(.failure(CaptureError.analysis(stage, (error as NSError).code)), run: run) }
     }
@@ -139,18 +152,19 @@ final class CaptureCamera: NSObject, ObservableObject, AVCaptureVideoDataOutputS
         run.cancel()
         queue.async { self.finish(.failure(CancellationError()), run: run) }
     }
-    private func publish(_ run: CaptureRun) {
+    private func publish(_ run: CaptureRun, captured: Bool = false) {
         let value = guide.guidance
         DispatchQueue.main.async {
             guard self.lock.withLock({ self.activeRun === run }), !run.cancelled else { return }
             self.guidance = value
+            if captured { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
         }
     }
     private func finish(_ result: Result<[Data], Error>, run: CaptureRun) {
         guard queueRun === run else { return }
         observers.forEach { NotificationCenter.default.removeObserver($0) }; observers.removeAll()
         videoOutput?.setSampleBufferDelegate(nil, queue: nil); videoOutput = nil
-        session.stopRunning(); frames.removeAll(); queueRun = nil
+        session.stopRunning(); frames.removeAll(); candidate = CaptureCandidate<Data>(); queueRun = nil
         let pending = continuation; continuation = nil
         pending?.resume(with: run.cancelled ? .failure(CancellationError()) : result)
     }

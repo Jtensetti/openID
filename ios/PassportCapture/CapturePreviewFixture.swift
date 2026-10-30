@@ -26,6 +26,23 @@ private struct RecoveryPreviewVault: CredentialVault {
     func sign(_ bytes: Data, credential: LocalCredential, context: LAContext) throws -> Data { throw WalletError.keyUnavailable }
 }
 
+struct PassportGuidePreviewFixture: View {
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 20) {
+                    ZStack { Color.gray; PassportGuideOverlay() }.frame(height: 400)
+                        .clipShape(RoundedRectangle(cornerRadius: 24))
+                    Text("Placera hela passets porträttsida i ramen").font(.headline)
+                        .accessibilityIdentifier("passport.instruction")
+                    Text("Fotograferas automatiskt. Håll passet plant och undvik reflexer.")
+                    Text("SIMULATOR – ingen kamera eller passdata").font(.caption)
+                }.padding(20)
+            }.navigationTitle("Skanna passuppgifter").navigationBarTitleDisplayMode(.inline)
+        }
+    }
+}
+
 struct CapturePreviewFixture: View {
     @State private var guidance = CaptureGuidance(hint: CapturePose.front.title)
     var body: some View {
@@ -44,7 +61,8 @@ struct CapturePreviewFixture: View {
                         Button("Nästa position") {
                             let next = min(2, guidance.completed + 1)
                             guidance = CaptureGuidance(pose: CapturePose(rawValue: next)!, completed: next,
-                                hint: CapturePose(rawValue: next)!.title)
+                                hint: CapturePose(rawValue: next)!.title, proximity: 0.65,
+                                completedPoses: Set(CapturePose.allCases.prefix(next)))
                         }.accessibilityIdentifier("capture.preview.next")
                         Spacer()
                         Button("Simulera saknat ansikte") {

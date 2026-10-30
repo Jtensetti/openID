@@ -569,7 +569,8 @@ struct EnrollmentView: View {
                     if flow.cameraVisible {
                         GuidedCaptureView(camera: flow.camera)
                     } else if flow.readyForCamera {
-                        PrimaryButton(title: "Starta ansiktskontrollen", symbol: "person.crop.rectangle") { flow.startCamera() }
+                        CaptureIntroduction()
+                        PrimaryButton(title: "Börja", symbol: "person.crop.rectangle") { flow.startCamera() }
                     } else if flow.busy {
                         ProgressView().frame(maxWidth: .infinity)
                     }
@@ -651,6 +652,7 @@ struct CameraCheckView: View {
                 if !running { Text(status).accessibilityAddTraits(.updatesFrequently) }
                 if running { GuidedCaptureView(camera: camera, showsDiagnostics: true) }
                 else {
+                    CaptureIntroduction()
                     PrimaryButton(title: "Starta kameraprov", symbol: "camera") {
                         running = true; status = "Följ ovalen och instruktionerna."
                         task = Task { @MainActor in

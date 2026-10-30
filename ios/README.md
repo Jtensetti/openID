@@ -97,16 +97,30 @@ fysiska prov av Secure Enclave, NFC, biometri och serverns aktivering.
 ## Fotografering
 
 Vision vägleder placering, avstånd, huvudvinkel och bildkvalitet. Tre bilder
-krävs: framåt, höger och vänster. Förhandsbilden är speglad; skickade bilder
-är ospeglade. Ovalens båda halvor lyser lila för frontbilden, sedan respektive
-sida. Grönt bekräftar fångsten i 0,65 sekunder. Bildnummer visas separat.
+krävs i serverns ordning. Förhandsbilden är speglad; skickade bilder är ospeglade.
+Segmenten runt ovalen visar geometrisk närhet till rätt position, även innan
+huvudet når målvinkeln. Orange visar närhet; grönt visar godtagbar position
+med tillräcklig bildkvalitet eller ett redan taget delsteg. Text och bockar
+kompletterar färgerna. En instruktion visas under kameran och dämpas mot
+kortvariga förändringar. Förhandsbilden begränsas på korta skärmar så att
+instruktionen ryms. Serverns ordning bevaras även om första bilden är en sida.
 
-Varje position kräver 0,45 sekunders hålltid och minst fyra godtagbara
-observationer. Kort korrigering får pausa hållningen högst 0,25 sekunder
-sammanlagt; pausen ger ingen framdrift. Fel sida, flera eller försvunna
-ansikten, stora rörelser och längre avbrott återställer hållningen.
-Aktuella trösklar finns i `PassportCapture/CaptureGuide.swift` och provas i
-`CaptureGuideTests`. Kameraguiden visar fångstvillkor, inte verifierad identitet.
+Varje bild väljs som den bästa Vision-kvaliteten i ett kort fönster: minst
+0,18 sekunders godtagbara observationer och minst tre prover. Kameran
+analyserar högst cirka 17 gånger per sekund. Endast den bästa JPEG-kandidaten
+behålls, aldrig en referens till kamerans återanvända pixelbuffert. Inga
+mellanbilder skrivs till disk. Befintliga geometriska och kvalitetsgränser
+behålls; naturlig rörelse tillåts inom dem. Korta kvalitetsdippar pausar högst
+0,25 sekunder sammanlagt utan att ge framdrift. Ett kandidatfönster får vara
+högst 0,50 sekunder gammalt. Stora hopp kasserar kandidaten. Bekräftelsen
+visas i 0,30 sekunder med lätt haptik.
+
+Mindre korrigeringar bevarar färdiga bilder. Flera ansikten eller mer än en
+sekunds förlorad ansikts-/tidskontinuitet rensar samtliga bilder och börjar
+om i samma serverordning. Kameraavbrott avbryter hela körningen. Detta är
+lokala fångstregler, inte bevis på obruten identitet eller liveness.
+Målet 5–10 sekunder från start till tre bilder behöver mätas på riktiga
+telefoner. Simulatorprover styrker inte den tiden eller biometrisk kvalitet.
 
 Registreringen visar riktningsoval, bildnummer och en aktuell instruktion.
 **Inställningar → Prova ansiktskameran** visar även diagnostikindikatorer och
@@ -213,7 +227,15 @@ knyter kontroller till GAP-punkter och skiljer dem från kvarstående beslut.
 
 ## Kamerainläsning och fel i registreringen
 
-VisionKit läser kodraderna lokalt med DataScannerViewController. Passnummer,
+VisionKit läser kodraderna lokalt med DataScannerViewController. En ram visar
+hela porträttsidan, med diskreta markeringar för porträttet och kodraderna.
+När giltiga åtkomstuppgifter hittas tas en stillbild automatiskt. Vision
+kontrollerar sidans synliga kanter och läser kodraderna igen efter
+perspektivkorrigering. Endast samma entydiga uppgifter med läsbarhetskonfidens
+minst 0,75 används. Bilden behandlas i minnet och kastas. Återkopplingen ger
+råd om sidans kanter, stillahållning och reflexer. Läsbarhetskontrollen är
+inte en separat mätning av porträttskärpa eller en kalibrerad reflexdetektor.
+Manuell inmatning finns kvar om automatiken inte fungerar. Passnummer,
 födelsedatum och utgångsdatum fylls i först när en entydig TD3-rad med
 korrekta kontrollsiffror och kalenderdatum har hittats. Ingen OCR-bild sparas
 eller skickas. Kontrollsiffrorna är formatkontroller; äktheten avgörs fortsatt
@@ -270,10 +292,19 @@ innebär inte att ett århundrade härleds från passets tvåsiffriga årtal.
 
 Vid tillgänglighetsstorlek staplas identitetskortets innehåll. Kontrollkoden
 visas på två rader och läses siffra för siffra, inklusive inledande nollor.
-Kamerans instruktion flyttas under förhandsvisningen vid stor text utan att
+Kamerans instruktion ligger alltid under förhandsvisningen, även vid stor text, utan att
 ändra bildutsnitt, huvudvinklar eller säkerhetskrav. QR-vyn går att rulla.
 
 Detta är förbättringar för provning, inte ett påstående om full tillgänglighet.
 Fulla språkversioner, fysisk VoiceOver-provning, alternativ till huvudrörelser
 och stödd fysisk minsta enhetsmodell återstår. Simulatorns testfixturer för
 layout finns endast i Debug och kan inte aktiveras i Release.
+
+## TrueDepth
+
+TrueDepth ingår inte i fångstflödet. [Undersökningsspåret](../docs/truedepth-undersokning.md)
+beskriver separata prov av djupdata, synkronisering och presentationsattacker.
+
+API-underlag för automatisk fångst, kontrollerat 2026-10-30:
+[Vision-bildval](https://developer.apple.com/documentation/vision/selecting-a-selfie-based-on-capture-quality),
+[DataScanner och lokal stillbild](https://developer.apple.com/documentation/visionkit/datascannerviewcontroller).

@@ -41,7 +41,7 @@ inte en distribuerad tjänst. [Start och drift](../deployment/README.md).
    MAC bekräftar chipnyckeln; sessionsnycklar lämnar inte serverprocessen.
 5. Efter chipkontrollen får appen ett nytt engångsvärde och tar tre
    AVFoundation-bilder. Vision vägleder fotograferingen framifrån och från båda sidor
-   utifrån huvudposition, bildkvalitet och hur länge användaren håller stilla. En ny App
+   utifrån huvudposition och bildkvalitet i ett kort fönster med godtagbara observationer. En ny App
    Attest-assertion binder bilderna till
    sessionen. YuNet/SFace jämför dem med passfotot. MiniFASNet beräknar PAD-värden.
    Godkända kontroller skapar `PENDING_REVIEW`; operatören aktiverar separat.

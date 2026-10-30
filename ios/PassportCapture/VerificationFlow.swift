@@ -104,7 +104,7 @@ import NFCPassportReader
                 stepTitle = "Ansiktskontroll"
                 status = "Passets båda chipkontroller är klara. Lägg undan passet och håll telefonen framför ansiktet."
                 try await waitForCameraStart()
-                status = "Följ ovalen och instruktionerna för tre bilder."
+                status = ""
                 cameraVisible = true
                 let frames = try await camera.capture(sequence: poses)
                 cameraVisible = false
@@ -114,7 +114,7 @@ import NFCPassportReader
                 let bytes = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
                 let assertion = try await service.generateAssertion(keyID, clientDataHash: Data(SHA256.hash(data: bytes)))
                 try Task.checkCancellation()
-                stepTitle = "Kontrollerar bilderna"
+                stepTitle = "Kontrollerar dina uppgifter"
                 status = "Bilderna är tagna. Vänta medan servern slutför kontrollen."
                 let result = try await api.postObject("/native/finish", body: ["id": id,"payload":bytes.base64EncodedString(),"assertion":assertion.base64EncodedString()])
                 activeChip = nil

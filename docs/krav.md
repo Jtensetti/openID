@@ -232,3 +232,16 @@ FIFO, katalog, symlänk, hårdlänk, breda rättigheter och fel längd.
 Se [40-punktsmatrisen](digg-kravmatris.md) och
 [avisering och spärr](avisering-och-sparr.md). Formell status
 förblir OPEN; dokumenten är ännu inte fastställda eller operativt verifierade.
+
+## Automatisk iOS-fångst
+
+ID-05/INT-02: ansiktsguiden visar geometrisk närhet, väljer högsta fångstkvalitet
+i ett kort godtagbart bildfönster och bevarar serverns ordning. Förlorad
+kontinuitet rensar bilderna; UI-färg används inte som serverbevis.
+Passguiden kontrollerar hela sidans kanter och läser MRZ från en lokal
+stillbild före ifyllnad. Bilden sparas eller skickas inte.
+`CaptureGuideTests` provar bildval, riktning, pauser och rensning.
+`PassportPhotoTests` kör Vision på syntetiska sidbilder och provar avklippt,
+tom och avvikande handling. UI-prov kontrollerar instruktioner, stor text
+och passram. Fysisk kalibrering, fångsttid och attackprov återstår.
+Formell status är oförändrad; TrueDepth är ett separat undersökningsspår.
