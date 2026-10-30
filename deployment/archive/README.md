@@ -106,6 +106,12 @@ orimligt framtida tider stoppar leverans. Offlineprovet täcker samma
 leverans-, mottagnings- och återläsningskedja. Uppdatera verifieraren före
 användning; detta innebär ingen aktivering av AWS-lagring för betan.
 
+Aktuellt format 5 inkluderar även raderingsjournal och spärrreferenser för
+raderade ärenden. Raderingstid räknas in i bevarandegränsen. TestFlight-ID:ts
+giltighet får nå kampanjens fasta slutdatum och förlänger då arkivets
+bevarande; det är inte en framtida händelsetid. Den vanliga 72-timmarsgränsen
+för orimliga händelse-/samtyckestider och andra ID:n gäller fortfarande.
+
 Kontrollerat 2026-10-24:
 [Object Lock](https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock.html),
 [skydd och bevarandegränser](https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock-managing.html),

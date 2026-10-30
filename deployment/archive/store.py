@@ -16,6 +16,7 @@ import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]/'verification'))
 import audit_archive as archive
+from wallet import TEST_BETA_END, TEST_BETA_DECISION
 
 UTC = timezone.utc
 MIN_DAYS = 1827
@@ -114,7 +115,14 @@ def required_until(source, cfg, now):
                     value = row.get(field)
                     if value is None: continue
                     instant = datetime.fromtimestamp(value, UTC) if type(value) is int else timestamp(value)
-                    if instant > now+timedelta(hours=72): raise ValueError('future register time requires review')
+                    # A test-beta credential can be valid through the campaign's
+                    # fixed end. Event/consent timestamps retain the clock-skew
+                    # bound; a long-lived ID must not be mistaken for a future event.
+                    beta_expiry = (name == 'credentials' and field == 'expires'
+                        and row.get('decision') == TEST_BETA_DECISION
+                        and type(value) is int and value <= TEST_BETA_END)
+                    if instant > now+timedelta(hours=72) and not beta_expiry:
+                        raise ValueError('future register time requires review')
                     latest = max(latest, instant)
     # Leave a full day for independent confirmation; do not round a retention down.
     return (latest+timedelta(days=cfg['days']+1)).replace(hour=0,minute=0,second=0,microsecond=0)+timedelta(days=1)

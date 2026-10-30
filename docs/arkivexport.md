@@ -1,7 +1,7 @@
 # Privat export av registerjournaler
 
 `verification/audit_archive.py` exporterar en sammanhängande läsögonblicksbild
-av befintliga registerjournaler. Format 1–4 är JSON Lines med fasta kolumner,
+av befintliga registerjournaler. Aktuellt format är 5; format 1–5 använder JSON Lines med fasta kolumner,
 radantal, byteantal och SHA-256 per fil i ett manifest. Verktyget skriver
 aldrig tillbaka till registret och anropar ingen nyckeltjänst.
 
@@ -35,7 +35,7 @@ Journal och profilmetadata läses i samma snapshot. Ett ofullständigt
 gallringsschema eller vyer i stället för dess tabeller nekar exporten;
 verktyget får inte tyst utelämna journalen. Äldre SQLite utan gallringsschema
 och PostgreSQL schema 2 behåller format 1. Offlineverifieringen stöder båda
-formaten samt format 3 och 4 nedan. Äldre verifierare nekar nya format och behöver uppdateras före mottagning.
+formaten samt format 3–5 nedan. Äldre verifierare nekar nya format och behöver uppdateras före mottagning.
 
 Format 3 används för SQLite med samtyckestabeller och för PostgreSQL schema 3. Det inkluderar även `enrollment_policies`, `enrollment_consents` och `credential_consents`: exakt information, signerade val, enhetsnyckelns digest, serverns mottagningstid, eventuell återkallelsetid och credentialbindning. SQLite behåller gallringsjournalen. Ett delvis tillagt samtyckesschema nekas. Nya exporter kräver uppdaterad verifierare och PostgreSQLs utökade, läsande `archive-access.sql`. Äldre arkivformat kan fortfarande verifieras.
 

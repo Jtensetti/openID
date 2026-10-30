@@ -190,6 +190,20 @@ class StoreTests(unittest.TestCase):
         (self.source/'erasure_runs.jsonl').write_bytes(store.archive.encoded(row))
         with self.assertRaisesRegex(ValueError,'future register time'):store.required_until(self.source,CFG,NOW)
 
+    def test_beta_expiry_extends_retention_but_cannot_extend_campaign_or_event_times(self):
+        baseline = store.required_until(self.source, CFG, NOW)
+        path = self.source/'credentials.jsonl'
+        row = ['a'*64, 'synthetic-public-key', 'ACTIVE', int(NOW.timestamp()),
+               store.TEST_BETA_END, store.TEST_BETA_DECISION]
+        path.write_bytes(store.archive.encoded(row))
+        self.assertGreater(store.required_until(self.source, CFG, NOW), baseline)
+        for index, value in ((4, store.TEST_BETA_END+1), (5, 'OTHER_DECISION'),
+                             (3, int((NOW+timedelta(hours=100)).timestamp()))):
+            invalid = list(row); invalid[index] = value
+            path.write_bytes(store.archive.encoded(invalid))
+            with self.assertRaisesRegex(ValueError, 'future register time'):
+                store.required_until(self.source, CFG, NOW)
+
     def test_wrong_custodian_role_is_not_accepted(self):
         cfg=CFG|{'custodianRole':'arn:aws:iam::111111111111:role/OtherCustodian'}
         with self.assertRaises(ValueError):store.confirm(self.deliver(),self.digest,cfg,self.s3,STS(True),now=NOW)
