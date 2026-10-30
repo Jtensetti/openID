@@ -89,27 +89,16 @@ nu i pilotbygget och serverproven enligt komponentregistret.
 [BuildKits checksum-kontroll](https://docs.docker.com/reference/dockerfile/#add---checksum)
 ligger till grund för installationen, även i `ops/`-imagen.
 
-Python 3.12.16:s officiella XZ-arkiv och
-[käll-SPDX](https://www.python.org/ftp/python/3.12.16/Python-3.12.16.tar.xz.spdx.json)
-har hämtats och hashkontrollerats. Taggen pekar på commit
-`2c2462afc5d978d31f3d073001fc202d269917ff`. Utgåvan rättar bland annat
-komprometterade CA-nycklar, Expat, tarfile och tempfile.
-[Dockerprojektets byggrecept](https://github.com/docker-library/python/blob/2a3b794c223ab067d122719541cdd54a068732a5/3.12/trixie/Dockerfile)
-och MIT-licens ligger till grund för det separata källbygget. Bygget behåller
-Python-/komponentlicenser, SPDX och testresultat.
+Python 3.12.16:s upstreamtagg pekar på commit
+`2c2462afc5d978d31f3d073001fc202d269917ff`. Runtime använder Wolfis paket
+med distributionens byggrecept och patchar, enligt OS-avsnittet ovan.
 [Pips ändringslogg](https://pip.pypa.io/en/stable/news/) och PyPI:s officiella
 hjul för 26.2.2 kontrollerades: uppdaterade CA-certifikat och tidigare
 säkerhetsrättningar ingår. Hjulhash, MIT-licens, transitiva licenser och
 inbäddad CycloneDX är dokumenterade i komponentregistret. Pips nya version
 används som byggverktyg; pip och ensurepip tas sedan bort ur driftfilsystemet.
-Ursprunglig Python-SPDX beskriver källutgåvan före denna paketering. Bevakning får inte stanna vid
-systempaketlistan; andra inbäddade beroenden återstår.
-
-[Upstreams TLS-testförväntan](https://github.com/python/cpython/blob/540b3d0a7fa7cd842f064f79b1410cbd6868bffa/Lib/test/test_ssl.py)
-för avvisad post-handshake-autentisering utan certifikat används i ett
-avgränsat testbackport. Referensen innehåller mönstret; den anges inte som
-committen som introducerade det. Filhashar och teständring bevaras i bygglåset.
-Runtime-TLS-koden ändras inte.
+Bevakning får inte stanna vid systempaketlistan; inbäddade beroenden i
+kopierade runtimebinärer behöver separat kontroll.
 
 [BuildKits nätisolering](https://docs.docker.com/reference/dockerfile/#run---networknone),
 [skrivskyddade byggmonteringar](https://docs.docker.com/reference/dockerfile/#run---mounttypebind)
