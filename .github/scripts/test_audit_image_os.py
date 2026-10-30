@@ -11,22 +11,18 @@ from unittest.mock import patch
 
 import audit_image_os as audit
 
-spec = importlib.util.spec_from_file_location('patch_debian', audit.ROOT / 'deployment/build/patch_debian.py')
-patcher = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(patcher)
-
 NOW = datetime(2026, 10, 26, 20, 0, tzinfo=timezone.utc)
 IMAGE = 'sha256:' + 'a' * 64
-TSV = 'libc6\t2.41-12+deb13u4\tamd64\tinstalled\ntzdata\t2026e-0+deb13u1\tall\tinstalled\n'
+TSV = 'glibc\t2.44-r11\tx86_64\tinstalled\ntzdata\t2026f-r0\tnoarch\tinstalled\n'
 
 
 def report():
     return {'SchemaVersion': 2, 'Trivy': {'Version': '0.76.1'},
             'CreatedAt': NOW.isoformat(), 'ArtifactType': 'container_image',
-            'Metadata': {'ImageID': IMAGE, 'OS': {'Family': 'debian', 'Name': '13.7'}},
-            'Results': [{'Class': 'os-pkgs', 'Type': 'debian', 'Packages': [
-                {'Name': 'libc6', 'Version': '2.41-12+deb13u4', 'Arch': 'amd64'},
-                {'Name': 'tzdata', 'Version': '2026e-0+deb13u1', 'Arch': 'all'}]}]}
+            'Metadata': {'ImageID': IMAGE, 'OS': {'Family': 'wolfi', 'Name': '20230201'}},
+            'Results': [{'Class': 'os-pkgs', 'Type': 'wolfi', 'Packages': [
+                {'Name': 'glibc', 'Version': '2.44-r11', 'Arch': 'x86_64'},
+                {'Name': 'tzdata', 'Version': '2026f-r0', 'Arch': 'noarch'}]}]}
 
 
 class ImageAuditTests(unittest.TestCase):
@@ -41,10 +37,10 @@ class ImageAuditTests(unittest.TestCase):
     def test_low_unfixed_and_unknown_findings_are_not_hidden(self):
         value = report()
         value['Results'][0]['Vulnerabilities'] = [
-            {'VulnerabilityID': 'CVE-TEST-1', 'PkgName': 'libc6',
-             'InstalledVersion': '2.41-12+deb13u4', 'Severity': 'LOW', 'Status': 'affected'},
+            {'VulnerabilityID': 'CVE-TEST-1', 'PkgName': 'glibc',
+             'InstalledVersion': '2.44-r11', 'Severity': 'LOW', 'Status': 'affected'},
             {'VulnerabilityID': 'CVE-TEST-2', 'PkgName': 'tzdata',
-             'InstalledVersion': '2026e-0+deb13u1', 'Severity': 'UNKNOWN'}]
+             'InstalledVersion': '2026f-r0', 'Severity': 'UNKNOWN'}]
         self.assertEqual(self.assess(value)['findingCount'], 2)
         self.assertEqual(self.assess(value)['severityCounts'], {'LOW': 1, 'UNKNOWN': 1})
 
@@ -65,7 +61,7 @@ class ImageAuditTests(unittest.TestCase):
     def test_unknown_wrong_or_unsupported_os_is_rejected(self):
         for system in [{}, {'Family': 'ubuntu', 'Name': '12'},
                        {'Family': 'debian', 'Name': '12'}, {'Family': 'debian', 'Name': '14'},
-                       {'Family': 'debian', 'Name': '13.7', 'EOSL': True}]:
+                       {'Family': 'wolfi', 'Name': '20230201', 'EOSL': True}]:
             value = report(); value['Metadata']['OS'] = system
             with self.subTest(system=system), self.assertRaises(ValueError): self.assess(value)
 
@@ -77,44 +73,33 @@ class ImageAuditTests(unittest.TestCase):
     def test_missing_extra_duplicate_or_changed_package_is_rejected(self):
         packages = report()['Results'][0]['Packages']
         cases = [[], packages[:1], packages*2,
-                 packages + [{'Name': 'extra', 'Version': '1', 'Arch': 'amd64'}],
-                 [dict(packages[0], Version='2.41-12'), packages[1]],
+                 packages + [{'Name': 'extra', 'Version': '1', 'Arch': 'x86_64'}],
+                 [dict(packages[0], Version='2.44-r10'), packages[1]],
                  [dict(packages[0], Arch='arm64'), packages[1]]]
         for changed in cases:
             value = report(); value['Results'][0]['Packages'] = changed
             with self.subTest(packages=changed), self.assertRaises(ValueError): self.assess(value)
 
-    def test_split_debian_version_retains_revision_epoch_and_rebuild_suffix(self):
-        value = report()
-        value['Results'][0]['Packages'] = [
-            {'Name': 'libc6', 'Version': '2.41', 'Release': '12+deb13u4', 'Arch': 'amd64'},
-            {'Name': 'tzdata', 'Version': '2026e', 'Release': '0+deb13u1', 'Arch': 'all'}]
-        self.assertEqual(self.assess(value)['packageCount'], 2)
-        value['Results'][0]['Packages'][0]['Release'] = '12+deb13u3'
-        with self.assertRaises(ValueError): self.assess(value)
-        value['Results'][0]['Packages'][0]['Release'] = '12+deb13u4'
-        value['Results'][0]['Packages'][0]['Epoch'] = 1
-        with self.assertRaises(ValueError): self.assess(value)
-        self.assertEqual(audit.package_version({'Version': '1.2.3', 'Epoch': 2,
-                                              'Release': '4+deb12u1+b2'}), '2:1.2.3-4+deb12u1+b2')
-        for epoch in [True, -1, '1']:
-            with self.subTest(epoch=epoch), self.assertRaises(ValueError):
-                audit.package_version({'Version': '1', 'Epoch': epoch})
+    def test_apk_version_includes_revision_and_rejects_dpkg_fields(self):
+        self.assertEqual(audit.package_version({'Version': '2.44-r11'}), '2.44-r11')
+        for change in ({'Release': '11'}, {'Epoch': 1}, {'Version': ''}, {'Version': '2.44 r11'}):
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                audit.package_version(dict({'Version': '2.44-r11'}, **change))
 
     def test_suppressed_and_invalid_findings_are_rejected(self):
         value = report(); value['Results'][0]['ExperimentalModifiedFindings'] = [{'Vulnerability': {}}]
         with self.assertRaises(ValueError): self.assess(value)
         for finding in [{}, {'VulnerabilityID': 'CVE-X', 'PkgName': 'unknown',
                             'InstalledVersion': '1', 'Severity': 'LOW'},
-                        {'VulnerabilityID': 'CVE-X', 'PkgName': 'libc6',
-                         'InstalledVersion': '2.41-12+deb13u4', 'Severity': 'NONE'}]:
+                        {'VulnerabilityID': 'CVE-X', 'PkgName': 'glibc',
+                         'InstalledVersion': '2.44-r11', 'Severity': 'NONE'}]:
             value = report(); value['Results'][0]['Vulnerabilities'] = [finding]
             with self.subTest(finding=finding), self.assertRaises(ValueError): self.assess(value)
 
     def test_inventory_empty_duplicates_partial_states_and_bad_arch_rejected(self):
         for raw in ['', TSV*2, TSV.replace('installed', 'half-configured'),
-                    TSV.replace('amd64', 'arm64'), TSV.replace('\tinstalled', ''),
-                    TSV + 'libc6\t1\tamd64\tinstalled\n']:
+                    TSV.replace('x86_64', 'arm64'), TSV.replace('\tinstalled', ''),
+                    TSV + 'glibc\t1\tx86_64\tinstalled\n']:
             with self.subTest(raw=raw), self.assertRaises(ValueError): audit.installed_packages(raw)
 
     def test_database_age_future_schema_and_missing_dates(self):
@@ -160,7 +145,10 @@ class ImageAuditTests(unittest.TestCase):
             out = Path(directory) / 'evidence'
             with patch.object(audit.platform, 'system', return_value='Linux'), \
                  patch.object(audit.platform, 'machine', return_value='x86_64'), \
-                 patch.object(audit.subprocess, 'check_output', side_effect=[('a'*40)+'\n', TSV]), \
+                 patch.object(audit.subprocess, 'check_output', side_effect=[('a'*40)+'\n', 'synthetic APK database']), \
+                 patch.object(audit.apk_inventory, 'parse', return_value={'packages': [
+                     {'name':'glibc','version':'2.44-r11','architecture':'x86_64'},
+                     {'name':'tzdata','version':'2026f-r0','architecture':'noarch'}]}), \
                  patch.object(audit, 'install', side_effect=OSError('unavailable')):
                 self.assertEqual(audit.audit(IMAGE, out), 2)
             assessment = json.loads((out / 'assessment.json').read_text())
@@ -184,8 +172,8 @@ class ImageAuditTests(unittest.TestCase):
                 value['Metadata']['ImageID'] = IMAGE if case == 'wrong-image' else second_image
                 if case == 'finding':
                     value['Results'][0]['Vulnerabilities'] = [{
-                        'VulnerabilityID': 'CVE-TEST-REGISTRY', 'PkgName': 'libc6',
-                        'InstalledVersion': '2.41-12+deb13u4', 'Severity': 'LOW'}]
+                        'VulnerabilityID': 'CVE-TEST-REGISTRY', 'PkgName': 'glibc',
+                        'InstalledVersion': '2.44-r11', 'Severity': 'LOW'}]
 
                 def run(command, **kwargs):
                     if '--download-db-only' in command:
@@ -206,7 +194,11 @@ class ImageAuditTests(unittest.TestCase):
                 with patch.object(audit, 'datetime', FixedClock), \
                      patch.object(audit.platform, 'system', return_value='Linux'), \
                      patch.object(audit.platform, 'machine', return_value='x86_64'), \
-                     patch.object(audit.subprocess, 'check_output', side_effect=[('a'*40)+'\n', TSV]), \
+                     patch.object(audit.subprocess, 'check_output', side_effect=[('a'*40)+'\n', 'synthetic APK database']), \
+                     patch.object(audit.apk_inventory, 'parse', return_value={'packages': [
+                         {'name':'glibc','version':'2.44-r11','architecture':'x86_64'},
+                         {'name':'tzdata','version':'2026f-r0','architecture':'noarch'}]}), \
+                     patch.object(audit.wolfi_advisories, 'collect', return_value={'findings': []}), \
                      patch.object(audit, 'install', side_effect=lambda lock, work, output: work/'trivy'), \
                      patch.object(audit.subprocess, 'run', side_effect=run):
                     self.assertEqual(audit.audit(second_image, out), expected)
@@ -221,39 +213,6 @@ class ImageAuditTests(unittest.TestCase):
                     self.assertEqual(assessment['findingCount'], 1)
                 if case == 'wrong-image':
                     self.assertEqual(assessment['error'], 'report belongs to another image')
-
-    def test_debian_patch_download_requires_exact_hash_and_official_source(self):
-        item = {'url': 'https://security.debian.org/debian-security/pool/updates/main/test.deb',
-                'sha256': hashlib.sha256(b'package').hexdigest()}
-        with patch.object(patcher.urllib.request, 'urlopen', return_value=io.BytesIO(b'package')):
-            self.assertEqual(patcher.download(item), b'package')
-        with patch.object(patcher.urllib.request, 'urlopen', return_value=io.BytesIO(b'changed')):
-            with self.assertRaises(ValueError): patcher.download(item)
-        with self.assertRaises(ValueError): patcher.download(dict(item, url='https://unknown.invalid/test.deb'))
-        with patch.object(patcher.urllib.request, 'urlopen', return_value=io.BytesIO(b'package')):
-            self.assertEqual(patcher.download(dict(item, url='https://deb.debian.org/debian/pool/main/t/test.deb')), b'package')
-
-    def test_runtime_package_lock_rejects_old_partial_or_different_installations(self):
-        packages = [{'name': 'libsqlite3-0', 'version': '3.46.1-7+deb13u2'}]
-        with patch.object(patcher.subprocess, 'check_output', return_value='3.46.1-7+deb13u2\tinstalled'):
-            patcher.verify_versions(packages)
-        for actual in ['3.40.1-2+deb12u2\tinstalled', '3.46.1-7+deb13u1\tinstalled',
-                       '3.46.1-7+deb13u2\tunpacked', '']:
-            with self.subTest(actual=actual), patch.object(patcher.subprocess, 'check_output', return_value=actual):
-                with self.assertRaises(ValueError): patcher.verify_versions(packages)
-
-    def test_server_images_use_the_locked_runtime_base(self):
-        lock = json.loads((audit.ROOT/'deployment/build/debian-runtime.lock.json').read_text())
-        python = json.loads((audit.ROOT/'deployment/build/python-runtime.lock.json').read_text())
-        for name in ('deployment/Dockerfile', 'deployment/cluster/Dockerfile'):
-            python_bases = [line.split()[1] for line in (audit.ROOT/name).read_text().splitlines()
-                            if line.startswith('FROM python:')]
-            expected = [python['builder'], lock['base']['image']]
-            self.assertEqual(expected, python_bases)
-            dockerfile = (audit.ROOT/name).read_text()
-            for artifact in ('source', 'sbom', 'pip'):
-                item = python[artifact]
-                self.assertIn('ADD --checksum=sha256:'+item['sha256']+' '+item['url'], dockerfile)
 
     def test_existing_output_cannot_reuse_a_previous_success(self):
         with tempfile.TemporaryDirectory() as directory:

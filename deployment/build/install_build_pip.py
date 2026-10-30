@@ -12,7 +12,7 @@ import sysconfig
 def main():
     if sys.platform != 'linux' or os.geteuid() != 0 or sys.version_info[:3] != (3, 12, 16):
         raise RuntimeError('requires the isolated Python 3.12.16 image build')
-    if sysconfig.get_path('stdlib') != '/usr/local/lib/python3.12':
+    if sysconfig.get_path('stdlib') != '/usr/lib/python3.12':
         raise ValueError('unexpected Python installation')
     root = Path('/usr/share/doc/openid-python')
     lock = json.loads((root/'build-lock.json').read_text())['pip']
@@ -53,6 +53,8 @@ def main():
               'licenseSHA256': licenses, 'scope': 'Build tool; removed after package installation.',
               'limits': ['Vendored components require separate build-time advisory assessment.']}
     (root/'pip-build-tool.json').write_text(json.dumps(report, indent=2)+'\n')
+    wheel.unlink()
+    Path(__file__).unlink()
     print('PASS: hash-locked pip installed without using builder site-packages')
 
 

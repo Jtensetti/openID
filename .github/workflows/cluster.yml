@@ -96,7 +96,7 @@ jobs:
             ${{ runner.temp }}/cluster-file-privileges.json
             ${{ runner.temp }}/cluster-image-surface.json
           retention-days: 14
-      - name: Audit every installed Debian package in the registry image
+      - name: Audit every installed Wolfi package in the registry image
         if: ${{ !cancelled() && steps.registry_image.outputs.image_id != '' }}
         timeout-minutes: 10
         env:

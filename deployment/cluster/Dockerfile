@@ -7,28 +7,22 @@ ADD --checksum=sha256:9b9cd6a4fcec47a410f7e82d408540e7f77b478509e91b44c1a5457a13
 ADD --checksum=sha256:16e64e0716c14960108e85d853062c9e8bba5ca8252c0b4d0231b9df4060ff4f https://files.pythonhosted.org/packages/dd/b8/d2d6d731733f51684bbf76bf34dab3b70a9148e8f2cef2bb544fccec681a/qrcode-8.2-py3-none-any.whl /wheels/qrcode-8.2-py3-none-any.whl
 ADD --checksum=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8 https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl /wheels/typing_extensions-4.16.0-py3-none-any.whl
 
-FROM python:3.12.15-trixie@sha256:0d0db5b17f11b1b7d1aafa74ceadaa64ba0944b267ff6fc22008a197acd6b9ad AS python-build
-ADD --checksum=sha256:b5796915dc45ff745cfb4e990a7e7c93d6f546328a102ce31448d69ebc37575c https://www.python.org/ftp/python/3.12.16/Python-3.12.16.tar.xz /tmp/python-source.tar.xz
-ADD --checksum=sha256:6c268edc3c8b9b12a875b3d3ed2495983b8a4a94c070927863b942722a9a216c https://www.python.org/ftp/python/3.12.16/Python-3.12.16.tar.xz.spdx.json /tmp/python-source.spdx.json
-COPY deployment/build/build_python.sh /build-python.sh
-COPY deployment/build/patch_python_test.py /patch-python-test.py
-COPY deployment/build/python-runtime.lock.json /tmp/python-runtime.lock.json
-COPY deployment/build/licenses/docker-library-python-LICENSE.txt /tmp/docker-library-python-LICENSE
-RUN --network=none bash /build-python.sh
+FROM python:3.12.15-slim-trixie@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704 AS build-tools
+ADD --checksum=sha256:2377cd4a2efed58905da580f835fbdf2a6ed4ad0f10ff541827153a42d491cee https://github.com/chainguard-dev/apko/releases/download/v1.4.13/apko_1.4.13_linux_amd64.tar.gz /tmp/apko.tar.gz
+COPY deployment/build/build_runtime.py deployment/build/apk_inventory.py deployment/build/wolfi-runtime.yaml deployment/build/wolfi-runtime.lock.json deployment/build/runtime-tools.lock.json /build-runtime/
+COPY deployment/build/licenses/Apko-LICENSE.txt /build-runtime/Apko-LICENSE.txt
+RUN tar -xzf /tmp/apko.tar.gz -C /tmp --strip-components=1 apko_1.4.13_linux_amd64/apko && python /build-runtime/build_runtime.py
 
-FROM node:24.22.1-bookworm-slim@sha256:55fb5f5a527ea2c5c4a95f963e48ef90aa38c7b346054fdc8ee9957a2b55d205 AS node
-FROM python:3.12.15-slim-trixie@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704
-# Replace the entire previous Python installation, including its standard library.
-RUN rm -rf /usr/local
-COPY --from=python-build /stage/usr/local /usr/local
-COPY --from=python-build /stage/usr/share/doc/openid-python /usr/share/doc/openid-python
-ENV PYTHON_VERSION=3.12.16 PYTHON_SHA256=b5796915dc45ff745cfb4e990a7e7c93d6f546328a102ce31448d69ebc37575c
-RUN ldconfig && python -c 'import sys,ssl,sqlite3,pyexpat,bz2,lzma,ctypes,hashlib; assert sys.version_info[:3] == (3,12,16); assert pyexpat.EXPAT_VERSION == "expat_2.9.0"'
+FROM scratch AS python-base
+COPY --from=build-tools /runtime/ /
+ENV PATH="/usr/local/bin:/usr/bin:/bin" LANG=C.UTF-8
+COPY deployment/build/python-runtime.lock.json /usr/share/doc/openid-python/build-lock.json
 ADD --checksum=sha256:fd7f4dfa8190e014013b9f08f3e973f4e4c26ffd179a204895533a7254813a70 https://files.pythonhosted.org/packages/3f/06/3e4420302363fbb71be3c7f35ce042f54bfca330e3e66b3a2e3c4cca579f/pip-26.2.2-py3-none-any.whl /tmp/pip-26.2.2-py3-none-any.whl
 COPY deployment/build/install_build_pip.py /tmp/install_build_pip.py
-RUN --network=none python /tmp/install_build_pip.py && rm /tmp/install_build_pip.py /tmp/pip-26.2.2-py3-none-any.whl
-COPY deployment/build/patch_debian.py deployment/build/debian-runtime.lock.json /tmp/openid-os-patches/
-RUN python /tmp/openid-os-patches/patch_debian.py && rm -rf /tmp/openid-os-patches
+RUN --network=none ["python", "/tmp/install_build_pip.py"]
+
+FROM node:24.22.1-bookworm-slim@sha256:55fb5f5a527ea2c5c4a95f963e48ef90aa38c7b346054fdc8ee9957a2b55d205 AS node
+FROM python-base
 LABEL org.opencontainers.image.source="https://github.com/Jtensetti/openID"
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
@@ -36,11 +30,8 @@ COPY --from=node /usr/local/LICENSE /usr/share/doc/nodejs/LICENSE
 WORKDIR /app/verification
 COPY verification/cluster-requirements.lock verification/runtime-requirements.lock verification/rp-requirements.lock ./
 COPY deployment/build/python-wheels.lock.json /usr/share/doc/openid-python/python-wheels.lock.json
-RUN --network=none --mount=type=bind,from=python-wheels,source=/wheels,target=/wheels \
-    python -m pip --isolated --disable-pip-version-check install \
-    --no-index --find-links=/wheels --no-cache-dir --require-hashes --only-binary=:all: \
-    --report=/usr/share/doc/openid-python/wheel-installation.json -r cluster-requirements.lock -r runtime-requirements.lock -r rp-requirements.lock
-RUN --network=none printf '%s\n' registry > /usr/share/doc/openid-python/wheel-profile.txt
+RUN --network=none --mount=type=bind,from=python-wheels,source=/wheels,target=/wheels ["python", "-m", "pip", "--isolated", "--disable-pip-version-check", "install", "--no-index", "--find-links=/wheels", "--no-cache-dir", "--require-hashes", "--only-binary=:all:", "--report=/usr/share/doc/openid-python/wheel-installation.json", "-r", "cluster-requirements.lock", "-r", "runtime-requirements.lock", "-r", "rp-requirements.lock"]
+RUN --network=none ["python", "-c", "from pathlib import Path; Path('/usr/share/doc/openid-python/wheel-profile.txt').write_text('registry\\n')"]
 COPY verification/cluster_bridge.py verification/federation.py verification/cluster_serve.py verification/cluster_operator.py verification/postgres.py verification/transit.py verification/maintenance.py verification/monitor.py verification/runtime.py verification/biometric_worker.py verification/serve.py verification/native.py verification/wallet.py verification/identity.py verification/crypto_runtime.py ./
 COPY verification/crypto-worker.mjs verification/device-signature.mjs verification/profile-crypto.mjs ./
 COPY verification/licenses /app/licenses
@@ -55,9 +46,9 @@ COPY verification/image_input.py ./
 COPY verification/bounded_process.py verification/profile_worker.py verification/worker_confinement.py ./
 COPY deployment/cluster/schema.sql /app/deployment/cluster/schema.sql
 COPY deployment/build/remove_build_pip.py /tmp/remove_build_pip.py
-RUN --network=none python /tmp/remove_build_pip.py && rm /tmp/remove_build_pip.py
+RUN --network=none ["python", "-c", "import runpy; from pathlib import Path; runpy.run_path('/tmp/remove_build_pip.py', run_name='__main__'); Path('/tmp/remove_build_pip.py').unlink()"]
 COPY deployment/build/file_privileges.py /tmp/file_privileges.py
-RUN --network=none python /tmp/file_privileges.py apply && rm /tmp/file_privileges.py
+RUN --network=none ["python", "-c", "import runpy, sys; from pathlib import Path; sys.argv = ['/tmp/file_privileges.py', 'apply']; runpy.run_path('/tmp/file_privileges.py', run_name='__main__'); Path('/tmp/file_privileges.py').unlink()"]
 USER 10001:10001
 HEALTHCHECK --interval=15s --timeout=6s --start-period=30s --retries=3 CMD ["python","probe.py","/srv/openid/runtime.json"]
 ENTRYPOINT ["python","cluster_serve.py"]

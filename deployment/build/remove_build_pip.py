@@ -1,5 +1,6 @@
 """Remove unused package installers from the final runtime filesystem."""
 import importlib.metadata
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -13,7 +14,7 @@ def main():
     if sys.platform != 'linux' or os.geteuid() != 0 or sys.version_info[:3] != (3, 12, 16):
         raise RuntimeError('requires the isolated Python 3.12.16 image build')
     stdlib = Path(sysconfig.get_path('stdlib'))
-    if stdlib != Path('/usr/local/lib/python3.12'):
+    if stdlib != Path('/usr/lib/python3.12'):
         raise ValueError('unexpected Python installation')
     root = Path('/usr/share/doc/openid-python')
     version = json.loads((root/'build-lock.json').read_text())['pip']['version']
@@ -24,22 +25,39 @@ def main():
     for target in targets:
         if target.is_symlink() or not target.is_dir():
             raise ValueError('unexpected package path: '+str(target))
+    # Record removed distro-owned installer files; retain APK metadata/SBOM.
     removed = []
+    removed_files = {}
+    def record_files(directory):
+        for item in directory.rglob('*'):
+            if item.is_symlink():
+                raise ValueError('unexpected installer symlink')
+            if item.is_file():
+                removed_files[str(item)] = hashlib.sha256(item.read_bytes()).hexdigest()
+    distro_wheels = Path('/usr/share/python-wheels')
+    if distro_wheels.is_symlink() or not distro_wheels.is_dir():
+        raise ValueError('missing distro wheel directory')
+    record_files(distro_wheels)
+    shutil.rmtree(distro_wheels)
+    removed.append(str(distro_wheels))
     for target in targets:
+        record_files(target)
         shutil.rmtree(target)
         removed.append(str(target))
     for name in ('pip', 'pip3', 'pip3.12'):
-        target = Path('/usr/local/bin')/name
+        target = Path('/usr/bin')/name
         if not target.is_file() or target.is_symlink():
             raise ValueError('unexpected pip launcher: '+str(target))
+        removed_files[str(target)] = hashlib.sha256(target.read_bytes()).hexdigest()
         target.unlink()
         removed.append(str(target))
     subprocess.run([sys.executable, '-I', '-c',
                     "import importlib.util; assert importlib.util.find_spec('pip') is None; "
                     "assert importlib.util.find_spec('ensurepip') is None"], check=True)
-    if list(packages.glob('pip*')) or list(Path('/usr/local/bin').glob('pip*')):
+    if list(packages.glob('pip*')) or list(Path('/usr/bin').glob('pip*')):
         raise ValueError('remaining pip package or launcher')
-    report = {'removed': removed, 'pipImportable': False, 'ensurepipImportable': False,
+    report = {'removed': removed, 'removedFileSHA256': removed_files,
+              'pipImportable': False, 'ensurepipImportable': False,
               'scope': 'Final runtime filesystem; historical build layers and build-tool risks are separate.'}
     (root/'pip-removal.json').write_text(json.dumps(report, indent=2)+'\n')
     with (root/'BUILD-NOTICE.txt').open('a') as notice:

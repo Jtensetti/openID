@@ -29,9 +29,9 @@ beroenden; verifierar- och protokollproven körs utan externt nät.
    dokumentera kopplingen. En manuell serverkörning ersätter inte den grinden.
 
 Paketet innehåller `image.tar.gz`, `source.tar.gz`, `manifest.json`,
-`python-packages.json`, syntetiska `protocol-results.json` och sju `os-*`-filer:
-OS-bedömning, Trivy-rapport, CycloneDX, dpkg-lista, databasmetadata,
-skannerlås och skanner-SBOM. Manifestet binder filernas storlekar och SHA-256
+`python-packages.json`, syntetiska `protocol-results.json` och åtta `os-*`-filer:
+OS-bedömning, Trivy-rapport, CycloneDX, APK-lista, databasmetadata,
+skannerlås, skanner-SBOM och Wolfis leverantörsadvisories. Manifestet binder filernas storlekar och SHA-256
 till Git-revision/träd, image-ID, plattform och byggkörning. Exporten nekar
 ofullständig, gammal eller underkänd OS-skanning, fel image-ID/revision och
 paketlistor som inte stämmer. Källarkivet innehåller också låsfiler, SBOM,
@@ -47,8 +47,9 @@ repoägare, byggmiljö eller Actions-tjänst. Paketet är inte produktionsgodkä
 
 ## Importera utan att bygga eller starta tjänster
 
-Använd Python 3.9+ och ett granskat `deployment/image_bundle.py` från den
-valda kodrevisionen. Hämta skriptet genom den betrodda kodkanalen, inte genom
+Använd Python 3.9+ och en granskad checkout av den valda kodrevisionen.
+`deployment/image_bundle.py` använder även `deployment/build/wolfi_advisories.py`.
+Hämta koden genom den betrodda kodkanalen, inte genom
 att först köra okänd kod ur ett overifierat paket. Packa upp Actions ZIP i
 en egen privat katalog. Behåll image- och källarkiven i paketet som filer.
 
@@ -129,10 +130,19 @@ fortsatt i den privata Xcode-miljön; inga Apple-certifikat flyttas till CI.
 ## Systempaket och säkerhetsunderlag
 
 Pilot- och registerjobben kör `.github/scripts/audit_image_os.py` mot det
-exakta byggda image-ID:t. Trivy jämför Debian-paketen med en säkerhetsdatabas
+exakta byggda image-ID:t. Trivy jämför Wolfi-paketen med en säkerhetsdatabas
 som får vara högst 24 timmar gammal. Hela paketlistan måste stämma mot
-`dpkg-query`. Okänt OS, saknad täckning, fel image-ID, verktygsfel och fynd
+APK-databasen `/usr/lib/apk/db/installed`. Okänt OS, saknad täckning, fel image-ID, verktygsfel och fynd
 stoppar komponentjobbet, leveransexporten och `assurance-gate`.
+
+Wolfis Trivy-integration utvärderar intervall med rättade versioner. Därför
+läser `wolfi_advisories.py` också leverantörens fullständiga OSV v2-feed:
+index och arkiv ska vara högst 24 timmar gamla, innehålla samma poster och
+ha överensstämmande ändringstider. Indexets millisekunder jämförs på sekundnivå
+eftersom v2-posterna trunkerar denna precision. Öppna intervall och statusarna
+`detection`, `true_positive_determination`, `pending_upstream_fix` och
+`fix_not_planned` blockerar. Okända scheman/statusar stoppar kontrollen.
+Denna komplettering ersätter inte Trivys jämförelse av rättade APK-versioner.
 
 Alla rapporterade fynd, även låg/okänd allvarlighetsgrad och fynd utan
 publicerad rättning, stoppar exporten. Ingen ignore-fil, statusfiltrering
@@ -148,10 +158,10 @@ Skanningen sker lokalt med avstängd telemetri. Internet behövs för
 verktygsdistribution och aktuell databas.
 
 `pilot-image-inventory` och `cluster-os-inventory` sparar paketlistor,
-Trivy-rapport, CycloneDX, databasdatum/hash, verktygslås/SBOM och bedömning i
+Trivy-rapport, Wolfi-poster, CycloneDX, databasdatum/hash, verktygslås/SBOM och bedömning i
 90 dagar, även vid fynd. Bevara underlagen från vald revision separat inför
-release. OS-kontrollen täcker inte separat byggd/kopierad Python, Node,
-Temurin, OpenCV:s inbäddade bibliotek, modeller, andra images eller värd-OS.
+release. Python och dess systembibliotek omfattas av APK-kontrollen. Kopierad Node,
+Temurin, OpenCV:s inbäddade bibliotek, modeller, andra images och värd-OS behöver separat bedömning.
 OSV-kontrollen av applikationslåsen är ett separat komplement.
 
 ### Färdig image och rättigheter
@@ -173,25 +183,41 @@ med skrivskyddad rot och enbart `DAC_READ_SEARCH`; tjänsterna behåller UID
 
 ### Låst runtime
 
-Pilot och register använder Debian 13/Trixie enligt
-[debian-runtime.lock.json](debian-runtime.lock.json). `patch_debian.py`
-verifierar baspaketen, installerar bara den hashlåsta tzdata-filen och nekar
-nedgradering eller delvis installerade paket. Egna paketexperiment för
-util-linux, ACL, ncurses och alternativ OpenCV ingår inte i bygget.
+Pilot och register använder samma minimala Wolfi-bas, byggd med apko från
+[wolfi-runtime.yaml](wolfi-runtime.yaml) och det fullständiga paketlåset
+[wolfi-runtime.lock.json](wolfi-runtime.lock.json). Alla 31 paket har exakt
+version och kontrollsumma, även transitiva beroenden. Python är distributionens
+3.12.16-r1; projektet kompilerar inte en egen Python eller egna OS-paket.
+Det färdiga filsystemet kopieras till `scratch`, utan skal eller pakethanterare.
 
-Python 3.12.16 byggs i ett separat steg från officiellt källarkiv och SPDX,
-låsta i [python-runtime.lock.json](python-runtime.lock.json). PGO/LTO-bygget
-ersätter hela basens äldre `/usr/local`. Upstream-prov för TLS, hashning,
-SQLite, XML, tar, temporära kataloger och cookies krävs. En hashlåst patch
-anpassar ett TLS-tests förväntade avbrottsfel; den ändrar ingen runtimekod
-eller hoppar över prov. Källor, licenser och testlogg sparas under
-`/usr/share/doc/openid-python/`.
+Apko 1.4.13 hämtas med SHA-256 från officiell release. Lås och källrevisioner
+finns i [runtime-tools.lock.json](runtime-tools.lock.json). Verktyget och
+Debian-byggmiljön stannar i byggsteget. APK-metadata, basens SPDX/CycloneDX,
+konfiguration, lås och apko-licens sparas under `/usr/share/doc/openid-runtime/`.
+Paketens medlevererade licenser bevaras. SBOM anger licensuttryck och källor;
+fullständiga komponentlicenser och motsvarande källor behöver säkerställas
+före extern distribution, se [komponentregistret](../../THIRD_PARTY.md).
+
+Uppdatera låset med samma verifierade apko-version i isolerad byggmiljö:
+
+```sh
+apko lock deployment/build/wolfi-runtime.yaml --arch x86_64 \
+  --lockfile deployment/build/wolfi-runtime.lock.json
+```
+
+Granska hela paketdiffen, ursprung, licenser och advisories före incheckning.
+Låsfilen ska behålla den konfigurationschecksumma som apko genererar.
+Kör sedan hela CI; byt inte till rörliga taggar eller uppdateringar vid serverstart.
 
 Applikationshjul hämtas via BuildKits `ADD --checksum` från
 [python-wheels.lock.json](python-wheels.lock.json), som matchar verifierarens
 requirements-lås. BuildKit med stöd för Dockerfile 1.6+ krävs. Pip installeras
 från ett verifierat hjul och körs utan nät eller paketindex. Efter installation
-tas pip, dess inbäddade paket och ensurepip bort från runtime. CI verifierar
+tas pip, dess inbäddade paket, ensurepip och distributionens installeringshjul
+bort från runtime. `pip-removal.json` anger borttagna filer och deras hash.
+APK-databasen och bas-SBOM bevaras oförändrade: de beskriver installerade
+paket före den dokumenterade borttagningen. Filsysteminventeringen visar
+faktiskt kvarvarande kod. CI verifierar
 borttagningen och den faktiska paketlistan. Byggverktygets advisories och
 historiska lager omfattas inte av denna runtimehärdning.
 

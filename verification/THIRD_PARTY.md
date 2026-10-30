@@ -186,17 +186,14 @@ säkerhetsbedömning av den egna integrationen.
 HTTP/2, proxyprotokoll, kontrollsocket och automatiska omstarter efter ett
 visst antal anrop används inte. NFC-sessionerna tillhör en enda worker.
 
-`deployment/Dockerfile` låser officiella Python **3.12.15 slim-bookworm** och
-Node **24.22.1 bookworm-slim** med image-digests. Temurin **21.0.13+9** hämtas
-som SHA-256-låsta Linux x64-arkiv för JDK och JRE. Python har PSF-licens,
-Node MIT med tredjepartslicenser och Temurin GPL-2.0 med Classpath Exception.
-[Komponentregistret](../THIRD_PARTY.md#temurin-säkerhetsuppdatering-2026-10-26)
-anger ursprung, källrevision, distributions- och SBOM-hashar.
-Basimagens Debian-licenser, JRE:s `legal/` och Nodes LICENSE bevaras.
+`deployment/Dockerfile` använder den låsta Wolfi-basen med Python 3.12.16-r1,
+Node 24.22.1 och Temurin 21.0.13+9. Ursprung, källrevisioner, licenser,
+distributionshashar och SBOM beskrivs i [komponentregistret](../THIRD_PARTY.md).
+JRE:s `legal/`, Nodes LICENSE och paketens medlevererade licenser bevaras.
 Maven 3.9.11 hämtas som samma SHA-256-låsta ZIP som wrappern; hela grafens
 180 beroendehashar kontrolleras även i containerbygget. Bildvikter och
 Python-/npm-paket hämtas enbart vid bygge med befintliga lås. CI inventerar
-installerade Python-paket. OS-paket täcks av imagen, inte paket-SBOM:erna.
+installerade Python-paket. OS-paket har separat inventering, SBOM och advisorykontroll.
 
 ## Delat register, kontrollerat 2026-10-20
 

@@ -1,0 +1,25 @@
+contents:
+  repositories:
+    - https://packages.wolfi.dev/os
+  keyring:
+    - https://packages.wolfi.dev/os/wolfi-signing.rsa.pub
+  packages:
+    - wolfi-baselayout
+    - ca-certificates-bundle
+    - python-3.12=3.12.16-r1
+    - libstdc++
+    - tzdata
+archs:
+  - x86_64
+accounts:
+  groups:
+    - groupname: openid
+      gid: 10001
+  users:
+    - username: openid
+      uid: 10001
+      gid: 10001
+  run-as: 10001
+environment:
+  PATH: /usr/local/bin:/usr/bin:/bin
+  LANG: C.UTF-8

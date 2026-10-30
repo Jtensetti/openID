@@ -18,7 +18,7 @@ EPHEMERAL_ROOTS = ('dev', 'proc', 'sys')
 LIMITS = [
     'Evidence from one isolated CI probe process, not the deployed service or host.',
     'Known filenames and package manifests do not prove absence of renamed, embedded or dynamically supplied code.',
-    'Package file lists describe dpkg records, not verified file contents, maintainer-created files or alternatives.',
+    'Package file lists describe APK records before documented installer removal; they are not content verification.',
     'Presence is not exploitability; absence in this inventory is not an advisory decision or risk acceptance.',
     'No exploit inputs or privileged utility operations are executed; no scanner finding is removed.',
     'SQLite metadata describes a new in-memory connection in this interpreter; other processes, copied libraries and later-loaded extensions require separate review.',
@@ -174,22 +174,11 @@ def main():
               'imageID': args.image_id, 'testedRevision': args.revision,
               'collectorSHA256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
               'advisoryDecisions': 'NOT_EVALUATED', 'limits': LIMITS}
-    query = subprocess.check_output(['dpkg-query', '-W',
-        '-f=${binary:Package}\t${Version}\t${Architecture}\t${db:Status-Status}\n'], text=True, timeout=30)
-    packages = []
-    for line in query.splitlines():
-        query_name, version, architecture, status = line.split('\t')
-        assert re.fullmatch(r'[a-z0-9][a-z0-9+.-]+(?::[a-z0-9][a-z0-9-]*)?', query_name)
-        assert status == 'installed' and version and architecture
-        packages.append({'name': query_name.split(':')[0], 'queryName': query_name,
-                         'version': version, 'architecture': architecture})
-    assert packages
-    files = subprocess.check_output(['dpkg-query', '-L', *[p['queryName'] for p in packages]],
-                                    text=True, timeout=30)
-    report['packages'] = packages
-    report['packageFilePaths'] = sorted({line for line in files.splitlines() if line.startswith('/')})
-    report['packageFileNotes'] = [line for line in files.splitlines() if line and not line.startswith('/')]
-    assert report['packageFilePaths']
+    inventory = json.loads(subprocess.check_output([sys.executable,
+        '/usr/share/doc/openid-runtime/apk_inventory.py'], text=True, timeout=30))
+    report['packages'] = inventory['packages']
+    report['packageFilePaths'] = inventory['files']
+    report['packageFileNotes'] = ['APK inventory retained, including removed installer paths recorded in pip-removal.json.']
     report['filesystem'] = filesystem_evidence(Path('/'), whole_image=args.whole_image)
     report['sqliteRuntime'] = sqlite_runtime_evidence()
     selected = {'NoNewPrivs', 'CapInh', 'CapPrm', 'CapEff', 'CapBnd', 'CapAmb', 'Seccomp'}

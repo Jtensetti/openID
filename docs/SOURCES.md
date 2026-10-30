@@ -56,37 +56,24 @@ ligger till grund för att ersätta klientens adresshuvud med anslutningens
 adress. Inga `real_ip`-regler ingår. Eget proxyläge begränsas till explicit
 loopbacklyssnare; det provas med förfalskade huvuden genom riktig nginx.
 
-## OS-kontroll och Debian-rättningar, 2026-10-26
+## OS-kontroll och minimal runtime, 2026-10-30
 
-[Trivy 0.76.1](https://github.com/aquasecurity/trivy/releases/tag/v0.76.1),
-officiella distributionshashar, källrevision, LICENSE, NOTICE och upstream-SBOM
-kontrollerades. [Debian-täckningen](https://trivy.dev/docs/latest/coverage/os/debian/)
-skiljer dpkg-paket från egenbyggda binärer och använder Debians säkerhetsbedömning.
-[Databasdokumentationen](https://trivy.dev/docs/latest/configuration/db/)
-anger officiell OCI-källa och uppdateringsflöde. Projektet kräver aktuell
-databas och jämför hela dpkg-inventeringen med skannerns paketlista.
+[Apko 1.4.13](https://github.com/chainguard-dev/apko/releases/tag/v1.4.13) och
+[Wolfis byggrecept](https://github.com/wolfi-dev/os/tree/65e46148155ff624c83ce3c02321614adc4d23b1)
+är källor för den versionslåsta basen. [Wolfis paketindex](https://packages.wolfi.dev/os/x86_64/APKINDEX.tar.gz)
+anger paketversioner, ursprung, licensuttryck och kontrollsummor. Låset omfattar
+alla transitiva paket. [Trivy 0.76.1](https://github.com/aquasecurity/trivy/releases/tag/v0.76.1)
+och dess officiella distributionshashar, LICENSE, NOTICE och upstream-SBOM
+används för slutimagen. [Trivys Wolfi-detektor](https://github.com/aquasecurity/trivy/blob/e713f67f7d54decdcd9b3132c9751833dcced698/pkg/detector/ospkg/wolfi/wolfi.go)
+utvärderar rättade versionsintervall. Därför kontrolleras även öppna statusar
+från [leverantörens OSV-index](https://advisories.cgr.dev/chainguard/v2/osv/all.json)
+och dess fullständiga arkiv. Hela APK-inventeringen måste stämma med skannern.
 
-Komplettering 2026-10-27: [Trivys containerkällor](https://trivy.dev/docs/latest/target/container_image/)
-beskriver den lokala Docker-källan. Båda applikationsimagernas OS-kontroll
-begränsas till denna källa och validerar fullständigt image-ID.
+[Databasdokumentationen](https://trivy.dev/docs/latest/configuration/db/) anger
+OCI-källa och uppdatering. [Containerkällorna](https://trivy.dev/docs/latest/target/container_image/)
+beskriver lokal Docker-skanning; projektet kräver exakt image-ID.
 [GitHubs statusuttryck](https://docs.github.com/en/actions/reference/workflows-and-actions/expressions#status-check-functions)
-ligger till grund för registerskanning efter testfel med `!cancelled()` och
-bevisuppladdning med `always()`. Skanningsfel får inte omvandlas till godkänt jobb.
-
-[Debian Securitys Trixie-index](https://security.debian.org/debian-security/dists/trixie-security/main/binary-amd64/Packages.xz)
-anger OpenSSL `3.5.7-1~deb13u3`.
-[Trixie-updates](https://deb.debian.org/debian/dists/trixie-updates/main/binary-amd64/Packages.xz)
-anger version, fil och SHA-256 för tzdata `2026e-0+deb13u1`; den hämtade
-filens bytes har verifierats.
-[CVE-2025-7458](https://security-tracker.debian.org/tracker/CVE-2025-7458)
-är rättad i Trixies SQLite `3.46.1-7+deb13u2`, men kvar i Bookworm.
-[Debian 13:s ändringar](https://www.debian.org/releases/trixie/release-notes/whats-new.en.html)
-och [kända begränsningar](https://www.debian.org/releases/trixie/release-notes/issues.en.html)
-har granskats för amd64-containerbasen; ingen värd-OS-uppgradering görs.
-Docker Official Images-manifest och källfil för Python 3.12.15-slim-trixie
-anger källrevision `2a3b794c223ab067d122719541cdd54a068732a5`.
-Index-/amd64-digest finns i komponentregistret. Detta är upstream-proveniens,
-ingen oberoende byggattest eller fullständig OS-säkerhetsbedömning.
+styr bevisinsamling efter fel. Ett skanningsfel får inte ge godkänt jobb.
 
 ## Runtime-uppföljning, 2026-10-26
 

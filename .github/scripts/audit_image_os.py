@@ -1,9 +1,10 @@
-"""Audit the built image's Debian packages. Findings and incomplete evidence block export."""
+"""Audit the built image's Wolfi packages. Findings and incomplete evidence block export."""
 import argparse
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 import hashlib
 import io
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -16,10 +17,16 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parents[2]
 LOCK = ROOT / 'deployment/build/trivy.lock.json'
+spec = importlib.util.spec_from_file_location('wolfi_advisories', ROOT/'deployment/build/wolfi_advisories.py')
+wolfi_advisories = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(wolfi_advisories)
+spec = importlib.util.spec_from_file_location('apk_inventory', ROOT/'deployment/build/apk_inventory.py')
+apk_inventory = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(apk_inventory)
 DB_REPOSITORY = 'ghcr.io/aquasecurity/trivy-db:2'
 LIMITS = [
-    'Only dpkg-managed packages in the exact scanned image are covered by this gate.',
-    'Copied/built Python, Node and Temurin runtimes, embedded libraries, models, '
+    'Only APK-managed packages in the exact scanned image are covered by this gate.',
+    'Copied Node and Temurin runtimes, embedded libraries, models, '
     'host OS, other images and deployed configuration need separate assessment.',
     'An advisory database is not exhaustive and this report is not an independent attestation.',
 ]
@@ -66,12 +73,12 @@ def installed_packages(raw):
     for line in raw.splitlines():
         fields = line.split('\t')
         if len(fields) != 4 or not all(fields):
-            raise ValueError('invalid dpkg inventory')
+            raise ValueError('invalid APK inventory')
         name, version, arch, status = fields
         # This minimal image must not contain partly installed/removed packages.
-        if status != 'installed' or not re.fullmatch(r'[a-z0-9][a-z0-9+.-]+', name):
+        if status != 'installed' or not re.fullmatch(r'[a-z0-9][a-z0-9+_.-]*', name):
             raise ValueError('unexpected package state or name')
-        if arch not in ('amd64', 'all') or any(c.isspace() for c in version):
+        if arch not in ('x86_64', 'noarch') or any(c.isspace() for c in version):
             raise ValueError('unexpected package version or architecture')
         item = (name, version, arch)
         if item in result or any(p[0] == name and p[2] == arch for p in result):
@@ -83,19 +90,11 @@ def installed_packages(raw):
 
 
 def package_version(package):
-    # Trivy's dpkg analyzer separates epoch, upstream version and Debian revision.
-    # Reconstruct the complete binary version; never discard Debian security revisions.
+    # APK versions include their revision in Version, unlike dpkg reports.
     version = package['Version']
-    release = package.get('Release', '')
-    epoch = package.get('Epoch', 0)
-    if not isinstance(version, str) or not version or not isinstance(release, str):
+    if (not isinstance(version, str) or not version or any(c.isspace() for c in version)
+            or package.get('Release') or package.get('Epoch')):
         raise ValueError('invalid scanner package version')
-    if type(epoch) is not int or epoch < 0:
-        raise ValueError('invalid package epoch')
-    if release:
-        version += '-' + release
-    if epoch:
-        version = str(epoch) + ':' + version
     return version
 
 
@@ -110,7 +109,7 @@ def assess(scan, installed, image_id, version, now):
     if metadata.get('ImageID') != image_id:
         raise ValueError('report belongs to another image')
     system = metadata['OS']
-    if system.get('Family') != 'debian' or not re.fullmatch(r'13(?:\.\d+)?', system.get('Name', '')):
+    if system.get('Family') != 'wolfi' or system.get('Name') != '20230201':
         raise ValueError('unexpected or unidentified operating system')
     if system.get('EOSL', False) is not False:
         raise ValueError('operating system outside support')
@@ -118,8 +117,8 @@ def assess(scan, installed, image_id, version, now):
     if not isinstance(results, list) or len(results) != 1:
         raise ValueError('missing or unexpected scan targets')
     result = results[0]
-    if result.get('Class') != 'os-pkgs' or result.get('Type') != 'debian':
-        raise ValueError('missing Debian assessment')
+    if result.get('Class') != 'os-pkgs' or result.get('Type') != 'wolfi':
+        raise ValueError('missing Wolfi assessment')
     packages = result['Packages']
     if not isinstance(packages, list) or not packages:
         raise ValueError('missing package coverage')
@@ -172,7 +171,7 @@ def install(lock, work, output):
 
 def audit(image_id, output):
     output.mkdir(parents=True, exist_ok=False)
-    report = {'format': 1, 'complete': False, 'passed': False,
+    report = {'format': 2, 'complete': False, 'passed': False,
               'checkedAt': datetime.now(timezone.utc).isoformat(),
               'imageID': image_id, 'limits': LIMITS, 'databaseRepository': DB_REPOSITORY,
               'policy': 'Every reported vulnerability blocks; no severity/status exceptions.'}
@@ -187,11 +186,15 @@ def audit(image_id, output):
         report['scannerLockSha256'] = digest(LOCK)
         report['scannerVersion'] = lock['version']
         save(output / 'scanner-lock.json', lock)
-        raw = subprocess.check_output([
+        apk_raw = subprocess.check_output([
             'docker', 'run', '--rm', '--network', 'none', '--read-only', '--cap-drop', 'ALL',
             '--security-opt', 'no-new-privileges', '--pids-limit', '32', '--memory', '128m',
-            '--cpus', '1', '--entrypoint', 'dpkg-query', image_id, '-W',
-            '-f=${Package}\t${Version}\t${Architecture}\t${db:Status-Status}\n'], text=True, timeout=60)
+            '--cpus', '1', '--entrypoint', 'python', image_id, '-I', '-c',
+            "from pathlib import Path; print(Path('/usr/lib/apk/db/installed').read_text(), end='')"],
+            text=True, timeout=60)
+        inventory = apk_inventory.parse(apk_raw)
+        raw = ''.join(p['name']+'\t'+p['version']+'\t'+p['architecture']+'\tinstalled\n'
+                      for p in inventory['packages'])
         (output / 'system-packages.tsv').write_text(raw)
         installed = installed_packages(raw)
         with tempfile.TemporaryDirectory(prefix='openid-os-audit-') as directory:
@@ -218,8 +221,11 @@ def audit(image_id, output):
                 env=env, cwd=work, check=True, timeout=60)
             report.update(assess(json.loads((output / 'trivy-os.json').read_text()), installed,
                                  image_id, lock['version'], datetime.now(timezone.utc)))
+            vendor = wolfi_advisories.collect(installed, datetime.now(timezone.utc))
+            save(output / 'wolfi-advisories.json', vendor)
+            report['vendorUnresolvedCount'] = len(vendor['findings'])
             report['complete'] = True
-            report['passed'] = report['findingCount'] == 0
+            report['passed'] = report['findingCount'] == 0 and report['vendorUnresolvedCount'] == 0
             code = 0 if report['passed'] else 1
     except Exception as error:
         report['errorType'] = type(error).__name__
@@ -229,7 +235,7 @@ def audit(image_id, output):
     finally:
         report['files'] = {p.name: digest(p) for p in sorted(output.iterdir()) if p.is_file()}
         save(output / 'assessment.json', report)
-    print(f"Image OS audit: complete={report['complete']}; passed={report['passed']}; exit={code}")
+    print(f"Image OS audit: complete={report['complete']}; passed={report['passed']}; findings={report.get('findingCount', 'unknown')}; unresolved={report.get('vendorUnresolvedCount', 'unknown')}; exit={code}")
     return code
 
 

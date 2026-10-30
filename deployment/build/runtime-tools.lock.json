@@ -1,0 +1,10 @@
+{
+  "version": "1.4.13",
+  "source": "https://github.com/chainguard-dev/apko",
+  "linuxAmd64": {
+    "url": "https://github.com/chainguard-dev/apko/releases/download/v1.4.13/apko_1.4.13_linux_amd64.tar.gz",
+    "sha256": "2377cd4a2efed58905da580f835fbdf2a6ed4ad0f10ff541827153a42d491cee"
+  },
+  "wolfiSourceCommit": "65e46148155ff624c83ce3c02321614adc4d23b1",
+  "sourceCommit": "217f25a71fd6f18f00fb1024f9b251dc7127bfd5"
+}
