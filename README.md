@@ -14,7 +14,7 @@ Sweden Connect-federationen. Se [säkerhet och begränsningar](SECURITY.md).
 |---|---|
 | Bygg eller kör iPhone-appen | [iOS: Xcode, signering, funktioner och tester](ios/README.md) |
 | Kör verifierare och testtjänst | [Linuxinstallation, API-flöden och tester](verification/README.md) |
-| Prova SAML/WebAuthn med syntetiska identiteter | [Protokolllabben](prototype/README.md) |
+| Prova SAML/WebAuthn med syntetiska identiteter | [Protokollabben](prototype/README.md) |
 | Bygg och leverera servern | [Isolerad byggmiljö](deployment/build/README.md), [drift och återställning](deployment/README.md) |
 | Förstå komponenter och säkerhetsgränser | [Arkitektur](docs/arkitektur.md) |
 | Ändra kod och verifiera resultatet | [Utveckling](docs/utveckling.md), [testöversikt](docs/testning.md) |
