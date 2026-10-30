@@ -16,7 +16,7 @@ ADD --checksum=sha256:fd7f4dfa8190e014013b9f08f3e973f4e4c26ffd179a204895533a7254
 COPY deployment/build/install_build_pip.py /tmp/install_build_pip.py
 RUN --network=none ["python", "/tmp/install_build_pip.py"]
 
-FROM node:24.22.1-bookworm-slim@sha256:55fb5f5a527ea2c5c4a95f963e48ef90aa38c7b346054fdc8ee9957a2b55d205 AS node
+FROM node:26.12.0-bookworm-slim@sha256:742a0fe7320e09e0321222b68165e6ac731d30470e7ea7f98f9bfc3a6e1034fe AS node
 FROM python-base
 LABEL org.opencontainers.image.source="https://github.com/Jtensetti/openID"
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
