@@ -255,7 +255,10 @@ statiskt inbäddade bibliotek. Hjulets `LICENSE.txt` (MIT) och
 `LICENSE-3RD-PARTY.txt` bevaras vid installation. Jämfört med föregående
 hjul tillkommer dav1d-attribution med BSD-2-Clause; övrig licenstext är
 oförändrad. FFmpeg och andra bibliotek omfattas fortsatt av egna villkor.
-Inga källfiler eller binärer i hjulet modifieras.
+OpenCV-hjulets källfiler och binärer modifieras inte. Serverimagen stänger
+av FFmpeg-video genom `OPENCV_VIDEOIO_PRIORITY_FFMPEG=0`; den används
+inte av JPEG/JP2-gränsen. Runtimeprovet kontrollerar också ett explicit
+FFmpeg-öppningsförsök.
 
 4.14.0.94 innehåller FFmpeg 8.1.2 och AlmaLinux OpenSSL
 `1.1.1k-17.el8_6`, vilket tar in tidigare saknade rättningar.

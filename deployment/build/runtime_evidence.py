@@ -70,7 +70,7 @@ def check_sources(directory):
                 if module in forbidden or module=='base64': raise ValueError('review parser/base64 import: '+path.name)
             if isinstance(node,ast.Call):
                 name=getattr(node.func,'attr',getattr(node.func,'id',''))
-                if name in {'js_output','get_data','enable_load_extension','load_extension','urlsafe_b64decode'}:
+                if name in {'js_output','get_data','enable_load_extension','load_extension','urlsafe_b64decode','VideoCapture','VideoWriter'}:
                     raise ValueError('new reviewed API call: '+path.name+':'+name)
                 if name=='b64decode':
                     if (len(node.args)!=1 or {k.arg for k in node.keywords}!={'validate'}
@@ -148,7 +148,22 @@ def collect():
         for name in ('lambda','sqs','dynamodb'):
             model=Session().get_service_model(name);aws[name]=model.metadata['protocol']
         if set(aws.values())-{'json','rest-json'}: raise ValueError('new AWS XML protocol')
-    imports={};visited=0
+    guards=[]
+    if importlib.util.find_spec('cv2'):
+        import cv2
+        if os.environ.get('OPENCV_VIDEOIO_PRIORITY_FFMPEG')!='0' or cv2.videoio_registry.hasBackend(cv2.CAP_FFMPEG):
+            raise ValueError('FFmpeg video backend enabled')
+        video=cv2.VideoCapture('/tmp/generated-sequence-%d.jpg',cv2.CAP_FFMPEG)
+        if video.isOpened():raise ValueError('explicit FFmpeg capture available')
+        video.release();guards.append('ffmpeg_backend_disabled')
+    if importlib.util.find_spec('psycopg'):
+        sys.path.insert(0,'/app/verification')
+        from postgres import connection_options
+        opts=connection_options('host=db.example.invalid user=generated dbname=generated sslmode=verify-full gssencmode=require require_auth=gss')
+        if opts['gssencmode']!='disable' or opts['require_auth']!='scram-sha-256' or opts['sslmode']!='verify-full':
+            raise ValueError('database can negotiate Kerberos or skip verified TLS/SCRAM')
+        guards.append('postgres_scram_only')
+    imports={};native_hashes={};visited=0
     for root in (Path('/usr'),Path('/opt'),Path('/app')):
         def error(e): raise e
         for directory,dirs,files in os.walk(root,followlinks=False,onerror=error):
@@ -164,15 +179,18 @@ def collect():
                 if found is not None:
                     visited+=1
                     if found: imports[str(path)]=sorted(found)
+                    if found & {'glob','glob64','regcomp','regexec'}:
+                        with path.open('rb') as stream:
+                            native_hashes[str(path)]=hashlib.file_digest(stream,'sha256').hexdigest()
     if not visited: raise ValueError('empty native-code coverage')
     return {'format':1,'python':platform.python_version(),'architecture':platform.machine(),
         'policySHA256':hashlib.sha256((ROOT/'runtime-policy.json').read_bytes()).hexdigest(),
         'removedPackages':sorted(removal['packages']),'removedPathCount':len(paths),
-        'elfFiles':visited,'sensitiveImports':imports,'awsProtocols':aws,'strictDecoderCalls':decoder_count,
+        'elfFiles':visited,'sensitiveImports':imports,'nativeFileSHA256':native_hashes,'awsProtocols':aws,'strictDecoderCalls':decoder_count,
         'alignedNewProbe':subprocess.run(['/checks/aligned-new'],timeout=10).returncode==0,
         'checks':['removed_payload','mail_modules_absent','gconv_absent','no_setid_or_filecaps',
             'strict_base64','temporary_directory_safe','resolver_search_disabled','fopen_mode_validated',
-            'sqlite_extension_disabled','python_xml_not_exposed','reviewed_source_apis','amd64'],
+            'sqlite_extension_disabled','python_xml_not_exposed','reviewed_source_apis','amd64']+guards,
         'limits':['Static imports are supporting evidence, not proof of whole-program reachability.',
             'Public protocol input, trusted dependency code and service configuration are reviewed separately in the version-bound policy.']}
 

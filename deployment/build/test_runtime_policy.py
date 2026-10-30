@@ -47,6 +47,20 @@ class ApplicabilityTests(unittest.TestCase):
         self.assertEqual(self.evaluate()[0]['status'],'not_affected')
         self.evidence['sensitiveImports']={'/app/lib.so':['wordexp']}
         self.assertEqual(self.evaluate()[0]['status'],'under_investigation')
+    def test_native_boundary_requires_exact_path_hash_and_live_guard(self):
+        self.policy['advisories'][0]['checks']=['no_untrusted_native_glob']
+        path='/app/locked.so'
+        self.policy['nativeCallBoundaries']={path:{'sha256':'b'*64,'symbols':['glob64'],'check':'disabled'}}
+        self.evidence['sensitiveImports']={path:['glob64']}
+        self.evidence['nativeFileSHA256']={path:'b'*64}
+        self.evidence['checks'].append('disabled')
+        self.assertEqual(self.evaluate()[0]['status'],'not_affected')
+        for change in ({'nativeFileSHA256':{path:'c'*64}}, {'checks':[]},
+                       {'sensitiveImports':{'/app/other.so':['glob64']}},
+                       {'sensitiveImports':{path:['glob','glob64']}}):
+            with self.subTest(change=change):
+                self.assertEqual(self.evaluate(evidence=dict(self.evidence,**change))[0]['status'],'under_investigation')
+
     def test_parser_alias_weak_decoder_or_new_sink_invalidates_source_review(self):
         with tempfile.TemporaryDirectory() as d:
             root=Path(d);p=root/'app.py'
@@ -54,7 +68,7 @@ class ApplicabilityTests(unittest.TestCase):
             self.assertEqual(evidence.check_sources(root),1)
             for unsafe in ('import xml.etree.ElementTree\n','from base64 import b64decode\n',
                            'import base64 as b\n','x=base64.b64decode(value)\n',
-                           'x=base64.b64decode(value,altchars=b"-_")\n','cookie.js_output()\n','db.enable_load_extension(True)\n'):
+                           'x=base64.b64decode(value,altchars=b"-_")\n','cookie.js_output()\n','db.enable_load_extension(True)\n','cv2.VideoCapture(value)\n'):
                 p.write_text(good+unsafe)
                 with self.subTest(unsafe=unsafe),self.assertRaises(ValueError):evidence.check_sources(root)
     def test_removal_keeps_package_metadata_and_licenses(self):

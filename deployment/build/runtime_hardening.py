@@ -59,6 +59,10 @@ def apply(policy):
         paths.update((stdlib/'lib-dynload').glob(name))
     for name in ('imaplib.*.pyc','poplib.*.pyc'):
         paths.update((stdlib/'__pycache__').glob(name))
+    torch = stdlib/'site-packages/torch'
+    if torch.is_dir():
+        paths.update(p for p in (torch/'test').rglob('*') if p.is_file() or p.is_symlink())
+        paths.update(p for p in (torch/'bin').iterdir() if p.name.startswith('test_') or p.name.endswith('Test'))
     for name in ('EUC-JISX0213.so','SHIFT_JISX0213.so'):
         matches = list(Path('/usr/lib/x86_64-linux-gnu/gconv').glob(name))
         if len(matches)!=1: raise ValueError('expected gconv module absent: '+name)
@@ -73,7 +77,7 @@ def apply(policy):
     # Python, Node and Java inherit the same empty LOCALDOMAIN value.
     site = stdlib/'site-packages/sitecustomize.py'
     if site.exists(): raise ValueError('unexpected site customization')
-    site.write_text('import os\nos.environ["LOCALDOMAIN"] = ""\n')
+    site.write_text('import os\nos.environ["LOCALDOMAIN"] = ""\nos.environ["OPENCV_VIDEOIO_PRIORITY_FFMPEG"] = "0"\n')
     shutil.rmtree('/runtime-build')
     print('PASS: unused runtime payload removed; original dpkg metadata and attribution retained')
 

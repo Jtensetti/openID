@@ -2,7 +2,7 @@
   "format": 1,
   "reviewed": "2026-10-30",
   "reviewBefore": "2026-11-30",
-  "sourceSHA256": "8c23376cc68891a50f0af0ac658a377437605357fd30b86d954494bd8f61e731",
+  "sourceSHA256": "ae3527018de3b31e91f2989c1382fd25ea4cb6bd24c0fdbfa712beacdfb2bb41",
   "scope": "The two Linux/amd64 application images built from the locked Docker Official Python image. Not a distribution-wide VEX, host assessment, or risk acceptance.",
   "removedPackages": [
     "apt",
@@ -582,11 +582,14 @@
       "version": "2.41-12+deb13u4",
       "status": "not_affected",
       "checks": [
-        "no_native_glob"
+        "no_untrusted_native_glob"
       ],
-      "reason": "No untrusted patterns reach libc glob. Python glob is a separate implementation; no FTP service or command shell is shipped.",
+      "reason": "Only exact-hash FFmpeg image-sequence and Kerberos configuration callers may remain. FFmpeg video I/O is disabled and the app accepts bounded in-memory JPEG/JP2 only. Registry connections force TLS/SCRAM with GSS disabled; GSS also uses a fixed configuration glob, not request-supplied patterns. Other native glob imports block.",
       "references": [
-        "https://security-tracker.debian.org/tracker/CVE-2010-4756"
+        "https://security-tracker.debian.org/tracker/CVE-2010-4756",
+        "https://github.com/FFmpeg/FFmpeg/blob/n8.1.2/libavformat/img2dec.c",
+        "https://github.com/opencv/opencv/blob/4.14.0/modules/videoio/src/videoio_registry.cpp",
+        "https://www.postgresql.org/docs/18/libpq-connect.html#LIBPQ-CONNECT-GSSENCMODE"
       ]
     },
     {
@@ -595,11 +598,13 @@
       "version": "2.41-12+deb13u4",
       "status": "not_affected",
       "checks": [
-        "no_posix_regex"
+        "no_untrusted_posix_regex"
       ],
-      "reason": "No application imports of glibc regcomp/regexec; Python and Java regular expressions use different engines.",
+      "reason": "PyTorch test executables are removed. Only the exact-hash Kerberos local-name mapping caller may remain; registry connections require SCRAM and disable GSS encryption, so requests cannot reach Kerberos mapping rules. Python/Java regular expressions use different engines. Any other regcomp/regexec import blocks.",
       "references": [
-        "https://security-tracker.debian.org/tracker/CVE-2018-20796"
+        "https://security-tracker.debian.org/tracker/CVE-2018-20796",
+        "https://github.com/krb5/krb5/blob/master/src/lib/krb5/os/localauth_rule.c",
+        "https://www.postgresql.org/docs/18/libpq-connect.html#LIBPQ-CONNECT-REQUIRE-AUTH"
       ]
     },
     {
@@ -660,11 +665,13 @@
       "version": "2.41-12+deb13u4",
       "status": "not_affected",
       "checks": [
-        "no_posix_regex"
+        "no_untrusted_posix_regex"
       ],
-      "reason": "No application imports of glibc regcomp/regexec; Python and Java regular expressions use different engines.",
+      "reason": "PyTorch test executables are removed. Only the exact-hash Kerberos local-name mapping caller may remain; registry connections require SCRAM and disable GSS encryption, so requests cannot reach Kerberos mapping rules. Python/Java regular expressions use different engines. Any other regcomp/regexec import blocks.",
       "references": [
-        "https://security-tracker.debian.org/tracker/CVE-2019-9192"
+        "https://security-tracker.debian.org/tracker/CVE-2019-9192",
+        "https://github.com/krb5/krb5/blob/master/src/lib/krb5/os/localauth_rule.c",
+        "https://www.postgresql.org/docs/18/libpq-connect.html#LIBPQ-CONNECT-REQUIRE-AUTH"
       ]
     },
     {
@@ -855,11 +862,14 @@
       "version": "2.41-12+deb13u4",
       "status": "not_affected",
       "checks": [
-        "no_native_glob"
+        "no_untrusted_native_glob"
       ],
-      "reason": "No untrusted patterns reach libc glob. Python glob is a separate implementation; no FTP service or command shell is shipped.",
+      "reason": "Only exact-hash FFmpeg image-sequence and Kerberos configuration callers may remain. FFmpeg video I/O is disabled and the app accepts bounded in-memory JPEG/JP2 only. Registry connections force TLS/SCRAM with GSS disabled; GSS also uses a fixed configuration glob, not request-supplied patterns. Other native glob imports block.",
       "references": [
-        "https://security-tracker.debian.org/tracker/CVE-2010-4756"
+        "https://security-tracker.debian.org/tracker/CVE-2010-4756",
+        "https://github.com/FFmpeg/FFmpeg/blob/n8.1.2/libavformat/img2dec.c",
+        "https://github.com/opencv/opencv/blob/4.14.0/modules/videoio/src/videoio_registry.cpp",
+        "https://www.postgresql.org/docs/18/libpq-connect.html#LIBPQ-CONNECT-GSSENCMODE"
       ]
     },
     {
@@ -868,11 +878,13 @@
       "version": "2.41-12+deb13u4",
       "status": "not_affected",
       "checks": [
-        "no_posix_regex"
+        "no_untrusted_posix_regex"
       ],
-      "reason": "No application imports of glibc regcomp/regexec; Python and Java regular expressions use different engines.",
+      "reason": "PyTorch test executables are removed. Only the exact-hash Kerberos local-name mapping caller may remain; registry connections require SCRAM and disable GSS encryption, so requests cannot reach Kerberos mapping rules. Python/Java regular expressions use different engines. Any other regcomp/regexec import blocks.",
       "references": [
-        "https://security-tracker.debian.org/tracker/CVE-2018-20796"
+        "https://security-tracker.debian.org/tracker/CVE-2018-20796",
+        "https://github.com/krb5/krb5/blob/master/src/lib/krb5/os/localauth_rule.c",
+        "https://www.postgresql.org/docs/18/libpq-connect.html#LIBPQ-CONNECT-REQUIRE-AUTH"
       ]
     },
     {
@@ -933,11 +945,13 @@
       "version": "2.41-12+deb13u4",
       "status": "not_affected",
       "checks": [
-        "no_posix_regex"
+        "no_untrusted_posix_regex"
       ],
-      "reason": "No application imports of glibc regcomp/regexec; Python and Java regular expressions use different engines.",
+      "reason": "PyTorch test executables are removed. Only the exact-hash Kerberos local-name mapping caller may remain; registry connections require SCRAM and disable GSS encryption, so requests cannot reach Kerberos mapping rules. Python/Java regular expressions use different engines. Any other regcomp/regexec import blocks.",
       "references": [
-        "https://security-tracker.debian.org/tracker/CVE-2019-9192"
+        "https://security-tracker.debian.org/tracker/CVE-2019-9192",
+        "https://github.com/krb5/krb5/blob/master/src/lib/krb5/os/localauth_rule.c",
+        "https://www.postgresql.org/docs/18/libpq-connect.html#LIBPQ-CONNECT-REQUIRE-AUTH"
       ]
     },
     {
@@ -2403,5 +2417,29 @@
     "CVE-2026-3446": "38da1abb4c83fdc3a9c719059066eacacdca037ec06649e0fb9117d5d095d280",
     "CVE-2026-3479": "060376b0821f38f40bf630190e8c54a1ffce1ab07bc56f0f43f593a6a3fe47c7",
     "CVE-2026-6019": "8281acee341982121f28469965e2bd0767627b6e3da689c363106fab16a749db"
+  },
+  "nativeCallBoundaries": {
+    "/usr/local/lib/python3.12/site-packages/opencv_python_headless.libs/libavformat-50e282e4.so.62.12.102": {
+      "sha256": "6bf44cd8b654d547161550085f46d1afa4ffa4babb56acf03363b1007d74c525",
+      "symbols": [
+        "glob64"
+      ],
+      "check": "ffmpeg_backend_disabled"
+    },
+    "/usr/local/lib/python3.12/site-packages/psycopg_binary.libs/libgssapi_krb5-497db0c6.so.2.2": {
+      "sha256": "ef73998b86c24e54667a843be6d589442dd082e1b9fc605aa15bcc2293858806",
+      "symbols": [
+        "glob"
+      ],
+      "check": "postgres_scram_only"
+    },
+    "/usr/local/lib/python3.12/site-packages/psycopg_binary.libs/libkrb5-fcafa220.so.3.3": {
+      "sha256": "94dc6413050486a6c8de4b6f3bfdd288390892b72bc68580c6c53929721fa07b",
+      "symbols": [
+        "regcomp",
+        "regexec"
+      ],
+      "check": "postgres_scram_only"
+    }
   }
 }

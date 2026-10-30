@@ -162,7 +162,6 @@ def collect_runtime(policy,now):
         identities=sorted(policy['cnaSHA256'])
         report['cna']=dict(zip(identities,pool.map(cna_record,identities)))
     report['scope']='Supplemental upstream component change detection; does not describe installed Wolfi packages.'
-    verify_runtime(report,policy)
     return report
 
 # Confirmed upstream record newer than the vendor feed at the initial review.

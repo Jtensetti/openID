@@ -114,6 +114,10 @@ Installera `verification/cluster-requirements.lock` och
 Kopiera `wallet.example.json` till en privat konfigurationskatalog. Databasfilen
 innehåller en libpq-anslutningssträng med `host`, `dbname`, separat `user`,
 autentiseringsuppgifter, `sslmode=verify-full` och `sslrootcert`.
+Databasen ska använda SCRAM-SHA-256. Alla anslutningar via den gemensamma
+klientgränsen tvingar `require_auth=scram-sha-256` och `gssencmode=disable`;
+GSS/Kerberos, MD5 och anslutning utan autentisering stöds inte. Det hindrar
+GSS från att ersätta den verifierade TLS-anslutningen.
 
 ```sh
 cd verification

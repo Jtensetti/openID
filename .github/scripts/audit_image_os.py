@@ -234,6 +234,7 @@ def audit(image_id, output):
                 raise ValueError('runtime source changed since applicability review')
             component=component_advisories.collect_runtime(policy,datetime.now(timezone.utc))
             save(output/'component-advisories.json',component)
+            component_advisories.verify_runtime(component,policy)
             subprocess.run(['c++','-std=c++17','-O2',str(ROOT/'deployment/build/aligned_new.cpp'),
                             '-o',str(work/'aligned-new')],check=True,timeout=60)
             (work/'resolv.conf').write_text('nameserver 127.0.0.1\nsearch '+('a'*210)+'.invalid\n')

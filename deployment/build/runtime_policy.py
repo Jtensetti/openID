@@ -11,7 +11,7 @@ POLICY=Path(__file__).with_name('runtime-policy.json')
 NATIVE_GROUPS={
  'no_strfmon':{'strfmon','strfmon_l'}, 'no_tdelete':{'tdelete'},
  'no_dns_debug':{'ns_printrr','ns_printrrf','fp_nquery'}, 'no_wordexp':{'wordexp'},
- 'no_native_glob':{'glob','glob64'}, 'no_posix_regex':{'regcomp','regexec'},
+ 'no_untrusted_native_glob':{'glob','glob64'}, 'no_untrusted_posix_regex':{'regcomp','regexec'},
  'no_zlib_combine':{'crc32_combine64','crc32_combine_gen64'},
  'no_zlib_printf':{'gzprintf','gzvprintf'},
  'no_sqlite_session':{'sqlite3changeset_apply','sqlite3changeset_apply_v2','sqlite3changeset_apply_v3',
@@ -66,7 +66,12 @@ def decisions(policy, evidence, findings, now, *, source_sha):
     # generic "no symbol found therefore safe" determination.
     imported={s for values in evidence['sensitiveImports'].values() for s in values}
     for check,symbols in NATIVE_GROUPS.items():
-        if not symbols & imported: checks.add(check)
+        callers={path:set(values)&symbols for path,values in evidence['sensitiveImports'].items() if set(values)&symbols}
+        def bounded(path,used):
+            boundary=policy.get('nativeCallBoundaries',{}).get(path)
+            return (boundary and used<=set(boundary['symbols']) and boundary['check'] in checks
+                    and evidence.get('nativeFileSHA256',{}).get(path)==boundary['sha256'])
+        if all(bounded(path,used) for path,used in callers.items()):checks.add(check)
     if evidence.get('alignedNewProbe') is True and 'posix_memalign' in imported: checks.add('posix_aligned_new')
     checks.update({'gcc_runtime_only','uuid_library_only'})
     if evidence.get('vendorDisputesVerified') is True: checks.add('vendor_disputed')

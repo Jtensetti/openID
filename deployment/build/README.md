@@ -148,7 +148,11 @@ driftkontrollen nekar att skyddet ersätts.
 `runtime_evidence.py` provar den färdiga imagen: borttagna filer/moduler,
 Base64-avvisning, temporärkataloger, DNS-initiering med lång sökdomän,
 SQLite och native-symboler. Ett separat C++-prov testar allokeringsgränsen.
-Statisk symbolfrånvaro är stöd för den dokumenterade anropsanalysen,
+PyTorchs medlevererade testprogram tas bort. FFmpegs videobakände är
+avstängd och ett explicit öppningsförsök ska nekas; JPEG/JP2-avkodningen
+provas separat. Databasklienten kräver TLS/SCRAM och nekar GSS/Kerberos.
+De få kvarvarande native-anropen kräver exakt bibliotekshash och dessa
+körningsskydd. Statisk symbolfrånvaro är stöd för den dokumenterade anropsanalysen,
 inte ensam bevisning för att all kod är oåtkomlig.
 
 Python/Expat följs dessutom med Chainguards aktuella komponentfeed och

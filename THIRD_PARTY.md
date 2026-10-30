@@ -165,7 +165,8 @@ Komponenterna omfattar glibc 2.41, OpenSSL 3.5.7, SQLite 3.46.1 och Python
 3.12.16 med inbäddad Expat 2.9.0. Versionsrevisioner finns i faktisk dpkg-inventering.
 
 Oanvända administrationsverktyg och Pythonmoduler tas bort med en verifierbar
-filmanifest. Paketmetadata, attributionsfiler och råa skannerresultat bevaras.
+filmanifest. PyTorchs oanvända native-testprogram tas också bort;
+inferensbibliotek, paketmetadata och licenser bevaras. Paketmetadata, attributionsfiler och råa skannerresultat bevaras.
 [Bygginstruktionen](deployment/build/README.md#systempaket-och-säkerhetsunderlag)
 beskriver versionbunden tillämplighetsbedömning, källor, prov och stoppvillkor.
 Råa fynd får inte beskrivas som generellt rättade när bedömningen gäller enbart

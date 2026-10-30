@@ -206,6 +206,7 @@ class ImageAuditTests(unittest.TestCase):
                      patch.object(audit.subprocess, 'check_output', side_effect=[('a'*40)+'\n', TSV, json.dumps({'policySHA256':audit.digest(audit.runtime_policy.POLICY)})]), \
                      patch.object(audit.runtime_policy,'source_fingerprint',return_value=json.loads(audit.runtime_policy.POLICY.read_text())['sourceSHA256']), \
                      patch.object(audit.component_advisories,'collect_runtime',return_value={}), \
+                     patch.object(audit.component_advisories,'verify_runtime',return_value=True), \
                      patch.object(audit.component_advisories,'runtime_findings',return_value=[]), \
                      patch.object(audit.runtime_policy,'decisions',side_effect=lambda policy,evidence,findings,now,source_sha: [dict(f,status='under_investigation' if f['id']=='CVE-TEST-REGISTRY' else 'not_affected') for f in findings]), \
                      patch.object(audit, 'install', side_effect=lambda lock, work, output: work/'trivy'), \

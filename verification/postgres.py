@@ -43,7 +43,10 @@ def connection_options(dsn, local_test=False):
     if not options.get('host') or not options.get('user') or not options.get('dbname'):
         raise ValueError('Explicit database host, user and name required')
     # Caller-supplied options must not override the schema, deadlines or primary requirement.
+    # Do not let GSS negotiate instead of verified TLS, or a server select
+    # a different authentication stack than the reviewed SCRAM flow.
     options.update(connect_timeout=3, target_session_attrs='read-write', application_name='openid',
+        gssencmode='disable', require_auth='scram-sha-256',
         options='-c search_path=pg_catalog,openid,pg_temp -c statement_timeout=5000 -c lock_timeout=2000 -c idle_in_transaction_session_timeout=10000')
     return options
 
