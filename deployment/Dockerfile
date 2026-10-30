@@ -57,7 +57,7 @@ COPY prototype/dependencies.lock.json /check/dependencies.lock.json
 COPY prototype/scripts/dependencies.py /check/scripts/dependencies.py
 RUN python /check/scripts/dependencies.py
 
-FROM node:24.22.1-bookworm-slim@sha256:55fb5f5a527ea2c5c4a95f963e48ef90aa38c7b346054fdc8ee9957a2b55d205 AS node-build
+FROM node:26.12.0-bookworm-slim@sha256:742a0fe7320e09e0321222b68165e6ac731d30470e7ea7f98f9bfc3a6e1034fe AS node-build
 WORKDIR /app/verification
 COPY verification/package.json verification/package-lock.json ./
 RUN npm ci --ignore-scripts --omit=dev
