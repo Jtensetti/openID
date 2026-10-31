@@ -51,6 +51,9 @@ COPY deployment/aws/THIRD_PARTY.md deployment/aws/sbom.cdx.json /app/licenses/aw
 COPY verification/crypto_runtime.py verification/serve.py verification/runtime.py verification/biometric_worker.py verification/native.py verification/chip.py verification/server.py verification/wallet.py verification/wallet_cli.py verification/registry_binding.py verification/identity.py verification/recovery.py verification/relying_party.py ./
 COPY verification/crypto-worker.mjs verification/attest.mjs verification/device-signature.mjs verification/profile-crypto.mjs ./
 COPY verification/revocation.py verification/notices.py verification/notice_exporter.py verification/continuity_operator.py ./
+# All beta server code is part of the signed image; no runtime code bind mounts.
+COPY verification/federation.py verification/ipc_support.py verification/vault_service.py verification/notice_ipc.py ./
+COPY deployment/saml_bridge.py ./saml_bridge.py
 COPY verification/audit_archive.py ./
 COPY verification/rp_web ./rp_web
 COPY deployment/probe.py ./probe.py
