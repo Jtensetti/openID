@@ -34,6 +34,8 @@ jobs:
           docker run --rm --network none --read-only --cap-drop ALL \
             --security-opt no-new-privileges --tmpfs /tmp:size=64m,mode=1777 \
             -v "$PWD/verification/test_runtime_isolation.py:/app/verification/test_runtime_isolation.py:ro" \
+            -v "$PWD/verification/test_identity.py:/app/verification/test_identity.py:ro" \
+            -v "$PWD/verification/test_wallet.py:/app/verification/test_wallet.py:ro" \
             --entrypoint python openid-pilot:ci -B -m unittest -v test_runtime_isolation
       - name: Prepare generated certificates and private volumes
         run: |
