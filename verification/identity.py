@@ -11,6 +11,7 @@ import re
 import secrets
 import stat
 import subprocess
+from ipc_support import request
 
 FIELDS = {'givenNames', 'familyName', 'birthDateMrz', 'nationality', 'issuingState', 'documentNumber', 'documentExpires'}
 
@@ -63,11 +64,16 @@ class VerifiedDocument:
             'portraitJpeg': base64.b64encode(encoded).decode()}
 
 class IdentityVault:
-    def __init__(self, path, runner=None):
+    def __init__(self, path, runner=None, remote_socket=None):
         self.path = Path(path)
         self.runner = runner
+        self.remote_socket = os.environ.get('OPENID_IDENTITY_VAULT_SOCKET') if remote_socket is None else remote_socket
 
     def key(self, create=False):
+        if self.remote_socket:
+            if request(self.remote_socket, {'operation':'check'}) != {'ready':True}:
+                raise ValueError('profile key service unavailable')
+            return True
         if create:
             try:
                 fd = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
@@ -89,6 +95,8 @@ class IdentityVault:
         return key
 
     def reference(self, domain, value):
+        if self.remote_socket:
+            return request(self.remote_socket, {'operation':'reference','domain':domain,'value':value})
         return hmac.new(self.key()[32:], (domain+'\0'+value).encode(), hashlib.sha256).hexdigest()
 
     def document_tag(self, document):
@@ -97,11 +105,14 @@ class IdentityVault:
             ('issuingState', 'documentNumber', 'birthDateMrz')], separators=(',', ':')))
 
     def crypt(self, operation, credential, person, value):
-        request = {'operation': operation, 'key': base64.b64encode(self.key()[:32]).decode(),
+        if self.remote_socket:
+            return request(self.remote_socket, {'operation':'crypt','mode':operation,
+                                                'credential':credential,'person':person,'value':value})
+        payload = {'operation': operation, 'key': base64.b64encode(self.key()[:32]).decode(),
             'aad': f'openid-profile-v1:{credential}:{person}', 'value': value}
-        if self.runner is not None: return self.runner(request)['value']
+        if self.runner is not None: return self.runner(payload)['value']
         result = subprocess.run(['node', str(Path(__file__).parent/'profile-crypto.mjs')],
-            input=json.dumps(request).encode(),
+            input=json.dumps(payload).encode(),
             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=10, check=False)
         if result.returncode: raise ValueError('identity profile unavailable')
         return json.loads(result.stdout)['value']

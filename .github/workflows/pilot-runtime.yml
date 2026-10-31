@@ -14,12 +14,29 @@ jobs:
           persist-credentials: false
       - name: Test bundle rejection and import safety
         run: python3 -m unittest discover -s deployment -p test_image_bundle.py -v
+      - name: Require beta 112 isolation and unchanged client protocol
+        run: |
+          python3 -m unittest discover -s deployment -p test_beta112.py -v
+          sudo python3 -m unittest discover -s deployment -p test_beta112_isolation.py -v
+          export OPENID_BETA_DIRECTORY=/tmp/unused-beta112
+          export OPENID_NOTICE_QUEUE_URL=https://sqs.eu-north-1.amazonaws.com/111111111111/synthetic
+          export OPENID_BETA_IMAGE_ID="sha256:$(printf 'a%.0s' {1..64})"
+          docker compose -f deployment/beta-compose.yaml -f deployment/continuity-compose.yaml \
+            config --format json | python3 deployment/check_beta112.py compose --image-id "$OPENID_BETA_IMAGE_ID"
       - name: Export tracked source only
         run: |
           mkdir "$RUNNER_TEMP/image-source"
           git archive HEAD | tar -x -C "$RUNNER_TEMP/image-source"
       - name: Build pinned private pilot image
         run: docker build --platform linux/amd64 --tag openid-pilot:ci --file "$RUNNER_TEMP/image-source/deployment/Dockerfile" "$RUNNER_TEMP/image-source"
+      - name: Test isolated vault and notice RPC inside the packaged image
+        run: |
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --tmpfs /tmp:size=64m,mode=1777 \
+            -v "$PWD/verification/test_runtime_isolation.py:/app/verification/test_runtime_isolation.py:ro" \
+            -v "$PWD/verification/test_identity.py:/app/verification/test_identity.py:ro" \
+            -v "$PWD/verification/test_wallet.py:/app/verification/test_wallet.py:ro" \
+            --entrypoint python openid-pilot:ci -B -m unittest -v test_runtime_isolation
       - name: Prepare generated certificates and private volumes
         run: |
           openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=Generated-test-CSCA -keyout "$RUNNER_TEMP/test-csca.key" -out "$RUNNER_TEMP/test-csca.pem"
@@ -115,6 +132,50 @@ jobs:
           docker run --rm --network none --read-only --cap-drop ALL \
             --security-opt no-new-privileges --entrypoint java \
             "openid-pilot:commit-$revision" -version
+      - name: Split beta112 image into authenticated transport parts
+        if: github.event_name == 'pull_request' && github.base_ref == 'release/beta112-base'
+        run: |
+          mkdir "$RUNNER_TEMP/image-transfer"
+          split --bytes=350000000 --numeric-suffixes=0 --suffix-length=2 \
+            "$RUNNER_TEMP/image-bundle/image.tar.gz" "$RUNNER_TEMP/image-transfer/image-part-"
+          test -s "$RUNNER_TEMP/image-transfer/image-part-00"
+          test -s "$RUNNER_TEMP/image-transfer/image-part-01"
+          test ! -e "$RUNNER_TEMP/image-transfer/image-part-02"
+          (cd "$RUNNER_TEMP/image-transfer" && sha256sum image-part-00 image-part-01 > image-parts.sha256)
+          cp "$RUNNER_TEMP/image-bundle"/{manifest.json,source.tar.gz,protocol-results.json,python-packages.json} \
+            "$RUNNER_TEMP/image-transfer/"
+      - name: Publish beta112 metadata and transport hashes
+        if: github.event_name == 'pull_request' && github.base_ref == 'release/beta112-base'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: beta112-image-metadata-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/image-transfer/manifest.json
+            ${{ runner.temp }}/image-transfer/source.tar.gz
+            ${{ runner.temp }}/image-transfer/protocol-results.json
+            ${{ runner.temp }}/image-transfer/python-packages.json
+            ${{ runner.temp }}/image-transfer/image-parts.sha256
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 7
+      - name: Publish beta112 image part 00
+        if: github.event_name == 'pull_request' && github.base_ref == 'release/beta112-base'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: beta112-image-part00-${{ github.sha }}
+          path: ${{ runner.temp }}/image-transfer/image-part-00
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 7
+      - name: Publish beta112 image part 01
+        if: github.event_name == 'pull_request' && github.base_ref == 'release/beta112-base'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: beta112-image-part01-${{ github.sha }}
+          path: ${{ runner.temp }}/image-transfer/image-part-01
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 7
       - name: Retain deployable image after main push or manual build
         if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
