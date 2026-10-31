@@ -110,6 +110,14 @@ def prepare():
     for path,uid in ((BETA / "federation-idp", IDP_UID), (BETA / "federation-sp", SP_UID)):
         ensure_directory(path, uid, uid, 0o700)
         copy_synthetic_keys(path, uid)
+        source_origins = BETA / "origins.json"
+        target_origins = path / "origins.json"
+        if source_origins.is_symlink() or not source_origins.is_file() or target_origins.exists():
+            raise RuntimeError("invalid or already prepared origins configuration")
+        with source_origins.open("rb") as source, target_origins.open("xb") as target:
+            shutil.copyfileobj(source, target)
+        os.chown(target_origins, uid, uid)
+        os.chmod(target_origins, 0o600)
     key_check(BETA / "data/wallet.identity-key", WALLET_UID)
     print("Prepared isolated sockets and existing test certificates; wallet and beta are unchanged")
 
