@@ -18,6 +18,7 @@ class MigrationTests(unittest.TestCase):
         os.chmod(self.root, 0o700)
         (self.root/"data").mkdir(mode=0o700)
         (self.root/"federation").mkdir(mode=0o700)
+        (self.root/"origins.json").write_bytes(b'{"idp":"https://idp.test","sp":"https://sp.test"}')
         (self.root/"federation"/"SYNTHETIC-LAB-ONLY").write_bytes(b"Disposable test keys\n")
         for name in ("tls.p12","idp.p12","sp.p12","tls.crt"):
             (self.root/"federation"/name).write_bytes(b"synthetic-fixture-"+name.encode())
@@ -43,6 +44,9 @@ class MigrationTests(unittest.TestCase):
                 self.assertEqual(directory.stat().st_mode & 0o777, 0o700)
                 for file in ("tls.p12","idp.p12","sp.p12","tls.crt"):
                     self.assertEqual((directory/file).read_bytes(),b"synthetic-fixture-"+file.encode())
+                self.assertEqual((directory/"origins.json").read_bytes(),
+                                 (self.root/"origins.json").read_bytes())
+                self.assertEqual((directory/"origins.json").stat().st_mode & 0o777, 0o600)
             m.activate()
             self.assertFalse((self.root/"data/wallet.identity-key").exists())
             vault_file=self.root/"vault/private/wallet.identity-key"
