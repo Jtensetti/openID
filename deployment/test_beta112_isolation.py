@@ -25,6 +25,8 @@ class MigrationTests(unittest.TestCase):
         path = self.root/"data"/"wallet.identity-key"
         path.write_bytes(self.key)
         os.chmod(path, 0o600)
+        if os.geteuid() == 0:
+            os.chown(path, 10001, 10001)
         self.original = m.BETA
         m.BETA = self.root
         self.addCleanup(setattr,m,"BETA",self.original)
