@@ -17,6 +17,7 @@ jobs:
       - name: Require beta 112 isolation and unchanged client protocol
         run: |
           python3 -m unittest discover -s deployment -p test_beta112.py -v
+          sudo python3 -m unittest discover -s deployment -p test_beta112_isolation.py -v
           export OPENID_BETA_DIRECTORY=/tmp/unused-beta112
           export OPENID_NOTICE_QUEUE_URL=https://sqs.eu-north-1.amazonaws.com/111111111111/synthetic
           export OPENID_BETA_IMAGE_ID="sha256:$(printf 'a%.0s' {1..64})"
