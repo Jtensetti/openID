@@ -7,6 +7,7 @@ import socket
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 
 from identity import IdentityVault
 from ipc_support import LocalService, request
@@ -50,6 +51,35 @@ class IsolatedSocketTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             request(self.path, {"operation":"crypt", "mode":"open", "credential":"c"*64,
                                 "person":"b"*64, "value":sealed})
+
+    def test_beta112_wallet_enrollment_and_saml_still_work_with_remote_key(self):
+        # Same contract as the installed 112 app: synthetic pass, local signing
+        # and federation approval; no private key is present in the wallet mount.
+        from test_identity import document
+        from test_wallet import crypt
+        key = json.loads(crypt(op="new"))
+        vault = IdentityVault(self.directory / "vault-only-key", remote_socket="")
+        vault.key(create=True)
+        self.run_server(lambda body: vault_dispatch(vault, body))
+        with patch.dict(os.environ, {"OPENID_IDENTITY_VAULT_SOCKET": str(self.path)}):
+            wallet = Wallet(self.directory / "wallet.sqlite", "https://localhost:8765", clock=lambda:1792454400)
+            ident = wallet.enroll(key["publicKey"], document())["id"]
+            self.assertFalse((self.directory / "wallet.identity-key").exists())
+            wallet.activate(ident, "REVIEW-synthetic-001")
+            audience = "https://localhost:8444/sp"
+            req = wallet.federation_start("_signed_saml_flow", audience)
+            challenge = wallet.challenge({"credentialId":ident, "action":"approve", "requestId":req["id"]})
+            signed = crypt(op="sign", key=key["privateKey"], payload=challenge["signingInput"])
+            wallet.execute({"challengeId":challenge["id"], "signature":signed})
+            reply = wallet.federation_result("consume", request=req["id"], secret=req["secret"],
+                                            binding="_signed_saml_flow", audience=audience)
+            self.assertEqual(reply["state"], "AUTHENTICATED")
+            self.assertEqual(reply["identity"]["displayName"], "ALICE SYNTHETIC")
+            self.assertNotIn("documentNumber", reply["identity"])
+            wallet.revoke(ident)
+            with self.assertRaises(ValueError):
+                wallet.federation_check(ident, reply["subject"], reply["version"], audience)
+            self.assertFalse((self.directory / "wallet.identity-key").exists())
 
     def test_no_world_or_other_group_access(self):
         os.chmod(self.sockdir, 0o2770)
