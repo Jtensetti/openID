@@ -27,12 +27,17 @@ OS_FILES = ("assessment.json", "database-metadata.json", "os-sbom.cdx.json",
 PAYLOADS = ("image.tar.gz", "source.tar.gz", "protocol-results.json", "python-packages.json") + tuple(
     "os-" + name for name in OS_FILES)
 BETA_MOUNTS = {
-    "verifier": {"runtime.json": True, "secrets": True, "data": False, "continuity.json": True},
-    "bridge": {"data": False, "origins.json": True, "continuity.json": True},
-    "idp": {"data": False, "federation": False, "origins.json": True},
-    "sp": {"data": False, "federation": True, "origins.json": True},
-    "notice-exporter": {"data": False, "continuity.json": True},
+    "vault": {"keys": True, "vault-ipc": False},
+    "verifier": {"runtime.json": True, "secrets": True, "data": False, "vault-ipc": True, "continuity.json": True},
+    "bridge": {"data": False, "origins.json": True, "federation-ipc": False,
+               "notice-ipc": False, "vault-ipc": True, "continuity.json": True},
+    "idp": {"federation": False, "federation-ipc": True, "origins.json": True},
+    "sp": {"federation": True, "federation-ipc": True, "origins.json": True},
+    "notice-exporter": {"notice-ipc": True},
 }
+BETA_USERS = {"vault": "10005:20002", "verifier": "10001:20002",
+              "bridge": "10001:20001", "idp": "10002:20001",
+              "sp": "10003:20001", "notice-exporter": "10004:20003"}
 
 
 def digest(path):
@@ -303,6 +308,10 @@ def check_beta_compose(config, image_id):
     for name, service in services.items():
         require(service.get("image") == image_id and "build" not in service,
                 "Every beta service must use the verified image without building")
+        require(service.get("user") == BETA_USERS[name], "Beta service identity mismatch")
+        expected_groups = ["20002", "20003"] if name == "bridge" else []
+        require([str(x) for x in service.get("group_add", [])] == expected_groups,
+                "Unexpected beta supplementary groups")
         require(not any(service.get(key) for key in ("configs", "secrets", "volumes_from")),
                 "Unexpected additional beta mounts")
         require(service.get("environment", {}).get("LOCALDOMAIN", "") == "",
@@ -334,6 +343,10 @@ def check_beta_running(image_id):
         require([e for e in container["Config"].get("Env", []) if e.startswith("LOCALDOMAIN=")] == ["LOCALDOMAIN="],
                 "DNS search-list mitigation missing in running service")
         service = container["Config"]["Labels"]["com.docker.compose.service"]
+        require(container["Config"].get("User") == BETA_USERS[service], "Running beta service UID mismatch")
+        expected_groups = ["20002", "20003"] if service == "bridge" else []
+        require([str(x) for x in container.get("HostConfig", {}).get("GroupAdd") or []] == expected_groups,
+                "Running beta supplementary group mismatch")
         mounts = container.get("Mounts", [])
         require(all(m.get("Type") == "bind" and type(m.get("RW")) is bool for m in mounts),
                 "Only explicit beta bind mounts are supported")
