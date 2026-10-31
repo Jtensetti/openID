@@ -13,22 +13,29 @@ import image_bundle as bundle
 
 def beta_configuration(image):
     paths = {
-        "verifier": [("runtime.json", True), ("secrets", True), ("data", False), ("continuity.json", True)],
-        "bridge": [("data", False), ("origins.json", True), ("continuity.json", True)],
-        "idp": [("data", False), ("federation", False), ("origins.json", True)],
-        "sp": [("data", False), ("federation", True), ("origins.json", True)],
-        "notice-exporter": [("data", False), ("continuity.json", True)],
+        "vault": [("keys", True), ("vault-ipc", False)],
+        "verifier": [("runtime.json", True), ("secrets", True), ("data", False),
+                     ("vault-ipc", True), ("continuity.json", True)],
+        "bridge": [("data", False), ("origins.json", True), ("federation-ipc", False),
+                   ("notice-ipc", False), ("vault-ipc", True), ("continuity.json", True)],
+        "idp": [("federation", False), ("federation-ipc", True), ("origins.json", True)],
+        "sp": [("federation", True), ("federation-ipc", True), ("origins.json", True)],
+        "notice-exporter": [("notice-ipc", True)],
     }
-    return {"services": {name: {"image": image, "read_only": True, "tmpfs": ["/tmp:size=16m"],
+    return {"services": {name: {"image": image, "user": bundle.BETA_USERS[name],
+        "group_add": ["20002", "20003"] if name == "bridge" else [],
+        "read_only": True, "tmpfs": ["/tmp:size=16m"],
         "volumes": [{"type": "bind", "source": "/private/" + path,
                      "target": "/srv/openid/" + path, "read_only": readonly}
                     for path, readonly in mounts]} for name, mounts in paths.items()}}
 
 
 def running_containers(config):
-    return [{"Config": {"Image": s["image"], "Env": ["LOCALDOMAIN="], "Labels": {"com.docker.compose.service": name}},
+    return [{"Config": {"Image": s["image"], "User": s["user"], "Env": ["LOCALDOMAIN="],
+                        "Labels": {"com.docker.compose.service": name}},
              "Image": s["image"], "State": {"Running": True},
-             "HostConfig": {"ReadonlyRootfs": s["read_only"], "Tmpfs": {"/tmp": "size=16m"}},
+             "HostConfig": {"ReadonlyRootfs": s["read_only"], "Tmpfs": {"/tmp": "size=16m"},
+                            "GroupAdd": s["group_add"]},
              "Mounts": [{"Type": v["type"], "Destination": v["target"], "RW": not v["read_only"]}
                         for v in s["volumes"]]} for name, s in config["services"].items()]
 
