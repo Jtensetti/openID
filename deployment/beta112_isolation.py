@@ -90,16 +90,18 @@ def key_check(path, uid):
 
 def prepare():
     assert_admin()
-    # The old wallet-only beta tree was 0700/10001. Other isolated UIDs must
-    # traverse it, without gaining permission to list or modify its contents.
-    for path in (BETA, BETA / "ipc", BETA / "vault"):
+    # Docker resolves private host bind sources as root before mounting them
+    # inside individual namespaces. Preserve the beta root's original 0700 mode.
+    if BETA.stat().st_mode & 0o077:
+        raise RuntimeError("unexpected beta directory permissions")
+    for path in (BETA / "ipc", BETA / "vault"):
         if path.is_symlink():
             raise RuntimeError("symlink in isolation parent")
-        if path != BETA and not path.exists():
+        if not path.exists():
             path.mkdir(mode=0o700, parents=False)
         if not path.is_dir():
             raise RuntimeError("invalid isolation parent directory")
-        os.chmod(path, 0o711)
+        os.chmod(path, 0o700)
     for path,uid,gid in (
         (BETA / "ipc/federation", WALLET_UID, 20001),
         (BETA / "ipc/notice", WALLET_UID, 20003),
@@ -153,8 +155,7 @@ def rollback():
     os.chown(destination, WALLET_UID, WALLET_UID)
     os.chmod(destination, 0o600)
     key_check(destination, WALLET_UID)
-    os.chmod(BETA, 0o700)
-    print("Original key location and original parent isolation restored; use the old image and Compose")
+    print("Original key location restored; use the previous pinned image and Compose")
 
 
 if __name__ == "__main__":
