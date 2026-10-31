@@ -37,7 +37,7 @@ class MigrationTests(unittest.TestCase):
             self.skipTest("root-only permission migration")
         with patch.object(m,"assert_beta_stopped",lambda: None):
             m.prepare()
-            self.assertEqual(self.root.stat().st_mode & 0o777, 0o711)
+            self.assertEqual(self.root.stat().st_mode & 0o777, 0o700)
             for p, owner in (("federation-idp",10002),("federation-sp",10003)):
                 directory=self.root/p
                 self.assertEqual(directory.stat().st_uid, owner)
