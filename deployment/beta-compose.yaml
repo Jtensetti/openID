@@ -81,7 +81,7 @@ services:
     volumes:
       - ${OPENID_BETA_DIRECTORY:?Set OPENID_BETA_DIRECTORY}/federation-idp:/srv/openid/federation
       - ${OPENID_BETA_DIRECTORY}/ipc/federation:/srv/openid/federation-ipc:ro
-      - ${OPENID_BETA_DIRECTORY}/origins.json:/srv/openid/origins.json:ro
+      - ${OPENID_BETA_DIRECTORY}/federation-idp/origins.json:/srv/openid/origins.json:ro
   sp:
     <<: *service
     user: "10003:20001"
@@ -93,4 +93,4 @@ services:
     volumes:
       - ${OPENID_BETA_DIRECTORY:?Set OPENID_BETA_DIRECTORY}/federation-sp:/srv/openid/federation:ro
       - ${OPENID_BETA_DIRECTORY}/ipc/federation:/srv/openid/federation-ipc:ro
-      - ${OPENID_BETA_DIRECTORY}/origins.json:/srv/openid/origins.json:ro
+      - ${OPENID_BETA_DIRECTORY}/federation-sp/origins.json:/srv/openid/origins.json:ro
