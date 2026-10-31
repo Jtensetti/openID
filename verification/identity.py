@@ -11,13 +11,30 @@ import re
 import secrets
 import stat
 import subprocess
+from ipc_support import request
 
 FIELDS = {'givenNames', 'familyName', 'birthDateMrz', 'nationality', 'issuingState', 'documentNumber', 'documentExpires'}
+
+
+def sqlite_key_history(db):
+    """Retained HMAC links and sealed values require the original pilot key."""
+    names = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    return any(db.execute('SELECT 1 FROM '+name+' LIMIT 1').fetchone() for name in
+        ('profiles', 'persons', 'document_links', 'retired_documents', 'biometric_failures',
+         'security_codes', 'revocation_codes') if name in names)
+
 
 @dataclass(frozen=True)
 class VerifiedDocument:
     portrait: bytes
     identity: dict
+    revocation: str = 'NOT_CHECKED'
+    revocation_valid_until: int = 0
+
+    def require_current_revocation(self, now):
+        if (self.revocation != 'CHECKED_CRL' or type(self.revocation_valid_until) is not int
+                or self.revocation_valid_until <= now):
+            raise ValueError('current document signer revocation check required')
 
     @classmethod
     def from_verifier(cls, value):
@@ -46,28 +63,33 @@ class VerifiedDocument:
             if sum(n//10+n%10 for n in products) % 10: raise ValueError('passport personal number')
         portrait = base64.b64decode(value['portrait'], validate=True)
         if not 0 < len(portrait) <= 2_000_000: raise ValueError('portrait size')
-        return cls(portrait, dict(identity))
+        status = value.get('revocation', 'NOT_CHECKED')
+        valid_until = value.get('revocationValidUntil', 0)
+        if (status not in ('NOT_CHECKED', 'CHECKED_CRL') or type(valid_until) is not int
+                or (status == 'NOT_CHECKED' and valid_until != 0)
+                or (status == 'CHECKED_CRL' and valid_until <= 0)):
+            raise ValueError('invalid document signer revocation result')
+        return cls(portrait, dict(identity), status, valid_until)
 
     def profile(self):
-        import cv2
-        import numpy as np
-        image = cv2.imdecode(np.frombuffer(self.portrait, dtype=np.uint8), cv2.IMREAD_COLOR)
-        if image is None or max(image.shape[:2]) > 8000: raise ValueError('portrait')
-        height, width = image.shape[:2]
-        scale = min(1, 224 / max(height, width))
-        image = cv2.resize(image, (max(1, round(width*scale)), max(1, round(height*scale))))
-        success, encoded = cv2.imencode('.jpg', image, [cv2.IMWRITE_JPEG_QUALITY, 75])
-        if not success or len(encoded) > 24_000: raise ValueError('portrait size')
+        from profile_worker import thumbnail
+        encoded = thumbnail(self.portrait)
         return {k: v for k, v in self.identity.items() if k != 'documentNumber'} | {
             'displayName': ' '.join(filter(None, (self.identity['givenNames'], self.identity['familyName']))),
             'portraitJpeg': base64.b64encode(encoded).decode()}
 
 class IdentityVault:
-    def __init__(self, path, runner=None):
+    def __init__(self, path, runner=None, remote_socket=None):
         self.path = Path(path)
         self.runner = runner
+        self.remote_socket = os.environ.get('OPENID_IDENTITY_VAULT_SOCKET') if remote_socket is None else remote_socket
 
     def key(self, create=False):
+        if self.remote_socket:
+            if request(self.remote_socket, {'operation':'check'}) != {'ready': True}:
+                raise ValueError('profile key service unavailable')
+            # Never return the raw key to the database-owning process.
+            return True
         if create:
             try:
                 fd = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
@@ -89,6 +111,8 @@ class IdentityVault:
         return key
 
     def reference(self, domain, value):
+        if self.remote_socket:
+            return request(self.remote_socket, {'operation':'reference', 'domain':domain, 'value':value})
         return hmac.new(self.key()[32:], (domain+'\0'+value).encode(), hashlib.sha256).hexdigest()
 
     def document_tag(self, document):
@@ -97,11 +121,14 @@ class IdentityVault:
             ('issuingState', 'documentNumber', 'birthDateMrz')], separators=(',', ':')))
 
     def crypt(self, operation, credential, person, value):
-        request = {'operation': operation, 'key': base64.b64encode(self.key()[:32]).decode(),
+        if self.remote_socket:
+            return request(self.remote_socket, {'operation':'crypt', 'mode':operation, 'credential':credential,
+                                                'person':person, 'value':value})
+        payload = {'operation': operation, 'key': base64.b64encode(self.key()[:32]).decode(),
             'aad': f'openid-profile-v1:{credential}:{person}', 'value': value}
-        if self.runner is not None: return self.runner(request)['value']
+        if self.runner is not None: return self.runner(payload)['value']
         result = subprocess.run(['node', str(Path(__file__).parent/'profile-crypto.mjs')],
-            input=json.dumps(request).encode(),
+            input=json.dumps(payload).encode(),
             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=10, check=False)
         if result.returncode: raise ValueError('identity profile unavailable')
         return json.loads(result.stdout)['value']

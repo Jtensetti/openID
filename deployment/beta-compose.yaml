@@ -1,11 +1,11 @@
+# Server-only hardening; the TestFlight 0.2.0 (112) protocol is unchanged.
 name: openid-beta
 x-service: &service
-  image: openid-pilot:beta
+  image: ${OPENID_BETA_IMAGE_ID:?Set OPENID_BETA_IMAGE_ID to the verified sha256 image ID}
   network_mode: host
-  user: "10001:10001"
   read_only: true
   cap_drop: [ALL]
-  security_opt: [no-new-privileges:true]
+  security_opt: ["no-new-privileges:true"]
   init: true
   restart: unless-stopped
   pids_limit: 128
@@ -14,47 +14,83 @@ x-service: &service
     driver: json-file
     options: {max-size: 5m, max-file: "2"}
 services:
+  vault:
+    <<: *service
+    user: "10005:20002"
+    mem_limit: 128m
+    cpus: 0.5
+    entrypoint: [python, /app/verification/vault_service.py]
+    environment:
+      OPENID_VAULT_KEY: /srv/openid/keys/wallet.identity-key
+      OPENID_VAULT_SOCKET: /srv/openid/vault-ipc/vault.sock
+    volumes:
+      - ${OPENID_BETA_DIRECTORY:?Set OPENID_BETA_DIRECTORY}/vault/private:/srv/openid/keys:ro
+      - ${OPENID_BETA_DIRECTORY}/vault/socket:/srv/openid/vault-ipc
+    healthcheck:
+      test: ["CMD", "python", "/app/verification/vault_service.py", "--probe"]
+      interval: 3s
+      timeout: 2s
+      retries: 15
+      start_period: 5s
   verifier:
     <<: *service
+    user: "10001:20002"
     mem_limit: 2g
     cpus: 2
     stop_grace_period: 70s
+    depends_on:
+      vault: {condition: service_healthy}
+    environment:
+      OPENID_IDENTITY_VAULT_SOCKET: /srv/openid/vault-ipc/vault.sock
     volumes:
-      - ./probe.py:/app/verification/probe.py:ro
       - ${OPENID_BETA_DIRECTORY:?Set OPENID_BETA_DIRECTORY}/runtime.json:/srv/openid/runtime.json:ro
       - ${OPENID_BETA_DIRECTORY}/secrets:/srv/openid/secrets:ro
       - ${OPENID_BETA_DIRECTORY}/data:/srv/openid/data
+      - ${OPENID_BETA_DIRECTORY}/vault/socket:/srv/openid/vault-ipc:ro
   bridge:
     <<: *service
+    user: "10001:20001"
+    group_add: ["20002", "20003"]
     mem_limit: 128m
     cpus: 0.5
     healthcheck: {disable: true}
+    depends_on:
+      vault: {condition: service_healthy}
     entrypoint: [python, /app/verification/saml_bridge.py]
-    environment: {OPENID_PILOT_ORIGINS: /srv/openid/origins.json}
+    environment:
+      OPENID_PILOT_ORIGINS: /srv/openid/origins.json
+      OPENID_IDENTITY_VAULT_SOCKET: /srv/openid/vault-ipc/vault.sock
+      OPENID_FEDERATION_SOCKET: /srv/openid/federation-ipc/federation.sock
+      OPENID_FEDERATION_GROUP: "20001"
+      OPENID_NOTICE_SOCKET: /srv/openid/notice-ipc/notice.sock
+      OPENID_NOTICE_GROUP: "20003"
     volumes:
-      - ${OPENID_BETA_DIRECTORY}/data:/srv/openid/data
+      - ${OPENID_BETA_DIRECTORY:?Set OPENID_BETA_DIRECTORY}/data:/srv/openid/data
       - ${OPENID_BETA_DIRECTORY}/origins.json:/srv/openid/origins.json:ro
-      - ../verification/federation.py:/app/verification/federation.py:ro
-      - ./saml_bridge.py:/app/verification/saml_bridge.py:ro
+      - ${OPENID_BETA_DIRECTORY}/ipc/federation:/srv/openid/federation-ipc
+      - ${OPENID_BETA_DIRECTORY}/ipc/notice:/srv/openid/notice-ipc
+      - ${OPENID_BETA_DIRECTORY}/vault/socket:/srv/openid/vault-ipc:ro
   idp:
     <<: *service
+    user: "10002:20001"
     mem_limit: 640m
     cpus: 1
     healthcheck: {disable: true}
     entrypoint: [java, -Xmx384m, -jar, /app/prototype/target/isolated-eid-lab.jar]
-    command: [phone-idp, /srv/openid/federation, /srv/openid/data/federation.sock, /srv/openid/origins.json]
+    command: [phone-idp, /srv/openid/federation, /srv/openid/federation-ipc/federation.sock, /srv/openid/origins.json]
     volumes:
-      - ${OPENID_BETA_DIRECTORY}/data:/srv/openid/data
-      - ${OPENID_BETA_DIRECTORY}/federation:/srv/openid/federation
+      - ${OPENID_BETA_DIRECTORY:?Set OPENID_BETA_DIRECTORY}/federation-idp:/srv/openid/federation
+      - ${OPENID_BETA_DIRECTORY}/ipc/federation:/srv/openid/federation-ipc:ro
       - ${OPENID_BETA_DIRECTORY}/origins.json:/srv/openid/origins.json:ro
   sp:
     <<: *service
+    user: "10003:20001"
     mem_limit: 384m
     cpus: 0.5
     healthcheck: {disable: true}
     entrypoint: [java, -Xmx192m, -jar, /app/prototype/target/isolated-eid-lab.jar]
-    command: [phone-sp, /srv/openid/federation, /srv/openid/data/federation.sock, /srv/openid/origins.json]
+    command: [phone-sp, /srv/openid/federation, /srv/openid/federation-ipc/federation.sock, /srv/openid/origins.json]
     volumes:
-      - ${OPENID_BETA_DIRECTORY}/data:/srv/openid/data
-      - ${OPENID_BETA_DIRECTORY}/federation:/srv/openid/federation:ro
+      - ${OPENID_BETA_DIRECTORY:?Set OPENID_BETA_DIRECTORY}/federation-sp:/srv/openid/federation:ro
+      - ${OPENID_BETA_DIRECTORY}/ipc/federation:/srv/openid/federation-ipc:ro
       - ${OPENID_BETA_DIRECTORY}/origins.json:/srv/openid/origins.json:ro

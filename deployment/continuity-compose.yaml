@@ -12,12 +12,12 @@ services:
     volumes:
       - ${OPENID_BETA_DIRECTORY:?Set OPENID_BETA_DIRECTORY}/continuity.json:/srv/openid/continuity.json:ro
   notice-exporter:
-    image: openid-pilot:beta
+    image: ${OPENID_BETA_IMAGE_ID:?Set OPENID_BETA_IMAGE_ID to the verified sha256 image ID}
     network_mode: host
-    user: "10001:10001"
+    user: "10004:20003"
     read_only: true
     cap_drop: [ALL]
-    security_opt: [no-new-privileges:true]
+    security_opt: ["no-new-privileges:true"]
     init: true
     restart: unless-stopped
     stop_grace_period: 70s
@@ -28,11 +28,10 @@ services:
     tmpfs: ["/tmp:size=16m,mode=1777"]
     entrypoint: [python, /app/verification/notice_exporter.py]
     environment:
-      OPENID_CONTINUITY_CONFIG: /srv/openid/continuity.json
+      OPENID_NOTICE_SOCKET: /srv/openid/notice-ipc/notice.sock
       OPENID_NOTICE_QUEUE_URL: ${OPENID_NOTICE_QUEUE_URL:?Set OPENID_NOTICE_QUEUE_URL}
     volumes:
-      - ${OPENID_BETA_DIRECTORY:?Set OPENID_BETA_DIRECTORY}/data:/srv/openid/data
-      - ${OPENID_BETA_DIRECTORY}/continuity.json:/srv/openid/continuity.json:ro
+      - ${OPENID_BETA_DIRECTORY:?Set OPENID_BETA_DIRECTORY}/ipc/notice:/srv/openid/notice-ipc:ro
     logging:
       driver: json-file
       options: {max-size: 1m, max-file: "2"}
