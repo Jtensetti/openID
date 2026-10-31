@@ -90,6 +90,16 @@ def key_check(path, uid):
 
 def prepare():
     assert_admin()
+    # The old wallet-only beta tree was 0700/10001. Other isolated UIDs must
+    # traverse it, without gaining permission to list or modify its contents.
+    for path in (BETA, BETA / "ipc", BETA / "vault"):
+        if path.is_symlink():
+            raise RuntimeError("symlink in isolation parent")
+        if path != BETA and not path.exists():
+            path.mkdir(mode=0o700, parents=False)
+        if not path.is_dir():
+            raise RuntimeError("invalid isolation parent directory")
+        os.chmod(path, 0o711)
     for path,uid,gid in (
         (BETA / "ipc/federation", WALLET_UID, 20001),
         (BETA / "ipc/notice", WALLET_UID, 20003),
@@ -135,7 +145,8 @@ def rollback():
     os.chown(destination, WALLET_UID, WALLET_UID)
     os.chmod(destination, 0o600)
     key_check(destination, WALLET_UID)
-    print("Original key location restored; use the previous pinned image and Compose files")
+    os.chmod(BETA, 0o700)
+    print("Original key location and original parent isolation restored; use the old image and Compose")
 
 
 if __name__ == "__main__":
