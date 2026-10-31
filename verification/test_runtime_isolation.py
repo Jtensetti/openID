@@ -60,11 +60,11 @@ class IsolatedSocketTests(unittest.TestCase):
         self.assertEqual(self.path.stat().st_mode & 0o777, 0o660)
 
     def test_outbox_does_not_expose_identity_fields(self):
-        wallet = Wallet(str(self.directory / "wallet.sqlite"), "synthetic")
+        wallet = Wallet(str(self.directory / "wallet.sqlite"), "synthetic", notifications=True)
         with wallet.transaction() as db:
             # Register a purely synthetic credential for the foreign-key constraint.
-            db.execute("INSERT INTO credentials(id,public_key,state,created,expires) VALUES(?,?,?,?,?)",
-                       ("a"*64, "synthetic", "PENDING_REVIEW", 1, 2000000000))
+            db.execute("INSERT INTO credentials(id,public_key,state,created,expires,subject) VALUES(?,?,?,?,?,?)",
+                       ("a"*64, "synthetic", "PENDING_REVIEW", 1, 2000000000, "synthetic-subject"))
             db.execute("INSERT INTO notice_outbox(event,credential,contact_version,kind,created) VALUES(?,?,?,?,?)",
                        ("e"*64, "a"*64, "v"*16, "ACTIVATED_V1", 1))
         self.run_server(lambda body: notice_dispatch(wallet, body))
