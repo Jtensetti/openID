@@ -179,6 +179,11 @@ För `CVE-2026-119377` kontrolleras att underhållskodens SQLite-authorizer inte
 begränsar vanliga läsningar, så dess specifika läsförbigång inte ger åtkomst.
 Övriga nytillkomna SQLite-fynd som kan bero på SQL, schema eller databasfil
 förblir öppna tills deras anropsvägar eller en komponentfix har verifierats.
+Den kompletterande Python/Expat-feedens ändrade poster granskas separat.
+`CVE-2026-103995` i CPython `http.client` rör tolkning av svarslängd och
+chunkstorlek. Avbildningarnas utgående HTTP-klienter använder detta API mot
+konfigurerade tjänster; fyndet förblir öppet tills den gränsen eller en
+Python-fix är verifierad.
 
 Skanner och upstream-SBOM verifieras mot [trivy.lock.json](trivy.lock.json).
 Databasen och komponentfeedens index/arkiv får vara högst 24 timmar gamla.
