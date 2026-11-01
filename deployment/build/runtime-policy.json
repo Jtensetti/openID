@@ -1,8 +1,8 @@
 {
   "format": 1,
-  "reviewed": "2026-10-30",
+  "reviewed": "2026-11-01",
   "reviewBefore": "2026-11-30",
-  "sourceSHA256": "ae3527018de3b31e91f2989c1382fd25ea4cb6bd24c0fdbfa712beacdfb2bb41",
+  "sourceSHA256": "a9ad965127b94e394d037e1e21e6aea29d1ac6bdfe7d9a08d7e1510f46a4df73",
   "scope": "The two Linux/amd64 application images built from the locked Docker Official Python image. Not a distribution-wide VEX, host assessment, or risk acceptance.",
   "removedPackages": [
     "apt",
@@ -2317,6 +2317,72 @@
       "reason": "No attacker-supplied XML reaches Expat; the greater-than-2^30-attribute trigger also exceeds all service request limits. Java SAML does not use this parser.",
       "references": [
         "https://www.cve.org/CVERecord?id=CVE-2026-118370"
+      ]
+    },
+    {
+      "id": "CVE-2026-84243",
+      "package": "libc-bin",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "The libc-bin package payload is physically removed from both final images; only dpkg metadata and attribution remain.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-84243"
+      ]
+    },
+    {
+      "id": "CVE-2026-84243",
+      "package": "libc6",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "gettext_locale_boundary"
+      ],
+      "reason": "Python site customization clears LANGUAGE and forces LC_MESSAGES=C before application code; runtime evidence verifies the values. Public requests do not set process environment variables.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-84243"
+      ]
+    },
+    {
+      "id": "CVE-2026-119379",
+      "package": "libsqlite3-0",
+      "version": "3.46.1-7+deb13u2",
+      "status": "not_affected",
+      "checks": [
+        "no_sqlite_session",
+        "sqlite_extension_disabled"
+      ],
+      "reason": "The flaw requires sqlite3changeset_apply on a crafted Session changeset. CPython sqlite3 does not expose Session changeset APIs, no shipped native caller imports them, and dynamic extension loading is disabled.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-119379"
+      ]
+    },
+    {
+      "id": "CVE-2026-119586",
+      "package": "libsqlite3-0",
+      "version": "3.46.1-7+deb13u2",
+      "status": "not_affected",
+      "checks": [
+        "sqlite_cli_absent"
+      ],
+      "reason": "The flaw is in the sqlite3 command-line shell .recover pipeline. Neither final image includes the shell; recovery.py uses Python sqlite3.backup and never emits or pipes .recover output.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-119586"
+      ]
+    },
+    {
+      "id": "CVE-2026-119377",
+      "package": "libsqlite3-0",
+      "version": "3.46.1-7+deb13u2",
+      "status": "not_affected",
+      "checks": [
+        "sqlite_authorizer_read_unrestricted"
+      ],
+      "reason": "This bypass requires an attacker-supplied RIGHT/FULL JOIN USING query and an authorizer that denies SQLITE_READ for selected columns. The shipped SQLite maintenance authorizers allow all ordinary SQLITE_READ actions; no service endpoint accepts SQL text. Runtime evidence probes the authorizer callbacks in both images.",
+      "references": [
+        "https://security-tracker.debian.org/tracker/CVE-2026-119377"
       ]
     }
   ],
