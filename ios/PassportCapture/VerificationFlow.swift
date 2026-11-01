@@ -2,6 +2,7 @@ import Foundation
 import CryptoKit
 import DeviceCheck
 import NFCPassportReader
+import LocalAuthentication
 
 @MainActor final class VerificationFlow: ObservableObject {
     private var configuration: ServerConfiguration?
@@ -97,6 +98,7 @@ import NFCPassportReader
                     "devicePublicKey": credential.publicKey.base64EncodedString(), "acceptance": acceptance]
                 let choiceBytes = try JSONSerialization.data(withJSONObject: choice, options: [.sortedKeys])
                 let choiceAssertion = try await service.generateAssertion(keyID, clientDataHash: Data(SHA256.hash(data: choiceBytes)))
+                let deviceProof = try SecureVault().sign(choiceBytes, credential: credential, context: LAContext())
                 try Task.checkCancellation()
                 // Persist the reference BEFORE transmission so an uncertain reply
                 // does not lose the holder's ability to request withdrawal.
@@ -104,7 +106,8 @@ import NFCPassportReader
                     origin: configuration.origin, notice: notice, state: .submitted)
                 try EnrollmentReceiptStore().save(receipt)
                 let accepted = try await api.postObject("/native/consent", body: ["id":id,
-                    "payload":choiceBytes.base64EncodedString(), "assertion":choiceAssertion.base64EncodedString()])
+                    "payload":choiceBytes.base64EncodedString(), "assertion":choiceAssertion.base64EncodedString(),
+                    "deviceProof":deviceProof.base64EncodedString()])
                 guard accepted["id"] as? String == id, accepted["receipt"] as? String == receiptID,
                       let nonce = accepted["nonce"] as? String else { throw FlowError.rejected }
                 receipt.state = .recorded; try EnrollmentReceiptStore().save(receipt)

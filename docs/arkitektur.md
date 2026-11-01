@@ -18,6 +18,8 @@ en oberoende spärrtjänst och aviseringskö. Se [avisering och spärr](aviserin
 
 Java-sökvägarna är relativa till `prototype/src/main/java/`.
 Versioner och licenser finns i [komponentregistret](../THIRD_PARTY.md).
+Bryggan hanterar lokala socketanslutningar i separata trådar; databasens
+transaktioner avgör fortfarande ordningen för samtidiga registerbeslut.
 
 ## Körmiljö
 
@@ -42,7 +44,8 @@ säkerhetszon med ingressen.
    nyckelrepresentationen med `WhenPasscodeSetThisDeviceOnly`.
 2. Appen hämtar versionsbunden information från servern. Två separata val
    krävs innan passformuläret visas. App Attest binder val, textdigest och
-   enhetsnyckel till ett kvitto före serverns passkontroll.
+   enhetsnyckel till ett kvitto före serverns passkontroll. Secure Enclave-nyckeln
+   signerar samma bytes; servern kräver bevis på privat nyckelinnehav.
    NFCPassportReader läser därefter DG1, DG2, DG14 och SOD med PACE/BAC.
 3. App Attest binder dokument och publik nyckel till en kortlivad serversession.
    Servern kontrollerar app-ID, certifikat, signatur, räknare och session.

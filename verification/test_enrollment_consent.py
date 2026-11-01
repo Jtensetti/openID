@@ -55,9 +55,14 @@ class EnrollmentConsentTests(unittest.TestCase):
         return registered | {'devicePublicKey':self.keys[0]['publicKey'],'receipt':secrets.token_hex(32),
             'acceptance':{'policyDigest':self.policy.digest,'termsAccepted':True,'biometricsAccepted':True}}
 
+    def consent_request(self, ident, choice, key=0):
+        request = signed(ident, choice)
+        request['deviceProof'] = crypt(op='sign', key=self.keys[key]['privateKey'], payload=request['payload'])
+        return request
+
     def consent(self):
         registered = self.registered(); choice = self.choice(registered)
-        return self.native.consent(signed(registered['id'],choice))
+        return self.native.consent(self.consent_request(registered['id'],choice))
 
     def document(self, consent, key=0):
         return {k:consent[k] for k in ('id','nonce')} | {'devicePublicKey':self.keys[key]['publicKey'],
@@ -74,36 +79,51 @@ class EnrollmentConsentTests(unittest.TestCase):
         with self.assertRaises(ValueError): self.native.begin_chip(signed(registered['id'],self.document(registered)))
         for choice in ({'termsAccepted':False},{'biometricsAccepted':False},{'policyDigest':'0'*64}):
             registered = self.registered(); data = self.choice(registered); data['acceptance'].update(choice)
-            with self.assertRaises(ValueError): self.native.consent(signed(registered['id'],data))
-            with self.assertRaises(ValueError): self.native.consent(signed(registered['id'],data))
+            with self.assertRaises(ValueError): self.native.consent(self.consent_request(registered['id'],data))
+            with self.assertRaises(ValueError): self.native.consent(self.consent_request(registered['id'],data))
         self.passport.assert_not_called(); self.biometry.assert_not_called()
         with self.wallet.transaction() as db:
             self.assertEqual(0,db.execute('SELECT count(*) FROM enrollment_consents').fetchone()[0])
 
     def test_signed_receipt_precedes_identity_and_nonce_changes(self):
         registered=self.registered(); data=self.choice(registered)
-        result=self.native.consent(signed(registered['id'],data))
+        result=self.native.consent(self.consent_request(registered['id'],data))
         self.assertEqual(data['receipt'],result['receipt']); self.assertNotEqual(registered['nonce'],result['nonce'])
         with self.wallet.transaction() as db:
             self.assertEqual(0,db.execute('SELECT count(*) FROM credentials').fetchone()[0])
             evidence=db.execute('SELECT proof FROM enrollment_consents').fetchone()[0]
             self.assertEqual(self.policy.archived(),json.loads(db.execute('SELECT record FROM enrollment_policies').fetchone()[0]))
             self.assertNotIn('dg1',evidence)
-        with self.assertRaises(ValueError): self.native.consent(signed(registered['id'],data))
+        with self.assertRaises(ValueError): self.native.consent(self.consent_request(registered['id'],data))
         with self.assertRaises(ValueError): self.native.begin_chip(signed(result['id'],self.document(result,key=1)))
         self.passport.assert_not_called()
 
     def test_bad_assertion_or_persistence_failure_cannot_advance_to_passport(self):
         registered=self.registered(); data=self.choice(registered)
         self.attest.check.side_effect=ValueError('rejected assertion')
-        with self.assertRaises(ValueError): self.native.consent(signed(registered['id'],data))
+        with self.assertRaises(ValueError): self.native.consent(self.consent_request(registered['id'],data))
         self.assertNotIn(registered['id'],self.native.pending)
         self.passport.assert_not_called()
         with self.wallet.transaction() as db:self.assertEqual(0,db.execute('SELECT count(*) FROM enrollment_consents').fetchone()[0])
         self.attest.check.side_effect=lambda op,**kw: {'publicKey':'synthetic-app-key'} if op=='attestation' else {'signCount':kw['signCount']+1}
         registered=self.registered();data=self.choice(registered)
         self.wallet.record_acceptance=Mock(side_effect=sqlite3.OperationalError('synthetic disk failure'))
-        with self.assertRaises(sqlite3.OperationalError):self.native.consent(signed(registered['id'],data))
+        with self.assertRaises(sqlite3.OperationalError):self.native.consent(self.consent_request(registered['id'],data))
+
+    def test_device_key_requires_private_key_proof_for_this_choice(self):
+        registered=self.registered(); data=self.choice(registered)
+        with self.assertRaises(ValueError):
+            self.native.consent(self.consent_request(registered['id'],data,key=1))
+        with self.wallet.transaction() as db:
+            self.assertEqual(0,db.execute('SELECT count(*) FROM enrollment_consents').fetchone()[0])
+        registered=self.registered(); data=self.choice(registered)
+        request=self.consent_request(registered['id'],data)
+        request.pop('deviceProof')
+        with self.assertRaises(ValueError): self.native.consent(request)
+        registered=self.registered(); data=self.choice(registered)
+        request=self.consent_request(registered['id'],data)
+        request['deviceProof']='YQ=='
+        with self.assertRaises(ValueError): self.native.consent(request)
         self.assertNotIn(registered['id'],self.native.pending)
 
     def test_withdrawal_is_authenticated_origin_bound_permanent_and_survives_restart(self):

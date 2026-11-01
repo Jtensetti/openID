@@ -70,6 +70,14 @@ class RetentionTests(unittest.TestCase):
         self.assertNotIn('PRIVATE', json.dumps(result)); self.assertNotIn('a'*64, json.dumps(result))
         self.assertEqual(before, self.path.read_bytes()); self.assertEqual([], self.rows('retention_runs'))
 
+    def test_expiry_indexes_are_present_for_retention_candidates(self):
+        with closing(sqlite3.connect(self.path)) as db:
+            for table, expected in (('requests', 'request_expiry'),
+                                    ('federation_requests', 'federation_expiry')):
+                plan = db.execute(f'EXPLAIN QUERY PLAN SELECT id FROM {table} WHERE expires<?',
+                                  (NOW,)).fetchall()
+                self.assertTrue(any(expected in row[3] for row in plan), (table, plan))
+
     def test_apply_preserves_boundary_active_ids_signing_and_security_evidence(self):
         protected = ('credentials','events','persons','document_links','retired_documents',
                      'profile_documents','biometric_failures')

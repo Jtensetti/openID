@@ -54,6 +54,9 @@ separat av operatören. Kontaktversionen är oföränderlig. Kön innehåller in
 adresser, passuppgifter eller spärrkoder. Exportens stabila händelse-ID följer
 med vid omförsök. Transportkvittens betecknas `QUEUED`, inte levererat.
 Efter fem misslyckade exportförsök behövs operativ åtgärd.
+Exportören håller inget SQLite-skrivlås under SQS-anropet. Dubbletter med
+samma händelse-ID kan uppstå vid samtidig export eller avbrott före kvittens;
+konsumenten ska avduplicera dem.
 
 ## Tester och kvarvarande arbete
 

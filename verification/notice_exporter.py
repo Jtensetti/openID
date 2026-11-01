@@ -4,7 +4,7 @@ import os
 import re
 import signal
 import threading
-from notices import submit
+from notices import export_once
 from revocation import configured_wallet
 
 
@@ -26,7 +26,7 @@ def main():
         return client.send_message(QueueUrl=url, MessageBody=json.dumps(event))['MessageId']
     while not stop.is_set():
         try:
-            with wallet.transaction() as db: submit(db, send, limit=1)
+            export_once(wallet, send)
         except Exception:
             print('notice export unavailable', flush=True)
         stop.wait(10)
@@ -34,10 +34,7 @@ def main():
     # remain durable locally and are retried after restart, never marked sent.
     for _ in range(10):
         try:
-            with wallet.transaction() as db:
-                if not db.execute("SELECT 1 FROM notice_outbox WHERE status='PENDING' AND attempts<5 LIMIT 1").fetchone():
-                    break
-                submit(db, send, limit=1)
+            if not export_once(wallet, send): break
         except Exception:
             print('notice shutdown drain unavailable', flush=True)
             break
