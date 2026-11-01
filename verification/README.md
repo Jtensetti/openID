@@ -75,8 +75,13 @@ Isoleringen är inget bevis på rättade avkodarsårbarheter eller korrekt
 driftskonfiguration. macOS-utveckling har inte detta Linux-skydd.
 
 [iPhone-appen](../ios/README.md) läser passet, tar tre kamerabilder och binder
-underlaget till telefonens publika nyckel med App Attest. Starta servern med
-HTTPS och en privat databas utanför repot:
+underlaget till telefonens publika nyckel med App Attest. Registreringsvalet
+kräver också en signatur från telefonens privata
+Secure Enclave-nyckel över exakt samma bytes som App Attest binder.
+Servern avvisar äldre appbyggen som saknar detta nyckelbevis; uppdatera app
+och server tillsammans innan nyregistrering öppnas.
+
+Starta servern med HTTPS och en privat databas utanför repot:
 
 ```sh
 mkdir -m 700 /privat/openid-pilot
@@ -560,7 +565,7 @@ cd ../verification
 export PROOFING_FIXTURES=/tmp/openid-proofing-fixtures
 export PROOFING_JAVA="$JAVA_HOME/bin/java"
 export PROOFING_PYTHON="$PWD/.venv/bin/python"
-.venv/bin/python -m unittest -v test_verification test_biometric_diagnostics test_native test_chip test_wallet test_relying_party test_identity test_registry_binding test_runtime test_crypto_runtime
+.venv/bin/python -m unittest -v test_verification test_biometric_diagnostics test_native test_chip test_wallet test_relying_party test_identity test_federation_concurrency test_registry_binding test_runtime test_crypto_runtime
 node --test test-attest.mjs
 node browser-test.cjs
 node rp-browser-test.cjs

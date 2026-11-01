@@ -77,7 +77,7 @@ def apply(policy):
     # Python, Node and Java inherit the same empty LOCALDOMAIN value.
     site = stdlib/'site-packages/sitecustomize.py'
     if site.exists(): raise ValueError('unexpected site customization')
-    site.write_text('import os\nos.environ["LOCALDOMAIN"] = ""\nos.environ["OPENCV_VIDEOIO_PRIORITY_FFMPEG"] = "0"\n')
+    site.write_text('import os\nos.environ["LOCALDOMAIN"] = ""\nos.environ["LANGUAGE"] = ""\nos.environ["LC_MESSAGES"] = "C"\nos.environ["OPENCV_VIDEOIO_PRIORITY_FFMPEG"] = "0"\n')
     shutil.rmtree('/runtime-build')
     print('PASS: unused runtime payload removed; original dpkg metadata and attribution retained')
 

@@ -99,6 +99,8 @@ def collect():
         if importlib.util.find_spec(name) is not None: raise ValueError('unused module remains: '+name)
     for name in ('nscd','bzip2recover','ldd','bash','sh','mount','nsenter','infocmp'):
         if shutil.which(name): raise ValueError('unused tool remains: '+name)
+    if shutil.which('sqlite3') or Path('/usr/bin/sqlite3').exists():
+        raise ValueError('SQLite command-line shell remains')
     stdlib=Path('/usr/local/lib/python3.12')
     decoder_count=check_sources(Path('/app/verification'))
     for raw in (b'YQ==Zg==',b'YQ==junk',b'Y Q==',b'YQ==\n'):
@@ -114,6 +116,8 @@ def collect():
         shutil.rmtree(child)
         if (outside/'keep').read_text()!='keep': raise ValueError('cleanup followed a symlink')
     if os.environ.get('LOCALDOMAIN')!='': raise ValueError('DNS search-list mitigation missing')
+    if os.environ.get('LANGUAGE')!='' or os.environ.get('LC_MESSAGES')!='C':
+        raise ValueError('gettext locale boundary missing')
     libc=ctypes.CDLL(None)
     init=getattr(libc,'__res_init')
     if init()!=0 or init()!=0: raise ValueError('resolver initialization failed')
@@ -140,6 +144,12 @@ def collect():
         if not modules or 'zipfile' in modules: raise ValueError('unexpected SQLite modules')
         db.execute('CREATE TABLE t(x)');db.execute('INSERT INTO t VALUES (?)',('ok',))
         if db.execute('SELECT x FROM t').fetchone()!=('ok',): raise ValueError('ordinary SQL failed')
+    sys.path.insert(0, '/app/verification')
+    import consent_retention, sqlite_retention, subject_erasure
+    for module in (consent_retention, sqlite_retention, subject_erasure):
+        for table in ('credentials', 'profiles', 'requests'):
+            if module.authorize(sqlite3.SQLITE_READ, table, 'id', 'main', None) != sqlite3.SQLITE_OK:
+                raise ValueError('SQLite read authorizer boundary changed')
     # Verify the locked AWS runtime clients use JSON protocols. Archive S3/STS
     # tools are host-side operator code and are not included in these images.
     aws={}
@@ -190,7 +200,9 @@ def collect():
         'alignedNewProbe':subprocess.run(['/checks/aligned-new'],timeout=10).returncode==0,
         'checks':['removed_payload','mail_modules_absent','gconv_absent','no_setid_or_filecaps',
             'strict_base64','temporary_directory_safe','resolver_search_disabled','fopen_mode_validated',
-            'sqlite_extension_disabled','python_xml_not_exposed','reviewed_source_apis','amd64']+guards,
+            'sqlite_extension_disabled','sqlite_cli_absent','sqlite_authorizer_read_unrestricted',
+            'gettext_locale_boundary',
+            'python_xml_not_exposed','reviewed_source_apis','amd64']+guards,
         'limits':['Static imports are supporting evidence, not proof of whole-program reachability.',
             'Public protocol input, trusted dependency code and service configuration are reviewed separately in the version-bound policy.']}
 

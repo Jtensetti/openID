@@ -9,6 +9,10 @@ import qrcode
 import qrcode.image.svg
 from native import unique_object
 
+class ConcurrentUnixServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
+    daemon_threads = True
+    block_on_close = False
+
 class FederationServer:
     def __init__(self, path, wallet, audience='https://localhost:8444/sp'):
         self.path = Path(path)
@@ -29,7 +33,7 @@ class FederationServer:
                 except Exception:
                     try: self.wfile.write(b'{"ok":false}\n')
                     except OSError: pass
-        self.server = socketserver.UnixStreamServer(str(self.path), Handler)
+        self.server = ConcurrentUnixServer(str(self.path), Handler)
         os.chmod(self.path, 0o600)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()

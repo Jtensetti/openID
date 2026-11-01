@@ -33,6 +33,12 @@ nyckel eller länk som automatiskt godkänner något. Dubbel leverans kan ske
 vid nätfel; dubbel utfärdning får aldrig ske. Bytt kontakt får inte omdirigera
 redan beslutad avisering utan ny kontroll.
 
+Exportören läser en post i en kort databastransaktion, skickar den till SQS
+utan databaslås och sparar därefter transportkvittot. Samtidiga exportörer
+eller ett avbrott mellan sändning och kvittens kan skicka samma händelse-ID
+igen; kömottagaren måste avduplicera detta ID. Ett misslyckat försök räknas
+efter nätanropet och högst fem misslyckade försök görs automatiskt.
+
 Syntetiska prov täcker saknad kontakt, ändrad kontaktversion, rollback, krasch mellan
 beslut och leverans, dubbla jobb, leveransfel, förfalskad kvittens och spärr
 under pågående leverans. Loggar får inte innehålla kontaktadresser eller tokens.

@@ -9,7 +9,7 @@ permissions:
   contents: read
 concurrency:
   group: assurance-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 jobs:
   server:
     uses: ./.github/workflows/prototype.yml
