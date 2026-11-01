@@ -81,7 +81,8 @@ const path = require('node:path');
     await page.route('**/poll', async route => {
       pollingStarted();
       await new Promise(resolve => { releasePoll = resolve; });
-      await route.continue();
+      // Cancellation may already have closed the request while the test held it.
+      await route.abort().catch(() => {});
     });
     await page.locator('#cancel').focus();
     await pendingPoll;
