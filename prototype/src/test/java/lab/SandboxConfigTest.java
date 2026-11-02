@@ -45,6 +45,9 @@ class SandboxConfigTest {
         "https://idp-sandbox.tensetti.io?skip=1", "https://evil.example.org"
     }) assertThrows(IllegalArgumentException.class,
         () -> new SandboxConfig(bad, "Tjipp", "admin@example.org"), bad);
+    assertEquals("https://tjipp-sweden-connect-sandbox.onrender.com",
+        new SandboxConfig("https://tjipp-sweden-connect-sandbox.onrender.com",
+            "Tjipp", "admin@example.org").idp());
     Path file = temporary.resolve("settings.json");
     Files.writeString(file, """
       {"idp":"https://idp-sandbox.tensetti.io","organization":"Tjipp","contact":"admin@example.org","production":true}
