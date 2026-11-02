@@ -1,0 +1,13 @@
+{
+  "keys": [
+    {
+      "crv": "P-521",
+      "kty": "EC",
+      "x": "AMrYWpNjfV_olprpgUyKVcn8ZxZOUyxTMgXukqyo-mV2mNykmaTduZ7J3hLRmbCQApqPHAu4gh75CWPHSYHuOMkF",
+      "y": "AQpPeyt5YmLMtfwWGEOGGSKhqPWQBIW-BbIW9KjJ44Ks144xdARSH8EX3WedHqPpJfR_6BfC4cNRd3jWG2bGPXaf",
+      "kid": "x8vWKOCUciPdbte5wyXkY4404TSwi8cok3Zrfj-f7PQ",
+      "alg": "ES512",
+      "use": "sig"
+    }
+  ]
+}
