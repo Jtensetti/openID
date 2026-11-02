@@ -34,11 +34,14 @@ public record SandboxConfig(String idp, String organization, String contact) {
 
   public SandboxConfig {
     URI uri = URI.create(idp);
-    if (!"https".equals(uri.getScheme()) || !"idp-sandbox.tensetti.io".equals(uri.getHost()) ||
-        uri.getPort() != -1 || uri.getRawUserInfo() != null ||
-        !"".equals(uri.getRawPath()) || uri.getRawQuery() != null || uri.getRawFragment() != null ||
-        !idp.equals("https://idp-sandbox.tensetti.io"))
-      throw new IllegalArgumentException("Use the dedicated Tjipp HTTPS sandbox origin only");
+    // Distinct, explicitly approved test identities: custom domain or the isolated
+    // Render service. Never accept an arbitrary issuer supplied by an HTTP client.
+    if (!"https".equals(uri.getScheme()) || uri.getPort() != -1 ||
+        uri.getRawUserInfo() != null || !"".equals(uri.getRawPath()) ||
+        uri.getRawQuery() != null || uri.getRawFragment() != null ||
+        !Set.of("https://idp-sandbox.tensetti.io",
+            "https://tjipp-sweden-connect-sandbox.onrender.com").contains(idp))
+      throw new IllegalArgumentException("Use one of the dedicated Tjipp Sandbox HTTPS origins only");
     if (organization == null || organization.isBlank() || organization.length() > 100 ||
         organization.codePoints().anyMatch(c -> Character.isISOControl(c)))
       throw new IllegalArgumentException("Non-empty organization name required");
