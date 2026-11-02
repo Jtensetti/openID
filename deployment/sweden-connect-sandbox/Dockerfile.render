@@ -12,7 +12,14 @@ WORKDIR /build/prototype
 COPY prototype/pom.xml prototype/mvnw ./
 COPY prototype/.mvn .mvn
 COPY prototype/src src
-RUN chmod +x mvnw && ./mvnw -B -ntp -Dmaven.test.skip=true package
+RUN apt-get update && apt-get install -y --no-install-recommends curl unzip ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+RUN curl --fail --location --retry 3 \
+    https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.9.11/apache-maven-3.9.11-bin.zip \
+    -o /tmp/maven.zip \
+    && echo '0d7125e8c91097b36edb990ea5934e6c68b4440eef4ea96510a0f6815e7eeadb  /tmp/maven.zip' | sha256sum --check \
+    && unzip -q /tmp/maven.zip -d /opt \
+    && /opt/apache-maven-3.9.11/bin/mvn -B -ntp -Dmaven.test.skip=true package
 RUN java -jar target/isolated-eid-lab.jar sandbox-init /srv/tjipp-sandbox/keys
 
 FROM eclipse-temurin:21.0.12.1_1-jre-noble@sha256:35501d3f93173b420ac9001658eb68157e813316b865087e345c187fca422c4c
