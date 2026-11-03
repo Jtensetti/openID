@@ -40,7 +40,7 @@ TestFlight-lägets automatiska aktivering är två skilda konfigurationer.
 |---|---|
 | Identitet | [Registerbindning](docs/registerbindning.md), [spärr och avisering](docs/avisering-och-sparr.md) |
 | Registrering och data | [Information och kvitton](docs/registreringsinformation.md), [personutdrag](docs/personuppgiftsutdrag.md), [radering](docs/radering-rattighetsarende.md), [återställningsbindning](docs/aterstallningsbindning.md) |
-| Protokoll | [OIDC](docs/oidc-pilot.md), [SAML-/OIDC- och underskriftsprov](docs/provningsunderlag.md), [PDF-signatur](docs/pdf-underskrift.md) |
+| Protokoll | [OIDC](docs/oidc-pilot.md), [SAML-/OIDC- och underskriftsprov](docs/provningsunderlag.md), [PDF-signatur](docs/pdf-underskrift.md), [sandboxnycklar och federationsmetadata](deployment/federation/README.md) |
 | Drift | [PostgreSQL/OpenBao](deployment/cluster/README.md), [separat spärrtjänst](deployment/continuity/README.md), [journalexport](docs/arkivexport.md) |
 | Leverans | [Kandidat och återgång](docs/releasekandidat.md), [prov på fysisk iPhone](docs/fysisk-acceptans.md) |
 | Valfri infrastruktur | [AWS-kompatibilitetsprov](deployment/aws/README.md), [backup och loggning](deployment/security/README.md), [hälsokontrollcontainer utan e-id](ops/README.md) |
