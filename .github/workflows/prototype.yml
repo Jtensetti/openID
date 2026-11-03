@@ -37,6 +37,10 @@ jobs:
         run: python3 scripts/verify-signature.py target/signature-fixtures/synthetic-signature.zip --report target/signature-fixtures/openssl-results.json
       - name: Verify resolved versions and SHA-256 checksums
         run: python3 scripts/dependencies.py
+      - name: Verify disposable SAML certificates and metadata preflight
+        run: |
+          bash -n ../deployment/federation/generate-sandbox-certs.sh
+          python3 -m unittest discover -s ../deployment/federation -p 'test_*.py' -v
       - name: Packaged CLI smoke test with certificate verification
         run: python3 scripts/smoke.py
       - name: Restart, durable revocation, backup and restore drill
