@@ -4,3 +4,6 @@ prototype/.local-*/
 prototype/target/
 prototype/node_modules/
 __pycache__/
+
+# Federationssandbox: privata testnycklar får aldrig versionshanteras.
+deployment/federation/.local/
