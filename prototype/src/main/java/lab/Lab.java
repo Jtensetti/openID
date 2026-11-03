@@ -39,6 +39,8 @@ public final class Lab implements AutoCloseable {
     OpenSAMLInitializer.getInstance().initialize(new OpenSAMLSecurityDefaultsConfig(new LabSecurityConfiguration()), new OpenSAMLSecurityExtensionConfig());
     Path metadata = keys.directory().resolve("sp-metadata.xml");
     Files.writeString(metadata, Metadata.sp(keys, spBase, phone != null));
+    // Export the pinned, synthetic IdP view for offline metadata checks; not federation-approved metadata.
+    Files.writeString(keys.directory().resolve("idp-metadata.xml"), Metadata.idp(keys, idpBase));
     Path signMetadata = keys.directory().resolve("sign-metadata.xml");
     if (phone != null) Files.writeString(signMetadata, Metadata.signService(keys, spBase));
     Map<String, Object> p = new HashMap<>();
