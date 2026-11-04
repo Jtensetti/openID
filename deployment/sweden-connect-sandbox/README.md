@@ -122,10 +122,14 @@ At https://md.sandbox.swedenconnect.se/mdreg/home :
 
 1. Validate the *generated* tjipp-idp.xml via Metadata Validator.
 2. Add a new metadata record.
-3. Name = Tjipp Sandbox – synthetic Identity Provider
+3. Name = TjippSandboxSynthetic (the registry record name accepts no special characters)
 4. Metadata = complete, generated XML (not an edited demonstration).
 5. Save; check publication in
    https://md.sandbox.swedenconnect.se/metadata/mdx/role/idp.xml
+
+The shared organization configuration must include both `names` and
+`display-names`; SAML metadata requires `OrganizationDisplayName` before
+`OrganizationURL`. Validate the generated XML, not only its signature.
 
 The published signed SP feed used by our IdP is
 https://md.sandbox.swedenconnect.se/metadata/mdx/role/sp.xml .

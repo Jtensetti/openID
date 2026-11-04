@@ -134,6 +134,8 @@ public record SandboxConfig(String idp, String organization, String contact) {
     p.put("authn-server.entity-information.ui-info.display-names.en", "Tjipp Sandbox – SYNTHETIC ONLY");
     p.put("authn-server.entity-information.organization.names.sv", organization);
     p.put("authn-server.entity-information.organization.names.en", organization);
+    p.put("authn-server.entity-information.organization.display-names.sv", organization);
+    p.put("authn-server.entity-information.organization.display-names.en", organization);
     p.put("authn-server.entity-information.organization.urls.sv", "https://tensetti.se");
     p.put("authn-server.entity-information.contact-persons.technical.email-addresses[0]", contact);
     p.put("authn-server.oidc.entity-information.logo-uri", idp + "/logo.svg");
