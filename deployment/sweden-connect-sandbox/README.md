@@ -1,6 +1,8 @@
 # Tjipp — Sweden Connect Sandbox
 
-Status 2026-11-02: source-code preparation only. Not deployed, registered, externally tested, or Digg approved.
+Synthetic Sandbox implementation and deployment instructions. Deployment and
+external test evidence belong to the current PR and private evidence package.
+This is not a Digg-approved identity service.
 
 ## Strict separation
 
@@ -84,9 +86,22 @@ Render `Host`, just as nginx does. The IdP intentionally returns 403 for a
 different Host or a forwarded-host header; do not weaken that boundary to
 make a readiness probe pass.
 
+The Render ingress applies `SameSite=Lax` only to `__Host-lab-idp`, preserving
+`Secure`, `HttpOnly`, host-only scope and `Path=/`. `Strict` prevents Safari
+from retaining this session during navigation from the external test SP.
+Lax permits the top-level GET redirect; it does not authorize an approval.
+Approval POSTs still require the exact IdP Origin, a session-bound CSRF token,
+the matching authentication-flow token, and explicit simulation acknowledgement.
+Other cookies and the private phone pilot are not changed. The directive is
+documented by [nginx](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_cookie_flags).
+Do not widen it to a wildcard or `SameSite=None` to make another flow pass.
+
 Run `python3 deployment/sweden-connect-sandbox/test_render_nginx.py` with
-nginx and OpenSSL installed to exercise startup, a buffered POST and the
-blocked routes using generated TLS and a synthetic loopback upstream.
+nginx and OpenSSL installed to exercise startup, a buffered POST, blocked
+routes and exact cookie rewriting using generated TLS and a synthetic
+loopback upstream. After deployment, verify a normal external Safari redirect
+without address-bar re-navigation, and reject missing/wrong CSRF, missing/wrong
+Origin, and a flow token used with another session. Keep cookie values out of logs.
 
 For this instance, substitute its exact Render origin in the endpoint and
 registration instructions below. Its SAML entityID is that origin plus

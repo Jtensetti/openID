@@ -1,6 +1,7 @@
 """Run Render's nginx template unprivileged, using only generated loopback data."""
 import hashlib
 import http.client
+import http.cookies
 import http.server
 import json
 import os
@@ -35,6 +36,13 @@ def main():
         class Upstream(http.server.BaseHTTPRequestHandler):
             def log_message(self, *args):
                 pass
+
+            def do_GET(self):
+                self.send_response(200)
+                self.send_header('Set-Cookie', '__Host-lab-idp=synthetic-session; Path=/; Secure; HttpOnly; SameSite=Strict')
+                self.send_header('Set-Cookie', '__Host-lab-idp-other=synthetic-other; Path=/; Secure; HttpOnly; SameSite=Strict')
+                self.send_header('Content-Length', '0')
+                self.end_headers()
 
             def do_POST(self):
                 payload = self.rfile.read(int(self.headers['Content-Length']))
@@ -72,14 +80,15 @@ def main():
         command = [nginx, '-p', str(root), '-c', str(config_path)]
         process = None
 
-        def request(path, payload=None):
+        def request(path, payload=None, with_headers=False):
             connection = http.client.HTTPConnection('127.0.0.1', port, timeout=5)
             try:
                 connection.request('GET' if payload is None else 'POST', path,
                                    body=payload, headers={'Authorization': 'synthetic',
                                                          'Forwarded': 'for=192.0.2.1'})
                 response = connection.getresponse()
-                return response.status, response.read()
+                data = response.read()
+                return (response.status, data, response.getheaders()) if with_headers else (response.status, data)
             finally:
                 connection.close()
 
@@ -108,10 +117,26 @@ def main():
             assert request('/saml2/authn', b'x' * (128 * 1024 + 1))[0] == 413
             for path in ('/', '/wallet', '/phone', '/actuator', '/lab/revoke'):
                 assert request(path)[0] == 404, path
+            status, _, headers = request('/lab', with_headers=True)
+            assert status == 200
+            cookies = http.cookies.SimpleCookie()
+            for name, value in headers:
+                if name.lower() == 'set-cookie':
+                    cookies.load(value)
+            session = cookies['__Host-lab-idp']
+            assert session['samesite'].lower() == 'lax', 'external navigation needs Lax'
+            assert session['secure'] and session['httponly']
+            assert session['path'] == '/' and not session['domain']
+            assert session.value == 'synthetic-session'
+            assert cookies['__Host-lab-idp-other']['samesite'].lower() == 'strict'
             print(json.dumps({'status': 'PASS', 'unprivileged': True,
                               'tempDirectories': 5, 'bufferedPostBytes': len(payload),
                               'oversizedPostDenied': True, 'blockedRoutes': 5,
-                              'upstreamTLSVerified': True, 'sensitiveHeadersStripped': True}))
+                              'upstreamTLSVerified': True, 'sensitiveHeadersStripped': True,
+                              'idpCookieLaxSecureHttpOnlyHostOnly': True,
+                              'unrelatedCookieUnchanged': True,
+                              'nginxVersion': subprocess.check_output([nginx, '-v'], stderr=subprocess.STDOUT, text=True).strip(),
+                              'configurationSha256': hashlib.sha256(template.encode()).hexdigest()}))
         finally:
             if process:
                 process.terminate()
