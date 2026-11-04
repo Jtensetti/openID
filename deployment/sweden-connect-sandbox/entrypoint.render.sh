@@ -32,7 +32,10 @@ for i in $(seq 1 90); do
     wait "$IDP_PID" || true
     exit 1
   fi
-  if curl --silent --show-error --fail --max-time 2 \
+  # The IdP deliberately rejects every Host except the configured public origin.
+  # Verify loopback TLS as localhost while using the same Host as nginx.
+  if curl --silent --show-error --fail --max-time 2 --noproxy '*' \
+      --header 'Host: tjipp-sweden-connect-sandbox.onrender.com' \
       --cacert /srv/tjipp-sandbox/keys/tls.crt \
       https://localhost:9443/saml2/metadata >/dev/null 2>/dev/null; then
     break

@@ -79,6 +79,10 @@ The container runs as UID/GID 10001. All nginx temporary directories are
 under the private, writable `/tmp/tjipp-sandbox` directory. Do not solve a
 temporary-directory error by running the service as root. The image build
 runs `nginx -t` as the runtime user before it can be deployed.
+The readiness probe verifies TLS for `localhost` but sends the exact public
+Render `Host`, just as nginx does. The IdP intentionally returns 403 for a
+different Host or a forwarded-host header; do not weaken that boundary to
+make a readiness probe pass.
 
 Run `python3 deployment/sweden-connect-sandbox/test_render_nginx.py` with
 nginx and OpenSSL installed to exercise startup, a buffered POST and the
