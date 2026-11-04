@@ -42,7 +42,7 @@ public final class Lab implements AutoCloseable {
     idpBase = sandbox != null ? sandbox.idp() : origins == null ? "https://" + host + ":" + idpPort : origins.idp();
     spBase = sandbox != null ? SandboxConfig.TEST_CLIENT : origins == null ? "https://" + host + ":" + spPort : origins.sp();
     if (!webAuthn && !registry.passkeys().isEmpty()) throw new IllegalStateException("Passkey state requires start-web; no downgrade to simulated approval");
-    OpenSAMLInitializer.getInstance().initialize(new OpenSAMLSecurityDefaultsConfig(new LabSecurityConfiguration()), new OpenSAMLSecurityExtensionConfig());
+    OpenSAMLInitializer.getInstance().initialize(new OpenSAMLSecurityDefaultsConfig(new LabSecurityConfiguration(sandbox != null)), new OpenSAMLSecurityExtensionConfig());
     Path metadata = keys.directory().resolve("sp-metadata.xml");
     if (sandbox == null) Files.writeString(metadata, Metadata.sp(keys, spBase, phone != null));
     Path signMetadata = keys.directory().resolve("sign-metadata.xml");

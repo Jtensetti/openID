@@ -135,6 +135,13 @@ The published signed SP feed used by our IdP is
 https://md.sandbox.swedenconnect.se/metadata/mdx/role/sp.xml .
 The public signing certificate is pinned. Do not disable validation on error.
 
+The standalone `sandbox-idp` accepts RSA-SHA256 and ECDSA-SHA256 signatures
+from trusted metadata keys (Deployment Profile 1.9, section 8.2), with SHA-256
+digests. Other lab/pilot modes retain their existing RSA-SHA256 policy.
+SHA-1 signatures, unsigned requests and signatures from untrusted keys remain
+rejected. `LabSecurityConfigurationTest` exercises the underlying OpenSAML
+trust engine with correct, wrong-key and altered-message signatures.
+
 ## OIDC registration after Digg grants administrator login
 
 At https://portal.sandbox.swedenconnect.se/ :
