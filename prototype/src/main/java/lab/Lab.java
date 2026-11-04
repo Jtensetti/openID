@@ -28,17 +28,23 @@ public final class Lab implements AutoCloseable {
   }
   public Lab(Path keyDirectory, int idpPort, int spPort, SyntheticRegistry registry, boolean webAuthn,
       lab.phone.PhoneBridge phone, boolean startSp, PilotOrigins origins) throws Exception {
+    this(keyDirectory, idpPort, spPort, registry, webAuthn, phone, startSp, origins, null);
+  }
+  private Lab(Path keyDirectory, int idpPort, int spPort, SyntheticRegistry registry, boolean webAuthn,
+      lab.phone.PhoneBridge phone, boolean startSp, PilotOrigins origins, SandboxConfig sandbox) throws Exception {
     if (origins != null && (phone == null || webAuthn)) throw new IllegalArgumentException("Private phone pilot only");
+    if (sandbox != null && (phone != null || origins != null || webAuthn || startSp))
+      throw new IllegalArgumentException("Sandbox is a standalone synthetic-only IdP");
     if (idpPort < 1024 || spPort < 1024 || idpPort > 65535 || spPort > 65535 || idpPort == spPort)
       throw new IllegalArgumentException("Two distinct unprivileged loopback ports are required");
     keys = new TestKeys(keyDirectory); this.registry = registry;
     String host = webAuthn || phone != null ? "localhost" : "127.0.0.1";
-    idpBase = origins == null ? "https://" + host + ":" + idpPort : origins.idp();
-    spBase = origins == null ? "https://" + host + ":" + spPort : origins.sp();
+    idpBase = sandbox != null ? sandbox.idp() : origins == null ? "https://" + host + ":" + idpPort : origins.idp();
+    spBase = sandbox != null ? SandboxConfig.TEST_CLIENT : origins == null ? "https://" + host + ":" + spPort : origins.sp();
     if (!webAuthn && !registry.passkeys().isEmpty()) throw new IllegalStateException("Passkey state requires start-web; no downgrade to simulated approval");
-    OpenSAMLInitializer.getInstance().initialize(new OpenSAMLSecurityDefaultsConfig(new LabSecurityConfiguration()), new OpenSAMLSecurityExtensionConfig());
+    OpenSAMLInitializer.getInstance().initialize(new OpenSAMLSecurityDefaultsConfig(new LabSecurityConfiguration(sandbox != null)), new OpenSAMLSecurityExtensionConfig());
     Path metadata = keys.directory().resolve("sp-metadata.xml");
-    Files.writeString(metadata, Metadata.sp(keys, spBase, phone != null));
+    if (sandbox == null) Files.writeString(metadata, Metadata.sp(keys, spBase, phone != null));
     Path signMetadata = keys.directory().resolve("sign-metadata.xml");
     if (phone != null) Files.writeString(signMetadata, Metadata.signService(keys, spBase));
     Map<String, Object> p = new HashMap<>();
@@ -54,12 +60,12 @@ public final class Lab implements AutoCloseable {
     p.put("server.servlet.session.tracking-modes", "cookie");
     p.put("server.tomcat.max-http-form-post-size", "128KB"); p.put("server.error.include-message", "never");
     p.put("authn-server.base-url", idpBase); p.put("authn-server.sso.enabled", false);
-    p.put("authn-server.saml.enabled", true); p.put("authn-server.oidc.enabled", origins != null);
+    p.put("authn-server.saml.enabled", true); p.put("authn-server.oidc.enabled", origins != null || sandbox != null);
     if (origins != null) PilotOidc.configure(p, keys, idpBase, spBase);
     p.put("authn-server.saml.entity-id", idpBase + "/idp"); p.put("authn-server.saml.requires-signed-requests", true);
     p.put("authn-server.saml.max-message-age", "60s"); p.put("authn-server.saml.clock-skew", "0s");
     p.put("authn-server.saml.assertions.encrypt", true); p.put("authn-server.saml.assertions.not-after", "30s");
-    p.put("authn-server.saml.metadata-providers[0].location", metadata.toUri().toString());
+    if (sandbox == null) p.put("authn-server.saml.metadata-providers[0].location", metadata.toUri().toString());
     if (phone != null) p.put("authn-server.saml.metadata-providers[1].location", signMetadata.toUri().toString());
     p.put("authn-server.saml.credentials.default-credential.bundle", "lab-idp");
     p.put("credential.bundles.jks.lab-idp.key.alias", "idp");
@@ -72,6 +78,7 @@ public final class Lab implements AutoCloseable {
     p.put("lab.idp-base", idpBase); p.put("lab.sp-base", spBase);
     p.put("lab.webauthn", webAuthn);
     p.put("lab.phone", phone != null);
+    if (sandbox != null) sandbox.apply(p, keys);
     StandardEnvironment env = new StandardEnvironment();
     // Security settings cannot be replaced with production metadata, keys or a public bind through environment/CLI.
     env.getPropertySources().remove(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME);
@@ -94,6 +101,20 @@ public final class Lab implements AutoCloseable {
     if ((args.length == 2 || args.length == 3) && args[0].equals("verify-passport")) { lab.proofing.PassportCommand.run(args[1], args.length == 3 ? args[2] : null); return; }
     if (args.length == 2 && args[0].equals("authenticate-chip")) { lab.proofing.ChipCommand.run(args[1]); return; }
     if (args.length == 2 && args[0].equals("phone-init")) { TestKeys.initialize(Path.of(args[1])); return; }
+    if (args.length == 2 && args[0].equals("sandbox-init")) {
+      SandboxKeys.initialize(Path.of(args[1]));
+      System.out.println("Disposable Sandbox keys created (valid 30 days). No real identities or keys.");
+      return;
+    }
+    if (args.length == 3 && args[0].equals("sandbox-idp")) {
+      Path keysPath = Path.of(args[1]);
+      SandboxConfig sandbox = SandboxConfig.read(Path.of(args[2]));
+      SandboxKeys.validate(keysPath);
+      var service = new Lab(keysPath, 9443, 9444, SyntheticRegistry.fixtures(), false, null, false, null, sandbox);
+      Runtime.getRuntime().addShutdownHook(new Thread(service::close));
+      System.out.println("SYNTHETIC SANDBOX ONLY: " + sandbox.idp() + " (loopback listener :9443)");
+      return;
+    }
     if ((args.length == 3 || args.length == 4) && Set.of("phone-idp", "phone-sp").contains(args[0])) {
       var origins = args.length == 4 ? PilotOrigins.read(Path.of(args[3])) : null;
       String idpOrigin = origins == null ? "https://localhost:8443" : origins.idp();
@@ -127,7 +148,7 @@ public final class Lab implements AutoCloseable {
       }
       return;
     }
-    if (args.length != 2 || !Set.of("start", "start-web").contains(args[0])) throw new IllegalArgumentException("Usage: init|start|start-web|audit <directory>; report|backup|revoke <directory> <value>; restore <backup> <new-directory>");
+    if (args.length != 2 || !Set.of("start", "start-web").contains(args[0])) throw new IllegalArgumentException("Usage: init|start|start-web|audit|sandbox-init <directory>; sandbox-idp <directory> <config.json>; report|backup|revoke <directory> <value>; restore <backup> <new-directory>");
     var registry = SyntheticRegistry.open(Path.of(args[1]), java.time.Clock.systemUTC());
     Lab lab;
     try { lab = new Lab(Path.of(args[1]), 8443, 8444, registry, args[0].equals("start-web")); }
