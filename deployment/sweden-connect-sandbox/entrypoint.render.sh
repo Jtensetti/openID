@@ -8,6 +8,8 @@ if [[ ! "$PORT" =~ ^[0-9]{4,5}$ ]] || (( PORT < 1024 || PORT > 65535 )); then
 fi
 test -r /srv/tjipp-sandbox/keys/federation.p12
 test -r /app/settings.json
+mkdir -p /tmp/tjipp-sandbox
+chmod 0700 /tmp/tjipp-sandbox
 sed "s/@PORT@/$PORT/g" /app/nginx.render.conf > /tmp/tjipp-sandbox-nginx.conf
 nginx -t -c /tmp/tjipp-sandbox-nginx.conf
 

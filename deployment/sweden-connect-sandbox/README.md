@@ -70,6 +70,27 @@ The OIDC Entity Identifier / issuer is:
 
 ## Before submitting to Digg
 
+### Dedicated Render instance
+
+`Dockerfile.render` and `settings.render.json` target only
+`https://tjipp-sweden-connect-sandbox.onrender.com`. Render terminates public
+TLS; nginx listens on `PORT` and verifies the loopback IdP's TLS certificate.
+The container runs as UID/GID 10001. All nginx temporary directories are
+under the private, writable `/tmp/tjipp-sandbox` directory. Do not solve a
+temporary-directory error by running the service as root. The image build
+runs `nginx -t` as the runtime user before it can be deployed.
+
+Run `python3 deployment/sweden-connect-sandbox/test_render_nginx.py` with
+nginx and OpenSSL installed to exercise startup, a buffered POST and the
+blocked routes using generated TLS and a synthetic loopback upstream.
+
+For this instance, substitute its exact Render origin in the endpoint and
+registration instructions below. Its SAML entityID is that origin plus
+`/idp`; its OIDC issuer is the origin without a trailing slash. A rebuild
+may replace the disposable test keys: fetch and validate the actual metadata
+after deployment, then register it. No production or real-pass pilot is
+updated by this image.
+
 From another computer, confirm all three endpoints respond over trusted TLS:
 
 ~~~sh

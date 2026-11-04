@@ -45,6 +45,11 @@ RUN chmod 0555 /app/entrypoint.render.sh && chmod 0444 /app/settings.json /app/n
     && install -d -m 0700 -o 10001 -g 10001 /tmp/tjipp-sandbox
 
 USER 10001:10001
+# Exercise the installed nginx and its actual filesystem permissions as the
+# runtime user. A successful Java build alone does not prove ingress can start.
+RUN sed 's/@PORT@/10000/g' /app/nginx.render.conf > /tmp/tjipp-sandbox-nginx.conf \
+    && nginx -t -c /tmp/tjipp-sandbox-nginx.conf \
+    && rm /tmp/tjipp-sandbox-nginx.conf
 ENV PORT=10000
 EXPOSE 10000
 LABEL org.opencontainers.image.description="Tjipp Sweden Connect Sandbox — synthetic identities only"
