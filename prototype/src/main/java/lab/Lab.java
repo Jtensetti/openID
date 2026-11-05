@@ -77,6 +77,7 @@ public final class Lab implements AutoCloseable {
     p.put("lab.idp-base", idpBase); p.put("lab.sp-base", spBase);
     p.put("lab.webauthn", webAuthn);
     p.put("lab.phone", phone != null);
+    p.put("lab.sandbox", sandbox);
     if (sandbox) SwedenConnectSandbox.apply(p, keys, idpBase);
     StandardEnvironment env = new StandardEnvironment();
     // Security settings cannot be replaced with production metadata, keys or a public bind through environment/CLI.

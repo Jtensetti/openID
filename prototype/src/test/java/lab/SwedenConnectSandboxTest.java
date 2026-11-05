@@ -27,6 +27,8 @@ class SwedenConnectSandboxTest {
     SwedenConnectSandbox.apply(properties, keys, "https://idp.openid.tensetti.io");
     assertArrayEquals(signing, Files.readAllBytes(directory.resolve("idp.p12")));
     assertNotEquals(keys.certificate("idp").getPublicKey(), keys.certificate("encryption").getPublicKey());
+    assertTrue(Metadata.idp(keys, "https://localhost:8443").contains("<md:KeyDescriptor use=\"encryption\">"));
+    assertTrue(Metadata.idp(keys, "https://localhost:8443").contains(java.util.Base64.getEncoder().encodeToString(keys.certificate("encryption").getEncoded())));
     var binder = new Binder(new MapConfigurationPropertySource(properties));
     var information = binder.bind("authn-server.entity-information", EntityInformationProperties.class).orElseThrow(AssertionError::new).toEntityInformation();
     assertEquals(Set.of("sv", "en"), information.uiInfo().displayNames().keySet());

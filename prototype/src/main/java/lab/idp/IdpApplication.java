@@ -34,7 +34,8 @@ public class IdpApplication {
     return new WebAuthnService(registry, base, java.time.Clock.systemUTC(), enabled);
   }
   @Bean
-  AuthnServerConfigurerAdapter labProtocolSecurity(@Value("${lab.phone:false}") boolean phone, @Value("${authn-server.oidc.enabled:false}") boolean oidc) {
+  AuthnServerConfigurerAdapter labProtocolSecurity(@Value("${lab.phone:false}") boolean phone, @Value("${authn-server.oidc.enabled:false}") boolean oidc,
+      @Value("${lab.sandbox:false}") boolean sandbox) {
     return (http, configurer) -> {
       // Replace the upstream matcher that exempts ALL protocol/provider endpoints from CSRF.
       // Only the signed SAML HTTP-POST binding is exempt; approval routes remain protected.
@@ -48,9 +49,12 @@ public class IdpApplication {
         // The SAD names the subject attribute through the producer's own mapping; it must be the same mapping
         // as the assertion's, or the SAD would point at an attribute that the assertion does not contain.
         configurer.protocol(se.swedenconnect.spring.authnserver.saml.config.Saml2IdpConfigurer.class,
-            saml -> saml.attributeMapping(mapping).attributeProducers(producers -> producers.forEach(producer -> {
-              if (producer instanceof se.swedenconnect.spring.authnserver.saml.attributes.release.SwedenConnectAttributeProducer sc) sc.setAttributeMapping(mapping);
-            })));
+            saml -> saml.attributeMapping(mapping).attributeProducers(producers -> {
+              producers.forEach(producer -> {
+                if (producer instanceof se.swedenconnect.spring.authnserver.saml.attributes.release.SwedenConnectAttributeProducer sc) sc.setAttributeMapping(mapping);
+              });
+              if (sandbox) producers.add(lab.phone.PhoneAttributes::sandboxRelease);
+            }));
       }
     };
   }

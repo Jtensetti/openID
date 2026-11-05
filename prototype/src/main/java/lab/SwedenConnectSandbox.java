@@ -19,7 +19,7 @@ public final class SwedenConnectSandbox {
   public static void initialize(Path directory) throws Exception {
     new TestKeys(directory);
     Path encryption = directory.resolve("encryption.p12");
-    if (Files.exists(encryption) || Files.exists(directory.resolve(CERTIFICATE)))
+    if (Files.exists(encryption) || Files.exists(directory.resolve(CERTIFICATE)) || Files.exists(directory.resolve("idp-encryption.crt")))
       throw new IllegalArgumentException("Sandbox keys already exist; refusing overwrite");
     String keytool = Path.of(System.getProperty("java.home"), "bin", "keytool").toString();
     Process process = new ProcessBuilder(List.of(keytool, "-genkeypair", "-alias", "encryption",
@@ -32,7 +32,11 @@ public final class SwedenConnectSandbox {
     try (var source = SwedenConnectSandbox.class.getResourceAsStream("/sandbox/saml-metadata-signing.crt")) {
       Files.copy(java.util.Objects.requireNonNull(source), directory.resolve(CERTIFICATE));
     }
-    validate(new TestKeys(directory));
+    var keys = new TestKeys(directory);
+    validate(keys);
+    Files.writeString(directory.resolve("idp-encryption.crt"), "-----BEGIN CERTIFICATE-----\n" +
+        java.util.Base64.getMimeEncoder(64, new byte[]{'\n'}).encodeToString(keys.certificate("encryption").getEncoded()) +
+        "\n-----END CERTIFICATE-----\n");
   }
 
   static void validate(TestKeys keys) throws Exception {

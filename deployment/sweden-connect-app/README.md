@@ -23,6 +23,8 @@ inga nya beroenden. Ange `BASE_IMAGE` och `SOURCE_REVISION` vid bygget.
 2. Kör `phone-sandbox-init <idp-nyckelkatalog>` en gång som IdP-tjänstens
    användare. Det lägger till en separat krypteringsnyckel och sandboxens
    offentliga tillitsankare. Befintliga TLS- och signeringsnycklar bevaras.
+   Kopiera endast den offentliga `idp-encryption.crt` till kontotjänstens
+   separata nyckelkatalog, så att dess krypterade SignMessage använder samma nyckel.
 3. Ändra IdP-kommandot till
    `phone-sandbox-idp <nyckelkatalog> <bryggsocket> <origins.json>` och
    sätt `OPENID_SWEDEN_CONNECT_SANDBOX=true` för bryggan.
@@ -42,6 +44,12 @@ HTTP-Redirect och exakt kontext `urn:openid:authn:passport-native:v1`.
 Skanna QR-koden med appen och godkänn. Kontrollera signatur, kryptering,
 InResponseTo, mottagare och returnerad kontext. Test-SP 2 kan kontrollera
 att en annan mottagare ger ett annat tjänstesubjekt.
+
+Test-SP 1 och underskriftstjänsten begär personnummer i sin metadata;
+Test-SP 2 begär eIDAS-identitet. Tjipp lämnar här namn och eget tjänstesubjekt.
+Ett saknat personnummer/eIDAS-attribut ska redovisas som en kvarstående
+profillucka även om signatur, kryptering och appgodkännande fungerar.
+Personnummer skapas inte ur passets sexsiffriga födelsedatum.
 
 För underskrift: välj `test-signservice1`, en kort ren text med
 `MustShow=true`, samma autentiseringskontext och SADRequest. Läs texten

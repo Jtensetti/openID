@@ -18,6 +18,25 @@ class PhoneIdentityTest {
         se.swedenconnect.spring.authnserver.attributes.AttributeIdentifiers.DISPLAY_NAME),
         attributes.stream().map(a -> a.getIdentifier()).collect(java.util.stream.Collectors.toSet()));
   }
+  @Test void externalReleaseIncludesTheSadSubjectEvenWhenSpMetadataOnlyRequestsPersonalNumber() {
+    var user = new se.swedenconnect.spring.authnserver.authentication.AuthenticatedUser(
+        PhoneAttributes.sandboxValues(identity()), PhoneIdentity.SUBJECT, PhoneIdentity.CONTEXT,
+        java.time.Instant.now(), "127.0.0.1");
+    var authentication = new se.swedenconnect.spring.authnserver.authentication.UserAuthentication(user);
+    var requested = List.of(se.swedenconnect.spring.authnserver.attributes.GenericRequestedAttribute.of(
+        se.swedenconnect.spring.authnserver.attributes.AttributeIdentifiers.PERSONAL_IDENTITY_NUMBER, true));
+    authentication.registerUse(se.swedenconnect.spring.authnserver.authentication.AuthenticationProtocol.SAML,
+        "https://testclient.sandbox.swedenconnect.se/test-signservice1", "_request", List.of());
+    var released = PhoneAttributes.sandboxRelease(authentication);
+    var mapped = PhoneAttributes.mapping().toSaml(released, requested);
+    assertEquals(Set.of(PhoneIdentity.SUBJECT, Metadata.DISPLAY_NAME),
+        mapped.stream().map(a -> a.getName()).collect(java.util.stream.Collectors.toSet()));
+    assertEquals(identity().subject(), se.swedenconnect.opensaml.saml2.attribute.AttributeUtils.getAttributeStringValue(
+        mapped.stream().filter(a -> a.getName().equals(PhoneIdentity.SUBJECT)).findFirst().orElseThrow()));
+    authentication.registerUse(se.swedenconnect.spring.authnserver.authentication.AuthenticationProtocol.SAML,
+        "https://attacker.invalid", "_other", List.of());
+    assertTrue(PhoneAttributes.sandboxRelease(authentication).isEmpty());
+  }
   @Test void requiresExactSingleValuedClaims() {
     var expected = identity();
     var attributes = new ArrayList<org.opensaml.saml.saml2.core.Attribute>();

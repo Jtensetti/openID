@@ -22,6 +22,18 @@ public final class PhoneAttributes {
     return List.of(GenericAttribute.of(AttributeIdentifiers.DISPLAY_NAME, identity.displayName()),
         GenericAttribute.of(PhoneIdentity.SUBJECT, identity.subject()));
   }
+  /** The app consent covers these two attributes, including the subject named by SAD. */
+  public static List<GenericAttribute<? extends java.io.Serializable>> sandboxRelease(
+      se.swedenconnect.spring.authnserver.authentication.UserAuthentication authentication) {
+    var use = authentication.getUsageTrack().getLatestUse();
+    if (use == null || use.protocol() != se.swedenconnect.spring.authnserver.authentication.AuthenticationProtocol.SAML
+        || !SandboxRelyingParties.NAMES.containsKey(use.requester())) return List.of();
+    var released = new ArrayList<GenericAttribute<? extends java.io.Serializable>>();
+    for (var attribute : authentication.getAuthenticatedUser().getAttributes())
+      if (Set.of(AttributeIdentifiers.DISPLAY_NAME, PhoneIdentity.SUBJECT).contains(attribute.getIdentifier()))
+        released.add(GenericAttribute.of(attribute.getIdentifier(), attribute.getStringValues()));
+    return released;
+  }
   public static SamlAttributeMapping mapping() {
     var definitions = new DefaultAttributeDefinitionRegistry();
     for (String name : PhoneIdentity.ATTRIBUTES) if (!Metadata.DISPLAY_NAME.equals(name)) definitions.register(AttributeDefinition.ofString(name, name));
