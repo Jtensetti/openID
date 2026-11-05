@@ -2,6 +2,7 @@
 import http.cookiejar
 from html.parser import HTMLParser
 import json
+import os
 from pathlib import Path
 import re
 import ssl
@@ -29,7 +30,7 @@ class Forms(HTMLParser):
         if tag=='form': self.current=None
 
 with tempfile.TemporaryDirectory() as tmp:
-    root=Path(tmp); keys=root/'keys'; jar='/app/prototype/target/isolated-eid-lab.jar'
+    root=Path(tmp); keys=root/'keys'; jar=os.environ.get('OPENID_TEST_JAR', '/app/prototype/target/isolated-eid-lab.jar')
     subprocess.run(['java','-jar',jar,'phone-init',str(keys)],check=True,stdout=subprocess.DEVNULL)
     offset=0
     wallet=Wallet(root/'wallet.sqlite','https://localhost:8765',clock=lambda:time.time()+offset)
@@ -85,6 +86,15 @@ with tempfile.TemporaryDirectory() as tmp:
         c,rid,fields=begin(); wallet.execute(sign('approve',rid)); assert complete(c,fields)[0]==200
         assert request(c,'https://localhost:8444/me')[0]==200
         print('PASS positive control: signed device consent, SAML response and protected session',flush=True)
+        for case in ('loa1', 'loa2', 'loa3'):
+            probe=client()
+            status,html,_=request(probe,'https://localhost:8444/test/run/'+case)
+            form=next(f for f in Forms(html).forms if 'SAMLResponse' in f['fields'])
+            assert form['action']=='https://localhost:8444/test/acs'
+            status,report,_=request(probe,form['action'],form['fields'])
+            assert status==200 and 'Godkänt – IdP:n betedde sig som ramverket kräver.' in report
+            assert 'NoAuthnContext' in report
+        print('PASS assurance requests: levels 1, 2 and 3 return NoAuthnContext without downgrade',flush=True)
         c,rid,fields=begin(); late=sign('approve',rid); wallet.execute(sign('reject',rid))
         assert 'APPROVED' not in request(c,'https://localhost:8443/phone/poll',fields)[1]
         must_fail(lambda:wallet.execute(late)); complete(c,fields); denied(c)

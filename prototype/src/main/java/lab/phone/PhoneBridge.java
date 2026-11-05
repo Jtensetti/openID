@@ -18,8 +18,11 @@ public final class PhoneBridge {
   public static final int SIGN_MESSAGE_LIMIT = 400;
   /** {@code signMessage} is the exact plain text shown in the app, or {@code null} for a login. */
   /** {@code level}: {@code "pin"} when the service requires the security code, {@code null} for Face ID level. */
-  public record Pending(String id, String secret, String binding, long expiresAt, String code, String signMessage, String level) {
+  public record Pending(String id, String secret, String binding, long expiresAt, String code, String signMessage, String level, String audience) {
     public Pending(String id, String secret, String binding, long expiresAt, String code) { this(id, secret, binding, expiresAt, code, null, null); }
+    public Pending(String id, String secret, String binding, long expiresAt, String code, String signMessage, String level) {
+      this(id, secret, binding, expiresAt, code, signMessage, level, null);
+    }
     public Pending { if (level != null && !level.equals("pin")) throw new IllegalArgumentException("level"); }
     public boolean signing() { return signMessage != null; }
     public boolean securityCode() { return "pin".equals(level); }
@@ -32,25 +35,45 @@ public final class PhoneBridge {
   private static final ObjectMapper JSON = new ObjectMapper().enable(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION);
   private final Path socket;
   private final String audience;
-  public PhoneBridge(Path socket, String audience) { this.socket = socket.toAbsolutePath(); this.audience = audience; }
+  private final boolean sandbox;
+  public PhoneBridge(Path socket, String audience) { this(socket, audience, false); }
+  public PhoneBridge(Path socket, String audience, boolean sandbox) {
+    this.socket = socket.toAbsolutePath(); this.audience = audience; this.sandbox = sandbox;
+  }
+  public String audienceForRequester(String requester) {
+    if (audience.equals(requester) || (audience.endsWith("/sp") &&
+        (audience.substring(0, audience.length()-3) + "/sign").equals(requester))) return audience;
+    if (sandbox && SandboxRelyingParties.NAMES.containsKey(requester)) return requester;
+    throw rejected();
+  }
+  private String audience(Pending pending) { return pending.audience() == null ? audience : pending.audience(); }
+  public boolean external(Pending pending) { return SandboxRelyingParties.NAMES.containsKey(audience(pending)); }
+  public String service(Pending pending) { return SandboxRelyingParties.NAMES.getOrDefault(audience(pending), SERVICE); }
+  public String purpose(Pending pending) {
+    return external(pending) ? SandboxRelyingParties.purpose(pending.signing()) : pending.signing() ? SIGN_PURPOSE : PURPOSE;
+  }
 
   public Pending start(String binding) { return start(binding, null, null); }
   public Pending start(String binding, String signMessage) { return start(binding, signMessage, null); }
   public Pending start(String binding, String signMessage, String level) {
+    return startFor(audience, binding, signMessage, level);
+  }
+  public Pending startFor(String target, String binding, String signMessage, String level) {
     if (signMessage != null) requireSignMessage(signMessage);
     if (level != null && !level.equals("pin")) throw new IllegalArgumentException("level");
     var request = new HashMap<String, String>(Map.of("operation", "start", "binding", binding));
     if (signMessage != null) request.put("signMessage", signMessage);
     if (level != null) request.put("verification", level);
-    var result = call(request);
+    var result = call(request, target);
     String id = text(result, "id"), secret = text(result, "secret"), code = text(result, "code");
     long expires = result.path("expiresAt").asLong();
     if (!id.matches("[a-f0-9]{64}") || !secret.matches("[A-Za-z0-9_-]{43}") || !code.matches("[0-9]{6}") ||
-        !SERVICE.equals(text(result, "relyingParty")) || !(signMessage == null ? PURPOSE : SIGN_PURPOSE).equals(text(result, "purpose")) ||
+        !SandboxRelyingParties.NAMES.getOrDefault(target, SERVICE).equals(text(result, "relyingParty")) ||
+        !(SandboxRelyingParties.NAMES.containsKey(target) ? SandboxRelyingParties.purpose(signMessage != null) : signMessage == null ? PURPOSE : SIGN_PURPOSE).equals(text(result, "purpose")) ||
         (signMessage == null ? result.has("signMessage") : !signMessage.equals(text(result, "signMessage"))) ||
         (level == null ? result.has("verification") : !level.equals(text(result, "verification"))) ||
         expires <= Instant.now().getEpochSecond() || expires > Instant.now().getEpochSecond()+120) throw rejected();
-    return new Pending(id, secret, binding, expires, code, signMessage, level);
+    return new Pending(id, secret, binding, expires, code, signMessage, level, target);
   }
   /** Same rules as the registry: bounded plain text without control or bidirectional override characters. */
   public static String requireSignMessage(String value) {
@@ -66,7 +89,7 @@ public final class PhoneBridge {
     catch (java.security.NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
   }
   public JsonNode exchange(String operation, Pending pending) {
-    return call(Map.of("operation", operation, "id", pending.id(), "secret", pending.secret(), "binding", pending.binding()));
+    return call(Map.of("operation", operation, "id", pending.id(), "secret", pending.secret(), "binding", pending.binding()), audience(pending));
   }
   public PhoneIdentity consume(Pending pending) { return approve(pending).identity(); }
   public Approved approve(Pending pending) {
@@ -95,6 +118,10 @@ public final class PhoneBridge {
     catch (IllegalStateException e) { return false; }
   }
   private JsonNode call(Map<String, String> parameters) {
+    return call(parameters, audience);
+  }
+  private JsonNode call(Map<String, String> parameters, String target) {
+    if (!audience.equals(target) && !(sandbox && SandboxRelyingParties.NAMES.containsKey(target))) throw rejected();
     parameters = Map.copyOf(parameters);
     try (var channel = SocketChannel.open(StandardProtocolFamily.UNIX); var selector = Selector.open()) {
       channel.configureBlocking(false);
@@ -102,7 +129,7 @@ public final class PhoneBridge {
       channel.register(selector, SelectionKey.OP_CONNECT);
       long deadline = System.nanoTime()+5_000_000_000L;
       while (!channel.finishConnect()) await(selector, deadline);
-      var request = new HashMap<>(parameters); request.put("audience", audience);
+      var request = new HashMap<>(parameters); request.put("audience", target);
       var input = ByteBuffer.wrap((JSON.writeValueAsString(request)+"\n").getBytes(StandardCharsets.UTF_8));
       channel.keyFor(selector).interestOps(SelectionKey.OP_WRITE);
       while (input.hasRemaining()) if (channel.write(input) == 0) await(selector, deadline);

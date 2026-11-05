@@ -57,7 +57,7 @@ public class IdpApplication {
   @Bean @Order(2)
   SecurityFilterChain labPages(HttpSecurity http) throws Exception {
     // CSRF stays enabled for approval and revocation forms.
-    return http.authorizeHttpRequests(a -> a.requestMatchers("/", "/phone/**", "/lab", "/lab/revoke", "/lab/webauthn/**", "/wallet/**", "/sign/**", "/error").permitAll().anyRequest().denyAll())
+    return http.authorizeHttpRequests(a -> a.requestMatchers("/", "/logo.png", "/logo.svg", "/phone/**", "/lab", "/lab/revoke", "/lab/webauthn/**", "/wallet/**", "/sign/**", "/error").permitAll().anyRequest().denyAll())
         .headers(h -> h.contentSecurityPolicy(c -> c.policyDirectives(PAGE_CSP)))
         .build();
   }

@@ -135,9 +135,9 @@ const https = require('node:https');
     const shots = process.env.FEDERATION_SCREENSHOT_DIR;
     const shot = async name => { if (shots) await page.screenshot({path:path.join(shots,name+'.png'),fullPage:true}); };
     await page.goto('https://localhost:8444/test');
-    assert.equal(await page.locator('article.card').count(),15); await shot('console');
+    assert.equal(await page.locator('article.card').count(),17); await shot('console');
     for (const name of ['login','no-force']) { await run(name); await command('approve',{requestId:await pending()}); await verdict(name); }
-    for (const name of ['passive','loa3','sign-html','sad-only']) { await run(name); await verdict(name); }
+    for (const name of ['passive','loa1','loa2','loa3','sign-html','sad-only']) { await run(name); await verdict(name); }
     await run('cancel'); await pending(); await page.getByRole('button',{name:'Avbryt'}).click();
     await page.getByRole('button',{name:'Tillbaka till tjänsten'}).click(); await verdict('cancel');
     await run('cancel'); await command('reject',{requestId:await pending()});

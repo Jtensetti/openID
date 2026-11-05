@@ -18,6 +18,10 @@ public final class PhoneAttributes {
     identity.attributes().forEach((name, value) -> values.add(GenericAttribute.of(genericName(name), value)));
     return values;
   }
+  public static List<GenericAttribute<?>> sandboxValues(PhoneIdentity identity) {
+    return List.of(GenericAttribute.of(AttributeIdentifiers.DISPLAY_NAME, identity.displayName()),
+        GenericAttribute.of(PhoneIdentity.SUBJECT, identity.subject()));
+  }
   public static SamlAttributeMapping mapping() {
     var definitions = new DefaultAttributeDefinitionRegistry();
     for (String name : PhoneIdentity.ATTRIBUTES) if (!Metadata.DISPLAY_NAME.equals(name)) definitions.register(AttributeDefinition.ofString(name, name));

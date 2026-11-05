@@ -30,6 +30,8 @@ public final class PhoneProvider extends AbstractUserRedirectAuthenticationProvi
     return List.of(se.swedenconnect.opensaml.sweid.saml2.metadata.entitycategory.EntityCategoryConstants.SERVICE_PROPERTY_CATEGORY_SCAL2.getUri());
   }
   @Override public Authentication authenticateUser(UserAuthenticationInputToken token) throws AuthenticationErrorException {
+    try { bridge.audienceForRequester(token.getRequester().identifier()); }
+    catch (IllegalStateException e) { throw new AuthenticationErrorException(AuthenticationError.AUTHN_FAILED, "Requester not enabled"); }
     SignatureRequestPolicy.signMessage(token.getAuthnRequirements()); // Fails before any display if it cannot be shown.
     SignatureRequestPolicy.level(token.getAuthnRequirements());
     return super.authenticateUser(token);
@@ -39,6 +41,8 @@ public final class PhoneProvider extends AbstractUserRedirectAuthenticationProvi
     try {
       var approval = (Approval)token.getAuthnToken();
       var requirements = token.getAuthnInputToken().getAuthnRequirements();
+      if (!bridge.audienceForRequester(token.getAuthnInputToken().getRequester().identifier()).equals(approval.pending.audience()))
+        throw new IllegalStateException("Requester binding");
       String expected = SignatureRequestPolicy.signMessage(requirements);
       // The registry request must carry exactly the text of THIS authentication request.
       if (!java.util.Objects.equals(expected, approval.pending.signMessage())) throw new IllegalStateException("Sign message binding");
@@ -46,7 +50,8 @@ public final class PhoneProvider extends AbstractUserRedirectAuthenticationProvi
       if (!java.util.Objects.equals(level, approval.pending.level())) throw new IllegalStateException("Level binding");
       var approved = bridge.approve(approval.pending);
       // The asserted context says what was actually verified: Face ID level, or the security code as well.
-      var user = new AuthenticatedUser(PhoneAttributes.values(approved.identity()), PhoneIdentity.SUBJECT,
+      var attributes = bridge.external(approval.pending) ? PhoneAttributes.sandboxValues(approved.identity()) : PhoneAttributes.values(approved.identity());
+      var user = new AuthenticatedUser(attributes, PhoneIdentity.SUBJECT,
           SignatureRequestPolicy.context(approved.level()), Instant.now(), "127.0.0.1");
       // Set only after the registry confirmed a separate signing approval of the SHA-256 of this exact text.
       if (expected != null && approved.signMessageSha256() != null) user.setSignMessageDisplayed(true, SignatureRequestPolicy.language(requirements));

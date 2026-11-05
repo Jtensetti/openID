@@ -12,6 +12,12 @@ class PhoneIdentityTest {
     se.swedenconnect.opensaml.OpenSAMLInitializer.getInstance().initialize();
   }
   private PhoneIdentity identity() { return new PhoneIdentity("a".repeat(64),"b".repeat(64),"c".repeat(64),"ALICE SYNTHETIC","900101","/9j/2Q=="); }
+  @Test void sandboxDisclosesOnlyNameAndPairwiseSubject() {
+    var attributes = PhoneAttributes.sandboxValues(identity());
+    assertEquals(Set.of(PhoneIdentity.SUBJECT,
+        se.swedenconnect.spring.authnserver.attributes.AttributeIdentifiers.DISPLAY_NAME),
+        attributes.stream().map(a -> a.getIdentifier()).collect(java.util.stream.Collectors.toSet()));
+  }
   @Test void requiresExactSingleValuedClaims() {
     var expected = identity();
     var attributes = new ArrayList<org.opensaml.saml.saml2.core.Attribute>();
