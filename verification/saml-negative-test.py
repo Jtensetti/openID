@@ -1,6 +1,7 @@
 """Isolated HTTP/SAML regression: synthetic identity, no pilot data mounts."""
 import http.cookiejar
 from html.parser import HTMLParser
+from html import unescape
 import json
 import os
 from pathlib import Path
@@ -111,7 +112,7 @@ with tempfile.TemporaryDirectory() as tmp:
             assert form['action']=='https://localhost:8444/sign/acs'
             status,report,url=request(probe,form['action'],form['fields'])
             assert status==200 and 'Godkänt – IdP:n betedde sig som ramverket kräver.' in report
-            assert 'SAD är signerad av IdP:n och bunden till begäran' in report
+            assert 'SAD är signerad av IdP:n och bunden till begäran' in unescape(report)
             pdf=probe.open(url+'/signed.pdf').read()
             assert pdf.startswith(b'%PDF-') and b'/ETSI.CAdES.detached' in pdf and b'/ByteRange' in pdf
         print('PASS signing: separate intent, plaintext/encrypted SignMessage, SAD and PAdES signature',flush=True)
