@@ -6,7 +6,6 @@ import ipaddress
 import json
 import os
 from pathlib import Path
-import secrets
 import ssl
 import stat
 import socket

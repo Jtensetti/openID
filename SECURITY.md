@@ -1,131 +1,71 @@
 # Säkerhet
 
-## Status
-
-Privata registerjournaler kan tas ut med [arkivexportören](docs/arkivexport.md).
-Exporten innehåller känsliga ID:n och operatörsuppgifter och ska förvaras
-utanför repot och publika CI-artefakter. Verifiering kräver en separat
-bevarad manifestkontrollsumma. Detta ger integritetskontroll av ett uttag,
-inte en attest av det ursprungliga identitetsbeslutet.
-
-Projektet saknar produktionsrelease, Digg-godkännande och oberoende
-säkerhetsgranskning.
-
-- `prototype/` med `start`/`start-web`: SAML/WebAuthn-labb med genererade identiteter och
-  simulerad identitetskontroll. Normal omstart bevarar spärrar och publika
-  nycklar. Krasch och återläsning spärrar alla credentials.
-- `verification/` och `ios/`: passverifiering, ansiktsjämförelse, RGB-PAD,
-  NFC-fångst och enhetsautentisering för sluten beta och privata telefonprov. Registrering
-  kräver separat operatörsaktivering i standardläget. Det uttryckligen valda
-  [TestFlight-testläget](docs/testflight-beta.md) aktiverar efter godkända
-  kontroller utan e-post och avslutar giltigheten vid betans slut. `phone-idp` och `phone-sp` kopplar
-  detta register till separata SAML-/OIDC-testtjänster.
-
-`start-web` innehåller även en syntetisk dokumentunderskriftslabb med
-separat WebAuthn-godkännande och tillfällig test-CA. Ingen verklig handling
-kan laddas upp. Signeringsnycklarna ligger i JVM-minnet, inte i HSM, och
-labben erbjuder varken kvalificerad underskrift eller långtidsvalidering.
-Rutter för detta flöde aktiveras inte av `phone-idp`/telefonpiloten.
-- `phone-idp`/`phone-sp`: federerad underskrift med SignMessage och SAD.
-  Appen visar texten och kräver en separat underskriftsåtgärd; kontotjänstens
-  testkonsol skapar en PAdES-signerad PDF med certifikat från en tillfällig,
-  ej betrodd test-CA i processminnet. Ingen HSM, betrodd tid eller
-  långtidsvalidering. Testkedjan styrker inte en kvalificerad underskrift eller
-  en verklig innehavares identitet.
-- `deployment/continuity/`: separat spärrtjänst och köad avisering för den publika
-  betan. Privata ID:n är inte automatiskt migrerade. Se
-  [drift och begränsningar](deployment/continuity/README.md).
-- `ops/`: driftcontainer i Render, utan e-id-funktioner.
-
-Privata telefonprov har bekräftat passläsning och SAML-inloggning. Bredare
-enhetsprov, modellernas felgrader och bildinjektion återstår. Spärrkontroll av
-passets dokumentsignerare kräver att operatören konfigurerar CSCA:ns spärrlista. Se [verifierarens begränsningar](verification/README.md#begränsningar)
-och [testöversikten](docs/testning.md).
-De lokala labblägena ska inte exponeras via tunnel eller proxy. Den publika
-betan har separat ingress och konfiguration; labbkommandon öppnar inte en
-säker publik tjänst.
-
-WebAuthn kräver användarverifiering, engångschallenge, exakt ursprung och
-sessionsbindning. Attestering `none` ger ingen garanti om fabrikat,
-hårdvaruskydd eller frånvaro av nyckelsynkronisering. Webbklienterna sparar
-inga autentiseringssvar eller identiteter offline.
-
-## Data och hemligheter
-
-Följande får inte publiceras i repo, issues, PR:er, loggar eller bilagor:
-
-- Verkliga ID-handlingar, bilder, biometriska underlag, personakter eller autentiseringshistorik.
-- Privata nycklar, lösenord, API-nycklar, sessionsvärden eller åtkomstuppgifter.
-- Känsliga revisionsbilagor eller exploateringsunderlag för andras system.
-
-CI använder genererade testdata. Använd interna test-ID:n, inte slumpade
-personnummer som kan tillhöra någon. Verkliga pass får bara användas i
-användarens uttryckligen valda privata testmiljö. Externa testidentiteter
-hanteras enligt respektive miljös villkor.
-
-Pilotregistret sparar passets personprofil och förminskade foto krypterat.
-Databas och nyckelfil måste skyddas separat från repot. Samma serverkonto
-kan läsa nyckeln och aktivera credentials. Använd endast
-`recovery.py restore` för återläsning av pilotdatabasen: den spärrar alla
-återställda nycklar och spärrar ny registrering och biometrisk analys i
-minst 24 timmar. Samma beständiga spärr finns i PostgreSQL-återställningen,
-så att en äldre backup inte återöppnar en förbrukad försöksbudget. Därefter
-krävs ny registrering. Manuell återläsning som
-bevarar aktiva nycklar kan förlora senare spärrar och stöds inte.
-SAML-/OIDC-tjänsterna nekar åtkomst om spärrkontrollen inte kan nås. Se
-[lagring och nycklar](verification/README.md#spärr-och-lagring).
-
-En publicerad hemlighet ska betraktas som röjd: stoppa exponeringen,
-återkalla eller rotera den och utred användningen. Borttagning ur senaste
-commit räcker inte. Historikändring kräver separat beslut.
+Tjipp saknar produktionsrelease, Digg-godkännande och oberoende
+säkerhetsgranskning. Det externa SAML-testet gäller syntetiska identiteter i
+[sandboxen](integrations/README.md#status).
 
 ## Rapportera problem
 
-Rapportera säkerhetsproblem till
-[Jonatan@tensetti.se](mailto:Jonatan@tensetti.se). Ange berörd version,
-förutsättningar, konsekvens och en kort beskrivning. Skicka inte pass,
-biometrik, personakter, privata nycklar eller lösenord. Be om en överenskommen
-säker överföringsväg för känsliga tekniska bilagor. Publicera inte känsliga
-sårbarhetsdetaljer i öppna kanaler.
+Mejla [Jonatan@tensetti.se](mailto:Jonatan@tensetti.se) med berörd revision,
+förutsättningar, konsekvens och steg för att återskapa felet. Be om en säker
+överföringsväg för känsliga bilagor. Publicera inte sårbarhetsdetaljer,
+passuppgifter, biometrik, nycklar eller sessionsvärden i öppna ärenden.
 
-Bemannad beredskap och garanterad svarstid är inte fastställda.
-Kontaktadressen ersätter inte användarens separata spärrfunktion.
+Det finns ingen bemannad beredskap eller garanterad svarstid. Kontaktadressen
+ersätter inte användarens spärrfunktion.
+
+## Miljöer
+
+| Miljö | Identitet och avgränsning |
+| --- | --- |
+| Lokal protokollabb (`start`, `start-web`) | Genererade identiteter. `start-web` använder WebAuthn; `start` simulerar godkännandet. Ska köras lokalt utan publik tunnel eller proxy. |
+| Sweden Connect-sandbox | Separat syntetisk IdP, testnycklar och simulerad autentiseringskontext. Ingen tillitsnivå 3. |
+| Telefonpilot (`phone-idp`, `phone-sp`) | Pass- och ansiktskontroll med appens enhetsnyckel. Separat register och konfiguration. |
+| Underskriftsprov | Test-CA och signeringsnycklar i processminnet; ingen HSM, betrodd tid eller långtidsvalidering. |
+
+Utveckling, sandbox och produktion ska ha separata nycklar, ankare,
+behörigheter och data. Testnycklar får inte bli produktionsankare.
+
+## Data och hemligheter
+
+CI använder genererade identiteter. Verkliga pass, bilder, personakter,
+privata nycklar och driftdata ska förvaras utanför repo och publika artefakter.
+En publicerad hemlighet måste återkallas eller roteras; radering av filen räcker inte.
+
+Pilotregistret lagrar profil och förminskat passfoto krypterat. Rå chipdata,
+kamerabilder och ansiktsmallar lagras inte i registret. Databas och nyckelfil
+måste skyddas separat. Läs [arkitekturen](docs/arkitektur.md) för dataflöden
+och [raderingsinstruktionen](docs/radering-rattighetsarende.md) för rättighetsärenden.
+
+Återställ med `recovery.py restore` eller klusterlägets återställningsverktyg.
+De spärrar återställda nycklar och stänger nyregistrering och biometrisk
+analys i minst 24 timmar. En äldre backup får inte återaktivera spärrade ID:n
+eller nollställa försöksbudgeten. Se [återställningsbindning](docs/aterstallningsbindning.md).
 
 ## Kända begränsningar
 
-Källkoden innehåller [versionsbunden registreringsinformation och kvitton](docs/registreringsinformation.md),
-[personutdrag](docs/personuppgiftsutdrag.md), [beslutad radering](docs/radering-rattighetsarende.md)
-och [isolerade bildarbetare](docs/bildarbetare.md). Dessa kräver rätt
-serverkonfiguration, databasversion och kompatibel app innan införande.
-En merge innebär inte att skydden är driftsatta eller att tidigare
-registreringar har giltiga kvitton.
+| Område | Kvarstående kontroll |
+| --- | --- |
+| Biometri och kamera | Kalibrerad felacceptans/felavvisning, PAD, bildinjektion och fysisk kamerakedja. App Attest bevisar inte bildernas fysiska ursprung. |
+| NFC och pass | Bredare enhetsprov och reläangrepp. Dokumentsignerarens spärrkontroll kräver aktuell CSCA-spärrlista. |
+| Identitetsregister | Verklig registeradapter för passförnyelse och registerkontroll saknas. |
+| Nycklar och behörighet | SQLite-pilotens serverkonto kan både läsa profilnyckeln och aktivera credentials. Rollseparation och HSM-förvaltning återstår. |
+| Drift och återställning | Prov med faktisk backup, nyckelförvaring, övervakning och kontinuitet. |
+| Federation | Extern OIDC-verifiering, produktionsanslutning och granskning av avsedd profil. |
+| Underskrift | Betrodd certifikatkedja, tidsstämpling och långtidsvalidering. Testerna styrker inte QES. |
 
-[OS-paketkontrollen](deployment/build/README.md#systempaket-och-säkerhetsunderlag)
-bevarar samtliga råa fynd och stoppar leverans när ett fynd är tillämpligt,
-obehandlat eller saknar aktuellt underlag. Exakta versionsbundna beslut
-kräver runtimeprov och granskade dataflöden. En godkänd bedömning för dessa
-images är inget generellt påstående att Debian, Python eller Expat saknar
-sårbarheter. Se [komponentregistret](THIRD_PARTY.md#debianbas-kontrollerad-2026-10-30).
-
-Fysisk biometri-/PAD-kalibrering, injektion/relä, operativ återställning,
-nyckelförvaltning och oberoende säkerhetsgranskning återstår. Projektet har
-inte visats uppfylla ISO 27001-nivå eller Diggs tillitskrav. Organisations-
-och juridiska beslut hanteras utanför kodbasen.
+WebAuthn-labben använder attestering `none`; den styrker inte fabrikat,
+hårdvaruskydd eller frånvaro av nyckelsynkronisering. Klusterläget har andra
+nyckel- och databasroller än SQLite-piloten, se [klusterdrift](deployment/cluster/README.md).
 
 ## Test och release
 
-Testa bara egna miljöer eller uttryckligen godkända mål. Utveckling, extern
-testanslutning och produktion ska ha separata nycklar, ankare, behörigheter
-och data. Testnycklar får inte användas som produktionsankare.
+[Testöversikten](docs/testning.md) anger vad automatiska tester täcker och vad
+som kräver fysisk eller operativ verifiering. OS-paketfynd bedöms enligt
+[bygginstruktionen](deployment/build/README.md#systempaket-och-säkerhetsunderlag);
+råa fynd och versionsbundna beslut ska bevaras.
 
-Följ [releasekraven](docs/utveckling.md).
-Utgivning, rollseparation, nyckelhantering, spärr, återställning, dataskydd,
-incidenthantering, kontinuitet och avtal behöver ansvariga och granskningsunderlag.
-En kodagent får inte godkänna sin egen produktionsrelease.
-
-Branch protection, CODEOWNERS, CI och privat rapportering måste verifieras
-i GitHubs inställningar. Ingen egen kryptografisk primitiv eller generativ
-modell får avgöra identitets- eller underskriftsbeslut.
-
-Se [AGENTS.md](AGENTS.md), [arkitekturen](docs/arkitektur.md) och
-[komponentregistret](THIRD_PARTY.md).
+Följ [utvecklings- och releasekraven](docs/utveckling.md). En merge visar inte
+vad som är driftsatt. Produktionsutgivning kräver oberoende granskning och
+beslut av en behörig människa. Projektet har inte visats uppfylla ISO 27001
+eller Diggs tillitskrav.

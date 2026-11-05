@@ -278,10 +278,11 @@ granskning, integrationstester och behörigt releasebeslut krävs fortsatt.
 
 ## Projektlicens och förvaltning
 
-**Projektets egen licens är inte beslutad.** POM/SBOM använder `NOASSERTION`
-så att parentens Apache-licens inte ärvs som projektbeslut. Före distribution
-behövs beslut om projektlicens, bidragsvillkor och tillämpliga
-attributions- och källkodskrav. Tredjepartslicenserna gäller sina respektive filer.
+Egen kod och dokumentation omfattas av [projektlicensen](LICENSE);
+`integrations/` omfattas av [MIT](integrations/LICENSE). Tredjepartskod,
+anpassningar, modeller och beroenden behåller sina respektive licenser.
+Licens- och NOTICE-filer ska följa med vid distribution. POM anger den egna
+licensen; äldre SBOM-filer beskriver det dåvarande licensläget.
 
 Formellt uppdateringsansvar och produktionsförvaltare är inte utsedda.
 Beroendeändringar ska uppdatera lås, SBOM, licens-/advisorykontroll och

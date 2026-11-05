@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta, timezone
 import hashlib
 import io
-import importlib.util
 import json
 from pathlib import Path
 import tarfile

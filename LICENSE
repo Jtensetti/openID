@@ -1,0 +1,63 @@
+Tjipp Source-Available License 1.0
+
+Copyright (c) 2026 Jonatan Tensetti
+
+1. Scope
+
+This license applies only to the original code and accompanying documentation
+in this repository for which Jonatan Tensetti can grant rights (the Software).
+Files under integrations/ are licensed under integrations/LICENSE (MIT).
+Third-party code, adaptations, dependencies, assets and notices retain their
+own licenses, including those identified in THIRD_PARTY.md and file headers.
+This license does not replace those terms or withdraw previously granted rights.
+
+2. Permission
+
+You may inspect, copy, compile, run and redistribute unmodified copies of the
+Software, including for commercial purposes, without a license fee. You may
+use its interfaces from independently written software. Documented
+configuration, build, code-signing and packaging operations are permitted,
+provided that the functional source code and required notices are preserved.
+Your independent application does not become subject to this license merely
+because it communicates with the Software.
+
+3. Attribution
+
+Keep this license and the copyright notice above with copies or substantial
+portions of the Software. For binary distributions, include them in the
+accompanying license notices or documentation. Keep third-party notices too.
+Do not suggest that Jonatan Tensetti endorses your product or deployment.
+
+4. Modifications
+
+Except for the permissions in section 2, separately licensed material and
+rights that applicable law does not allow to be excluded, modifying the
+Software or distributing modified versions requires prior written permission
+from Jonatan Tensetti. Contact: Jonatan@tensetti.se.
+
+5. Services and names
+
+This license grants no access to hosted services, support, availability
+commitment, identity assurance level or regulatory approval. It grants no
+trademark or logo rights beyond identifying the unmodified Software and
+truthfully describing interoperability with Tjipp.
+
+6. Warranty and liability
+
+To the extent permitted by applicable law, the Software is provided as is,
+without warranties of any kind, including merchantability, fitness for a
+particular purpose and noninfringement. To that extent, Jonatan Tensetti is
+not liable for claims, damages or other liability arising from the Software
+or its use. Nothing here excludes liability or rights that cannot lawfully
+be excluded.
+
+7. Duration
+
+These permissions apply while you comply with these terms. If you breach
+them, your permissions terminate and are reinstated when you cure the breach
+within 30 days of discovering it. Ending this license does not terminate
+licenses held by recipients who remain in compliance. Later versions of
+these terms do not replace this version for copies already received.
+
+This is a custom source-available license, not an open-source license.
+Identifier: LicenseRef-Tjipp-Source-Available-1.0.

@@ -48,7 +48,7 @@ byggen och behålls i källträdet; gamla fristående testresultat gör det inte
 | Registreringsval | Exakt text, separata val, signerade kvitton, återkallelse och utgång under automatisk aktivering. | Beslutad information, faktisk app-/serverkombination och deltagarnas tidigare registreringar. |
 | Datahantering | Avgränsade personutdrag, hemliga fält uteslutna, beslutsbunden radering och återspelning vid restore, även i TestFlight-registret. | Riktiga ärenden, lagringstider, externa kopior och operativ återläsning. |
 | Bildarbetare | Formatgränser, resursbudget, pipe-/tidsgränser och Linux fil-/systemanropsisolering. | Faktisk värdkärna och oberoende angreppsprov. |
-| SAML/OIDC | Signatur, mottagare, state, nonce, PKCE, klientintyg, tider, återspelning, nekande och spärr. | Oberoende interoperabilitet och federationsanslutning. |
+| SAML/OIDC | Signatur, mottagare, state, nonce, PKCE, klientintyg, tider, återspelning, nekande och spärr. | Extern OIDC-verifiering och produktionsanslutning; [SAML-sandbox](../integrations/README.md#status) har separat testunderlag. |
 | Webb/nginx | Stora SAML-svar, skydd mot för stora POST, HSTS, klient-IP och synliga slutlägen vid OIDC-återgång. | Den installerade ingressen och fysisk webbläsare/app. |
 | PDF | Signerade bytes, synligt kvitto, förändrat innehåll och separat OpenSSL-validering. | Betrodd certifikatkedja, tid och långtidsvalidering. |
 | Återställning | SQLite/PostgreSQL, nyckelbindning, karantän och bevarat spärrkrav med syntetiska data. | Faktisk backup, nyckelförvaring och driftövning. |

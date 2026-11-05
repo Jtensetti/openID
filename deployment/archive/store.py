@@ -175,7 +175,7 @@ def put(s3, cfg, key, stream, size, sha, until):
 def deliver(source, manifest_sha, cfg, s3, sts, *, now=None):
     cfg = config(cfg); now = now or datetime.now(UTC); digest(manifest_sha)
     identity(sts,cfg,False); bucket_checks(s3,cfg)
-    result = archive.verify(source,manifest_sha)
+    archive.verify(source,manifest_sha)
     manifest_raw = read_private(Path(source)/'manifest.json')
     if hashlib.sha256(manifest_raw).hexdigest() != manifest_sha: raise ValueError('manifest changed')
     manifest = archive.decode(manifest_raw)

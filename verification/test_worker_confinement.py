@@ -1,6 +1,5 @@
 import contextlib
 import ctypes
-import errno
 import io
 import json
 import os

@@ -1,6 +1,5 @@
 """Offline AWS contract and negative delivery tests; never use live credentials."""
 import base64
-from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json

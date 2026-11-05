@@ -108,7 +108,7 @@ npx --no-install playwright install chromium --only-shell
 npm run test:browser
 ```
 
-Browserproven kräver Node 22–24 (CI: 24.19.0). Playwright 1.62.1 är låst i
+Browserproven kräver Node 22–24. CI-versionen anges i [workflowen](../.github/workflows/prototype.yml). Playwright 1.62.1 är låst i
 `package-lock.json`. På Linux kan `install --with-deps chromium --only-shell`
 behövas. `CHROMIUM_EXECUTABLE` kan ange motsvarande lokala browser.
 `npm run test:web` kör bara WebAuthn-varianterna.

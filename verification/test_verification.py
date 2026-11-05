@@ -12,7 +12,7 @@ from http.server import HTTPServer
 import cv2
 import numpy as np
 from face import FaceMatcher, FaceRejected, MODELS
-from server import handler, unique_object, verify_document
+from server import handler, verify_document
 from identity import VerifiedDocument
 from biometric_worker import score_capture
 

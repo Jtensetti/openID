@@ -9,7 +9,7 @@ from unittest.mock import Mock
 import numpy as np
 from face import FaceRejected, pose_ratio
 from native import NativeSessions, POSES, check_poses, random_pose_order
-from test_chip_fixture import ChipFixture, capture_ready, pose_matcher, FIXTURE_RATIOS
+from test_chip_fixture import ChipFixture, capture_ready, pose_matcher
 from test_identity import document
 from test_wallet import crypt
 from wallet import Wallet, BIOMETRIC_ATTEMPTS, BiometricAttemptLimit
