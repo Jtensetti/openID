@@ -1,6 +1,5 @@
 """Synthetic authority/SQLite boundary tests; no passport or crypto claims."""
 import base64
-import json
 from pathlib import Path
 import shutil
 import tempfile

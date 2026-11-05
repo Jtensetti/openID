@@ -16,6 +16,9 @@ installera paket på en annan plattform.
 
 ## Ändringar
 
+Integrationsmaterialet är MIT-licensierat. Ändringar i övrig egen kod kräver
+tillstånd enligt [projektlicensen](../LICENSE). Repoägaren beslutar om bidrag.
+
 1. Utgå från aktuell `main` och använd en separat branch. Samla ändringen i
    en PR, om inte repoägaren uttryckligen begärt en direktpush.
 2. Uppdatera berörd kod, relevanta tester och komponentens körinstruktion.
@@ -44,8 +47,6 @@ Repots synlighet och verkställda skyddsregler hanteras i
 [GitHubs inställningar](https://github.com/Jtensetti/openID/settings/rules).
 [branch-protection.json](../.github/branch-protection.json) är ett förslag
 för granskad förvaltning, inte ett bevis på de aktuella inställningarna.
-Repoägaren har begärt upplåsning av `main` för sammanföringen. Det ändrar
-inte testresultat eller villkoren för produktionsutgivning.
 
 GitHub tillåter inte att PR-författaren godkänner sin egen PR. Före
 produktion krävs oberoende säkerhetsgranskning och ett behörigt mänskligt
@@ -70,5 +71,4 @@ OSV:s täckning omfattar inte alla OS-lager, modeller och byggverktyg; se
 [säkerhetsinformationen](../SECURITY.md#kända-begränsningar).
 
 CI-artefakter har begränsad retention och är inte långtidsarkiv.
-Bevara nödvändiga leveransunderlag separat. Undvik dubbla omkörningar;
-privata repositories omfattas av kontots Actions-kvot och debitering.
+Bevara nödvändiga leveransunderlag separat.

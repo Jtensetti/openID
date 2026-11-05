@@ -7,8 +7,8 @@ skydd. Se [registreringspaus och införande](../docs/registreringspaus.md).
 Server för passkontroll, ansiktsjämförelse, liveness och iPhone-appens
 pilotregister. [SAML-inloggningen](#saml-inloggning-med-passets-identitet) binder
 appens nyckel till passets personuppgifter och använder bibliotek från Sweden Connect.
-[OIDC](../docs/oidc-pilot.md) använder samma godkännandeflöde. Detta innebär
-inte anslutning till Sweden Connect-federationen.
+[OIDC](../docs/oidc-pilot.md) använder samma godkännandeflöde. Telefonpiloten är skild från
+[Sweden Connect-sandboxen](../integrations/README.md).
 
 Kommandona nedan gäller lokala och privata prov med manuell aktivering.
 Den publika novemberbetan använder [automatisk testaktivering](../docs/testflight-beta.md)
@@ -48,31 +48,9 @@ För telefonprov med paketerad server används [pilotmiljön](../deployment/READ
 Den kör Gunicorn med separata kapacitetsgränser och kortlivade processer för
 bildanalys och profilminiatyrer. Kommandot nedan startar den äldre seriella testservern.
 
-Profilavkodning/omkodning körs med 15 sekunders väntetid, högst 10 sekunders
-CPU-tid och 1 GiB virtuellt minne på Linux. Endast
-porträttets bildbytes skickas på stdin; personfälten stannar i föräldern.
-Utdata begränsas medan den läses: högst 24 000 byte JPEG för profilen och
-4096 byte diagnostik/poäng från biometriarbetaren, som har 45 sekunders
-väntetid. Timeout, för stor utdata och krasch får inte skapa någon profil;
-registreringstransaktionen och dess CRL-efterkontroll består.
-
-Båda bildarbetarna sätter core-gränsen till noll före modell-/codec-laddning
-och inläsning. På Linux stängs också processens dumpbarhet av med återläsning;
-enbart core-gränsen räcker inte för pipade kraschinsamlare. Kan skyddet inte
-aktiveras avslutas arbetaren utan bild-/poängsvar. Det är skydd vid vanliga
-krascher, inte en spärr mot en komprometterad arbetare eller administratör.
-Övriga processer och värdens kraschinsamling behöver separat driftkontroll.
-
-Bildarbetarna får bara fasta tråd-/lokalinställningar, standardsökväg och
-den fasta granskade OpenCV-kandidatens PYTHONPATH, om exakt den är vald.
-Andra PYTHONPATH-värden ärvs inte; användarens Python-site inaktiveras. Serverns övriga
-miljövariabler ärvs inte, även vid modellkontrollen under start.
-På Linux x86-64 begränsar [Landlock och seccomp](../docs/bildarbetare.md)
-filinnehållsläsning till kod/modeller/runtime och nekar skrivning, nätverk,
-nya processer och åtkomst till förälderns minne. Landlock ABI minst 3 krävs;
-saknat skydd stoppar arbetaren. Kontot delas fortfarande med tjänsten.
-Isoleringen är inget bevis på rättade avkodarsårbarheter eller korrekt
-driftskonfiguration. macOS-utveckling har inte detta Linux-skydd.
+Bildanalys och profilminiatyrer körs i separata processer med tids-, minnes-
+och åtkomstgränser. Linux x86_64 med Landlock ABI 3 eller senare krävs.
+Se [bildarbetare](../docs/bildarbetare.md) för gränser och felsökning.
 
 [iPhone-appen](../ios/README.md) läser passet, tar tre kamerabilder och binder
 underlaget till telefonens publika nyckel med App Attest. Starta servern med

@@ -1,7 +1,6 @@
 """Evaluate exact-version applicability decisions; unknown or incomplete evidence blocks."""
 from datetime import date
 import hashlib
-import json
 import shlex
 import subprocess
 from pathlib import Path

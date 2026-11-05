@@ -5,7 +5,6 @@ The Java tests and test_verification.CliTests exercise actual signed CRLs.
 """
 import base64
 from dataclasses import replace
-import json
 from pathlib import Path
 import tempfile
 import unittest

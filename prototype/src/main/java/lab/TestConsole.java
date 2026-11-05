@@ -139,9 +139,7 @@ final class TestConsole {
     return true;
   }
 
-  // ---------------------------------------------------------------- pages
 
-  /** Two documents, two levels: like BankID, the service decides when Face ID is enough. */
   private void chooser(HttpExchange x) throws IOException {
     owner(x);
     page(x, 200, "Skriv under", "<header class='hero'><p class='eyebrow'>openID kontotjänst · underskrift</p><h1>Välj vad du vill skriva under</h1>"
@@ -391,7 +389,6 @@ final class TestConsole {
     page(x, 200, r.kase().title(), html.toString());
   }
 
-  // ---------------------------------------------------------------- helpers
 
   private ResponseProcessingInput input(Run run, String receive) {
     Instant received = Instant.now();
