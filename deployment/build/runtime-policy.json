@@ -2,7 +2,7 @@
   "format": 1,
   "reviewed": "2026-10-30",
   "reviewBefore": "2026-11-30",
-  "sourceSHA256": "ae3527018de3b31e91f2989c1382fd25ea4cb6bd24c0fdbfa712beacdfb2bb41",
+  "sourceSHA256": "4f35d5c95765d2e84df6f7464eaf338477bd4282896fc96ffd17e5c77c80af70",
   "scope": "The two Linux/amd64 application images built from the locked Docker Official Python image. Not a distribution-wide VEX, host assessment, or risk acceptance.",
   "removedPackages": [
     "apt",
