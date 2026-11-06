@@ -65,8 +65,7 @@ class BundleTests(unittest.TestCase):
                 'cnaSHA256':{k:bundle.component_advisories.canonical_sha(v['cna']) for k,v in cna.items()}}
         trusted=self.root/'trusted-policy.json';trusted.write_text(json.dumps(policy))
         for patcher in (patch.object(bundle.runtime_policy,'POLICY',trusted),
-                        patch.object(bundle.runtime_policy,'source_fingerprint',return_value='e'*64),
-                        patch.object(bundle.component_advisories,'EXTRA_COMPONENT_FINDINGS',[])):
+                        patch.object(bundle.runtime_policy,'source_fingerprint',return_value='e'*64)):
             patcher.start();self.addCleanup(patcher.stop)
         evidence={'format':1,'python':'3.12.16','architecture':'x86_64','elfFiles':1,'strictDecoderCalls':1,
             'removedPackages':[],'removedPathCount':1,'checks':[],'sensitiveImports':{},
