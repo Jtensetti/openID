@@ -54,6 +54,9 @@ separat av operatören. Kontaktversionen är oföränderlig. Kön innehåller in
 adresser, passuppgifter eller spärrkoder. Exportens stabila händelse-ID följer
 med vid omförsök. Transportkvittens betecknas `QUEUED`, inte levererat.
 Efter fem misslyckade exportförsök behövs operativ åtgärd.
+Betans aviserare når bara utboxens särskilda Unix-socket. Bryggan äger
+transaktionerna; aviseraren monterar varken register eller profilnyckel.
+Se [processernas åtkomst](../README.md#processer-och-nycklar-i-betan).
 
 ## Tester och kvarvarande arbete
 

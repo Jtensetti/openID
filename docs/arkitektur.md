@@ -124,7 +124,9 @@ HMAC-SHA-256-nyckel används för dokumentreferens och tjänstesubjekt.
 Passnummer sparas inte i klartext; rå chipdata, kamerabilder och ansiktsmallar
 sparas inte. Publika nycklar, status och händelser är okrypterade.
 
-SQLite-databasen och `wallet.identity-key` ligger i en privat katalog.
+Det lokala labbet har SQLite-databas och `wallet.identity-key` i en privat
+katalog. Betan använder en separat nyckelprocess och socket enligt
+[processernas åtkomst](../deployment/README.md#processer-och-nycklar-i-betan).
 Saknad eller fel nyckel stoppar profilåtkomst. [Beslutad gallring](gallring-sqlite.md)
 och [radering](radering-rattighetsarende.md) har läsande förhandsvisning och
 begränsade transaktioner; schemalagd gallring och nyckelrotation saknas i SQLite-läget.
@@ -163,12 +165,16 @@ omfattar inte OpenBao, databaslogins eller infrastrukturkonfiguration.
 |---|---|
 | Telefon → verifierare | HTTPS, exakt Host/Origin och signerade anrop. Privat läge kräver kopplingskod; publik betaregistrering kräver produktions-App Attest. Inga klientangivna identitetsfält accepteras som verifierade. |
 | Verifierare → passprocess | Fast binär, JAR och CSCA väljs av operatören. Inga nätverkshämtade tillitsankare. |
-| Register → SAML | Unix-socket 0600 i katalog 0700, avgränsade meddelanden och operationer. Ingen aktiveringsoperation. |
+| Register → SAML | Unix-socket 0600 i katalog 0700 lokalt; betan använder 0660 i ägarstyrd katalog 2710 och särskild grupp. Avgränsade operationer, ingen aktivering. |
+| Register → profilnyckel | Betans nyckelprocess behåller originalnyckeln. Registerprocesserna får begära referenser och profilkryptering, aldrig rånyckeln. Avbrott nekar åtkomst. |
+| Register → aviserare | Opaka köposter över särskild socket. Ingen profil, registerfil eller aktiveringsoperation. |
 | Webbläsare → IdP/SP | TLS, CSP, CSRF, Origin och sessionsbindning. Endast signerad SAML POST har protokollundantag från CSRF. |
-| Operatör → register | Lokal CLI. Samma OS-konto kan läsa nyckelfilen och aktivera credentials; administrativ rollseparation saknas. |
+| Operatör → register | Lokal CLI. Värdadministratören kontrollerar register, tjänsteidentiteter och nyckelförvaring; administrativ rollseparation saknas. |
 
-IdP, SP och verifierare är separata processer men delar operativsystemskonto.
-De utgör därför inte separata administrativa säkerhetszoner.
+Betans IdP, SP, aviserare och nyckeltjänst har separata OS-identiteter och
+begränsade monteringar. Verifierare och brygga delar registerägare. Det lokala
+labbet kan köras under samma konto. Inget av lägena ger oberoende administrativa
+säkerhetszoner eller HSM-skydd.
 
 ## Övriga körlägen
 

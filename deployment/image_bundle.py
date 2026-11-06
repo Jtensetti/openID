@@ -27,12 +27,29 @@ OS_FILES = ("assessment.json", "database-metadata.json", "os-sbom.cdx.json",
 PAYLOADS = ("image.tar.gz", "source.tar.gz", "protocol-results.json", "python-packages.json") + tuple(
     "os-" + name for name in OS_FILES)
 BETA_MOUNTS = {
-    "verifier": {"runtime.json": True, "secrets": True, "data": False, "continuity.json": True},
-    "bridge": {"data": False, "origins.json": True, "continuity.json": True},
-    "idp": {"data": False, "federation": False, "origins.json": True},
-    "sp": {"data": False, "federation": True, "origins.json": True},
-    "notice-exporter": {"data": False, "continuity.json": True},
+    "vault": {"keys": True, "vault-ipc": False},
+    "verifier": {"runtime.json": True, "secrets": True, "data": False,
+                 "continuity.json": True, "vault-ipc": True},
+    "bridge": {"data": False, "origins.json": True, "continuity.json": True,
+               "federation-ipc": False, "notice-ipc": False, "vault-ipc": True},
+    "idp": {"federation-ipc": True, "federation": False, "origins.json": True},
+    "sp": {"federation-ipc": True, "federation": True, "origins.json": True},
+    "notice-exporter": {"notice-ipc": True},
 }
+BETA_USERS = {"vault": "10005:20002", "verifier": "10001:20002", "bridge": "10001:20001",
+              "idp": "10002:20001", "sp": "10003:20001", "notice-exporter": "10004:20003"}
+BETA_GROUPS = {"bridge": {"20002", "20003"}}
+BETA_IPC = {
+    "vault": {"OPENID_VAULT_SOCKET": "/srv/openid/vault-ipc/vault.sock",
+              "OPENID_VAULT_KEY": "/srv/openid/keys/wallet.identity-key"},
+    "verifier": {"OPENID_IDENTITY_VAULT_SOCKET": "/srv/openid/vault-ipc/vault.sock"},
+    "bridge": {"OPENID_IDENTITY_VAULT_SOCKET": "/srv/openid/vault-ipc/vault.sock",
+               "OPENID_FEDERATION_SOCKET": "/srv/openid/federation-ipc/federation.sock",
+               "OPENID_FEDERATION_GROUP": "20001", "OPENID_NOTICE_GROUP": "20003",
+               "OPENID_NOTICE_SOCKET": "/srv/openid/notice-ipc/notice.sock"},
+    "notice-exporter": {"OPENID_NOTICE_SOCKET": "/srv/openid/notice-ipc/notice.sock"},
+}
+
 
 
 def digest(path):
@@ -295,6 +312,14 @@ def check_beta_mounts(service, mounts, readonly_root, tmpfs):
     require(set(tmpfs) <= {"/tmp"}, "Beta tmpfs must not cover packaged code")
 
 
+def check_beta_identity(service, user, groups, environment):
+    require(user == BETA_USERS[service]
+            and {str(g) for g in groups} == BETA_GROUPS.get(service, set()),
+            "Beta process identity or supplementary groups would break isolation")
+    for key, value in BETA_IPC.get(service, {}).items():
+        require(environment.get(key) == value, "Beta key/outbox IPC boundary mismatch")
+
+
 def check_beta_compose(config, image_id):
     """Check rendered Compose input without starting Docker or reading private files."""
     require(re.fullmatch(r"sha256:[a-f0-9]{64}", image_id), "Full image ID required")
@@ -307,6 +332,8 @@ def check_beta_compose(config, image_id):
                 "Unexpected additional beta mounts")
         require(service.get("environment", {}).get("LOCALDOMAIN", "") == "",
                 "DNS search-list mitigation cannot be overridden")
+        check_beta_identity(name, service.get("user"), service.get("group_add", []),
+                            service.get("environment", {}))
         volumes = service.get("volumes", [])
         require(all(v.get("type") == "bind" and type(v.get("read_only", False)) is bool for v in volumes),
                 "Only explicit beta bind mounts are supported")
@@ -338,6 +365,8 @@ def check_beta_running(image_id):
         require(all(m.get("Type") == "bind" and type(m.get("RW")) is bool for m in mounts),
                 "Only explicit beta bind mounts are supported")
         host = container.get("HostConfig", {})
+        environment = dict(e.split("=", 1) for e in container["Config"].get("Env", []) if "=" in e)
+        check_beta_identity(service, container["Config"].get("User"), host.get("GroupAdd") or [], environment)
         check_beta_mounts(service, [(m.get("Destination"), not m["RW"]) for m in mounts],
                           host.get("ReadonlyRootfs"), host.get("Tmpfs", {}))
     print("Verified running beta image: " + image_id + "; no service was changed")

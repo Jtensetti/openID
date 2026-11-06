@@ -368,9 +368,11 @@ profilåtkomst. Om profiler, person-/dokumentkopplingar, försökshistorik, PIN
 eller spärrkoder finns kvar skapar readiness, biometrisk försöksreservation
 och nyregistrering ingen ersättningsnyckel.
 
-Nyckeln ligger i samma privata katalog som databasen, utan HSM. Detta
-skyddar en separat databasfil men inte ett övertaget serverkonto eller en
-kopia av hela katalogen. Metadata och händelser är okrypterade. Profiler
+I det lokala labbet ligger nyckeln i samma privata katalog som databasen.
+Betan använder en [separat nyckelprocess](../deployment/README.md#processer-och-nycklar-i-betan)
+med originalnyckeln och utan lokal reservnyckel. Inget av dessa lägen har HSM;
+en komprometterad behörig registerprocess kan fortfarande begära dekryptering.
+Metadata och händelser är okrypterade. Profiler
 behålls efter spärr men lämnas inte ut till appen eller tjänsten.
 [SQLite-gallring](../docs/gallring-sqlite.md) har läsande förhandsvisning,
 uttrycklig policy, begränsade transaktioner och journal. Profilmetadata och

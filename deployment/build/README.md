@@ -99,9 +99,11 @@ docker compose -f deployment/beta-compose.yaml -f deployment/continuity-compose.
   --image-id "$OPENID_BETA_IMAGE_ID"
 ```
 
-Kontrollen kräver samma fullständiga image-ID för alla fem tjänster,
+Kontrollen kräver samma fullständiga image-ID för alla sex tjänster,
 skrivskyddad rot och exakt tjänstens data-/konfigurationsmonteringar under
-`/srv/openid`. Övriga volymer, configs/secrets/volumes_from och tmpfs utanför
+`/srv/openid`. Den kräver även separata processidentiteter, avgränsade grupper
+och nyckel-/aviseringssocket enligt [betans isolering](../README.md#processer-och-nycklar-i-betan).
+Övriga volymer, configs/secrets/volumes_from och tmpfs utanför
 `/tmp` nekas. Ingen image byggs eller tjänst startas av kontrollen.
 Använd `up -d --no-build --pull never` med
 rätt Compose-projekt. Efteråt kan samma verifierade paket användas för en
@@ -128,6 +130,12 @@ tekniskt starta ett bygge: denna separation är ett leveransflöde, inte en
 oberoende administrativ spärr mot värdens administratör. Sådan rollseparation
 och produktionsbeslut hanteras separat. iPhone-distributionssignering sker
 fortsatt i den privata Xcode-miljön; inga Apple-certifikat flyttas till CI.
+
+Ett äldre app-/serverpar får inte ersättas genom ett blint imagebyte.
+Kontrollera registreringspolicy, aktuell CSCA-CRL, appens stöd för
+registreringskvitton, ingressens klientadresshuvud och värdens Landlock-stöd.
+Saknade förutsättningar måste ordnas före bytet; stäng inte av kontroller
+eller fabricera tidigare deltagares samtycke för att få starten att passera.
 
 ## Systempaket och säkerhetsunderlag
 

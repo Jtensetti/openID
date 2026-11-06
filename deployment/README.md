@@ -35,6 +35,39 @@ bevarat innehåll, betakontoskydd och avvisning över 128 KiB. Nginx-provets
 samtliga temporära kataloger ligger i dess egen engångskatalog.
 Inga pilotnycklar eller riktiga konton används. Resultatet anger nginx-versionen.
 
+## Processer och nycklar i betan
+
+Betans sex tjänster använder samma verifierade image men skilda åtkomster:
+
+| Process | UID:GID | Åtkomst |
+|---|---|---|
+| vault | 10005:20002 | Befintlig profilnyckel i `vault/private`, egen socket i `vault/socket`. Inget register. |
+| verifier | 10001:20002 | Register, verifierarkonfiguration och nyckelsocket. Ingen profilnyckelfil. |
+| bridge | 10001:20001 | Register och nyckelsocket; tilläggsgrupper 20002/20003; äger federations- och aviseringssocket. |
+| idp | 10002:20001 | Egen federationskonfiguration och federationssocket. Inget register eller profilnyckel. |
+| sp | 10003:20001 | Egen skrivskyddad federationskonfiguration och federationssocket. Inget register eller profilnyckel. |
+| notice-exporter | 10004:20003 | Aviseringssocket och SQS. Inget register eller profilnyckel. |
+
+Förbered ägarskap innan Compose startas. `data` ägs av 10001 med mode 0700.
+`vault/private` ägs av 10005:20002 med mode 0700 och den befintliga
+`wallet.identity-key` har mode 0600. Socketkatalogerna har mode 2710:
+`vault/socket` ägs av 10005:20002, `ipc/federation` av 10001:20001 och
+`ipc/notice` av 10001:20003. Bara ägaren kan skapa eller ersätta en socket;
+respektive grupp kan ansluta till dess mode 0660. Federationskatalogerna
+ägs separat av IdP respektive SP och får inte innehålla registrets profilnyckel.
+
+Vid migrering används originalnyckeln, aldrig en nygenererad ersättning.
+Bevara skyddad återgångskonfiguration och kontrollera ägarskap, symboliska
+länkar och faktisk åtkomst på värden. Compose-kontrollen granskar monteringsmål
+och processidentiteter, inte innehållet bakom en operatörsvald värdsökväg.
+
+Nyckeltjänsten tillåter kontroll, HMAC-referens och profilkryptering/dekryptering,
+men lämnar aldrig ut rånyckeln. Fel på tjänsten ger ingen lokal reservnyckel.
+Aviseraren får endast hämta, kvittera eller felmarkera en opak köpost.
+Detta begränsar processernas åtkomst; verifierare/brygga kan fortfarande begära
+dekryptering och en värdadministratör kontrollerar miljön. Det är inget HSM
+eller oberoende administrativ rollseparation.
+
 ## Betans öppettider
 
 Från 29 oktober 2026 kör den befintliga testservern **dygnet runt till och med
