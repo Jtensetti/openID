@@ -158,7 +158,9 @@ inte ensam bevisning för att all kod är oåtkomlig.
 Python/Expat följs dessutom med Chainguards aktuella komponentfeed och
 CNA-poster från CVE-programmet. Detta är kompletterande upstreambevakning,
 inte ett påstående att Wolfi-paket finns i imagen. Nya/ändrade poster kräver
-ny bedömning. Python är 3.12.16, med inbäddad Expat 2.9.0. De öppna
+ny bedömning. Granskade upstreamfynd behåller sina körningskontroller även
+när Wolfi backportar en fix; det ändrar inte vår installerade runtime.
+Python är 3.12.16, med inbäddad Expat 2.9.0. De öppna
 Expat-fynden bedöms mot JSON-gränserna, de låsta AWS-klienterna och Python-API:t;
 Java-SAML använder en annan parser. Det är inget generellt friskintyg för Expat.
 

@@ -164,12 +164,16 @@ def collect_runtime(policy,now):
     report['scope']='Supplemental upstream component change detection; does not describe installed Wolfi packages.'
     return report
 
-# Confirmed upstream record newer than the vendor feed at the initial review.
-EXTRA_COMPONENT_FINDINGS=[{'id':'CVE-2026-118370','package':'expat','version':'2.9.0'}]
-
-
 def runtime_findings(report):
-    findings={(f['id'],f['package'],f['version']) for f in EXTRA_COMPONENT_FINDINGS}
+    findings=set()
+    # Wolfi can backport a fix without changing our upstream runtime. Keep
+    # every reviewed upstream record subject to its exact-version decision,
+    # even when the supplemental vendor record closes its affected range.
+    products={'CPython':('cpython','3.12.16'),'libexpat':('expat','2.9.0')}
+    for identity,record in report.get('cna',{}).items():
+        for affected in record['cna'].get('affected',[]):
+            if affected.get('product') in products:
+                findings.add((identity,*products[affected['product']]))
     for finding in unresolved(report['records'],COMPONENTS):
         component={'python-3.12':('cpython','3.12.16'),'libexpat1':('expat','2.9.0')}[finding['package']]
         ids=[i for i in finding['upstream'] if i.startswith('CVE-')]
