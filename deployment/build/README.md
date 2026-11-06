@@ -175,6 +175,14 @@ Bedömningen av CVE-2026-103995 och CVE-2026-116566 gäller dessa anropsgränser
 den underliggande CPython-versionen är inte patchad och ska inte anges som fri
 från fynden för generell användning. Nya nätverksanrop kräver ny bedömning.
 
+Snapshotåterställning nekar vyer, triggers och virtuella SQLite-tabeller före
+integritetskontrollen. Separata WAL-/journalfiler får inte importeras.
+Negativa prov körs även i slutimagen. Locale är låst till C.UTF-8 och tom
+LANGUAGE, så att HTTP-anrop inte kan välja meddelandekataloger.
+Nya GCC-fynd i kompilatorns headerfiler skiljs från installerade runtimebibliotek;
+den bedömningen intygar inte separat kompilerad kod i Pythonhjul.
+Samtliga berörda CNA-poster är hashbundna till granskningen.
+
 Grinden kräver noll **obearbetade eller tillämpliga** fynd. Nya CVE:er,
 nya versioner, ändrad runtimekod, saknade prov och utgånget granskningsdatum
 stoppar bygget. Besluten gäller till datumet i policyn, längst till betans slut.

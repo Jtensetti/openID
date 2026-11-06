@@ -83,7 +83,9 @@ filer utan extra hårdlänkar. Symlänkar och named pipes avvisas.
 Kopiering omfattar högst 2 GiB och kontrollerar en 30-sekundersgräns mellan
 läsningarna. Filbyte, ändring under läsning och fel lämnar ingen färdig kopia.
 Bindningsfilen är högst 4096 byte och valideras strikt mot externt ankare.
-SQLite-views och triggers avvisas. Profilfält begränsas före JSON-avkodning
+SQLite-vyer, triggers och virtuella tabeller avvisas före integritetskontroll
+och profilläsning, även med korrekt bindningshash. `trusted_schema` stängs av.
+Profilfält begränsas före JSON-avkodning
 och kryptografi; profilverifieringen har en kontrollerad 120-sekundersgräns,
 utöver pågående kryptografianrops egen timeout.
 

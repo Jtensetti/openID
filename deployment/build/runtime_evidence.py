@@ -25,7 +25,7 @@ import tempfile
 
 ROOT = Path('/usr/share/doc/openid-runtime')
 SYMBOLS = {'posix_memalign','strfmon','strfmon_l','wordexp','regcomp','regexec','glob','glob64','tdelete',
- 'ns_printrr','ns_printrrf','fp_nquery','crc32_combine64','crc32_combine_gen64','gzprintf','gzvprintf',
+ 'ns_printrr','ns_printrrf','fp_nquery','crc32_combine64','crc32_combine_gen64','gzprintf','gzvprintf','gzclearerr',
  'sqlite3changeset_apply','sqlite3changeset_apply_v2','sqlite3changeset_apply_v3',
  'sqlite3changeset_concat','sqlite3changegroup_add','XML_ParserReset'}
 
@@ -71,6 +71,31 @@ def check_network_transport():
                         or kwargs.get('verify',True) is not True or kwargs['config'].proxies!={}):
                     raise ValueError('AWS TLS destination or proxy restriction changed')
     return ['strict_http_framing','network_origin_no_controls','aws_json_endpoints']
+
+
+def check_sqlite_snapshot_boundary():
+    from recovery_binding import validate_snapshot_schema, no_sqlite_sidecars
+    for statement in ('CREATE VIEW unexpected AS SELECT 1',
+                      'CREATE VIRTUAL TABLE unexpected USING fts3(content)',
+                      'CREATE VIRTUAL TABLE unexpected USING fts5(content)',
+                      'CREATE VIRTUAL TABLE unexpected USING rtree(id,x0,x1)'):
+        with sqlite3.connect(':memory:') as db:
+            db.execute('CREATE TABLE ordinary(x)')
+            validate_snapshot_schema(db)
+            db.execute(statement)
+            try: validate_snapshot_schema(db)
+            except ValueError: pass
+            else: raise ValueError('executable snapshot schema accepted')
+    with tempfile.TemporaryDirectory() as directory:
+        path=Path(directory)/'wallet.sqlite'
+        no_sqlite_sidecars(path)
+        for suffix in ('-wal','-shm','-journal'):
+            sidecar=Path(str(path)+suffix);sidecar.touch()
+            try: no_sqlite_sidecars(path)
+            except ValueError: pass
+            else: raise ValueError('external SQLite sidecar accepted')
+            sidecar.unlink()
+    return ['sqlite_snapshot_schema','sqlite_no_external_wal']
 
 
 def elf_imports(path):
@@ -193,7 +218,15 @@ def collect():
             model=Session().get_service_model(name);aws[name]=model.metadata['protocol']
         if set(aws.values())-{'json','rest-json'}: raise ValueError('new AWS XML protocol')
     sys.path.insert(0,'/app/verification')
-    guards=check_network_transport()
+    guards=check_network_transport()+check_sqlite_snapshot_boundary()
+    import locale
+    if (os.environ.get('LC_ALL')!='C.UTF-8' or os.environ.get('LANGUAGE')!=''
+            or locale.setlocale(locale.LC_MESSAGES) not in ('C','C.UTF-8')):
+        raise ValueError('unreviewed message-catalog locale')
+    guards.append('message_catalog_locale_closed')
+    if any(shutil.which(name) for name in ('gcc','g++','cc','c++')) or Path('/usr/include/c++').exists():
+        raise ValueError('C++ compiler or system templates in runtime')
+    guards.append('gcc_runtime_only')
     if importlib.util.find_spec('cv2'):
         import cv2
         if os.environ.get('OPENCV_VIDEOIO_PRIORITY_FFMPEG')!='0' or cv2.videoio_registry.hasBackend(cv2.CAP_FFMPEG):

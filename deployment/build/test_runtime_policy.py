@@ -47,6 +47,11 @@ class ApplicabilityTests(unittest.TestCase):
         self.assertEqual(self.evaluate()[0]['status'],'not_affected')
         self.evidence['sensitiveImports']={'/app/lib.so':['wordexp']}
         self.assertEqual(self.evaluate()[0]['status'],'under_investigation')
+    def test_runtime_only_compiler_decision_needs_observed_evidence(self):
+        self.policy['advisories'][0]['checks']=['gcc_runtime_only']
+        self.assertEqual(self.evaluate()[0]['status'],'under_investigation')
+        self.evidence['checks'].append('gcc_runtime_only')
+        self.assertEqual(self.evaluate()[0]['status'],'not_affected')
     def test_native_boundary_requires_exact_path_hash_and_live_guard(self):
         self.policy['advisories'][0]['checks']=['no_untrusted_native_glob']
         path='/app/locked.so'

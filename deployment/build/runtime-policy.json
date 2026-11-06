@@ -2,7 +2,7 @@
   "format": 1,
   "reviewed": "2026-11-06",
   "reviewBefore": "2026-11-30",
-  "sourceSHA256": "8aa4425c92d666e1b05e88f64313ab3be41bee556c418d1a15675d0c9232de48",
+  "sourceSHA256": "66ee689d794147376e67e8297cc1132b0326d98b3626c1e99d9aeb3fd33d0c9f",
   "scope": "The two Linux/amd64 application images built from the locked Docker Official Python image. Not a distribution-wide VEX, host assessment, or risk acceptance.",
   "removedPackages": [
     "apt",
@@ -2350,6 +2350,338 @@
         "https://github.com/python/cpython/pull/160899",
         "https://www.cve.org/CVERecord?id=CVE-2026-116566"
       ]
+    },
+    {
+      "id": "CVE-2026-109518",
+      "package": "apt",
+      "version": "3.0.3",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All executable, library and configuration payload of this package is physically removed. Original dpkg records and licenses remain; every removed path is checked for reappearance. No package manager runs in the final image.",
+      "references": [
+        "https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/109xxx/CVE-2026-109518.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-114690",
+      "package": "gcc-14-base",
+      "version": "14.2.0-19",
+      "status": "not_affected",
+      "checks": [
+        "gcc_runtime_only"
+      ],
+      "reason": "The affected GNU parallel search is a compiler-header template, not an implementation in these installed runtime DSOs. CI verifies no system C++ headers/compiler are present. This is an OS-package decision, not a claim about code separately compiled into copied wheels; their fixed model/codecs and bounded image inputs remain separately reviewed.",
+      "references": [
+        "https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/114xxx/CVE-2026-114690.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-114691",
+      "package": "gcc-14-base",
+      "version": "14.2.0-19",
+      "status": "not_affected",
+      "checks": [
+        "gcc_runtime_only"
+      ],
+      "reason": "The affected vector<bool> allocation arithmetic is compiled from compiler headers, not implemented by these installed runtime DSOs. CI verifies no system C++ headers/compiler are present. This is an OS-package decision, not a claim about code separately compiled into copied wheels; their fixed model/codecs and bounded image inputs remain separately reviewed.",
+      "references": [
+        "https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/114xxx/CVE-2026-114691.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-115455",
+      "package": "gcc-14-base",
+      "version": "14.2.0-19",
+      "status": "not_affected",
+      "checks": [
+        "gcc_runtime_only"
+      ],
+      "reason": "The affected wide-stream bitset extraction operator is a compiler-header template, not an implementation in these installed runtime DSOs. CI verifies no system C++ headers/compiler are present. This is an OS-package decision, not a claim about code separately compiled into copied wheels; their fixed model/codecs and bounded image inputs remain separately reviewed.",
+      "references": [
+        "https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/115xxx/CVE-2026-115455.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-109518",
+      "package": "libapt-pkg7.0",
+      "version": "3.0.3",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All executable, library and configuration payload of this package is physically removed. Original dpkg records and licenses remain; every removed path is checked for reappearance. No package manager runs in the final image.",
+      "references": [
+        "https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/109xxx/CVE-2026-109518.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-84243",
+      "package": "libc-bin",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "removed_payload"
+      ],
+      "reason": "All executable, library and configuration payload of this package is physically removed. Original dpkg records and licenses remain; every removed path is checked for reappearance. No package manager runs in the final image.",
+      "references": [
+        "https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/84xxx/CVE-2026-84243.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-84243",
+      "package": "libc6",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "message_catalog_locale_closed",
+        "reviewed_source_apis"
+      ],
+      "reason": "The images force C.UTF-8 with an empty LANGUAGE; the probe verifies LC_MESSAGES remains C/C.UTF-8. Public requests cannot set the process environment or choose message catalogs. This closes the non-C locale plus attacker-selected LANGUAGE/filesystem preconditions; glibc is not generally patched.",
+      "references": [
+        "https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/84xxx/CVE-2026-84243.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-114690",
+      "package": "libgcc-s1",
+      "version": "14.2.0-19",
+      "status": "not_affected",
+      "checks": [
+        "gcc_runtime_only"
+      ],
+      "reason": "The affected GNU parallel search is a compiler-header template, not an implementation in these installed runtime DSOs. CI verifies no system C++ headers/compiler are present. This is an OS-package decision, not a claim about code separately compiled into copied wheels; their fixed model/codecs and bounded image inputs remain separately reviewed.",
+      "references": [
+        "https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/114xxx/CVE-2026-114690.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-114691",
+      "package": "libgcc-s1",
+      "version": "14.2.0-19",
+      "status": "not_affected",
+      "checks": [
+        "gcc_runtime_only"
+      ],
+      "reason": "The affected vector<bool> allocation arithmetic is compiled from compiler headers, not implemented by these installed runtime DSOs. CI verifies no system C++ headers/compiler are present. This is an OS-package decision, not a claim about code separately compiled into copied wheels; their fixed model/codecs and bounded image inputs remain separately reviewed.",
+      "references": [
+        "https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/114xxx/CVE-2026-114691.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-115455",
+      "package": "libgcc-s1",
+      "version": "14.2.0-19",
+      "status": "not_affected",
+      "checks": [
+        "gcc_runtime_only"
+      ],
+      "reason": "The affected wide-stream bitset extraction operator is a compiler-header template, not an implementation in these installed runtime DSOs. CI verifies no system C++ headers/compiler are present. This is an OS-package decision, not a claim about code separately compiled into copied wheels; their fixed model/codecs and bounded image inputs remain separately reviewed.",
+      "references": [
+        "https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/115xxx/CVE-2026-115455.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-119373",
+      "package": "libsqlite3-0",
+      "version": "3.46.1-7+deb13u2",
+      "status": "not_affected",
+      "checks": [
+        "sqlite_snapshot_schema",
+        "sqlite_extension_disabled",
+        "reviewed_source_apis"
+      ],
+      "reason": "The application never creates or queries FTS5 tables or supplies a prefix MATCH query. Fixed statements use bound values. Before integrity checks or profile reads, recovery disables trusted_schema and rejects views, triggers and virtual tables, including independently bound snapshots. Runtime probes exercise these rejection boundaries. This does not make arbitrary SQLite files or SQL safe.",
+      "references": [
+        "https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/119xxx/CVE-2026-119373.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-119374",
+      "package": "libsqlite3-0",
+      "version": "3.46.1-7+deb13u2",
+      "status": "not_affected",
+      "checks": [
+        "sqlite_snapshot_schema",
+        "sqlite_extension_disabled",
+        "reviewed_source_apis"
+      ],
+      "reason": "No FTS5 table or index is opened for deletion. Fixed statements use bound values. Before integrity checks or profile reads, recovery disables trusted_schema and rejects views, triggers and virtual tables, including independently bound snapshots. Runtime probes exercise these rejection boundaries. This does not make arbitrary SQLite files or SQL safe.",
+      "references": [
+        "https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/119xxx/CVE-2026-119374.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-119379",
+      "package": "libsqlite3-0",
+      "version": "3.46.1-7+deb13u2",
+      "status": "not_affected",
+      "checks": [
+        "no_sqlite_session",
+        "sqlite_extension_disabled"
+      ],
+      "reason": "SQLite Session changesets are neither accepted by service/operator APIs nor exposed by CPython sqlite3. No native application imports changeset apply/merge APIs and dynamic extension loading is disabled.",
+      "references": [
+        "https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/119xxx/CVE-2026-119379.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-119371",
+      "package": "libsqlite3-0",
+      "version": "3.46.1-7+deb13u2",
+      "status": "not_affected",
+      "checks": [
+        "sqlite_snapshot_schema",
+        "sqlite_extension_disabled",
+        "reviewed_source_apis"
+      ],
+      "reason": "No caller supplies SQL or a CTE/view chain. Fixed statements use bound values. Before integrity checks or profile reads, recovery disables trusted_schema and rejects views, triggers and virtual tables, including independently bound snapshots. Runtime probes exercise these rejection boundaries. This does not make arbitrary SQLite files or SQL safe.",
+      "references": [
+        "https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/119xxx/CVE-2026-119371.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-119372",
+      "package": "libsqlite3-0",
+      "version": "3.46.1-7+deb13u2",
+      "status": "not_affected",
+      "checks": [
+        "sqlite_snapshot_schema",
+        "sqlite_extension_disabled",
+        "reviewed_source_apis"
+      ],
+      "reason": "The application never creates or queries FTS3/FTS4 tables or calls snippet(). Fixed statements use bound values. Before integrity checks or profile reads, recovery disables trusted_schema and rejects views, triggers and virtual tables, including independently bound snapshots. Runtime probes exercise these rejection boundaries. This does not make arbitrary SQLite files or SQL safe.",
+      "references": [
+        "https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/119xxx/CVE-2026-119372.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-119375",
+      "package": "libsqlite3-0",
+      "version": "3.46.1-7+deb13u2",
+      "status": "not_affected",
+      "checks": [
+        "sqlite_no_external_wal",
+        "reviewed_source_apis"
+      ],
+      "reason": "Services use their own private databases/WALs. Recovery accepts a closed snapshot only and rejects WAL/SHM/journal sidecars before and after the private copy, before opening SQLite. Backup captures the live service database through the backup API; no untrusted WAL file is imported.",
+      "references": [
+        "https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/119xxx/CVE-2026-119375.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-119376",
+      "package": "libsqlite3-0",
+      "version": "3.46.1-7+deb13u2",
+      "status": "not_affected",
+      "checks": [
+        "sqlite_snapshot_schema",
+        "sqlite_extension_disabled",
+        "reviewed_source_apis"
+      ],
+      "reason": "No caller supplies SQL or chained COLLATE expressions. Fixed statements use bound values. Before integrity checks or profile reads, recovery disables trusted_schema and rejects views, triggers and virtual tables, including independently bound snapshots. Runtime probes exercise these rejection boundaries. This does not make arbitrary SQLite files or SQL safe.",
+      "references": [
+        "https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/119xxx/CVE-2026-119376.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-119378",
+      "package": "libsqlite3-0",
+      "version": "3.46.1-7+deb13u2",
+      "status": "not_affected",
+      "checks": [
+        "sqlite_snapshot_schema",
+        "sqlite_extension_disabled",
+        "reviewed_source_apis"
+      ],
+      "reason": "The application never creates or queries R-Tree tables. Fixed statements use bound values. Before integrity checks or profile reads, recovery disables trusted_schema and rejects views, triggers and virtual tables, including independently bound snapshots. Runtime probes exercise these rejection boundaries. This does not make arbitrary SQLite files or SQL safe.",
+      "references": [
+        "https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/119xxx/CVE-2026-119378.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-119591",
+      "package": "libsqlite3-0",
+      "version": "3.46.1-7+deb13u2",
+      "status": "not_affected",
+      "checks": [
+        "sqlite_snapshot_schema",
+        "sqlite_extension_disabled",
+        "reviewed_source_apis"
+      ],
+      "reason": "No caller supplies SQL or a VALUES-backed view. Fixed statements use bound values. Before integrity checks or profile reads, recovery disables trusted_schema and rejects views, triggers and virtual tables, including independently bound snapshots. Runtime probes exercise these rejection boundaries. This does not make arbitrary SQLite files or SQL safe.",
+      "references": [
+        "https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/119xxx/CVE-2026-119591.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-119377",
+      "package": "libsqlite3-0",
+      "version": "3.46.1-7+deb13u2",
+      "status": "not_affected",
+      "checks": [
+        "sqlite_snapshot_schema",
+        "sqlite_extension_disabled",
+        "reviewed_source_apis"
+      ],
+      "reason": "Authorizers protect fixed retention/erasure statements; no user SQL or RIGHT/FULL JOIN USING query reaches them. Fixed statements use bound values. Before integrity checks or profile reads, recovery disables trusted_schema and rejects views, triggers and virtual tables, including independently bound snapshots. Runtime probes exercise these rejection boundaries. This does not make arbitrary SQLite files or SQL safe.",
+      "references": [
+        "https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/119xxx/CVE-2026-119377.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-114690",
+      "package": "libstdc++6",
+      "version": "14.2.0-19",
+      "status": "not_affected",
+      "checks": [
+        "gcc_runtime_only"
+      ],
+      "reason": "The affected GNU parallel search is a compiler-header template, not an implementation in these installed runtime DSOs. CI verifies no system C++ headers/compiler are present. This is an OS-package decision, not a claim about code separately compiled into copied wheels; their fixed model/codecs and bounded image inputs remain separately reviewed.",
+      "references": [
+        "https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/114xxx/CVE-2026-114690.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-114691",
+      "package": "libstdc++6",
+      "version": "14.2.0-19",
+      "status": "not_affected",
+      "checks": [
+        "gcc_runtime_only"
+      ],
+      "reason": "The affected vector<bool> allocation arithmetic is compiled from compiler headers, not implemented by these installed runtime DSOs. CI verifies no system C++ headers/compiler are present. This is an OS-package decision, not a claim about code separately compiled into copied wheels; their fixed model/codecs and bounded image inputs remain separately reviewed.",
+      "references": [
+        "https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/114xxx/CVE-2026-114691.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-115455",
+      "package": "libstdc++6",
+      "version": "14.2.0-19",
+      "status": "not_affected",
+      "checks": [
+        "gcc_runtime_only"
+      ],
+      "reason": "The affected wide-stream bitset extraction operator is a compiler-header template, not an implementation in these installed runtime DSOs. CI verifies no system C++ headers/compiler are present. This is an OS-package decision, not a claim about code separately compiled into copied wheels; their fixed model/codecs and bounded image inputs remain separately reviewed.",
+      "references": [
+        "https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/115xxx/CVE-2026-115455.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-76844",
+      "package": "zlib1g",
+      "version": "1:1.3.dfsg+really1.3.1-1+b1",
+      "status": "not_affected",
+      "checks": [
+        "no_zlib_clearerr",
+        "reviewed_source_apis"
+      ],
+      "reason": "For the installed zlib 1.3.1 the trigger requires gzclearerr() after a failed gz write. No application/native dependency imports gzclearerr; Python gzip uses in-memory deflate/inflate, not gz* file streams, and the reviewed service exposes neither a gz stream nor a native clear-error operation. Import absence supports this call-path review, not a general zlib guarantee.",
+      "references": [
+        "https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/76xxx/CVE-2026-76844.json"
+      ]
     }
   ],
   "componentFeedSHA256": {
@@ -2452,7 +2784,23 @@
     "CVE-2026-3479": "060376b0821f38f40bf630190e8c54a1ffce1ab07bc56f0f43f593a6a3fe47c7",
     "CVE-2026-6019": "8281acee341982121f28469965e2bd0767627b6e3da689c363106fab16a749db",
     "CVE-2026-103995": "8619d18631cdf10d3014aa90270604026964a9234485e6a32cf4ef564514e455",
-    "CVE-2026-116566": "82730ad12219168166d605385cdea1d9f94bde44d9bd056b4a20d6c44600ca51"
+    "CVE-2026-116566": "82730ad12219168166d605385cdea1d9f94bde44d9bd056b4a20d6c44600ca51",
+    "CVE-2026-109518": "3f7cda7f4b56d8df51030014ced21b5470db452b96641154ea0295e1543fe61d",
+    "CVE-2026-114690": "3bdc6ff7b8cd49badb5d7187c3bc2619d0b4bb4cde040394f18a69dfc1f4ed01",
+    "CVE-2026-114691": "92c245a3a745d0ef30923a2a14bb48fd405363cdf578cdbd557912e94e9dc2a7",
+    "CVE-2026-115455": "06f0c2e7f68944911411770fb6b6f4199d9e180f237c0ab240647345c8fc82b8",
+    "CVE-2026-84243": "0d25bf5c7cbe808c050368b93abc1a8d4fd49c9045d51d09f7db9c8ca4085eff",
+    "CVE-2026-76844": "6c757788f26aee161879f197d924f1a7c841caf924cf57547cb0895063425a97",
+    "CVE-2026-119371": "c77fce312a3c741d9104b62429f9f437f78f13ce0d3b0627ccde4b5da8f68546",
+    "CVE-2026-119372": "8ed7b980234d483a576a14834542ca859a2e7a0ecc638ebc9382fcde9f715ad5",
+    "CVE-2026-119373": "66fe10bee963a1a194e931fb64d6e8a29829a385e82c426c617cd08db3c8c791",
+    "CVE-2026-119374": "e4f796f0a9aa6d9ec4c456815c97821702d1b27561e5c8d096ca0d5a92fd8bf4",
+    "CVE-2026-119375": "69a52603ab8f6df10e13859cd7e111faf6b9c7cc8846ba59e89c2b58bd594e1a",
+    "CVE-2026-119376": "14686115aa2caebda9a82a20451101192e574c33d5b09ca590b6967bc309193c",
+    "CVE-2026-119377": "08251692e51bee6c834a91c13aa9e262a0f6c4a763b2114914bb94866a774c79",
+    "CVE-2026-119378": "c95767367b8c1e8d4b7832588124edd84e3de6ef3c649c0b760b61c6971ce9a6",
+    "CVE-2026-119379": "a100e8a91550535ebeac976c1f8c2168da6c123c3c733ce23c79198bc261c6b1",
+    "CVE-2026-119591": "abe13008363259feaf27f86374617906db9415c008f2140b068cfab4c6280d42"
   },
   "nativeCallBoundaries": {
     "/usr/local/lib/python3.12/site-packages/opencv_python_headless.libs/libavformat-50e282e4.so.62.12.102": {
