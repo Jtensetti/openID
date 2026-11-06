@@ -9,7 +9,7 @@ import sqlite3
 import subprocess
 import threading
 import time
-from urllib.parse import urlsplit
+from http_transport import configured_url
 
 from native import unique_object
 from biometric_worker import CameraImageRejected
@@ -31,7 +31,7 @@ WALLET_ROUTES = {'/wallet/challenge': 'challenge', '/wallet/execute': 'execute'}
 
 
 def validate_origin(value):
-    parsed = urlsplit(value)
+    parsed = configured_url(value)
     if (parsed.scheme != 'https' or not parsed.hostname or parsed.username or parsed.password
             or parsed.path or parsed.query or parsed.fragment):
         raise ValueError('Origin must be HTTPS without credentials, path or query')

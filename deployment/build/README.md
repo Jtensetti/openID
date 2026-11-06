@@ -162,6 +162,17 @@ ny bedömning. Python är 3.12.16, med inbäddad Expat 2.9.0. De öppna
 Expat-fynden bedöms mot JSON-gränserna, de låsta AWS-klienterna och Python-API:t;
 Java-SAML använder en annan parser. Det är inget generellt friskintyg för Expat.
 
+De interna HTTP-klienterna för OpenBao och övervakning använder strikt
+`Content-Length`/chunk-framing i `verification/http_transport.py`. Kontrolltecken
+nekas innan URL-normalisering och namnuppslagning. Slutimagen provar felaktiga
+längder, chunk-storlekar och nulltecken. AWS-klienterna använder tre fasta
+HTTPS-endpoints i eu-north-1, verifierad TLS och inga miljöstyrda HTTP-proxyer.
+De tar inte emot destinationsadresser från publika anrop och förmedlar inte
+HTTP-framing vidare. Modellhämtning är ett byggsteg med fasta URL:er och hashkontroll.
+Bedömningen av CVE-2026-103995 och CVE-2026-116566 gäller dessa anropsgränser;
+den underliggande CPython-versionen är inte patchad och ska inte anges som fri
+från fynden för generell användning. Nya nätverksanrop kräver ny bedömning.
+
 Grinden kräver noll **obearbetade eller tillämpliga** fynd. Nya CVE:er,
 nya versioner, ändrad runtimekod, saknade prov och utgånget granskningsdatum
 stoppar bygget. Besluten gäller till datumet i policyn, längst till betans slut.

@@ -9,6 +9,7 @@ import binascii
 import ctypes
 import hashlib
 import importlib.util
+import io
 import json
 import mmap
 import os
@@ -27,6 +28,49 @@ SYMBOLS = {'posix_memalign','strfmon','strfmon_l','wordexp','regcomp','regexec',
  'ns_printrr','ns_printrrf','fp_nquery','crc32_combine64','crc32_combine_gen64','gzprintf','gzvprintf',
  'sqlite3changeset_apply','sqlite3changeset_apply_v2','sqlite3changeset_apply_v3',
  'sqlite3changeset_concat','sqlite3changegroup_add','XML_ParserReset'}
+
+
+def check_network_transport():
+    import http.client
+    from http_transport import configured_url, StrictResponse, HTTPSConnection
+    from aws_client import ENDPOINTS, runtime_client
+    from unittest.mock import patch
+    for value in ('https://localhost\0.example', 'https://localhost:443\0',
+                  'https://local\nhost', '\thttps://localhost'):
+        try: configured_url(value)
+        except ValueError: pass
+        else: raise ValueError('network destination accepted controls')
+    if configured_url('https://localhost:443').hostname != 'localhost':
+        raise ValueError('ordinary network destination rejected')
+    if HTTPSConnection.response_class is not StrictResponse:
+        raise ValueError('strict HTTP response not wired')
+    class Wire:
+        def __init__(self, value): self.value=value
+        def makefile(self, *args): return io.BytesIO(self.value)
+    def read(headers, body):
+        response=StrictResponse(Wire(b'HTTP/1.1 200 OK\r\n'+headers+b'\r\n\r\n'+body))
+        response.begin();return response.read()
+    for headers,body in ((b'Content-Length: +2',b'ok'),
+                         (b'Content-Length: 2_0',b'ok'),
+                         (b'Transfer-Encoding: chunked',b'0x2\r\nok\r\n0\r\n\r\n'),
+                         (b'Transfer-Encoding: chunked',b'-2\r\nok\r\n0\r\n\r\n')):
+        try: read(headers,body)
+        except http.client.HTTPException: pass
+        else: raise ValueError('malformed HTTP framing accepted')
+    if read(b'Transfer-Encoding: chunked',b'2\r\nok\r\n0\r\n\r\n') != b'ok':
+        raise ValueError('ordinary HTTP framing rejected')
+    if ENDPOINTS != {s:f'https://{s}.eu-north-1.amazonaws.com' for s in ('lambda','sqs','dynamodb')}:
+        raise ValueError('new AWS endpoint needs review')
+    if importlib.util.find_spec('boto3'):
+        with patch('boto3.client') as client:
+            for service,endpoint in ENDPOINTS.items():
+                runtime_client(service,read_timeout=3)
+                args,kwargs=client.call_args
+                if (args!=(service,) or kwargs['endpoint_url']!=endpoint
+                        or kwargs['region_name']!='eu-north-1'
+                        or kwargs.get('verify',True) is not True or kwargs['config'].proxies!={}):
+                    raise ValueError('AWS TLS destination or proxy restriction changed')
+    return ['strict_http_framing','network_origin_no_controls','aws_json_endpoints']
 
 
 def elf_imports(path):
@@ -148,7 +192,8 @@ def collect():
         for name in ('lambda','sqs','dynamodb'):
             model=Session().get_service_model(name);aws[name]=model.metadata['protocol']
         if set(aws.values())-{'json','rest-json'}: raise ValueError('new AWS XML protocol')
-    guards=[]
+    sys.path.insert(0,'/app/verification')
+    guards=check_network_transport()
     if importlib.util.find_spec('cv2'):
         import cv2
         if os.environ.get('OPENCV_VIDEOIO_PRIORITY_FFMPEG')!='0' or cv2.videoio_registry.hasBackend(cv2.CAP_FFMPEG):

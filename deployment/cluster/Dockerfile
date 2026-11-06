@@ -23,6 +23,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=node /usr/local/LICENSE /usr/share/doc/nodejs/LICENSE
 WORKDIR /app/verification
+COPY verification/http_transport.py verification/aws_client.py ./
 COPY verification/cluster-requirements.lock verification/runtime-requirements.lock verification/rp-requirements.lock ./
 COPY deployment/build/python-wheels.lock.json /usr/share/doc/openid-python/python-wheels.lock.json
 RUN --network=none --mount=type=bind,from=python-wheels,source=/wheels,target=/wheels ["python", "-m", "pip", "--isolated", "--disable-pip-version-check", "install", "--no-index", "--find-links=/wheels", "--no-cache-dir", "--require-hashes", "--only-binary=:all:", "--report=/usr/share/doc/openid-python/wheel-installation.json", "-r", "cluster-requirements.lock", "-r", "runtime-requirements.lock", "-r", "rp-requirements.lock"]

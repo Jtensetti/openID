@@ -76,6 +76,7 @@ COPY --from=java-runtime /opt/java/openjdk /opt/java/openjdk
 COPY --from=node-build /usr/local/bin/node /usr/local/bin/node
 COPY --from=node-build /usr/local/LICENSE /usr/share/doc/nodejs/LICENSE
 WORKDIR /app/verification
+COPY verification/http_transport.py verification/aws_client.py ./
 COPY verification/requirements.lock verification/rp-requirements.lock verification/runtime-requirements.lock ./
 COPY deployment/aws/requirements.lock /app/aws-requirements.lock
 COPY deployment/build/python-wheels.lock.json /usr/share/doc/openid-python/python-wheels.lock.json

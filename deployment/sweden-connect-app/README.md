@@ -48,6 +48,10 @@ Skanna QR-koden med appen och godkänn. Kontrollera signatur, kryptering,
 InResponseTo, mottagare och returnerad kontext. Test-SP 2 kan kontrollera
 att en annan mottagare ger ett annat tjänstesubjekt.
 
+Vid timeout: starta om från testklienten i samma flik. Felsidan återgår till
+sandboxen när den gamla begärans mottagare finns kvar i sessionen. Saknas
+den kontexten visas ingen gissad länk till en annan tjänst.
+
 Test-SP 1 och underskriftstjänsten begär personnummer i sin metadata;
 Test-SP 2 begär eIDAS-identitet. Det senare är ingen profil som Tjipp utfärdar.
 Personnummer vidarebefordras från passets autentiserade DG1-fält. Det är

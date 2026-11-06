@@ -99,12 +99,8 @@ opening an already migrated database through a legacy unconfigured command.
             r'arn:aws:lambda:eu-north-1:[0-9]{12}:function:[A-Za-z0-9_-]{1,64}', config['backendFunction']):
         raise ValueError('continuity function ARN required')
     if client_factory is None:
-        import boto3
-        from botocore.config import Config
+        from aws_client import runtime_client
         def client_factory():
-            return boto3.client('lambda', region_name=config['region'],
-                endpoint_url='https://lambda.eu-north-1.amazonaws.com',
-                config=Config(connect_timeout=2, read_timeout=10,
-                              retries={'total_max_attempts': 1}))
+            return runtime_client('lambda', read_timeout=10)
     authority = lambda_authority(client_factory(), config['backendFunction'])
     return Wallet(database, origin, revocation=authority, notifications=True, test_beta=config.get('testBeta', False))

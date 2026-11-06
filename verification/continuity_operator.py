@@ -61,8 +61,7 @@ def prepare(wallet, credential, recipient, evidence, client, ledger, contacts):
 
 
 def main():
-    import boto3
-    from botocore.config import Config
+    from aws_client import runtime_client
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--db', required=True)
     parser.add_argument('--credential', required=True)
@@ -73,8 +72,7 @@ def main():
     args = parser.parse_args()
     recipient = sys.stdin.readline(256).strip()
     wallet = configured_wallet(args.db, 'continuity-operator')
-    config = Config(connect_timeout=2, read_timeout=5, retries={'total_max_attempts': 1})
-    client = boto3.client('dynamodb', region_name='eu-north-1', config=config)
+    client = runtime_client('dynamodb', read_timeout=5)
     try:
         result = prepare(wallet, args.credential, recipient, args.evidence, client, args.ledger, args.contacts)
         print(json.dumps(result))

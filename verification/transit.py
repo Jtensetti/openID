@@ -1,10 +1,9 @@
 """OpenBao Transit client: no encryption keys or decrypted profile cache in the API."""
 import base64
-import http.client
 import json
 import re
 import ssl
-from urllib.parse import urlsplit
+from http_transport import configured_url, HTTPConnection, HTTPSConnection
 from serve import private_file
 
 
@@ -14,7 +13,7 @@ class VaultUnavailable(RuntimeError):
 
 class TransitVault:
     def __init__(self, address, token_file, ca_file=None, *, local_test=False):
-        url = urlsplit(address)
+        url = configured_url(address)
         if (url.path or url.query or url.fragment or url.username or url.password or not url.hostname
                 or (url.scheme != 'https' and not (local_test and url.scheme == 'http' and url.hostname in ('127.0.0.1', 'localhost')))):
             raise ValueError('OpenBao requires an HTTPS origin')
@@ -26,8 +25,8 @@ class TransitVault:
         try:
             token = private_file(self.token_file).decode('ascii').strip()
             if not re.fullmatch('[A-Za-z0-9_.-]{16,2048}', token): raise ValueError('token')
-            connection = (http.client.HTTPSConnection(self.url.hostname, self.url.port, timeout=3, context=self.tls_context)
-                if self.tls_context else http.client.HTTPConnection(self.url.hostname, self.url.port, timeout=3))
+            connection = (HTTPSConnection(self.url.hostname, self.url.port, timeout=3, context=self.tls_context)
+                if self.tls_context else HTTPConnection(self.url.hostname, self.url.port, timeout=3))
             data = json.dumps(value, allow_nan=False, separators=(',', ':')).encode() if value is not None else None
             if data is not None and len(data) > 65536: raise ValueError('size')
             connection.request('POST' if data is not None else 'GET', '/v1/'+path, body=data,
