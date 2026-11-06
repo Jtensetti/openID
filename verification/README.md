@@ -10,6 +10,9 @@ appens nyckel till passets personuppgifter och använder bibliotek från Sweden 
 [OIDC](../docs/oidc-pilot.md) använder samma godkännandeflöde. Detta innebär
 inte anslutning till Sweden Connect-federationen.
 
+[Anslutning med appen till Sweden Connects sandbox](../deployment/sweden-connect-app/README.md)
+aktiveras separat och begränsar mottagarna till federationens testklienter.
+
 Kommandona nedan gäller lokala och privata prov med manuell aktivering.
 Den publika novemberbetan använder [automatisk testaktivering](../docs/testflight-beta.md)
 utan e-post. Separat spärr, standardlägets kontaktbindning och manuella
@@ -365,9 +368,11 @@ profilåtkomst. Om profiler, person-/dokumentkopplingar, försökshistorik, PIN
 eller spärrkoder finns kvar skapar readiness, biometrisk försöksreservation
 och nyregistrering ingen ersättningsnyckel.
 
-Nyckeln ligger i samma privata katalog som databasen, utan HSM. Detta
-skyddar en separat databasfil men inte ett övertaget serverkonto eller en
-kopia av hela katalogen. Metadata och händelser är okrypterade. Profiler
+I det lokala labbet ligger nyckeln i samma privata katalog som databasen.
+Betan använder en [separat nyckelprocess](../deployment/README.md#processer-och-nycklar-i-betan)
+med originalnyckeln och utan lokal reservnyckel. Inget av dessa lägen har HSM;
+en komprometterad behörig registerprocess kan fortfarande begära dekryptering.
+Metadata och händelser är okrypterade. Profiler
 behålls efter spärr men lämnas inte ut till appen eller tjänsten.
 [SQLite-gallring](../docs/gallring-sqlite.md) har läsande förhandsvisning,
 uttrycklig policy, begränsade transaktioner och journal. Profilmetadata och

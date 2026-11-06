@@ -60,9 +60,23 @@ public final class Metadata {
         """.formatted(base, requested);
   }
   public static String idp(TestKeys keys, String base) throws Exception {
+    String credentials = key(keys, "idp");
+    var encryption = keys.directory().resolve("idp-encryption.crt");
+    if (java.nio.file.Files.exists(encryption)) {
+      try (var input = java.nio.file.Files.newInputStream(encryption)) {
+        var certificate = (java.security.cert.X509Certificate) java.security.cert.CertificateFactory.getInstance("X.509").generateCertificate(input);
+        certificate.checkValidity();
+        if (!"CN=Tjipp-Sandbox-Encryption".equals(certificate.getSubjectX500Principal().getName()))
+          throw new IllegalArgumentException("Unexpected encryption certificate");
+        credentials = credentials.replace("<md:KeyDescriptor>", "<md:KeyDescriptor use=\"signing\">") +
+            "<md:KeyDescriptor use=\"encryption\"><ds:KeyInfo><ds:X509Data><ds:X509Certificate>" +
+            Base64.getEncoder().encodeToString(certificate.getEncoded()) +
+            "</ds:X509Certificate></ds:X509Data></ds:KeyInfo></md:KeyDescriptor>";
+      }
+    }
     return header(base + "/idp") + """
         <md:IDPSSODescriptor WantAuthnRequestsSigned="true" protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
-        """ + key(keys, "idp") + """
+        """ + credentials + """
         <md:NameIDFormat>urn:oasis:names:tc:SAML:2.0:nameid-format:transient</md:NameIDFormat>
         <md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" Location="%s/saml2/redirect/authn"/>
         </md:IDPSSODescriptor></md:EntityDescriptor>

@@ -91,6 +91,26 @@ class RecoveryBindingTests(unittest.TestCase):
             with patch('recovery.time.monotonic', side_effect=[0,121]):
                 with self.assertRaises(ValueError): recovery.verify_profiles(db, vault)
 
+    def test_virtual_tables_are_rejected_before_integrity_check(self):
+        evidence = self.bind()
+        for module,columns in (('fts3','content'),('fts4','content'),('fts5','content'),('rtree','id,x0,x1')):
+            with self.subTest(module=module):
+                with closing(sqlite3.connect(self.backup)) as db, db:
+                    db.execute(f'CREATE VIRTUAL TABLE unexpected USING {module}({columns})')
+                with self.assertRaisesRegex(ValueError, 'executable database schema'):
+                    bind_backup(self.backup, self.wallet.vault.path, self.fingerprint, self.root/'bad-binding.json')
+                value = read_binding(evidence['binding'], evidence['binding_sha256'])
+                value.update(backupSHA256=hashlib.sha256(self.backup.read_bytes()).hexdigest(), backupBytes=self.backup.stat().st_size)
+                binding = self.root/f'virtual-{module}.json'; anchor = write_binding(binding, value)
+                with self.assertRaisesRegex(ValueError, 'executable database schema'):
+                    restore(self.backup, self.root/'restored', self.wallet.vault.path, binding=binding, binding_sha256=anchor)
+                self.assertFalse((self.root/'restored').exists())
+                with closing(sqlite3.connect(self.backup)) as db, db:
+                    traced=[]; db.set_trace_callback(traced.append)
+                    with self.assertRaises(ValueError): recovery_binding.validate_snapshot_schema(db)
+                    self.assertFalse(any('integrity_check' in sql.lower() for sql in traced))
+                    db.execute('DROP TABLE unexpected')
+
     def test_correct_original_key_and_anchor_restore_after_profiles_are_gone(self):
         evidence = self.bind()
         data = read_binding(evidence['binding'], evidence['binding_sha256'])

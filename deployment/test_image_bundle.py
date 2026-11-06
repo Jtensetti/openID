@@ -13,22 +13,31 @@ import image_bundle as bundle
 
 def beta_configuration(image):
     paths = {
-        "verifier": [("runtime.json", True), ("secrets", True), ("data", False), ("continuity.json", True)],
-        "bridge": [("data", False), ("origins.json", True), ("continuity.json", True)],
-        "idp": [("data", False), ("federation", False), ("origins.json", True)],
-        "sp": [("data", False), ("federation", True), ("origins.json", True)],
-        "notice-exporter": [("data", False), ("continuity.json", True)],
+        "vault": [("keys", True), ("vault-ipc", False)],
+        "verifier": [("runtime.json", True), ("secrets", True), ("data", False),
+                     ("continuity.json", True), ("vault-ipc", True)],
+        "bridge": [("data", False), ("origins.json", True), ("continuity.json", True),
+                   ("federation-ipc", False), ("notice-ipc", False), ("vault-ipc", True)],
+        "idp": [("federation-ipc", True), ("federation", False), ("origins.json", True)],
+        "sp": [("federation-ipc", True), ("federation", True), ("origins.json", True)],
+        "notice-exporter": [("notice-ipc", True)],
     }
+    users = {"vault": "10005:20002", "verifier": "10001:20002", "bridge": "10001:20001",
+             "idp": "10002:20001", "sp": "10003:20001", "notice-exporter": "10004:20003"}
     return {"services": {name: {"image": image, "read_only": True, "tmpfs": ["/tmp:size=16m"],
+        "user": users[name], "group_add": ["20002", "20003"] if name == "bridge" else [],
+        "environment": deepcopy(bundle.BETA_IPC.get(name, {})),
         "volumes": [{"type": "bind", "source": "/private/" + path,
                      "target": "/srv/openid/" + path, "read_only": readonly}
                     for path, readonly in mounts]} for name, mounts in paths.items()}}
 
 
+
 def running_containers(config):
-    return [{"Config": {"Image": s["image"], "Env": ["LOCALDOMAIN="], "Labels": {"com.docker.compose.service": name}},
+    return [{"Config": {"Image": s["image"], "User": s["user"],
+             "Env": ["LOCALDOMAIN="] + [k+"="+v for k,v in s["environment"].items()], "Labels": {"com.docker.compose.service": name}},
              "Image": s["image"], "State": {"Running": True},
-             "HostConfig": {"ReadonlyRootfs": s["read_only"], "Tmpfs": {"/tmp": "size=16m"}},
+             "HostConfig": {"GroupAdd": s["group_add"], "ReadonlyRootfs": s["read_only"], "Tmpfs": {"/tmp": "size=16m"}},
              "Mounts": [{"Type": v["type"], "Destination": v["target"], "RW": not v["read_only"]}
                         for v in s["volumes"]]} for name, s in config["services"].items()]
 
@@ -42,7 +51,7 @@ class BundleTests(unittest.TestCase):
         report = {"schema": "openid-protocol-evidence-v1", "status": "PASS", "suites": [
             {"protocol": name, "status": "PASS", "exitCode": 0, "expectedGroups": count,
              "checks": [{"result": "PASS"} for _ in range(count)]}
-            for name, count in [("SAML", 5), ("OIDC", 11)]]}
+            for name, count in [("SAML", 7), ("OIDC", 11)]]}
         (self.root / "protocol-results.json").write_text(json.dumps(report))
         (self.root / "python-packages.json").write_text("{}")
         (self.root / "image.tar.gz").write_bytes(b"synthetic unit-test payload")
@@ -65,8 +74,7 @@ class BundleTests(unittest.TestCase):
                 'cnaSHA256':{k:bundle.component_advisories.canonical_sha(v['cna']) for k,v in cna.items()}}
         trusted=self.root/'trusted-policy.json';trusted.write_text(json.dumps(policy))
         for patcher in (patch.object(bundle.runtime_policy,'POLICY',trusted),
-                        patch.object(bundle.runtime_policy,'source_fingerprint',return_value='e'*64),
-                        patch.object(bundle.component_advisories,'EXTRA_COMPONENT_FINDINGS',[])):
+                        patch.object(bundle.runtime_policy,'source_fingerprint',return_value='e'*64)):
             patcher.start();self.addCleanup(patcher.stop)
         evidence={'format':1,'python':'3.12.16','architecture':'x86_64','elfFiles':1,'strictDecoderCalls':1,
             'removedPackages':[],'removedPathCount':1,'checks':[],'sensitiveImports':{},
@@ -283,6 +291,29 @@ class BundleTests(unittest.TestCase):
                 elif change == "named_volume": c["Mounts"][0]["Type"] = "volume"
                 with patch.object(bundle, "run", side_effect=[ids, json.dumps(containers)]), self.assertRaises(ValueError):
                     bundle.check_beta_running(image)
+
+    def test_beta_rejects_shared_users_excess_groups_and_missing_key_service(self):
+        image = self.data["image"]["id"]
+        good = beta_configuration(image)
+        for name, field, value in (("idp", "user", "10001:20001"),
+                                   ("notice-exporter", "group_add", ["20002"]),
+                                   ("verifier", "environment", {})):
+            with self.subTest(service=name, field=field):
+                config = deepcopy(good)
+                config["services"][name][field] = value
+                with self.assertRaises(ValueError): bundle.check_beta_compose(config, image)
+                containers = running_containers(config)
+                ids = "\n".join(str(i) for i in range(len(containers)))
+                with patch.object(bundle, "run", side_effect=[ids, json.dumps(containers)]), \
+                        self.assertRaises(ValueError):
+                    bundle.check_beta_running(image)
+        for name in ("idp", "sp", "notice-exporter"):
+            for target in ("data", "keys", "vault-ipc"):
+                with self.subTest(service=name, mount=target):
+                    config = deepcopy(good)
+                    config["services"][name]["volumes"].append({"type": "bind", "source": "/private",
+                        "target": "/srv/openid/" + target, "read_only": True})
+                    with self.assertRaises(ValueError): bundle.check_beta_compose(config, image)
 
     def test_symlink_payload(self):
         (self.root / "image.tar.gz").rename(self.root / "external")

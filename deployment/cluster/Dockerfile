@@ -10,7 +10,7 @@ ADD --checksum=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d63
 FROM python:3.12.16-slim-trixie@sha256:8523d6abeb48ceae0b7240d30c5808fc26cb79c1a635bacdf19cf3baecfbec07 AS build-tools
 
 FROM build-tools AS python-base
-ENV LOCALDOMAIN=""
+ENV LOCALDOMAIN="" LANG=C.UTF-8 LC_ALL=C.UTF-8 LANGUAGE=""
 COPY deployment/build/python-runtime.lock.json /usr/share/doc/openid-python/build-lock.json
 ADD --checksum=sha256:fd7f4dfa8190e014013b9f08f3e973f4e4c26ffd179a204895533a7254813a70 https://files.pythonhosted.org/packages/3f/06/3e4420302363fbb71be3c7f35ce042f54bfca330e3e66b3a2e3c4cca579f/pip-26.2.2-py3-none-any.whl /tmp/pip-26.2.2-py3-none-any.whl
 COPY deployment/build/install_build_pip.py /tmp/install_build_pip.py
@@ -23,11 +23,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=node /usr/local/LICENSE /usr/share/doc/nodejs/LICENSE
 WORKDIR /app/verification
+COPY verification/http_transport.py verification/aws_client.py ./
 COPY verification/cluster-requirements.lock verification/runtime-requirements.lock verification/rp-requirements.lock ./
 COPY deployment/build/python-wheels.lock.json /usr/share/doc/openid-python/python-wheels.lock.json
 RUN --network=none --mount=type=bind,from=python-wheels,source=/wheels,target=/wheels ["python", "-m", "pip", "--isolated", "--disable-pip-version-check", "install", "--no-index", "--find-links=/wheels", "--no-cache-dir", "--require-hashes", "--only-binary=:all:", "--report=/usr/share/doc/openid-python/wheel-installation.json", "-r", "cluster-requirements.lock", "-r", "runtime-requirements.lock", "-r", "rp-requirements.lock"]
 RUN --network=none ["python", "-c", "from pathlib import Path; Path('/usr/share/doc/openid-python/wheel-profile.txt').write_text('registry\\n')"]
-COPY verification/cluster_bridge.py verification/federation.py verification/cluster_serve.py verification/cluster_operator.py verification/postgres.py verification/transit.py verification/maintenance.py verification/monitor.py verification/runtime.py verification/biometric_worker.py verification/serve.py verification/native.py verification/wallet.py verification/identity.py verification/crypto_runtime.py ./
+COPY verification/cluster_bridge.py verification/federation.py verification/federation_parties.py verification/cluster_serve.py verification/cluster_operator.py verification/postgres.py verification/transit.py verification/maintenance.py verification/monitor.py verification/runtime.py verification/biometric_worker.py verification/serve.py verification/native.py verification/wallet.py verification/identity.py verification/crypto_runtime.py ./
 COPY verification/crypto-worker.mjs verification/device-signature.mjs verification/profile-crypto.mjs ./
 COPY verification/licenses /app/licenses
 COPY verification/THIRD_PARTY.md /app/licenses/components.md
@@ -35,7 +36,7 @@ COPY deployment/cluster/probe.py ./probe.py
 COPY verification/cluster_recovery.py verification/audit_archive.py verification/sqlite_retention.py ./
 COPY verification/subject_access.py verification/postgres_subject_access.py ./
 COPY verification/erasure_policy.py verification/subject_erasure.py verification/recovery_binding.py ./
-COPY verification/ingress_client.py ./
+COPY verification/ingress_client.py verification/ipc_support.py ./
 COPY verification/enrollment_policy.py verification/acceptance_journal.py verification/consent_retention.py ./
 COPY verification/image_input.py ./
 COPY verification/bounded_process.py verification/profile_worker.py verification/worker_confinement.py ./

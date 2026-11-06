@@ -12,11 +12,40 @@ public final class PhoneAttributes {
   public static String genericName(String samlName) {
     return Metadata.DISPLAY_NAME.equals(samlName) ? AttributeIdentifiers.DISPLAY_NAME : samlName;
   }
-  public static List<String> supported() { return PhoneIdentity.ATTRIBUTES.stream().map(PhoneAttributes::genericName).toList(); }
+  public static List<String> supported() {
+    var supported = new ArrayList<>(PhoneIdentity.ATTRIBUTES.stream().map(PhoneAttributes::genericName).toList());
+    supported.addAll(List.of(AttributeIdentifiers.GIVEN_NAME, AttributeIdentifiers.SURNAME, AttributeIdentifiers.PERSONAL_IDENTITY_NUMBER));
+    return List.copyOf(supported);
+  }
   public static List<GenericAttribute<?>> values(PhoneIdentity identity) {
     var values = new ArrayList<GenericAttribute<?>>();
     identity.attributes().forEach((name, value) -> values.add(GenericAttribute.of(genericName(name), value)));
     return values;
+  }
+  public static List<GenericAttribute<?>> sandboxValues(PhoneIdentity identity, SandboxIdentity passport) {
+    Objects.requireNonNull(passport, "Sandbox passport attributes required");
+    var values = new ArrayList<GenericAttribute<?>>();
+    values.add(GenericAttribute.of(AttributeIdentifiers.DISPLAY_NAME, identity.displayName()));
+    values.add(GenericAttribute.of(PhoneIdentity.SUBJECT, identity.subject()));
+    if (!passport.givenName().isBlank()) values.add(GenericAttribute.of(AttributeIdentifiers.GIVEN_NAME, passport.givenName()));
+    if (!passport.surname().isBlank()) values.add(GenericAttribute.of(AttributeIdentifiers.SURNAME, passport.surname()));
+    if (passport.personalNumber() != null) values.add(GenericAttribute.of(AttributeIdentifiers.PERSONAL_IDENTITY_NUMBER, passport.personalNumber()));
+    return values;
+  }
+  /** The app consent names the passport fields; SAD also needs the pairwise subject. */
+  public static List<GenericAttribute<? extends java.io.Serializable>> sandboxRelease(
+      se.swedenconnect.spring.authnserver.authentication.UserAuthentication authentication) {
+    var use = authentication.getUsageTrack().getLatestUse();
+    if (use == null || use.protocol() != se.swedenconnect.spring.authnserver.authentication.AuthenticationProtocol.SAML
+        || !SandboxRelyingParties.NAMES.containsKey(use.requester())) return List.of();
+    var released = new ArrayList<GenericAttribute<? extends java.io.Serializable>>();
+    var permitted = new HashSet<>(Set.of(AttributeIdentifiers.DISPLAY_NAME, AttributeIdentifiers.GIVEN_NAME,
+        AttributeIdentifiers.SURNAME, PhoneIdentity.SUBJECT));
+    if (SandboxRelyingParties.requestsPersonalNumber(use.requester())) permitted.add(AttributeIdentifiers.PERSONAL_IDENTITY_NUMBER);
+    for (var attribute : authentication.getAuthenticatedUser().getAttributes())
+      if (permitted.contains(attribute.getIdentifier()))
+        released.add(GenericAttribute.of(attribute.getIdentifier(), attribute.getStringValues()));
+    return released;
   }
   public static SamlAttributeMapping mapping() {
     var definitions = new DefaultAttributeDefinitionRegistry();

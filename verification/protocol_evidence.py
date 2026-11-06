@@ -17,7 +17,7 @@ jar = Path("/app/prototype/target/isolated-eid-lab.jar")
 report["jarSha256"] = hashlib.sha256(jar.read_bytes()).hexdigest()
 args.output.parent.mkdir(parents=True, exist_ok=True)
 failed = False
-for name, expected_groups in [("saml", 5), ("oidc", 11)]:
+for name, expected_groups in [("saml", 7), ("oidc", 11)]:
     started = time.monotonic()
     suite = {"protocol": name.upper(), "startedAt": datetime.now(timezone.utc).isoformat(), "status": "FAILED"}
     try:

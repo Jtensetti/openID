@@ -64,8 +64,10 @@ användarens uttryckligen valda privata testmiljö. Externa testidentiteter
 hanteras enligt respektive miljös villkor.
 
 Pilotregistret sparar passets personprofil och förminskade foto krypterat.
-Databas och nyckelfil måste skyddas separat från repot. Samma serverkonto
-kan läsa nyckeln och aktivera credentials. Använd endast
+Databas och nyckelfil måste skyddas separat från repot. Betans separata
+nyckeltjänst begränsar direkt filåtkomst, men registerprocessen kan begära
+dekryptering och värdadministratören kontrollerar båda tjänsterna. Det lokala
+labbet har nyckeln hos registerkontot. Använd endast
 `recovery.py restore` för återläsning av pilotdatabasen: den spärrar alla
 återställda nycklar och spärrar ny registrering och biometrisk analys i
 minst 24 timmar. Samma beständiga spärr finns i PostgreSQL-återställningen,

@@ -1,20 +1,19 @@
 """Scheduled readiness probe with acknowledged, debounced webhook delivery."""
 import argparse
-import http.client
 import json
 import os
 from pathlib import Path
 import ssl
 import sys
-from urllib.parse import urlsplit
+from http_transport import configured_url, HTTPSConnection
 from serve import private_file
 
 
 def connection(url, ca):
-    parsed=urlsplit(url)
+    parsed=configured_url(url)
     if parsed.scheme!='https' or parsed.username or parsed.password or parsed.fragment or parsed.query:
         raise ValueError('HTTPS required; credentials belong in a separate file')
-    return http.client.HTTPSConnection(parsed.hostname,parsed.port,timeout=4,context=ssl.create_default_context(cafile=ca)),parsed.path
+    return HTTPSConnection(parsed.hostname,parsed.port,timeout=4,context=ssl.create_default_context(cafile=ca)),parsed.path
 
 
 def read_status(url, ca):

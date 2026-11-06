@@ -12,7 +12,7 @@ import time
 import tempfile
 from identity import IdentityVault, sqlite_key_history
 from recovery_binding import (FORMAT, digest, private_parent, read_binding,
-                              snapshot_copy, write_binding)
+                              snapshot_copy, write_binding, validate_snapshot_schema)
 
 
 def private_directory(path):
@@ -115,9 +115,8 @@ def bind_backup(source, identity_key, expected_key_sha256, output):
         captured = Path(temporary)/'wallet.sqlite'
         snapshot = snapshot_copy(source, captured)
         with closing(sqlite3.connect(captured.as_uri()+'?mode=ro', uri=True)) as db:
+            validate_snapshot_schema(db)
             if db.execute('PRAGMA integrity_check').fetchone()[0] != 'ok': raise ValueError('Integrity check')
-            if db.execute("SELECT 1 FROM sqlite_master WHERE type IN ('view','trigger') LIMIT 1").fetchone():
-                raise ValueError('unexpected executable database schema')
             if sqlite_key_history(db):
                 if identity_key is None: raise ValueError('Separate identity key and inventory required')
                 expected_key_sha256 = digest(expected_key_sha256)
@@ -155,9 +154,8 @@ def restore(source, destination, identity_key=None, *, require_continuity=False,
                 or not hmac.compare_digest(snapshot['sha256'], evidence['backupSHA256'])):
             raise ValueError('backup does not match anchored recovery binding')
         with closing(sqlite3.connect(target)) as db:
+            validate_snapshot_schema(db)
             if db.execute('PRAGMA integrity_check').fetchone()[0] != 'ok': raise ValueError('Integrity check')
-            if db.execute("SELECT 1 FROM sqlite_master WHERE type IN ('view','trigger') LIMIT 1").fetchone():
-                raise ValueError('unexpected executable database schema')
             db.execute('PRAGMA synchronous=FULL')
             db.execute('BEGIN IMMEDIATE')
             # This also upgrades older backups which predate the attempt ledger.

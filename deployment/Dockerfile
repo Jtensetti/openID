@@ -25,7 +25,7 @@ ADD --checksum=sha256:0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c7
 FROM python:3.12.16-slim-trixie@sha256:8523d6abeb48ceae0b7240d30c5808fc26cb79c1a635bacdf19cf3baecfbec07 AS build-tools
 
 FROM build-tools AS python-base
-ENV LOCALDOMAIN=""
+ENV LOCALDOMAIN="" LANG=C.UTF-8 LC_ALL=C.UTF-8 LANGUAGE=""
 COPY deployment/build/python-runtime.lock.json /usr/share/doc/openid-python/build-lock.json
 ADD --checksum=sha256:fd7f4dfa8190e014013b9f08f3e973f4e4c26ffd179a204895533a7254813a70 https://files.pythonhosted.org/packages/3f/06/3e4420302363fbb71be3c7f35ce042f54bfca330e3e66b3a2e3c4cca579f/pip-26.2.2-py3-none-any.whl /tmp/pip-26.2.2-py3-none-any.whl
 COPY deployment/build/install_build_pip.py /tmp/install_build_pip.py
@@ -76,6 +76,7 @@ COPY --from=java-runtime /opt/java/openjdk /opt/java/openjdk
 COPY --from=node-build /usr/local/bin/node /usr/local/bin/node
 COPY --from=node-build /usr/local/LICENSE /usr/share/doc/nodejs/LICENSE
 WORKDIR /app/verification
+COPY verification/http_transport.py verification/aws_client.py ./
 COPY verification/requirements.lock verification/rp-requirements.lock verification/runtime-requirements.lock ./
 COPY deployment/aws/requirements.lock /app/aws-requirements.lock
 COPY deployment/build/python-wheels.lock.json /usr/share/doc/openid-python/python-wheels.lock.json
@@ -96,7 +97,8 @@ COPY deployment/aws/THIRD_PARTY.md deployment/aws/sbom.cdx.json /app/licenses/aw
 COPY verification/crypto_runtime.py verification/serve.py verification/runtime.py verification/biometric_worker.py verification/native.py verification/chip.py verification/server.py verification/wallet.py verification/wallet_cli.py verification/registry_binding.py verification/identity.py verification/recovery.py verification/relying_party.py ./
 COPY verification/crypto-worker.mjs verification/attest.mjs verification/device-signature.mjs verification/profile-crypto.mjs ./
 COPY verification/revocation.py verification/notices.py verification/notice_exporter.py verification/continuity_operator.py ./
-COPY verification/federation.py deployment/saml_bridge.py ./
+COPY verification/federation.py verification/federation_parties.py deployment/saml_bridge.py ./
+COPY verification/ipc_support.py verification/vault_service.py verification/notice_ipc.py ./
 COPY verification/subject_access.py verification/audit_archive.py verification/crl_maintenance.py verification/ingress_client.py verification/sqlite_retention.py verification/recovery_binding.py ./
 COPY verification/enrollment_policy.py verification/acceptance_journal.py verification/consent_retention.py ./
 COPY verification/erasure_policy.py verification/subject_erasure.py ./

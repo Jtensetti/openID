@@ -47,6 +47,11 @@ class ApplicabilityTests(unittest.TestCase):
         self.assertEqual(self.evaluate()[0]['status'],'not_affected')
         self.evidence['sensitiveImports']={'/app/lib.so':['wordexp']}
         self.assertEqual(self.evaluate()[0]['status'],'under_investigation')
+    def test_runtime_only_compiler_decision_needs_observed_evidence(self):
+        self.policy['advisories'][0]['checks']=['gcc_runtime_only']
+        self.assertEqual(self.evaluate()[0]['status'],'under_investigation')
+        self.evidence['checks'].append('gcc_runtime_only')
+        self.assertEqual(self.evaluate()[0]['status'],'not_affected')
     def test_native_boundary_requires_exact_path_hash_and_live_guard(self):
         self.policy['advisories'][0]['checks']=['no_untrusted_native_glob']
         path='/app/locked.so'
@@ -101,6 +106,17 @@ class ApplicabilityTests(unittest.TestCase):
             'ranges':[{'type':'ECOSYSTEM','events':[{'introduced':'0'}]}],
             'ecosystem_specific':{'components':[{'latest_event_status':'unrecognized'}]}}]}
         with self.assertRaises(ValueError):advisory.unresolved([record],advisory.COMPONENTS)
+
+    def test_vendor_backport_cannot_remove_upstream_runtime_checks(self):
+        record={'schema_version':'1.7.5','id':'vendor-fixed','upstream':['CVE-UPSTREAM'],
+            'affected':[{'package':{'name':'python-3.12','ecosystem':'Wolfi','purl':'pkg:apk/wolfi/python-3.12?arch=x86_64'},
+            'ranges':[{'type':'ECOSYSTEM','events':[{'introduced':'0'},{'fixed':'3.12.16-r2'}]}],
+            'ecosystem_specific':{'components':[{'latest_event_status':'fixed'}]}}]}
+        self.assertEqual(advisory.unresolved([record],advisory.COMPONENTS),[])
+        report={'records':[record],'cna':{'CVE-UPSTREAM':{'cna':{'affected':[{'product':'CPython'}]}}}}
+        finding={'id':'CVE-UPSTREAM','package':'cpython','version':'3.12.16'}
+        self.assertIn(finding,advisory.runtime_findings(report))
+        self.assertEqual(self.evaluate(findings=[finding])[0]['status'],'under_investigation')
 
 
 if __name__=='__main__':unittest.main()

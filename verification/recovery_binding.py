@@ -58,6 +58,16 @@ def no_sqlite_sidecars(path):
             raise ValueError('closed SQLite backup required; use recovery backup first')
 
 
+def validate_snapshot_schema(db):
+    """Reject executable/virtual schema before integrity checks touch its tables."""
+    db.execute('PRAGMA trusted_schema=OFF')
+    if db.execute('PRAGMA trusted_schema').fetchone()[0] != 0:
+        raise ValueError('untrusted schema protection unavailable')
+    for kind, sql in db.execute('SELECT type,sql FROM sqlite_master'):
+        if kind in ('view', 'trigger') or (sql and re.search(r'\bvirtual\b', sql, re.IGNORECASE)):
+            raise ValueError('unexpected executable database schema')
+
+
 def snapshot_copy(source, target):
     """Copy exact closed-backup bytes before SQLite opens the restored database."""
     source, target = Path(source).absolute(), Path(target).absolute()

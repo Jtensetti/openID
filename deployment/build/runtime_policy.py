@@ -14,6 +14,7 @@ NATIVE_GROUPS={
  'no_untrusted_native_glob':{'glob','glob64'}, 'no_untrusted_posix_regex':{'regcomp','regexec'},
  'no_zlib_combine':{'crc32_combine64','crc32_combine_gen64'},
  'no_zlib_printf':{'gzprintf','gzvprintf'},
+ 'no_zlib_clearerr':{'gzclearerr'},
  'no_sqlite_session':{'sqlite3changeset_apply','sqlite3changeset_apply_v2','sqlite3changeset_apply_v3',
                      'sqlite3changeset_concat','sqlite3changegroup_add'},
 }
@@ -73,7 +74,7 @@ def decisions(policy, evidence, findings, now, *, source_sha):
                     and evidence.get('nativeFileSHA256',{}).get(path)==boundary['sha256'])
         if all(bounded(path,used) for path,used in callers.items()):checks.add(check)
     if evidence.get('alignedNewProbe') is True and 'posix_memalign' in imported: checks.add('posix_aligned_new')
-    checks.update({'gcc_runtime_only','uuid_library_only'})
+    checks.add('uuid_library_only')
     if evidence.get('vendorDisputesVerified') is True: checks.add('vendor_disputed')
     rules={}
     for rule in policy['advisories']:
