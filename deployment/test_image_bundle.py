@@ -42,7 +42,7 @@ class BundleTests(unittest.TestCase):
         report = {"schema": "openid-protocol-evidence-v1", "status": "PASS", "suites": [
             {"protocol": name, "status": "PASS", "exitCode": 0, "expectedGroups": count,
              "checks": [{"result": "PASS"} for _ in range(count)]}
-            for name, count in [("SAML", 5), ("OIDC", 11)]]}
+            for name, count in [("SAML", 7), ("OIDC", 11)]]}
         (self.root / "protocol-results.json").write_text(json.dumps(report))
         (self.root / "python-packages.json").write_text("{}")
         (self.root / "image.tar.gz").write_bytes(b"synthetic unit-test payload")

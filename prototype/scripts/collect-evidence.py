@@ -78,7 +78,7 @@ else:
         if result.get("status") != "PASS" or len(suites) != 2 or {s.get("protocol") for s in suites} != {"SAML", "OIDC"}:
             failures.append("protocol suites incomplete or failed")
         for suite in suites:
-            expected = {"SAML": 5, "OIDC": 11}.get(suite.get("protocol"))
+            expected = {"SAML": 7, "OIDC": 11}.get(suite.get("protocol"))
             if suite.get("status") != "PASS" or suite.get("exitCode") != 0 or len(suite.get("checks", [])) != expected:
                 failures.append("missing or failed protocol checks")
     else: failures.append("missing protocol results")

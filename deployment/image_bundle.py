@@ -58,7 +58,7 @@ def protocol_passed(path):
     require(report.get("schema") == "openid-protocol-evidence-v1"
             and report.get("status") == "PASS" and len(suites) == 2,
             "Complete passing protocol evidence is required")
-    for name, count in [("SAML", 5), ("OIDC", 11)]:
+    for name, count in [("SAML", 7), ("OIDC", 11)]:
         matches = [s for s in suites if s.get("protocol") == name]
         require(len(matches) == 1, "Missing or duplicate protocol suite")
         suite = matches[0]
