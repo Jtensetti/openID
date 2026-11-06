@@ -8,14 +8,16 @@ import threading
 import qrcode
 import qrcode.image.svg
 from native import unique_object
+from federation_parties import SANDBOX_PARTIES
 
 class FederationServer:
-    def __init__(self, path, wallet, audience='https://localhost:8444/sp'):
+    def __init__(self, path, wallet, audience='https://localhost:8444/sp', sandbox=False):
         self.path = Path(path)
         if self.path.parent.is_symlink() or self.path.parent.stat().st_mode & 0o077:
             raise ValueError('socket directory must be private (0700)')
         if self.path.exists() or self.path.is_symlink(): raise ValueError('socket path already exists')
         self.wallet, self.audience = wallet, audience
+        self.audiences = {audience} | (set(SANDBOX_PARTIES) if sandbox else set())
         owner = self
         class Handler(socketserver.StreamRequestHandler):
             def handle(self):
@@ -35,19 +37,20 @@ class FederationServer:
         self.thread.start()
 
     def dispatch(self, data):
-        if not isinstance(data, dict) or data.get('audience') != self.audience: raise ValueError('audience')
+        if not isinstance(data, dict) or data.get('audience') not in self.audiences: raise ValueError('audience')
+        audience = data['audience']
         operation = data.get('operation')
         if operation == 'health' and set(data) == {'operation', 'audience'}:
             with self.wallet.transaction() as db:
                 if db.execute('SELECT 1 FROM profiles LIMIT 1').fetchone(): self.wallet.vault.key()
             return {'state': 'READY'}
         if operation == 'start' and {'operation', 'audience', 'binding'} <= set(data) <= {'operation', 'audience', 'binding', 'signMessage', 'verification'}:
-            return self.wallet.federation_start(data['binding'], self.audience, data.get('signMessage'), data.get('verification'))
+            return self.wallet.federation_start(data['binding'], audience, data.get('signMessage'), data.get('verification'))
         if operation == 'check' and set(data) == {'operation', 'audience', 'credentialId', 'subject', 'version'}:
-            return self.wallet.federation_check(data['credentialId'], data['subject'], data['version'], self.audience)
+            return self.wallet.federation_check(data['credentialId'], data['subject'], data['version'], audience)
         if operation in ('poll', 'consume', 'cancel', 'qr') and set(data) == {'operation', 'audience', 'id', 'secret', 'binding'}:
             result = self.wallet.federation_result('poll' if operation == 'qr' else operation,
-                data['id'], data['secret'], data['binding'], self.audience)
+                data['id'], data['secret'], data['binding'], audience)
             if operation == 'qr':
                 if result['state'] != 'PENDING': raise ValueError('request unavailable')
                 output = io.BytesIO()

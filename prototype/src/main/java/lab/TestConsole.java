@@ -45,14 +45,21 @@ final class TestConsole {
   private static final String LOA3 = "http://id.elegnamnden.se/loa/1.0/loa3";
 
   enum Entity { SERVICE, SIGNATURE_SERVICE }
-  enum Request { LOGIN, LOGIN_PIN, NO_FORCE, PASSIVE, LOA3, SIGN, SIGN_PIN, SIGN_ENCRYPTED, SIGN_HTML, SAD_ONLY, SIGN_FROM_SERVICE }
+  enum Request { LOGIN, LOGIN_PIN, NO_FORCE, PASSIVE, LOA1, LOA2, LOA3, SIGN, SIGN_PIN, SIGN_ENCRYPTED, SIGN_HTML, SAD_ONLY, SIGN_FROM_SERVICE }
   record Case(String id, String group, String title, String purpose, String reference, String instruction,
       Entity entity, Request request, String expectedTop, String expectedSecond) {
     boolean expectsSuccess() { return expectedTop == null; }
     boolean signs() { return request == Request.SIGN || request == Request.SIGN_PIN || request == Request.SIGN_ENCRYPTED; }
     boolean securityCode() { return request == Request.LOGIN_PIN || request == Request.SIGN_PIN; }
     /** The context the service asks for; the security-code cases accept only the code level. */
-    String context() { return request == Request.LOA3 ? LOA3 : securityCode() ? PhoneIdentity.PIN_CONTEXT : PhoneIdentity.CONTEXT; }
+    String context() {
+      return switch (request) {
+        case LOA1 -> "http://id.elegnamnden.se/loa/1.0/loa1";
+        case LOA2 -> "http://id.elegnamnden.se/loa/1.0/loa2";
+        case LOA3 -> LOA3;
+        default -> securityCode() ? PhoneIdentity.PIN_CONTEXT : PhoneIdentity.CONTEXT;
+      };
+    }
   }
   static final List<Case> CASES = List.of(
       new Case("login", "Legitimering", "Grundinloggning", "Signerad AuthnRequest med ForceAuthn och exakt autentiseringskontext. Svaret ska vara signerat och krypterat, bundet till begäran och innehålla alla begärda attribut men inga andra.",
@@ -63,7 +70,11 @@ final class TestConsole {
           "Deployment Profile §5.4.5", "Godkänn i appen. Kör gärna direkt efter grundinloggningen.", Entity.SERVICE, Request.NO_FORCE, null, null),
       new Case("passive", "Felhantering", "Passiv begäran (IsPassive)", "Utan befintlig session ska IdP:n svara med fel utan att visa något för användaren.",
           "Deployment Profile §5.3; SAML Core §3.4.1", "Ingen åtgärd. Svaret kommer direkt.", Entity.SERVICE, Request.PASSIVE, StatusCode.REQUESTER, NO_PASSIVE),
-      new Case("loa3", "Felhantering", "Tillitsnivå som inte stöds", "Begäran om LoA3 ska avvisas med NoAuthnContext. Nivån får aldrig sänkas i tysthet.",
+      new Case("loa1", "Tillitsnivåer", "Begär nivå 1", "Begär officiell LoA1. Tjipp ska svara NoAuthnContext så länge profilen inte stöds. Testet visar protokollsvaret, inte uppfyllelse av tillitsramverket.",
+          "Deployment Profile §5.4.4", "Ingen åtgärd. Svaret kommer direkt.", Entity.SERVICE, Request.LOA1, StatusCode.REQUESTER, NO_CONTEXT),
+      new Case("loa2", "Tillitsnivåer", "Begär nivå 2", "Begär officiell LoA2. Tjipp ska svara NoAuthnContext så länge profilen inte stöds. Testet visar protokollsvaret, inte uppfyllelse av tillitsramverket.",
+          "Deployment Profile §5.4.4", "Ingen åtgärd. Svaret kommer direkt.", Entity.SERVICE, Request.LOA2, StatusCode.REQUESTER, NO_CONTEXT),
+      new Case("loa3", "Tillitsnivåer", "Begär nivå 3", "Begär officiell LoA3. Tjipp ska svara NoAuthnContext så länge profilen inte stöds. Testet visar protokollsvaret, inte uppfyllelse av tillitsramverket.",
           "Deployment Profile §5.4.4", "Ingen åtgärd. Svaret kommer direkt.", Entity.SERVICE, Request.LOA3, StatusCode.REQUESTER, NO_CONTEXT),
       new Case("cancel", "Felhantering", "Användaren avbryter", "När användaren avbryter eller nekar ska tjänsten få statuskoden för avbrott och ingen assertion.",
           "Deployment Profile §6.4; Registry §3.1.4", "Välj Avbryt på sidan eller Neka i appen, och sedan Tillbaka till tjänsten.", Entity.SERVICE, Request.LOGIN, StatusCode.RESPONDER, CANCEL),

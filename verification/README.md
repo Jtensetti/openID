@@ -10,6 +10,9 @@ appens nyckel till passets personuppgifter och använder bibliotek från Sweden 
 [OIDC](../docs/oidc-pilot.md) använder samma godkännandeflöde. Detta innebär
 inte anslutning till Sweden Connect-federationen.
 
+[Anslutning med appen till Sweden Connects sandbox](../deployment/sweden-connect-app/README.md)
+aktiveras separat och begränsar mottagarna till federationens testklienter.
+
 Kommandona nedan gäller lokala och privata prov med manuell aktivering.
 Den publika novemberbetan använder [automatisk testaktivering](../docs/testflight-beta.md)
 utan e-post. Separat spärr, standardlägets kontaktbindning och manuella

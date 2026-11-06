@@ -26,8 +26,7 @@ public final class PhoneController extends AbstractAuthenticationController<Phon
   @GetMapping("/") ModelAndView home() { return new ModelAndView("redirect:"+sp); }
   private String binding(HttpServletRequest request) {
     var token = getInputToken(request);
-    // The account service and its signature service are the only configured requesters.
-    if (!java.util.Set.of(sp+"/sp", sp+"/sign").contains(token.getAuthnInputToken().getRequester().identifier())) throw new IllegalArgumentException();
+    bridge.audienceForRequester(token.getAuthnInputToken().getRequester().identifier());
     return token.getAuthnId();
   }
   private String signMessage(HttpServletRequest request) {
@@ -41,8 +40,12 @@ public final class PhoneController extends AbstractAuthenticationController<Phon
   private PhoneBridge.Pending pending(HttpServletRequest request) {
     String binding = binding(request);
     Object value = request.getSession().getAttribute(PENDING);
-    if (!(value instanceof PhoneBridge.Pending pending) || !pending.binding().equals(binding)) throw new IllegalStateException();
+    if (!(value instanceof PhoneBridge.Pending pending) || !pending.binding().equals(binding) ||
+        !pending.audience().equals(audience(request))) throw new IllegalStateException();
     return pending;
+  }
+  private String audience(HttpServletRequest request) {
+    return bridge.audienceForRequester(getInputToken(request).getAuthnInputToken().getRequester().identifier());
   }
   @GetMapping("/phone") ModelAndView page(HttpServletRequest request) {
     String binding = binding(request), message = signMessage(request), level = level(request);
@@ -50,14 +53,15 @@ public final class PhoneController extends AbstractAuthenticationController<Phon
     synchronized (request.getSession()) {
       Object value = request.getSession().getAttribute(PENDING);
       if (value instanceof PhoneBridge.Pending old && old.binding().equals(binding) && java.util.Objects.equals(old.signMessage(), message)
-          && java.util.Objects.equals(old.level(), level)) pending = old;
+          && java.util.Objects.equals(old.level(), level) && audience(request).equals(old.audience())) pending = old;
       else {
         if (value instanceof PhoneBridge.Pending old) bridge.exchange("cancel", old);
-        pending = bridge.start(binding, message, level); request.getSession().setAttribute(PENDING, pending);
+        pending = bridge.startFor(audience(request), binding, message, level); request.getSession().setAttribute(PENDING, pending);
       }
     }
-    var model = new java.util.HashMap<String, Object>(Map.of("restartUrl", sp+(pending.signing() ? "/sign" : "/login"), "authnId", binding, "code", pending.code(),
-        "requestId", pending.id(), "service", PhoneBridge.SERVICE, "purpose", pending.signing() ? PhoneBridge.SIGN_PURPOSE : PhoneBridge.PURPOSE, "signing", pending.signing(),
+    String restart = bridge.external(pending) ? "https://testclient.sandbox.swedenconnect.se/" : sp+(pending.signing() ? "/sign" : "/login");
+    var model = new java.util.HashMap<String, Object>(Map.of("restartUrl", restart, "authnId", binding, "code", pending.code(),
+        "requestId", pending.id(), "service", bridge.service(pending), "purpose", bridge.purpose(pending), "signing", pending.signing(),
         "securityCode", pending.securityCode()));
     if (pending.signing()) model.put("signMessage", pending.signMessage());
     return new ModelAndView("phone", model);

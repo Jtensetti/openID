@@ -14,6 +14,7 @@ import time
 from datetime import date, datetime, timedelta, timezone
 from identity import IdentityVault, VerifiedDocument, sqlite_key_history
 import acceptance_journal
+from federation_parties import SANDBOX_PARTIES, sandbox_purpose, sandbox_identity
 
 ROOT = Path(__file__).parent
 RP_NAME = 'openID lokal testtjänst'
@@ -529,14 +530,15 @@ class Wallet:
                     federation = True
                 if target is None: raise ValueError('request unavailable')
             signing = federation and self.federation_sign_message(target) is not None
+            disclosure = self.federation_description(target) if federation else {'relyingParty': RP_NAME, 'purpose': PURPOSE}
             # A signing request needs the separate signing action; login approval cannot sign.
             if (action == 'approve' and signing) or (action == 'sign' and not signing): raise ValueError('action')
             challenge = secrets.token_hex(32)
             expires = int(self.clock())+60
             payload = {'version': 1, 'origin': self.origin, 'credentialId': ident, 'action': action,
                 'requestId': req, 'challengeId': challenge, 'expiresAt': expires,
-                'relyingParty': (FEDERATION_RP if federation else RP_NAME) if target is not None and action != 'inspect' else None,
-                'purpose': ((SIGN_PURPOSE if signing else FEDERATION_PURPOSE) if federation else PURPOSE) if target is not None and action != 'inspect' else None,
+                'relyingParty': disclosure['relyingParty'] if target is not None and action != 'inspect' else None,
+                'purpose': disclosure['purpose'] if target is not None and action != 'inspect' else None,
                 'code': target['code'] if target is not None and action != 'inspect' else None}
             if signing and action != 'inspect': payload['signMessage'] = self.federation_sign_message(target)
             # The holder's signed consent names the verification the service asked for.
@@ -702,6 +704,9 @@ class Wallet:
         message = cls.federation_sign_message(row)
         description = {'id': row['id'], 'relyingParty': FEDERATION_RP, 'purpose': SIGN_PURPOSE if message is not None else FEDERATION_PURPOSE,
             'code': row['code'], 'expiresAt': row['expires']}
+        if row['audience'] in SANDBOX_PARTIES:
+            description['relyingParty'] = SANDBOX_PARTIES[row['audience']]
+            description['purpose'] = sandbox_purpose(message is not None, row['audience'])
         if message is not None: description['signMessage'] = message
         if cls.federation_level(row) == 'pin': description['verification'] = 'pin'
         return description
@@ -755,6 +760,8 @@ class Wallet:
             result = {'state': 'AUTHENTICATED', 'credentialId': row['credential'], 'version': profile['version'],
                 'subject': self.federation_subject(db, audience, profile['person']),
                 'identity': {k: identity[k] for k in ('displayName', 'birthDateMrz', 'portraitJpeg')}}
+            if audience in SANDBOX_PARTIES:
+                result['sandboxIdentity'] = sandbox_identity(identity, audience)
             message = self.federation_sign_message(row)
             if message is not None: result['signMessageSha256'] = hashlib.sha256(message.encode()).hexdigest()
             # Only reachable after verify_security_code accepted the code for this request.
