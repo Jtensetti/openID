@@ -42,6 +42,10 @@ från en säkerhetskopia för att backa denna kodändring.
 
 ## Funktionsprov
 
+Efter en utgången session återgår länken till den tjänst som startade provet.
+För en känd sandboxsession är det DIGGs testklient. Om sessionsinformationen
+saknas visas ingen gissad inloggningslänk; gå tillbaka till tjänsten manuellt.
+
 I Sweden Connect Test Client: välj Tjipp och Test-SP 1, signerad
 HTTP-Redirect och exakt kontext `urn:openid:authn:passport-native:v1`.
 Skanna QR-koden med appen och godkänn. Kontrollera signatur, kryptering,

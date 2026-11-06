@@ -59,7 +59,7 @@ public final class PhoneController extends AbstractAuthenticationController<Phon
         pending = bridge.startFor(audience(request), binding, message, level); request.getSession().setAttribute(PENDING, pending);
       }
     }
-    String restart = bridge.external(pending) ? "https://testclient.sandbox.swedenconnect.se/" : sp+(pending.signing() ? "/sign" : "/login");
+    String restart = restartUrl(pending);
     var model = new java.util.HashMap<String, Object>(Map.of("restartUrl", restart, "authnId", binding, "code", pending.code(),
         "requestId", pending.id(), "service", bridge.service(pending), "purpose", bridge.purpose(pending), "signing", pending.signing(),
         "securityCode", pending.securityCode()));
@@ -93,7 +93,13 @@ public final class PhoneController extends AbstractAuthenticationController<Phon
     return cancel(request);
   }
   @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class, UnrecoverableErrorException.class})
-  @ResponseStatus(HttpStatus.BAD_REQUEST) ModelAndView rejected() {
-    return new ModelAndView("phone-error", Map.of("restartUrl", sp+"/login"));
+  @ResponseStatus(HttpStatus.BAD_REQUEST) ModelAndView rejected(HttpServletRequest request) {
+    var session = request.getSession(false);
+    var pending = session == null ? null : session.getAttribute(PENDING);
+    return new ModelAndView("phone-error", pending instanceof PhoneBridge.Pending value
+        ? Map.of("restartUrl", restartUrl(value)) : Map.of());
+  }
+  private String restartUrl(PhoneBridge.Pending pending) {
+    return bridge.external(pending) ? "https://testclient.sandbox.swedenconnect.se/" : sp+(pending.signing() ? "/sign" : "/login");
   }
 }
