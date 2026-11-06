@@ -28,6 +28,11 @@ public final class Lab implements AutoCloseable {
   }
   public Lab(Path keyDirectory, int idpPort, int spPort, SyntheticRegistry registry, boolean webAuthn,
       lab.phone.PhoneBridge phone, boolean startSp, PilotOrigins origins) throws Exception {
+    this(keyDirectory, idpPort, spPort, registry, webAuthn, phone, startSp, origins, false);
+  }
+  public Lab(Path keyDirectory, int idpPort, int spPort, SyntheticRegistry registry, boolean webAuthn,
+      lab.phone.PhoneBridge phone, boolean startSp, PilotOrigins origins, boolean sandbox) throws Exception {
+    if (sandbox && (phone == null || webAuthn)) throw new IllegalArgumentException("Sandbox connection requires app authentication");
     if (origins != null && (phone == null || webAuthn)) throw new IllegalArgumentException("Private phone pilot only");
     if (idpPort < 1024 || spPort < 1024 || idpPort > 65535 || spPort > 65535 || idpPort == spPort)
       throw new IllegalArgumentException("Two distinct unprivileged loopback ports are required");
@@ -36,7 +41,7 @@ public final class Lab implements AutoCloseable {
     idpBase = origins == null ? "https://" + host + ":" + idpPort : origins.idp();
     spBase = origins == null ? "https://" + host + ":" + spPort : origins.sp();
     if (!webAuthn && !registry.passkeys().isEmpty()) throw new IllegalStateException("Passkey state requires start-web; no downgrade to simulated approval");
-    OpenSAMLInitializer.getInstance().initialize(new OpenSAMLSecurityDefaultsConfig(new LabSecurityConfiguration()), new OpenSAMLSecurityExtensionConfig());
+    OpenSAMLInitializer.getInstance().initialize(new OpenSAMLSecurityDefaultsConfig(new LabSecurityConfiguration(sandbox)), new OpenSAMLSecurityExtensionConfig());
     Path metadata = keys.directory().resolve("sp-metadata.xml");
     Files.writeString(metadata, Metadata.sp(keys, spBase, phone != null));
     Path signMetadata = keys.directory().resolve("sign-metadata.xml");
@@ -72,6 +77,8 @@ public final class Lab implements AutoCloseable {
     p.put("lab.idp-base", idpBase); p.put("lab.sp-base", spBase);
     p.put("lab.webauthn", webAuthn);
     p.put("lab.phone", phone != null);
+    p.put("lab.sandbox", sandbox);
+    if (sandbox) SwedenConnectSandbox.apply(p, keys, idpBase);
     StandardEnvironment env = new StandardEnvironment();
     // Security settings cannot be replaced with production metadata, keys or a public bind through environment/CLI.
     env.getPropertySources().remove(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME);
@@ -90,17 +97,19 @@ public final class Lab implements AutoCloseable {
     finally { try { registry.close(); } catch (Exception e) { throw new IllegalStateException("Could not close persistent registry"); } }
   }
   public static void main(String[] args) throws Exception {
+    if (args.length == 2 && args[0].equals("phone-sandbox-init")) { SwedenConnectSandbox.initialize(Path.of(args[1])); return; }
     if ((args.length == 2 || args.length == 3) && args[0].equals("verify-passport")) { lab.proofing.PassportCommand.run(args[1], args.length == 3 ? args[2] : null); return; }
     if (args.length == 2 && args[0].equals("authenticate-chip")) { lab.proofing.ChipCommand.run(args[1]); return; }
     if (args.length == 2 && args[0].equals("phone-init")) { TestKeys.initialize(Path.of(args[1])); return; }
-    if ((args.length == 3 || args.length == 4) && Set.of("phone-idp", "phone-sp").contains(args[0])) {
+    if ((args.length == 3 || args.length == 4) && Set.of("phone-idp", "phone-sp", "phone-sandbox-idp").contains(args[0])) {
       var origins = args.length == 4 ? PilotOrigins.read(Path.of(args[3])) : null;
       String idpOrigin = origins == null ? "https://localhost:8443" : origins.idp();
       String spOrigin = origins == null ? "https://localhost:8444" : origins.sp();
-      var bridge = new lab.phone.PhoneBridge(Path.of(args[2]), spOrigin+"/sp");
+      boolean sandbox = args[0].equals("phone-sandbox-idp");
+      var bridge = new lab.phone.PhoneBridge(Path.of(args[2]), spOrigin+"/sp", sandbox);
       AutoCloseable service;
-      if (args[0].equals("phone-idp")) service = new Lab(Path.of(args[1]), origins == null ? 8443 : 9443, origins == null ? 8444 : 9444,
-          new SyntheticRegistry(java.time.Clock.systemUTC()), false, bridge, false, origins);
+      if (!args[0].equals("phone-sp")) service = new Lab(Path.of(args[1]), origins == null ? 8443 : 9443, origins == null ? 8444 : 9444,
+          new SyntheticRegistry(java.time.Clock.systemUTC()), false, bridge, false, origins, sandbox);
       else {
         OpenSAMLInitializer.getInstance().initialize(new OpenSAMLSecurityDefaultsConfig(new LabSecurityConfiguration()), new OpenSAMLSecurityExtensionConfig());
         service = new RelyingParty(new TestKeys(Path.of(args[1])), idpOrigin, spOrigin, null, bridge, origins == null ? 8444 : 9444);
