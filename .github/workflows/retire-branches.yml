@@ -1,0 +1,57 @@
+name: Retire consolidated branches
+
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/retire-branches.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  retire:
+    if: github.repository == 'Jtensetti/openID' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Remove unchanged branches preserved in main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: python
+        run: |
+          import json, os, subprocess, urllib.request, urllib.error
+          from urllib.parse import quote
+          expected = json.loads("{\"chore/repository-cleanup\":\"eae6cd6c2ca57ac8a914cdaac48d277af75217cb\",\"chore/swedish-copy-cleanup\":\"611101e98e247e446bab38b405edd9b35a0a2036\",\"claude/signering-testkonsol-biometri\":\"c91102b581c5eb0523c85012a0f03eb3ece74a22\",\"codex/always-on-revocation\":\"101b0ff666a714aa07136082efa67935bc149ce0\",\"codex/assurance-gap-20261026\":\"407f03dee647cae28ef122ab47a3b4790a9248d2\",\"codex/beta-client-rate-limit\":\"da0b5ea50b55555000fbdf67034ea3b7d195269e\",\"codex/beta-hours-november\":\"c95cef7e78b0df3ea0b001fee5002e5f111398ba\",\"codex/digg-readiness-project-page\":\"d2e06a79f98f246d2527f2b64c65a23a7b01d995\",\"codex/digg-requirements-controls\":\"1cb0d93e7597dcbd03a50c136d6e1b14ae0723e5\",\"codex/image-os-advisories\":\"a6d9dbb8a0d4ba7d4395c0bc919cfc64e74fc4c9\",\"codex/insights-verified-fixes-20261101\":\"e0bf43e1b3fd6a3734f2d88f40a0418b7275be0c\",\"codex/integrations-and-cleanup-20261105\":\"85000d9b78070ca8239bfd77306a2666248e0f17\",\"codex/iphone-pilot-oidc-testflight\":\"4ae916b80c82f0fc51f610b37d0d7abbc2e41744\",\"codex/isolated-build-delivery\":\"d18efa9a0dc81405f0edf91c0f9f5ced3276dcd8\",\"codex/public-test-access\":\"c5d67cfd0d3d6068a59b95082c438602ba812e86\",\"codex/readiness-and-verification-efficiency\":\"3d7d481e13fe138205f77fc3cee7da006cc34ac1\",\"codex/registry-binding-recovery\":\"f7d018f2232db47f729ffb39c37c2b6ba54c4ba0\",\"codex/release-candidate-20261026\":\"e5425d781778484cf23a3d8f4d1cfd74fcf0aa13\",\"codex/repo-refresh-20261030\":\"fb1cbd4ddbc1a2e66b2d430e8bef8033ee760e0a\",\"codex/required-passport-revocation\":\"e96d9b46cf8bd5289881c93e1fafad6655eee69a\",\"codex/runtime-maintenance-20261030\":\"569ac37de2a11250301aa9fd879b64c69ddb475d\",\"codex/security-consolidation-20261030\":\"877e384b325e5d28e249557a301454ffd4a261e5\",\"codex/security-foundation\":\"32964b9f74406ae9a528cd6e698e17b1374d9ba1\",\"codex/security-integration\":\"f020fb25b97e8d65a905a6a5d1ae34479e093efd\",\"codex/security-operations\":\"1f88b845d1bb2fccd1cb7d9760bd1447ebd5dcf2\",\"codex/test-console-ingress\":\"93bc920eed036cf5fd1b45e4f94c084029ddc370\",\"codex/test-console-route\":\"b03e04b49b425354daf2dd9934cfc01870992563\",\"codex/testflight-automatic-connection\":\"510bfe713b355d9487d0f47ded6ce69bfcf158a5\",\"codex/visible-pdf-signature\":\"79999dabf4ba175c74e0b51a5d345081c29dab63\",\"dependabot/docker/deployment/cluster/node-26.12.0-bookworm-slim\":\"4a80acac880f90ac20a0316b66a4634b82c7f3b6\",\"dependabot/docker/deployment/cluster/python-3.15.0-slim-bookworm\":\"ba9f844d4edf298f2037b1895d4005e06ca12624\",\"dependabot/docker/deployment/node-26.12.0-bookworm-slim\":\"fc4c6d003bd96c88fadd6753dd7e51a0ecdb623f\",\"dependabot/docker/deployment/python-3.15.0-slim-bookworm\":\"b8bea582e6d55b625297b7a5e2830dcf127e0da3\",\"dependabot/docker/ops/eclipse-temurin-24.0.2_12-jdk-noble\":\"665069340f55955e498a69cc744fe0482f257302\",\"dependabot/github_actions/actions/checkout-7.0.1\":\"4fc47554117e8d8e5c3eb6fa5a8021dcc8f20678\",\"dependabot/github_actions/actions/setup-node-7.1.0\":\"1dbbb48d12fc8d17c9d5927aad6a35dbb620ce48\",\"dependabot/github_actions/actions/upload-artifact-7.0.2\":\"165383f57bf43fe2c98f70542345e1013884967c\",\"dependabot/maven/prototype/com.fasterxml.jackson-jackson-bom-2.22.4\":\"cdd8fc7254b1f521295a1260b1968c7d1586089c\",\"dependabot/maven/prototype/org.apache.maven-apache-maven-3.10.0\":\"d0f0a8e03e0b0ba96591f21294d20f1579a33215\",\"dependabot/maven/prototype/org.apache.maven.plugins-maven-dependency-plugin-3.11.0\":\"e96fba6c3defd1d9362c9630670c086594eb393b\",\"dependabot/maven/prototype/org.cyclonedx-cyclonedx-maven-plugin-2.9.3\":\"5a0338e346da3b96a958bdc4076634281caeb9bd\",\"dependabot/maven/prototype/tomcat.version-11.0.27\":\"933a5a5fef3caba10f3477de467059cda60562dc\",\"dependabot/npm_and_yarn/prototype/playwright-1.64.1\":\"e24e0ba70c19ac5daca2835bf36d0af2ca3941b8\",\"docs/grandid-provider-profile-20261029\":\"d8b72f474570873543c4e393c1d8aa6448e68196\",\"feat/age-verification\":\"0005c2eff706b9d29a0228a6778328d50e659bf2\",\"feat/aws-budget-validation\":\"9248da5b8b95326948dc355f37c4b9dcfeb0b393\",\"feat/backend-runtime\":\"673a82b72ef755a394ecf672b5b0af2b50041153\",\"feat/g1-isolated-saml-prototype\":\"b74906fa5e24cdbfe7cdab5fc85b7b379bf83ca9\",\"feat/g2-durable-state-and-operations\":\"8c19185505994ad239fc92ccfa8ec2f97d0e9528\",\"feat/g2-open-web-authentication\":\"9604c69ea0c368b841946b8d2bb68827520eddc8\",\"feat/g3-passport-biometric-verification\":\"7700e273e30e35477237e227765e7489c2e052fb\",\"feat/g4-complete-ios-app\":\"638d5449be80f11d30c4d1e6eefa2e5f81c1b4fb\",\"feat/g5-local-rp-web\":\"61ec86d37c79e0c59ed2b540e2c9462812c414da\",\"feat/g6-copy-cleanup\":\"f17e7f1de311cda1de8f5e4725acf71e82333258\",\"feat/g7-identity-federation\":\"246118bbd3dc754ad075852037248a011c4510ab\",\"feat/guided-selfie-capture\":\"597d776eae105cfcc9d6cd411b005c1635d413c2\",\"feat/server-chip-authentication\":\"00cb348d7717468ba7a860ef22afff3f79a8c0ed\",\"feature/sandbox-saml-certs-metadata-preflight\":\"e13bca4fe5d1c43eb954460e9200f320894ae56e\",\"feature/sweden-connect-sandbox-20261102\":\"2e4d8c9ef1784022559600a84487259e71a0666c\",\"feature/tjipp-app-sandbox\":\"0ed9630eb46860f0d14517fa3af201139117738b\",\"fix/assurance-remediation\":\"51643918f4d2afe8b2830b392eaabbcabc2237e9\",\"fix/audit-archive\":\"22c62718a6ff4dd0373d9a12037a102f16518eab\",\"fix/sweden-connect-sandbox-validation\":\"8843133c1636c2e4800558306b212fe4457b9097\",\"release/beta112-base\":\"f2f3db64a6eec3b85a33aab9949b1c569eeaefc4\",\"security/beta112-identity-isolation\":\"87b9bad69d14293aa35ee284c022d04bf2240e5c\",\"security/beta112-live-isolation\":\"fb730e094880389a1fe6c72105e66de7ae7c1f12\",\"test/sandbox-attributes-20261106\":\"533a634b7f5b1c7fce8b980557806ab035eaf91b\",\"consolidation/20261108\":\"dd08cb09abf028e018ce959c7eb0641c7d37d41d\"}")
+          repo = os.environ["GITHUB_REPOSITORY"]
+          token = os.environ["GH_TOKEN"]
+          def api(path, method="GET"):
+              req = urllib.request.Request("https://api.github.com/repos/" + repo + "/" + path, method=method,
+                  headers={"Authorization": "Bearer " + token, "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"})
+              with urllib.request.urlopen(req, timeout=30) as response:
+                  body = response.read()
+                  return json.loads(body) if body else None
+          for branch, sha in expected.items():
+              if branch == "main":
+                  raise SystemExit("Refusing default branch")
+              subprocess.run(["git", "merge-base", "--is-ancestor", sha, "HEAD"], check=True)
+          retired = []
+          for branch, sha in expected.items():
+              path = "git/refs/heads/" + quote(branch, safe="/")
+              try:
+                  current = api(path)["object"]["sha"]
+              except urllib.error.HTTPError as error:
+                  if error.code == 404:
+                      continue
+                  raise
+              if current != sha:
+                  raise SystemExit("Branch changed: " + branch)
+              api(path, "DELETE")
+              retired.append(branch)
+              print("Retired " + branch)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as report:
+              report.write(str(len(retired)) + " branches removed. All recorded tips are ancestors of main.\\n")
+          
