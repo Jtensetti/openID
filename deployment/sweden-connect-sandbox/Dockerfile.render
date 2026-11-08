@@ -1,0 +1,56 @@
+# Dedicated TEST-ONLY image. Never deploy real passport verification or production key material.
+# Build context: repository root. Runtime keys generated once in a private image
+# during build for stability across Render Free spin-down. Rotate/re-register on rebuild.
+FROM eclipse-temurin:21.0.12.1_1-jdk-noble@sha256:107215954359f1ab0be058a247d7c64ed6e69c71c1682d471d38ef751ec8e964 AS build
+ADD --checksum=sha256:d7f5d5cf865a2902b70ff549b97586a7d3f234e016f041ab447ea740c7d66d1c https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13%2B9/OpenJDK21U-jdk_x64_linux_hotspot_21.0.13_9.tar.gz /tmp/jdk.tar.gz
+RUN test "$(dpkg --print-architecture)" = amd64 \
+    && rm -rf /opt/java/openjdk && mkdir -p /opt/java/openjdk \
+    && tar -xzf /tmp/jdk.tar.gz -C /opt/java/openjdk --strip-components=1 --no-same-owner \
+    && rm /tmp/jdk.tar.gz \
+    && grep -Fx 'JAVA_RUNTIME_VERSION="21.0.13+9-LTS"' /opt/java/openjdk/release
+WORKDIR /build/prototype
+COPY prototype/pom.xml prototype/mvnw ./
+COPY prototype/.mvn .mvn
+COPY prototype/src src
+RUN apt-get update && apt-get install -y --no-install-recommends curl unzip ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+RUN curl --fail --location --retry 3 \
+    https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.9.11/apache-maven-3.9.11-bin.zip \
+    -o /tmp/maven.zip \
+    && echo '0d7125e8c91097b36edb990ea5934e6c68b4440eef4ea96510a0f6815e7eeadb  /tmp/maven.zip' | sha256sum --check \
+    && unzip -q /tmp/maven.zip -d /opt \
+    && /opt/apache-maven-3.9.11/bin/mvn -B -ntp -Dmaven.test.skip=true package
+RUN java -jar target/isolated-eid-lab.jar sandbox-init /srv/tjipp-sandbox/keys
+
+FROM eclipse-temurin:21.0.12.1_1-jre-noble@sha256:35501d3f93173b420ac9001658eb68157e813316b865087e345c187fca422c4c
+ADD --checksum=sha256:a535a1df9c6284d9618872984e026ae0352d1f7e9e0605425c0e6114f47351dd https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13%2B9/OpenJDK21U-jre_x64_linux_hotspot_21.0.13_9.tar.gz /tmp/jre.tar.gz
+RUN test "$(dpkg --print-architecture)" = amd64 \
+    && rm -rf /opt/java/openjdk && mkdir -p /opt/java/openjdk \
+    && tar -xzf /tmp/jre.tar.gz -C /opt/java/openjdk --strip-components=1 --no-same-owner \
+    && rm /tmp/jre.tar.gz \
+    && grep -Fx 'JAVA_RUNTIME_VERSION="21.0.13+9-LTS"' /opt/java/openjdk/release \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends nginx curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=build /build/prototype/target/isolated-eid-lab.jar /app/isolated-eid-lab.jar
+COPY --from=build --chown=10001:10001 /srv/tjipp-sandbox/keys /srv/tjipp-sandbox/keys
+COPY deployment/sweden-connect-sandbox/settings.render.json /app/settings.json
+COPY deployment/sweden-connect-sandbox/nginx.render.conf /app/nginx.render.conf
+COPY deployment/sweden-connect-sandbox/entrypoint.render.sh /app/entrypoint.render.sh
+COPY prototype/src/main/resources/static/wallet/icon.svg /app/logo.svg
+RUN chmod 0555 /app/entrypoint.render.sh && chmod 0444 /app/settings.json /app/nginx.render.conf /app/logo.svg \
+    && chmod 0600 /srv/tjipp-sandbox/keys/*.p12 \
+    && chown -R 10001:10001 /srv/tjipp-sandbox/keys \
+    && install -d -m 0700 -o 10001 -g 10001 /tmp/tjipp-sandbox
+
+USER 10001:10001
+# Exercise the installed nginx and its actual filesystem permissions as the
+# runtime user. A successful Java build alone does not prove ingress can start.
+RUN sed 's/@PORT@/10000/g' /app/nginx.render.conf > /tmp/tjipp-sandbox-nginx.conf \
+    && nginx -t -c /tmp/tjipp-sandbox-nginx.conf \
+    && rm /tmp/tjipp-sandbox-nginx.conf
+ENV PORT=10000
+EXPOSE 10000
+LABEL org.opencontainers.image.description="Tjipp Sweden Connect Sandbox — synthetic identities only"
+ENTRYPOINT ["/bin/bash", "/app/entrypoint.render.sh"]

@@ -29,6 +29,10 @@ class FlowTest {
   }
   @AfterAll void stop() { if (lab != null) lab.close(); }
   static int freePort() throws Exception { try (var s = new ServerSocket(0, 1, java.net.InetAddress.getByName("127.0.0.1"))) { return s.getLocalPort(); } }
+  @Test void exportsPinnedIdpMetadataForOfflinePreflight() throws Exception {
+    var xml = java.nio.file.Files.readString(lab.keys.directory().resolve("idp-metadata.xml"));
+    assertEquals(lab.idpBase + "/idp", Metadata.parse(xml).getEntityID());
+  }
   @Test void readinessUsesThePersistentRegistry() throws Exception {
     var b = new Browser(lab); assertEquals(200, b.get(lab.spBase + "/health/ready").statusCode());
   }

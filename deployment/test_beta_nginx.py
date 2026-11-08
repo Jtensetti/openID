@@ -110,7 +110,10 @@ with tempfile.TemporaryDirectory(prefix='openid-ingress-') as temporary:
     process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
     context = ssl.create_default_context(cafile=str(cert))
 
-    def request(path, authenticated=True, body=None, host='openid.tensetti.io', extra_headers=None):
+    def request(path, authenticated=False, body=None, host='openid.tensetti.io', extra_headers=None):
+        # Keep the expanded route matrix below the real 10 r/s policy. These
+        # are routing/body checks, not a burst test; do not relax the nginx limit.
+        time.sleep(.11)
         # Connect only to loopback, while checking the generated certificate and correct SNI.
         connection = http.client.HTTPSConnection(host, public_port, timeout=5, context=context)
         connection.sock = context.wrap_socket(socket.create_connection(('127.0.0.1', public_port), timeout=5),
@@ -132,7 +135,7 @@ with tempfile.TemporaryDirectory(prefix='openid-ingress-') as temporary:
     try:
         for attempt in range(50):
             try:
-                assert request('/test', False)[0] == 401
+                assert request('/test')[0] == 200
                 break
             except ConnectionRefusedError:
                 time.sleep(.05)
@@ -145,12 +148,28 @@ with tempfile.TemporaryDirectory(prefix='openid-ingress-') as temporary:
                 assert headers['Location'] == expected_location
             else:
                 assert json.loads(body)['authorizationPresent'] is False
-        for path in ['/test/run/loa3', '/test/run/sign-encrypted', '/oidc/login']:
-            assert request(path, False)[0] == 401, path
+        for path in ['/test', '/console.css', '/style.css', '/sign', '/login', '/oidc/login',
+                     '/oidc/callback', '/test/metadata/sp.xml', '/test/metadata/sign.xml', '/test/ca.pem',
+                     '/test/report/' + 'a' * 22, '/test/report/' + 'a' * 22 + '/signed.pdf']:
+            status, headers, raw = request(path)
+            assert status == 200 and 'WWW-Authenticate' not in headers, (path, status)
+            assert json.loads(raw)['authorizationPresent'] is False
+        for path in ['/saml2/authn', '/saml2/metadata', '/phone', '/phone/resume',
+                     '/phone/page.js', '/oidc/authorize', '/oidc/jwks', '/.well-known/openid-configuration']:
+            status, headers, _ = request(path, host='idp.openid.tensetti.io')
+            assert status == 200 and 'WWW-Authenticate' not in headers, (path, status)
+        # Previously saved or unsolicited Basic credentials must never reach the SP/IdP.
+        for host, path in [('openid.tensetti.io', '/test'), ('idp.openid.tensetti.io', '/phone')]:
+            status, headers, raw = request(path, authenticated=True, host=host)
+            assert status == 200 and 'WWW-Authenticate' not in headers
+            assert json.loads(raw)['authorizationPresent'] is False
         for path in ['/wallet', '/lab', '/test/run/UPPER', '/test/run/' + 'a' * 33, '/test/run/loa3/extra']:
             assert request(path)[0] == 404, path
         assert request('/oidc/login')[0] == 200
-        assert request('/wallet', host='idp.openid.tensetti.io')[0] == 404
+        for path in ['/wallet', '/lab', '/lab/webauthn', '/actuator', '/health/ready']:
+            assert request(path, host='idp.openid.tensetti.io')[0] == 404, path
+        assert request('/oidc/token', host='idp.openid.tensetti.io')[0] == 403
+        assert request('/oidc/token', body=b'grant_type=authorization_code', host='idp.openid.tensetti.io')[0] == 200
         assert request('/wallet', host='api.openid.tensetti.io')[0] == 404
         assert request('/wallet/challenge', host='api.openid.tensetti.io')[0] == 403
         assert request('/wallet/challenge', body=b'{}', host='api.openid.tensetti.io')[0] == 200
@@ -182,11 +201,11 @@ with tempfile.TemporaryDirectory(prefix='openid-ingress-') as temporary:
                 result = json.loads(raw)
                 assert result['bytes'] == size and result['sha256'] == hashlib.sha256(payload).hexdigest()
                 assert result['authorizationPresent'] is False
-            assert request(path, authenticated=False, body=b'x' * 65536, host=host)[0] == 401
+            assert request(path, authenticated=True, body=b'x' * 65536, host=host)[0] == 200
             assert request(path, body=b'x' * (128 * 1024 + 1), host=host)[0] == 413
         print(json.dumps({'status': 'PASS', 'consoleCases': len(cases), 'largeRedirectBytes': len(expected_location),
             'largePostBytes': [65536, 131072], 'postRoutes': 4, 'oversizePostDenied': True,
-            'betaAuthEnforced': True, 'credentialsStripped': True, 'unexpectedRoutesDenied': True,
+            'publicFlowsWithoutBetaPassword': True, 'credentialsStripped': True, 'unexpectedRoutesDenied': True,
             'hstsAllResponses': True, 'duplicateUpstreamHstsRemoved': True, 'hstsHosts': 3,
             'ingressClientAddressOverwritten': True, 'spoofedClientAddressCases': 5,
             'nginx': subprocess.run([NGINX, '-v'], capture_output=True, text=True, check=True).stderr.strip()}))

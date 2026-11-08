@@ -1,7 +1,7 @@
 'use strict';
 const byId = id => document.getElementById(id);
 const panels = ['loading', 'ready', 'pending', 'authenticated', 'unavailable', 'offline'];
-let csrf = null, current = 'LOADING', timer = null, generation = 0, busy = false, deadline = 0;
+let csrf = null, current = 'LOADING', timer = null, generation = 0, busy = false, polling = false, deadline = 0;
 const titles = {READY:'Redo att logga in.', PENDING:'Bekräfta begäran i openID-appen.', AUTHENTICATED:'Du är inloggad.', UNAVAILABLE:'Sessionen är avslutad.', OFFLINE:'Sessionen kan inte bekräftas.'};
 
 function stop() { clearTimeout(timer); timer = null; }
@@ -57,12 +57,12 @@ function schedule() {
   if (!document.hidden && ['PENDING','AUTHENTICATED'].includes(current)) timer = setTimeout(poll, current === 'PENDING' ? 1000 : 2000);
 }
 async function poll() {
-  if (busy || document.hidden) return;
+  if (busy || polling || document.hidden) return;
   const epoch = generation;
-  setBusy(true);
+  polling = true;
   try { const data = await api('/poll', {}); if (epoch === generation) apply(data); }
   catch { if (epoch === generation) connectionLost(); }
-  finally { if (epoch === generation) setBusy(false); }
+  finally { polling = false; }
 }
 async function connect() {
   const epoch = ++generation;

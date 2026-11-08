@@ -143,7 +143,6 @@ def main():
                 print('PASS: TLS, signed operations, replay, header/body deadlines, bounded admission, database loss, private logs and graceful shutdown')
             except BaseException:
                 log.seek(0)
-                # Only generated data is used in this test process.
                 print(log.read(),file=sys.stderr)
                 raise
             finally:

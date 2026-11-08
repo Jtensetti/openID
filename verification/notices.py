@@ -22,6 +22,8 @@ def install(db):
         contact_version TEXT NOT NULL, kind TEXT NOT NULL, created INTEGER NOT NULL,
         status TEXT NOT NULL DEFAULT 'PENDING', attempts INTEGER NOT NULL DEFAULT 0,
         accepted_reference TEXT)''')
+    db.execute('''CREATE INDEX IF NOT EXISTS notice_outbox_pending
+                  ON notice_outbox(status, created, event) WHERE attempts<5''')
     db.execute('''CREATE TABLE IF NOT EXISTS revocation_codes (
         credential TEXT PRIMARY KEY REFERENCES credentials(id),
         sealed TEXT NOT NULL, contact_version TEXT NOT NULL, evidence TEXT NOT NULL)''')
@@ -63,3 +65,31 @@ The consumer must deduplicate that ID and handle ambiguous SES delivery.
             continue
         db.execute("UPDATE notice_outbox SET status='QUEUED',accepted_reference=? WHERE event=?",
                    (receipt, row['event']))
+
+
+def export_once(wallet, send):
+    """Submit one notice without holding a SQLite write lock during network I/O.
+
+    Concurrent exporters may submit the same stable event ID. The independent
+    queue consumer must deduplicate it, including after a crash before the ack.
+    """
+    with wallet.transaction() as db:
+        row = db.execute("""SELECT event,contact_version,kind,created FROM notice_outbox
+                            WHERE status='PENDING' AND attempts<5
+                            ORDER BY created,event LIMIT 1""").fetchone()
+        if row is None:
+            return False
+        event = dict(row)
+    try:
+        receipt = reference(send({'event': event['event'], 'contactVersion': event['contact_version'],
+                                  'kind': event['kind'], 'created': event['created']}))
+    except Exception:
+        receipt = None
+    with wallet.transaction() as db:
+        if receipt is None:
+            db.execute("""UPDATE notice_outbox SET attempts=attempts+1
+                          WHERE event=? AND status='PENDING' AND attempts<5""", (event['event'],))
+        else:
+            db.execute("""UPDATE notice_outbox SET attempts=min(attempts+1,5),status='QUEUED',accepted_reference=?
+                          WHERE event=? AND status='PENDING'""", (receipt,event['event']))
+    return True

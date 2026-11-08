@@ -8,7 +8,6 @@ import javax.net.ssl.*;
 import se.swedenconnect.security.credential.KeyStoreCredential;
 import se.swedenconnect.security.credential.PkiCredential;
 
-/** Generate separate TLS, IdP and SP test keys. */
 public final class TestKeys {
   public static final String PASSWORD = "test-only-changeit";
   private final Path directory;

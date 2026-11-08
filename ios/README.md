@@ -171,6 +171,14 @@ texten som ren text (`Text(verbatim:)`). Knappen **Skriv under** skickar
 
 ## Nycklar och avbrott
 
+En separat, ännu inte UI-ansluten nyckelkomponent för åldersbevis finns i
+`AgeProofKeys.swift`. Den använder nya engångsnycklar och skiljer COSE-signaturer
+från identitetsnyckelns DER-signaturer. Utgivningsbindning, tillstånd och
+kvarstående provider-/hårdvaruprov beskrivs i
+[åldersverifieringen](../docs/aldersverifiering.md#privat-utgivningsbindning-och-native-nycklar).
+`AgeProofKeysTests` provar verkliga CryptoKit-programvarusignaturer, ändrad
+samtyckesdata, samtidighet och förbrukning vid lagrings-/signeringsfel.
+
 P-256-nyckeln skapas med `SecureEnclave.P256.Signing.PrivateKey`,
 `privateKeyUsage` och `userPresence`. Enhetskod och Secure Enclave krävs.
 Omsluten nyckelrepresentation, serveradress och kopplingskod lagras i

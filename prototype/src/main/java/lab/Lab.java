@@ -32,18 +32,27 @@ public final class Lab implements AutoCloseable {
   }
   public Lab(Path keyDirectory, int idpPort, int spPort, SyntheticRegistry registry, boolean webAuthn,
       lab.phone.PhoneBridge phone, boolean startSp, PilotOrigins origins, boolean sandbox) throws Exception {
+    this(keyDirectory, idpPort, spPort, registry, webAuthn, phone, startSp, origins, sandbox, null);
+  }
+  private Lab(Path keyDirectory, int idpPort, int spPort, SyntheticRegistry registry, boolean webAuthn,
+      lab.phone.PhoneBridge phone, boolean startSp, PilotOrigins origins, boolean sandbox,
+      SandboxConfig syntheticSandbox) throws Exception {
+    if (syntheticSandbox != null && (sandbox || phone != null || origins != null || webAuthn || startSp))
+      throw new IllegalArgumentException("Sandbox is a standalone synthetic-only IdP");
     if (sandbox && (phone == null || webAuthn)) throw new IllegalArgumentException("Sandbox connection requires app authentication");
     if (origins != null && (phone == null || webAuthn)) throw new IllegalArgumentException("Private phone pilot only");
     if (idpPort < 1024 || spPort < 1024 || idpPort > 65535 || spPort > 65535 || idpPort == spPort)
       throw new IllegalArgumentException("Two distinct unprivileged loopback ports are required");
     keys = new TestKeys(keyDirectory); this.registry = registry;
     String host = webAuthn || phone != null ? "localhost" : "127.0.0.1";
-    idpBase = origins == null ? "https://" + host + ":" + idpPort : origins.idp();
-    spBase = origins == null ? "https://" + host + ":" + spPort : origins.sp();
+    idpBase = syntheticSandbox != null ? syntheticSandbox.idp() : origins == null ? "https://" + host + ":" + idpPort : origins.idp();
+    spBase = syntheticSandbox != null ? SandboxConfig.TEST_CLIENT : origins == null ? "https://" + host + ":" + spPort : origins.sp();
     if (!webAuthn && !registry.passkeys().isEmpty()) throw new IllegalStateException("Passkey state requires start-web; no downgrade to simulated approval");
-    OpenSAMLInitializer.getInstance().initialize(new OpenSAMLSecurityDefaultsConfig(new LabSecurityConfiguration(sandbox)), new OpenSAMLSecurityExtensionConfig());
+    OpenSAMLInitializer.getInstance().initialize(new OpenSAMLSecurityDefaultsConfig(new LabSecurityConfiguration(sandbox || syntheticSandbox != null)), new OpenSAMLSecurityExtensionConfig());
     Path metadata = keys.directory().resolve("sp-metadata.xml");
-    Files.writeString(metadata, Metadata.sp(keys, spBase, phone != null));
+    if (syntheticSandbox == null) Files.writeString(metadata, Metadata.sp(keys, spBase, phone != null));
+    // Export the pinned, synthetic IdP view for offline metadata checks; not federation-approved metadata.
+    Files.writeString(keys.directory().resolve("idp-metadata.xml"), Metadata.idp(keys, idpBase));
     Path signMetadata = keys.directory().resolve("sign-metadata.xml");
     if (phone != null) Files.writeString(signMetadata, Metadata.signService(keys, spBase));
     Map<String, Object> p = new HashMap<>();
@@ -79,6 +88,7 @@ public final class Lab implements AutoCloseable {
     p.put("lab.phone", phone != null);
     p.put("lab.sandbox", sandbox);
     if (sandbox) SwedenConnectSandbox.apply(p, keys, idpBase);
+    if (syntheticSandbox != null) syntheticSandbox.apply(p, keys);
     StandardEnvironment env = new StandardEnvironment();
     // Security settings cannot be replaced with production metadata, keys or a public bind through environment/CLI.
     env.getPropertySources().remove(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME);
@@ -102,6 +112,20 @@ public final class Lab implements AutoCloseable {
     if ((args.length == 2 || args.length == 3) && args[0].equals("verify-passport")) { lab.proofing.PassportCommand.run(args[1], args.length == 3 ? args[2] : null); return; }
     if (args.length == 2 && args[0].equals("authenticate-chip")) { lab.proofing.ChipCommand.run(args[1]); return; }
     if (args.length == 2 && args[0].equals("phone-init")) { TestKeys.initialize(Path.of(args[1])); return; }
+    if (args.length == 2 && args[0].equals("sandbox-init")) {
+      SandboxKeys.initialize(Path.of(args[1]));
+      System.out.println("Disposable Sandbox keys created (valid 30 days). No real identities or keys.");
+      return;
+    }
+    if (args.length == 3 && args[0].equals("sandbox-idp")) {
+      Path keysPath = Path.of(args[1]);
+      SandboxConfig sandbox = SandboxConfig.read(Path.of(args[2]));
+      SandboxKeys.validate(keysPath);
+      var service = new Lab(keysPath, 9443, 9444, SyntheticRegistry.fixtures(), false, null, false, null, false, sandbox);
+      Runtime.getRuntime().addShutdownHook(new Thread(service::close));
+      System.out.println("SYNTHETIC SANDBOX ONLY: " + sandbox.idp() + " (loopback listener :9443)");
+      return;
+    }
     if ((args.length == 3 || args.length == 4) && Set.of("phone-idp", "phone-sp", "phone-sandbox-idp").contains(args[0])) {
       var origins = args.length == 4 ? PilotOrigins.read(Path.of(args[3])) : null;
       String idpOrigin = origins == null ? "https://localhost:8443" : origins.idp();

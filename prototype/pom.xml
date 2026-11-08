@@ -14,7 +14,7 @@
   <description>Disposable loopback SAML prototype with explicitly simulated identity proofing</description>
   <url>https://github.com/Jtensetti/openID</url>
   <organization><name>openID prototype</name><url>https://github.com/Jtensetti/openID</url></organization>
-  <licenses><license><name>NOASSERTION</name><comments>Project license decision pending; see THIRD_PARTY.md. Dependency licenses remain separate.</comments></license></licenses>
+  <licenses><license><name>Tjipp Source-Available License 1.0</name><url>https://github.com/Jtensetti/openID/blob/main/LICENSE</url><distribution>repo</distribution></license></licenses>
   <scm><url>https://github.com/Jtensetti/openID</url><connection>scm:git:https://github.com/Jtensetti/openID.git</connection><developerConnection>scm:git:https://github.com/Jtensetti/openID.git</developerConnection><tag>HEAD</tag></scm>
   <properties>
     <java.version>21</java.version>

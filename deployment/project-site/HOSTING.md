@@ -16,7 +16,8 @@ Ladda endast upp dessa två publika filer, aldrig hela arbetskatalogen.
 Pilotens ursprungsadress är `idp.openid.tensetti.io`, som fortsätter peka
 direkt på EC2. CloudFront skickar besökarens Host-header vidare, så att
 nginx väljer serverblocket för `openid.tensetti.io`. Befintliga SAML- och
-OIDC-adresser, cookies, formulär och inloggningsskydd behålls. Alla headers,
+OIDC-adresser, cookies, formulär och appens sessionskontroller behålls. Testflödena
+ska inte kräva ett gemensamt betalösenord. Alla headers,
 cookies och frågeparametrar vidarebefordras till piloten. Använd aldrig
 statisk cachepolicy för dessa anrop. Fel från piloten ska inte lagras.
 
@@ -37,7 +38,9 @@ en CSP som tillåter den egna stilmallen och formulär till testtjänsten.
    och `Cache-Control: public,max-age=300`.
 2. Vänta ut cachetiden eller invalidera `/` och `/beta.css`.
 3. Kontrollera att HTTPS-svaren matchar de publicerade filerna och att
-   båda testlänkarna fortfarande kräver inloggning när piloten är igång.
+   båda testlänkarna öppnas utan betalösenord när piloten är igång. Kontrollera
+   även att en ny besökare kan nå appens godkännandesida och att personuppgifter
+   och testresultat inte lämnas ut utan rätt session.
 4. Prova oberoendet från pilotinstansen i en separat testmiljö eller under
    ett beslutat driftprov. Den delade betan ska inte stoppas för detta utan
    samordning. Testsidan följer [driftplanen](../README.md#betans-öppettider):

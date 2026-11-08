@@ -11,6 +11,10 @@ import qrcode.image.svg
 from native import unique_object
 from federation_parties import SANDBOX_PARTIES
 
+class ConcurrentUnixServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
+    daemon_threads = True
+    block_on_close = False
+
 class FederationServer:
     def __init__(self, path, wallet, audience='https://localhost:8444/sp', shared_group=None, sandbox=False):
         self.path = Path(path)
@@ -41,7 +45,7 @@ class FederationServer:
                 except Exception:
                     try: self.wfile.write(b'{"ok":false}\n')
                     except OSError: pass
-        self.server = socketserver.UnixStreamServer(str(self.path), Handler)
+        self.server = ConcurrentUnixServer(str(self.path), Handler)
         os.chmod(self.path, 0o600 if shared_group is None else 0o660)
         if shared_group is not None and self.path.stat().st_gid != shared_group:
             self.server.server_close()

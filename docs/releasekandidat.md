@@ -62,7 +62,8 @@ Vid fel på en ändring utan datamigrering:
 2. Återställ berörda tjänsters image-referenser och konfiguration från den
    verifierade föregående uppsättningen. Byt inte komponenter som saknar
    koppling till felet. Kör nginx-konfigurationskontroll före omladdning.
-3. Kontrollera readiness, betakontoskydd, ett nytt syntetiskt flöde och att
+3. Kontrollera readiness, publik åtkomst utan betalösenord, skyddade
+   identitetssessioner, ett nytt syntetiskt flöde och att
    spärrade identiteter fortfarande nekas. Tidigare QR-koder, sessioner och
    underskriftsnedladdningar kan ha försvunnit vid processbytet.
 4. För iPhone: installera endast en kompatibel, fortfarande giltigt signerad

@@ -2,8 +2,9 @@ import base64
 from pathlib import Path
 import sqlite3
 import tempfile
+import threading
 import unittest
-from notices import bind_contact, submit
+from notices import bind_contact, export_once, submit
 from wallet import Wallet
 
 
@@ -72,6 +73,33 @@ class NoticeTests(unittest.TestCase):
         for _ in range(7):
             with self.wallet.transaction() as db: submit(db, fail)
         self.assertEqual(5, len(calls))
+
+    def test_export_does_not_hold_wallet_lock_during_delivery(self):
+        self.bind()
+        self.wallet.activate(self.ident, 'synthetic-review')
+        entered = threading.Event(); release = threading.Event(); errors = []
+        def delayed_send(_event):
+            entered.set()
+            if not release.wait(3): raise TimeoutError('test release')
+            return 'synthetic-queue-receipt'
+        def export():
+            try: export_once(self.wallet, delayed_send)
+            except BaseException as exc: errors.append(exc)
+        worker = threading.Thread(target=export); worker.start()
+        try:
+            self.assertTrue(entered.wait(2))
+            # This uses a different connection while the queue call is waiting.
+            with self.wallet.transaction() as db:
+                db.execute("INSERT INTO events(credential,kind,time) VALUES(?,?,?)",
+                           (self.ident, 'SYNTHETIC_CONCURRENT_EVENT', 1000))
+        finally:
+            release.set(); worker.join(3)
+        self.assertFalse(worker.is_alive()); self.assertFalse(errors)
+        with self.wallet.transaction() as db:
+            self.assertEqual('QUEUED', db.execute('SELECT status FROM notice_outbox').fetchone()[0])
+            plan = db.execute("""EXPLAIN QUERY PLAN SELECT event FROM notice_outbox
+                WHERE status='PENDING' AND attempts<5 ORDER BY created,event LIMIT 1""").fetchall()
+        self.assertTrue(any('notice_outbox_pending' in row[3] for row in plan))
 
 
 if __name__ == '__main__': unittest.main()
