@@ -10,7 +10,7 @@ class AuditTests(unittest.TestCase):
         for path in ('verification/requirements.lock', 'verification/cluster-requirements.lock',
                      'verification/runtime-requirements.lock', 'verification/rp-requirements.lock',
                      'deployment/aws/requirements.lock', 'deployment/build/python-runtime.lock.json', 'prototype/dependencies.lock.json',
-                     'prototype/package-lock.json', 'verification/package-lock.json'):
+                     'prototype/package-lock.json', 'verification/package-lock.json', 'verification/age_wallet/package-lock.json'):
             self.assertIn(path, manifests)
         self.assertTrue(all(set(item['query']) in ({'commit'}, {'package', 'version'}) for item in items))
         self.assertTrue(any(item['query'] == {'package': {'ecosystem': 'PyPI', 'name': 'pip'},

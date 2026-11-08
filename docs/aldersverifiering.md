@@ -10,9 +10,9 @@ certifierad åldersutfärdare eller verifierad produktionsinstallation.
 | Roll | Uppgift och data |
 |---|---|
 | Avtalskund | Koncern eller annan kund som har en eller flera registrerade webbplatser. Kund-ID hör till konfigurationen, inte användarens bevis. |
-| Utfärdare | Kontrollerar personens ålder och utfärdar ett kryptografiskt bevis till plånboken. Tjipps befintliga passkontroll är en möjlig grund, men är inte i sig en mdoc-utfärdare. |
-| Plånbok | Förvarar bevis och tillhörande nycklar, begär användarens medgivande och presenterar beviset. Native-stöd för detta ingår ännu inte i Tjipp-appen. |
-| Verifierare | Kontrollerar bevis, signaturer, utfärdartillit, tider och bindning till rätt protokollsession. Kräver en separat etablerad verifierarmotor. |
+| Utfärdare | Labben signerar syntetiska mdoc-bevis. Autentiserad utgivning från Tjipps passregister återstår. |
+| Plånbok | Labben har en programvaruplånbok med engångsbevis och separata nycklar. Native-stöd för dessa bevis ingår ännu inte i Tjipp-appen. |
+| Verifierare | Kontrollerar bevis, signaturer, utfärdartillit, tider och sessionsbindning. DC API använder OWF mdoc och HPKE; generisk OpenID4VP använder separat EU-verifierarmotor. |
 | Webbplatsens server | Startar kontrollen med sin egen API-nyckel, binder den till sin webbläsarsession och konsumerar ett godkännande en gång. |
 
 `age_gateway.py` har ingen koppling till identitetsdatabasen, SAML-subjekt,
@@ -48,6 +48,59 @@ En kommande utfärdare måste läsa profilen genom den skyddade profilfunktionen
 kontrollera aktiv credential och aktuell spärr-/verifieringsstatus, binda
 utgivningen till plånbokens nyckel och använda betrodd servertid. Ingen
 publik endpoint får ta emot födelsedatum och göra om dem till ett betrott bevis.
+
+## mdoc och Digital Credentials API
+
+`age_dc_backend.MdocDcBackend(signer_pem)` implementerar en separat verifierare
+för `org-iso-mdoc`, ISO 18013-7 Annex C. Den gör riktig mdoc-/COSE-verifiering
+och HPKE-dekryptering via låsta `@owf/mdoc` och `hpke`, med Node/OpenSSL som
+kryptografiskt underlag. `EuAgeVerifierBackend` ändras inte till DC API-stöd.
+
+```sh
+cd verification/age_wallet
+npm ci --ignore-scripts --omit=optional
+npm test
+npm run demo
+```
+
+Demonstrationen skapar en tillfällig syntetisk utfärdare, två åldersbevis och
+två olika enhetsnycklar. Programvaruplånboken presenterar ett bevis vardera
+för `https://a.example` och `https://b.example`; ett tredje försök nekas.
+Inga riktiga personuppgifter, sparade testnycklar eller nätanrop behövs.
+
+Använd `MdocDcBackend` i samma privata WSGI-sammansättning som nedan och välj
+`method: "dc_api"`. PEM-konfigurationen måste innehålla i förväg betrodda,
+exakta dokumentutfärdarcertifikat. Adaptern verifierar inte en allmän CA-kedja,
+hämtar inte EU:s tillitslista och stöder inte ZKP. Denna begränsade tillitsmodell
+är avsiktlig: ett webbsvar eller ett medskickat certifikat blir aldrig betrott
+enbart genom att presenteras. Samma organisations utfärdarcertifikat ska
+användas för många användare, inte ett personligt certifikat per individ.
+
+En begäran får endast avse `eu.europa.ec.av.1/age_over_18` utan avsikt att lagra
+attributet. Extra attribut, statusidentifierare, enhetsmetadata och
+enhetssignerade attribut avvisas. Verifieraren kontrollerar dokumentets
+signatur, digests, giltighet och enhetssignatur mot faktisk HTTPS-origin,
+nonce och transaktionens färska krypteringsnyckel. Browserns origin måste
+komma från plattformen; `approvedOrigin` i programvarulabben simulerar bara
+användarens val och är inget eget skydd mot en manipulerad klient.
+
+`OneUseAgeWallet` utfärdar högst 30 bevis i minnet och skapar en färsk P-256-nyckel
+per bevis. Utfärdaren får bara publik nyckel. Importen kontrollerar signatur,
+åldersprofil och bindning till rätt nyckel. Ett bevis tas bort före presentation,
+även när presentationen misslyckas. Parallella försök kan inte dela bevis.
+Det finns ingen export, backup eller återställning; omstart förlorar innehållet.
+Detta är programvarunycklar i en testplånbok, inte Secure Enclave eller native-lagring.
+
+Worker-anrop har begränsade indata, utdata, heap och körtid. Högst fyra körs
+samtidigt och 64 transaktioner får finnas. Transaktionen förbrukas före
+dekryptering, även vid fel. Utgång kontrolleras före och efter verifieringen;
+utgångna poster rensas vid nästa start. Separata processer eller omstart delar
+inte sessioner. Worker-fel lämnar aldrig ut råa bevis eller nycklar i loggar.
+Processgränsen är inte en OS-sandbox. Ingen produktionsdrift kopplas in här.
+
+Engångsnycklar minskar återanvändning men bevisar inte olänkbarhet. Utfärdarens
+utgivningslogg, mdoc-signaturer, tidsstämplar och nätmetadata kan fortfarande
+bidra till korrelation. ZKP och extern integritetsgranskning återstår.
 
 ## OpenID4VP-adapter och konfiguration
 
@@ -192,15 +245,18 @@ Från `verification/`, med Python 3.12 och Node enligt repots lås:
 
 ```sh
 python3 -m unittest -v test_age_gateway test_age_http test_age_backend test_age_eligibility
+python3 -m unittest -v test_age_dc_backend
 node --test age-presentation-test.mjs
+npm test --prefix age_wallet
 ```
 
-Gateway-, HTTP- och browserproven använder uttryckliga testdubblar för
-verifierarmotorn och plånboken. De provar kund-/sessionsisolering,
-origin-kontroller, begränsade indata, återspelning, nekanden, fel, avbrott,
-utgång och samtidighet. De är inte kryptografiska mdoc-/ZKP-prov eller ett
-fysiskt prov av Safari/Chrome tillsammans med Tjipp. Exakta körresultat och
-ej körda delar hör till PR:n och CI.
+De ursprungliga gateway-, HTTP- och browserproven använder testdubblar.
+`test_age_dc_backend` provar därutöver HTTP → gateway → worker → faktisk
+mdoc-/HPKE-verifiering, med syntetisk utfärdare och programvaruplånbok.
+Node-proven kontrollerar kryptografi, enhetsnycklar och engångslivscykel.
+Detta är inte ett oberoende interoperabilitetsprov mot EU-appen: samma OWF-bibliotek
+används på båda sidor. Safari/Chrome, fysisk iPhone, EU-tillitslista och ZKP
+är inte provade. Exakta körresultat och ej körda delar hör till PR:n och CI.
 
 ## Protokollkällor och kvarvarande integrationssteg
 
@@ -213,9 +269,10 @@ sessionsbindningar. En signerad OpenID4VP-begäran via DC API ska bland annat
 ange `expected_origins`; svarets audience binds till faktisk origin med
 prefixet `origin:`. Ett koncern-ID kan inte ersätta den bindningen.
 
-Före ett sammanhängande Tjipp-prov behövs standardiserad utgivning,
-plånbokslagring och presentation, native-plattformsstöd, faktisk utfärdartillit
-och prov mot rätt verifierarmotor. Produktionssteget kräver också den
+Före ett sammanhängande Tjipp-prov behövs autentiserad utgivning med aktiv
+pass-/enhetsstatus, attesterade bevisnycklar, native-plånbok och presentation,
+faktisk utfärdartillit och prov mot en oberoende implementation. Det interna
+syntetiska utfärdaranropet är inte en OpenID4VCI-endpoint. Produktionssteget kräver den
 oberoende granskning och det behöriga mänskliga beslut som anges i `AGENTS.md`.
 Denna kodändring installerar inga tjänster och ändrar inga externa avtal.
 
@@ -224,3 +281,9 @@ kräver dokumentregistrering, en separat Identity Document Provider-utökning
 och entitlement för aktuella mdoc-typer. Dessa delar finns inte i Tjipps
 befintliga iOS 16-mål och antas inte fungera i Xcode 16.4-CI. Befintlig
 Secure Enclave-nyckel och App Attest ersätter inte dessa funktioner.
+
+Den aktuella [EU-referensappen för iOS](https://ageverification.dev/av-app-ios-wallet-ui/)
+anger iOS 26.2 och har separata AV-anpassade beroenden. Dess källkod får inte
+kopieras in utan att EUPL-villkoren hanteras. En native-integration behöver
+en separat byggbar target, kompatibelt SDK/CI, rätt provisioning och ett
+fysiskt prov med betrodda testutfärdare innan den aktiveras för användare.

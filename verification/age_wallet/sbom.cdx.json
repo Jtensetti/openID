@@ -1,0 +1,978 @@
+{
+  "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "serialNumber": "urn:uuid:17a15ff6-a89e-4478-84c1-8d47b8be51f9",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-11-08T06:27:17.234Z",
+    "lifecycles": [
+      {
+        "phase": "build"
+      }
+    ],
+    "tools": [
+      {
+        "vendor": "npm",
+        "name": "cli",
+        "version": "11.9.0"
+      }
+    ],
+    "component": {
+      "bom-ref": "tjipp-age-wallet-lab@0.1.0",
+      "type": "library",
+      "name": "age_wallet",
+      "version": "0.1.0",
+      "scope": "required",
+      "purl": "pkg:npm/tjipp-age-wallet-lab@0.1.0",
+      "properties": [
+        {
+          "name": "cdx:npm:package:private",
+          "value": "true"
+        }
+      ],
+      "externalReferences": []
+    }
+  },
+  "components": [
+    {
+      "bom-ref": "@owf/cose@0.7.0",
+      "type": "library",
+      "name": "@owf/cose",
+      "version": "0.7.0",
+      "scope": "required",
+      "purl": "pkg:npm/%40owf/cose@0.7.0",
+      "properties": [],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/@owf/cose/-/cose-0.7.0.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/openwallet-foundation-labs/identity-common-ts"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/openwallet-foundation-labs/identity-common-ts/tree/main/packages/cose"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "038295d4a528fbf93e58ca66207f2dd9affb706ff259af44aed2b71eb61959472a0a61e9223483fe2b73a0a0f24a71dea6c040e56f56c64f971e84262e526ce9"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "@owf/identity-common@0.7.0",
+      "type": "library",
+      "name": "@owf/identity-common",
+      "version": "0.7.0",
+      "scope": "required",
+      "purl": "pkg:npm/%40owf/identity-common@0.7.0",
+      "properties": [],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/@owf/identity-common/-/identity-common-0.7.0.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/openwallet-foundation-labs/identity-common-ts"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/openwallet-foundation-labs/identity-common-ts/tree/main/packages/identity-common"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "08d454ce83d1c7b574fae312ebee70331bafaa1942c654604edf2e97bb72df5271cb72703e1706d043cf7568da603a4a8e2e45aa813459fb60952f400bc1b802"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "@owf/mdoc@0.9.3",
+      "type": "library",
+      "name": "@owf/mdoc",
+      "version": "0.9.3",
+      "scope": "required",
+      "author": "Animo Solutions",
+      "description": "ISO 18013-5 Mdoc and MDL",
+      "purl": "pkg:npm/%40owf/mdoc@0.9.3",
+      "properties": [],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/@owf/mdoc/-/mdoc-0.9.3.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/openwallet-foundation-labs/identity-common-ts"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/openwallet-foundation-labs/identity-common-ts/tree/main/packages/mdoc"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "dfaae271b80145ba95949a76e85552added05f69a4a91a42057b908536cb12f94debae62b3616e239bc9040dba45696c9d7f4b540fa0a494307539bb65a867a0"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "@owf/token-status-list@0.7.0",
+      "type": "library",
+      "name": "@owf/token-status-list",
+      "version": "0.7.0",
+      "scope": "required",
+      "purl": "pkg:npm/%40owf/token-status-list@0.7.0",
+      "properties": [],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/@owf/token-status-list/-/token-status-list-0.7.0.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/openwallet-foundation-labs/identity-common-ts"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/openwallet-foundation-labs/identity-common-ts/tree/main/packages/token-status-list"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "2a10ce7ad711ef4c62ecd1fd6666915efec6fecc81a8e653ceb0265aa3222d398ce9894415cd2a7e4e51802de9c21efb18083cf0fd8662560ff41d812f3f4969"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "@owf/x509@0.7.0",
+      "type": "library",
+      "name": "@owf/x509",
+      "version": "0.7.0",
+      "scope": "required",
+      "description": "Environment agnostic X.509 certificate and CRL parsing, creation and verification with pluggable crypto",
+      "purl": "pkg:npm/%40owf/x509@0.7.0",
+      "properties": [],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/@owf/x509/-/x509-0.7.0.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/openwallet-foundation-labs/identity-common-ts"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/openwallet-foundation-labs/identity-common-ts/tree/main/packages/x509"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "77a81ae8c41599eebf66f71e9a84cbae551bfc71b80e78b54dcda636bdb9514c925b566da40891434242d29b3e5bcab6c8ff26d07aed7a22b48991b4f4b4cdbc"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "@peculiar/asn1-schema@2.11.1",
+      "type": "library",
+      "name": "@peculiar/asn1-schema",
+      "version": "2.11.1",
+      "scope": "required",
+      "author": "PeculiarVentures, LLC",
+      "description": "Decorators and helper APIs for declaring ASN.1 schemas in TypeScript.",
+      "purl": "pkg:npm/%40peculiar/asn1-schema@2.11.1",
+      "properties": [],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/@peculiar/asn1-schema/-/asn1-schema-2.11.1.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/PeculiarVentures/asn1-schema"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/PeculiarVentures/asn1-schema/tree/master/packages/schema#readme"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/PeculiarVentures/asn1-schema/issues"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "8da53d39a09c6d951dc97c7d84c113641f71a0d9b14c68ce185a9dddc3b02859292a7c8a77d5b1177baa8f83ef5f873238c3fd6d274783963230bdaab71fddfe"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "asn1js@3.1.0",
+      "type": "library",
+      "name": "asn1js",
+      "version": "3.1.0",
+      "scope": "required",
+      "author": "Yury Strozhevsky",
+      "description": "asn1js is a pure JavaScript library implementing this standard. ASN.1 is the basis of all X.509 related data structures and numerous other protocols used on the web",
+      "purl": "pkg:npm/asn1js@3.1.0",
+      "properties": [],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/asn1js/-/asn1js-3.1.0.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/PeculiarVentures/ASN1.js"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "1d6622d531e43aa82e0a23bebf08f4f59910143da4284b1e8d81c0602b57d03f345957680e7bd173d22e9175ff8de6f44fd3515899d1b6ac1d6c796d9c58f05c"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-3-Clause"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "@peculiar/asn1-x509@2.11.1",
+      "type": "library",
+      "name": "@peculiar/asn1-x509",
+      "version": "2.11.1",
+      "scope": "required",
+      "author": "PeculiarVentures, LLC",
+      "description": "ASN.1 schema for X.509 certificates, certificate revocation lists, and related profile structures defined in RFC 5280.",
+      "purl": "pkg:npm/%40peculiar/asn1-x509@2.11.1",
+      "properties": [],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/@peculiar/asn1-x509/-/asn1-x509-2.11.1.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/PeculiarVentures/asn1-schema"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/PeculiarVentures/asn1-schema/tree/master/packages/x509#readme"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/PeculiarVentures/asn1-schema/issues"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "497538fd7e81dc5aaea9000de80448d1b143515efe2f55a5bcf10f30acc4324b2d7760fb532334afdddfbf6e35f8e8dd86a00a606c7932f57783364c029d003c"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "@peculiar/asn1-x509-qualified@2.11.1",
+      "type": "library",
+      "name": "@peculiar/asn1-x509-qualified",
+      "version": "2.11.1",
+      "scope": "required",
+      "author": "PeculiarVentures, LLC",
+      "description": "ASN.1 schema for qualified certificate statements and profiles defined in RFC 3739.",
+      "purl": "pkg:npm/%40peculiar/asn1-x509-qualified@2.11.1",
+      "properties": [],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/@peculiar/asn1-x509-qualified/-/asn1-x509-qualified-2.11.1.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/PeculiarVentures/asn1-schema"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/PeculiarVentures/asn1-schema/tree/master/packages/x509-qualified#readme"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/PeculiarVentures/asn1-schema/issues"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "f21fccdc6bfbe5a2b1322c71a1e792e23d587c41aa8bbab3283fa7932d0bccfd645db62d0ff2495a21fccf33b4a409ee317d0583fcda4689f34e8a52e675c9f7"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "@peculiar/asn1-x509-qualified-etsi@2.11.1",
+      "type": "library",
+      "name": "@peculiar/asn1-x509-qualified-etsi",
+      "version": "2.11.1",
+      "scope": "required",
+      "author": "PeculiarVentures, LLC",
+      "description": "ASN.1 schema for ETSI EN 319 412-5 qualified certificate statements and QC types.",
+      "purl": "pkg:npm/%40peculiar/asn1-x509-qualified-etsi@2.11.1",
+      "properties": [],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/@peculiar/asn1-x509-qualified-etsi/-/asn1-x509-qualified-etsi-2.11.1.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/PeculiarVentures/asn1-schema"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/PeculiarVentures/asn1-schema/tree/master/packages/x509-qualified-etsi#readme"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/PeculiarVentures/asn1-schema/issues"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "b3f30a0e4958d4464be5335590821627d39ab89186b5396b1fe561c14639193fcbd883e28748a1b59de7cd4ba69ba6f16a0c2ae078ccf8c2500d69a0daeab195"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "@peculiar/utils@2.0.3",
+      "type": "library",
+      "name": "@peculiar/utils",
+      "version": "2.0.3",
+      "scope": "required",
+      "author": "PeculiarVentures",
+      "description": "Modern byte, encoding, converter registry, and PEM utilities for TypeScript projects.",
+      "purl": "pkg:npm/%40peculiar/utils@2.0.3",
+      "properties": [],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/@peculiar/utils/-/utils-2.0.3.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/PeculiarVentures/pvtsutils"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/PeculiarVentures/pvtsutils#readme"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/PeculiarVentures/pvtsutils/issues"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "fa82f71cf151219d52b762b9d255825e28a82204a8c73cfb475277b85ea778edb2975b209a9818e975c91f805da680e4316ce741379817aa1634364b09d43879"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "asn1js@4.0.0",
+      "type": "library",
+      "name": "asn1js",
+      "version": "4.0.0",
+      "scope": "required",
+      "author": "Yury Strozhevsky",
+      "description": "asn1js is a pure JavaScript library implementing this standard. ASN.1 is the basis of all X.509 related data structures and numerous other protocols used on the web",
+      "purl": "pkg:npm/asn1js@4.0.0",
+      "properties": [],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/asn1js/-/asn1js-4.0.0.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/PeculiarVentures/ASN1.js"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "f35365a2861b5c26c158bdbea75fe2bc6c93e00476f9b9df29894fabfdeb0a820f252b8b6dd4bc1bbd1762de7ad703899db6987c14b61d00cc10d697e61336bc"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-3-Clause"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "@peculiar/utils@4.1.0",
+      "type": "library",
+      "name": "@peculiar/utils",
+      "version": "4.1.0",
+      "scope": "required",
+      "author": "PeculiarVentures",
+      "description": "Modern byte, encoding, integer, converter registry, and PEM utilities for TypeScript projects.",
+      "purl": "pkg:npm/%40peculiar/utils@4.1.0",
+      "properties": [],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/@peculiar/utils/-/utils-4.1.0.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/PeculiarVentures/pvtsutils"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/PeculiarVentures/pvtsutils#readme"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/PeculiarVentures/pvtsutils/issues"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "cb6a03a80c29f953d931460518514c6255ccf318a7c1bede85bebdfb61216c42fe9fb2acca40905f9174bb7fc1f81147c429304f27eddd3d62774ba0cb334755"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "cbor-x@1.6.9",
+      "type": "library",
+      "name": "cbor-x",
+      "version": "1.6.9",
+      "scope": "required",
+      "author": "Kris Zyp",
+      "description": "Ultra-fast and conformant CBOR (RFC 8949) implementation with support for numerous tag extensions including records and structured cloning",
+      "purl": "pkg:npm/cbor-x@1.6.9",
+      "properties": [],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/cbor-x/-/cbor-x-1.6.9.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "http://github.com/kriszyp/cbor-x"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "4c24fd5c72dbe223c643df5fa508dc4d19dc6eeb3a7171ef483fd163e6cfac300204224a8902e600ceabeff06041c2398bef21e20c29e2f8df6fa4ba4fc6cf1b"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "hpke@1.1.8",
+      "type": "library",
+      "name": "hpke",
+      "version": "1.1.8",
+      "scope": "required",
+      "author": "Filip Skokan <panva.ip@gmail.com>",
+      "description": "Hybrid Public Key Encryption (HPKE) for Node.js, Browser, Cloudflare Workers, Deno, Bun, and other Web-interoperable runtimes",
+      "purl": "pkg:npm/hpke@1.1.8",
+      "properties": [],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/hpke/-/hpke-1.1.8.tgz"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/panva/hpke"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "498907fab94959c947bff188aecd8f076e01deb11a42bf2b211229702775448922dd915c93e737b54ba49ba811f64d8c43f2d427c1ade494216867e4046689b2"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "pako@3.0.3",
+      "type": "library",
+      "name": "pako",
+      "version": "3.0.3",
+      "scope": "required",
+      "description": "zlib port to javascript - fast, modularized, with browser support",
+      "purl": "pkg:npm/pako@3.0.3",
+      "properties": [],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/pako/-/pako-3.0.3.tgz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "b66ade6c105823914ec3c408086c0936a13c7e8b42f11fa0c1cc4ebe814dbfe18a7a1388e8b73a601a2535c40d9c2e2ff7a975c2deeb875d3689f0f891579901"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "(MIT AND Zlib)"
+        }
+      ]
+    },
+    {
+      "bom-ref": "pvtsutils@1.3.6",
+      "type": "library",
+      "name": "pvtsutils",
+      "version": "1.3.6",
+      "scope": "required",
+      "author": "PeculiarVentures",
+      "description": "pvtsutils is a set of common utility functions used in various Peculiar Ventures TypeScript based projects.",
+      "purl": "pkg:npm/pvtsutils@1.3.6",
+      "properties": [],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/pvtsutils/-/pvtsutils-1.3.6.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "git+https://github.com/PeculiarVentures/pvtsutils"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/PeculiarVentures/pvtsutils#readme"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/PeculiarVentures/pvtsutils/issues"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "3cb8105d0e87d8558269e45a93cbef935196e3ada5331079b37266ebbdcdf36cc8e2faad5543ee65d7df7596cf0c546853c900848b5616d3c25a23e9a78fc40e"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "pvutils@1.2.0",
+      "type": "library",
+      "name": "pvutils",
+      "version": "1.2.0",
+      "scope": "required",
+      "author": "Yury Strozhevsky",
+      "description": "Common utilities for products from Peculiar Ventures",
+      "purl": "pkg:npm/pvutils@1.2.0",
+      "properties": [],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/pvutils/-/pvutils-1.2.0.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/PeculiarVentures/pvutils"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "05bb9b7821324ee42354c6a4bc943f4b16dcf77176a7099bb3138d4ff651af053b51adfc77cba7613c17a5354b00a278043b87f481b3b428d071dfcdff7f43be"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "tslib@2.9.1",
+      "type": "library",
+      "name": "tslib",
+      "version": "2.9.1",
+      "scope": "required",
+      "author": "Microsoft Corp.",
+      "description": "Runtime library for TypeScript helper functions",
+      "purl": "pkg:npm/tslib@2.9.1",
+      "properties": [],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/tslib/-/tslib-2.9.1.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/Microsoft/tslib.git"
+        },
+        {
+          "type": "website",
+          "url": "https://www.typescriptlang.org/"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/Microsoft/TypeScript/issues"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "6b8531f552ae20c1ec392ec435b12aea12b66466084f6ed1b65d04e1e0fd2aac3184a89078c644ffdc5bdc8758c166923b220140b1318508170d3628882c6758"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "0BSD"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "zod@4.6.7",
+      "type": "library",
+      "name": "zod",
+      "version": "4.6.7",
+      "scope": "required",
+      "author": "Colin McDonnell <zod@colinhacks.com>",
+      "description": "TypeScript-first schema declaration and validation library with static type inference",
+      "purl": "pkg:npm/zod@4.6.7",
+      "properties": [],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/zod/-/zod-4.6.7.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "git+https://github.com/colinhacks/zod.git"
+        },
+        {
+          "type": "website",
+          "url": "https://zod.dev"
+        },
+        {
+          "type": "issue-tracker",
+          "url": "https://github.com/colinhacks/zod/issues"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "83c5b60f6914e9af2e9ed734e777d7d6e5412b333bcaa0315bfdf3c24f37fba472176f9228eb95f9cd30043854c335753da19aa66647fab99c5333dffb7086c2"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "zod-validation-error@5.0.0",
+      "type": "library",
+      "name": "zod-validation-error",
+      "version": "5.0.0",
+      "scope": "required",
+      "author": "Dimitrios C. Michalakos",
+      "description": "Wrap zod validation errors in user-friendly readable messages",
+      "purl": "pkg:npm/zod-validation-error@5.0.0",
+      "properties": [],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/zod-validation-error/-/zod-validation-error-5.0.0.tgz"
+        },
+        {
+          "type": "vcs",
+          "url": "git://github.com/causaly/zod-validation-error.git"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "86693ea64c8aabb43bd4f8965520d473755fa73a6f7111d9dd03f0f7210c56f9ad09e91a31e3879dbaf759bc5fae0127413bfa85a18fe1c9afd0e8e68a1cecc7"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "tjipp-age-wallet-lab@0.1.0",
+      "dependsOn": [
+        "@owf/mdoc@0.9.3",
+        "hpke@1.1.8"
+      ]
+    },
+    {
+      "ref": "@owf/cose@0.7.0",
+      "dependsOn": [
+        "cbor-x@1.6.9",
+        "zod@4.6.7",
+        "zod-validation-error@5.0.0",
+        "@owf/identity-common@0.7.0"
+      ]
+    },
+    {
+      "ref": "@owf/identity-common@0.7.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "@owf/mdoc@0.9.3",
+      "dependsOn": [
+        "zod@4.6.7",
+        "@owf/cose@0.7.0",
+        "@owf/identity-common@0.7.0",
+        "@owf/token-status-list@0.7.0",
+        "@owf/x509@0.7.0"
+      ]
+    },
+    {
+      "ref": "@owf/token-status-list@0.7.0",
+      "dependsOn": [
+        "cbor-x@1.6.9",
+        "pako@3.0.3",
+        "zod@4.6.7",
+        "@owf/cose@0.7.0",
+        "@owf/identity-common@0.7.0"
+      ]
+    },
+    {
+      "ref": "@owf/x509@0.7.0",
+      "dependsOn": [
+        "@peculiar/asn1-schema@2.11.1",
+        "@peculiar/asn1-x509@2.11.1",
+        "@peculiar/asn1-x509-qualified@2.11.1",
+        "@peculiar/asn1-x509-qualified-etsi@2.11.1",
+        "asn1js@4.0.0",
+        "@owf/identity-common@0.7.0"
+      ]
+    },
+    {
+      "ref": "@peculiar/asn1-schema@2.11.1",
+      "dependsOn": [
+        "@peculiar/utils@2.0.3",
+        "asn1js@3.1.0",
+        "tslib@2.9.1"
+      ]
+    },
+    {
+      "ref": "asn1js@3.1.0",
+      "dependsOn": [
+        "pvtsutils@1.3.6",
+        "pvutils@1.2.0",
+        "tslib@2.9.1"
+      ]
+    },
+    {
+      "ref": "@peculiar/asn1-x509@2.11.1",
+      "dependsOn": [
+        "@peculiar/asn1-schema@2.11.1",
+        "@peculiar/utils@2.0.3",
+        "asn1js@3.1.0",
+        "tslib@2.9.1"
+      ]
+    },
+    {
+      "ref": "@peculiar/asn1-x509-qualified@2.11.1",
+      "dependsOn": [
+        "@peculiar/asn1-schema@2.11.1",
+        "@peculiar/asn1-x509@2.11.1",
+        "asn1js@3.1.0",
+        "tslib@2.9.1"
+      ]
+    },
+    {
+      "ref": "@peculiar/asn1-x509-qualified-etsi@2.11.1",
+      "dependsOn": [
+        "@peculiar/asn1-schema@2.11.1",
+        "asn1js@3.1.0",
+        "tslib@2.9.1"
+      ]
+    },
+    {
+      "ref": "@peculiar/utils@2.0.3",
+      "dependsOn": [
+        "tslib@2.9.1"
+      ]
+    },
+    {
+      "ref": "asn1js@4.0.0",
+      "dependsOn": [
+        "@peculiar/utils@4.1.0"
+      ]
+    },
+    {
+      "ref": "@peculiar/utils@4.1.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "cbor-x@1.6.9",
+      "dependsOn": []
+    },
+    {
+      "ref": "hpke@1.1.8",
+      "dependsOn": []
+    },
+    {
+      "ref": "pako@3.0.3",
+      "dependsOn": []
+    },
+    {
+      "ref": "pvtsutils@1.3.6",
+      "dependsOn": [
+        "tslib@2.9.1"
+      ]
+    },
+    {
+      "ref": "pvutils@1.2.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "tslib@2.9.1",
+      "dependsOn": []
+    },
+    {
+      "ref": "zod@4.6.7",
+      "dependsOn": []
+    },
+    {
+      "ref": "zod-validation-error@5.0.0",
+      "dependsOn": [
+        "zod@4.6.7"
+      ]
+    }
+  ]
+}

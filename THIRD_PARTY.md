@@ -296,6 +296,29 @@ komponentregister, licenser och SBOM kvarstår; hjullåset ersätter dem inte.
 Förvaltaren ansvarar för versions-, licens- och advisorybevakning och uppdatering av den låsta Debianbasen. Oberoende
 granskning, integrationstester och behörigt releasebeslut krävs fortsatt.
 
+## mdoc-labb för åldersbevis
+
+`verification/age_wallet/package-lock.json` låser npm-artefakter och deras
+integritetshashar. `@owf/mdoc` 0.9.3 kommer från
+[identity-common-ts](https://github.com/openwallet-foundation-labs/identity-common-ts),
+inte de arkiverade föregångarna `auth0-lab/mdl` eller `mdoc-ts`.
+Upstream granskades vid `f6d2c57685b31f9c71fcfa734d023842c9a5bf36`.
+Biblioteket använder Apache-2.0; HPKE-biblioteket `hpke` 1.1.8 från
+[panva/hpke](https://github.com/panva/hpke) använder MIT.
+
+Installera med `npm ci --ignore-scripts --omit=optional`; de valfria native-
+CBOR-paketen används inte. De 24 installerade paketen omfattar Apache-2.0,
+MIT, BSD-3-Clause, 0BSD och MIT/Zlib. Fullständiga licenstexter och attribution
+finns i `verification/age_wallet/THIRD_PARTY_LICENSES.txt`.
+`sbom.cdx.json` genereras med `npm sbom --sbom-format=cyclonedx --omit=optional`.
+`dependency-audit.json` innehåller resultat från `npm audit --omit=optional --json`;
+CI:s OSV-kontroll omfattar även det nya låset, inklusive valfria paket.
+Inga källfiler från EU:s EUPL-licensierade referensapp har kopierats in.
+
+Installations- och uppdateringsansvar samt oberoende kryptografisk granskning
+återstår före produktion. Licensfri programvara innebär ingen certifiering,
+garanti eller betrodd utfärdarstatus.
+
 ## Projektlicens och förvaltning
 
 **Projektets egen licens är inte beslutad.** POM/SBOM använder `NOASSERTION`
