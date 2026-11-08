@@ -15,6 +15,7 @@ en oberoende spärrtjänst och aviseringskö. Se [avisering och spärr](aviserin
 | Lokal brygga | `verification/federation.py`, `lab/phone/PhoneBridge.java` | Avgränsat JSON-protokoll över Unix-socket mellan registret och SAML-processerna. |
 | IdP | `lab/idp/PhoneProvider.java`, `PhoneController.java` | Sweden Connect-provider som inväntar appens godkännande och utfärdar SAML-svaret. |
 | Kontotjänst/SP | `lab/RelyingParty.java`, `lab/phone/PhoneIdentity.java` | Validerar SAML-svar, skapar webbsession och kontrollerar aktuell spärr vid skyddad läsning. |
+| Åldersintegration (separat labb) | `verification/age_gateway.py`, `age_http.py`, `age_backend.py` | Isolerar sajter inom en avtalskund och ger ett minimalt engångsbeslut efter extern bevisverifiering. Ingen åtkomst till identitetsregistret. Se [flöde och avgränsning](aldersverifiering.md). |
 
 Java-sökvägarna är relativa till `prototype/src/main/java/`.
 Versioner och licenser finns i [komponentregistret](../THIRD_PARTY.md).

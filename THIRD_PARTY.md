@@ -38,6 +38,26 @@ Pass-, NFC-, App Attest-, QR- och modellkomponenter redovisas i
 
 ## Anpassad källkod
 
+### Externt API för åldersverifiering
+
+Åldersadapterns OpenID4VP-kontrakt utgår från EU:s
+[`av-srv-verifier-endpoint`](https://github.com/eu-digital-identity-wallet/av-srv-verifier-endpoint/tree/787089b7239e39dceaf31c0274d9de745b880194),
+källrevision `787089b7239e39dceaf31c0274d9de745b880194`, kontrollerad 2026-11-08.
+Projektets kodlicens är Apache-2.0. Vi kopierar eller paketerar inte dess kod,
+JAR:er eller container; inga Python-/npm-/Maven-beroenden läggs till av adaptern.
+Revisionen låser det granskade API-kontraktet, inte en verifierad driftsartefakt.
+Ingen SBOM- eller sårbarhetsbedömning av en separat installerad verifierarmotor
+görs genom denna ändring. Dess byggkedja och drift måste granskas separat.
+
+Den äldre `av-srv-web-verifier-endpoint-23220-4-kt` används inte.
+EU:s [webbgränssnitt](https://github.com/eu-digital-identity-wallet/av-web-verifier-ui/tree/7cb50392e3582928c22d03de2df67c60e6ba0574)
+vid `7cb50392e3582928c22d03de2df67c60e6ba0574` användes för att läsa
+DC API-anropsformen. Kod har inte kopierats. Mänskligt läsbara resultatrader
+från en demo används inte som kryptografiskt tillitsbeslut.
+Se [integration, källor och kvarstående prov](docs/aldersverifiering.md).
+
+### Befintlig SAML-adapter
+
 `prototype/src/main/java/lab/LabResponseProcessor.java` bygger på G05-adaptern.
 Ursprung, källfil och revision finns i [ATTRIBUTION.md](prototype/licenses/ATTRIBUTION.md).
 Copyright, författare och licenshuvud har bevarats. Anpassningen kräver

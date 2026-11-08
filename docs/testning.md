@@ -10,6 +10,7 @@ Testantal från äldre revisioner används inte som bevis för den aktuella.
 |---|---|
 | Pass, modeller, register och federation | [Verifierarens tester](../verification/README.md#tester). Linux x86_64 och låsta beroenden. |
 | SAML, WebAuthn och dokumentunderskrift | [Protokolllabbens tester](../prototype/README.md#tester-och-beroenden) och [protokollbevis](provningsunderlag.md). JDK, Node och Chromium. |
+| Åldersverifiering | [Avgränsad verifierarintegration](aldersverifiering.md#tester). Python och Node; verifierare och plånbok ersätts av testdubblar i integrationsproven. |
 | iPhone | [Bygge och simulatorprov](../ios/README.md#bygg-och-testa). macOS och Xcode. |
 | Pilotcontainer | [Drift- och kapacitetsprov](../deployment/README.md#drift-och-kapacitet) samt [export/import av image](../deployment/build/README.md). |
 | PostgreSQL och OpenBao | [Registertester](../deployment/cluster/README.md#tester). Isolerade syntetiska register. |
@@ -50,6 +51,7 @@ byggen och behålls i källträdet; gamla fristående testresultat gör det inte
 | Bildarbetare | Formatgränser, resursbudget, pipe-/tidsgränser och Linux fil-/systemanropsisolering. | Faktisk värdkärna och oberoende angreppsprov. |
 | Betans processer | Nyckel-/aviseringssocket, nekade operationer, avbrott utan reservnyckel och leveranskontroll av UID/grupper/monteringar. | Faktiskt ägarskap och innehåll i värdens kataloger samt administrativ rollseparation. |
 | SAML/OIDC | Signatur, mottagare, state, nonce, PKCE, klientintyg, tider, återspelning, nekande och spärr. | Oberoende interoperabilitet och federationsanslutning. |
+| Åldersintegration | Sajt-/sessionsbindning, engångsresultat, samtidighet, avbrott och HTTP-/browsergränser med testdubblar. | Verklig mdoc-/ZKP-verifiering, utfärdartillit, native-utgivning/presentation och kryptografisk olänkbarhet. |
 | Webb/nginx | Stora SAML-svar, skydd mot för stora POST, HSTS, klient-IP och synliga slutlägen vid OIDC-återgång. | Den installerade ingressen och fysisk webbläsare/app. |
 | PDF | Signerade bytes, synligt kvitto, förändrat innehåll och separat OpenSSL-validering. | Betrodd certifikatkedja, tid och långtidsvalidering. |
 | Återställning | SQLite/PostgreSQL, nyckelbindning, karantän och bevarat spärrkrav med syntetiska data. | Faktisk backup, nyckelförvaring och driftövning. |

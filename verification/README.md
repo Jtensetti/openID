@@ -13,6 +13,11 @@ inte anslutning till Sweden Connect-federationen.
 [Anslutning med appen till Sweden Connects sandbox](../deployment/sweden-connect-app/README.md)
 aktiveras separat och begränsar mottagarna till federationens testklienter.
 
+[Åldersverifiering](../docs/aldersverifiering.md) har ett separat, avgränsat
+integrationslager för verifierare och koncerners webbplatser. Det lämnar
+engångsbeslut med endast ett 18+-attribut och är inte inkopplat i betans
+identitets-API eller Tjipp-appens bevisutgivning.
+
 Kommandona nedan gäller lokala och privata prov med manuell aktivering.
 Den publika novemberbetan använder [automatisk testaktivering](../docs/testflight-beta.md)
 utan e-post. Separat spärr, standardlägets kontaktbindning och manuella
