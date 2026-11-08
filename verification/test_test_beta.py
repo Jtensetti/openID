@@ -1,5 +1,4 @@
 """Synthetic campaign tests: real signatures/SQLite/encryption, simulated proofing and authority."""
-import base64
 from dataclasses import replace
 import hashlib
 import json

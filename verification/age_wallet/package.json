@@ -1,0 +1,9 @@
+{
+  "name": "tjipp-age-wallet-lab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test *.test.mjs", "demo": "node demo.mjs" },
+  "engines": { "node": ">=24.22.1" },
+  "dependencies": { "@owf/mdoc": "0.9.3", "hpke": "1.1.8" }
+}

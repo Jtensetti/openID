@@ -1,58 +1,39 @@
-# openID
+# Tjipp
 
-Kodbas för en iPhone-app med passläsning, ansiktskontroll, enhetsnycklar och
-SAML-/OIDC-inloggning. Servern binder passuppgifter till appens publika nyckel
-och hanterar aktivering, godkännanden och spärr.
+E-legitimation under utveckling för iPhone. Appen läser passets chip och
+använder en enhetsnyckel för inloggning och underskrift. Servern kontrollerar
+pass och ansiktsbilder samt hanterar godkännanden och spärr.
 
-Projektet är under utveckling. Betans ID:n och underskriftscertifikat är
-för test; projektet har inget Digg-godkännande och är inte anslutet till
-Sweden Connect-federationen. Se [säkerhet och begränsningar](SECURITY.md).
+**SAML har testats i Sweden Connects sandbox den 4 november 2026**, med
+syntetiska identiteter och extern testklient, inklusive Safari. Testet avser
+[revision 2e4d8c9 i PR 62](https://github.com/Jtensetti/openID/pull/62).
+Sandboxkoden är ännu inte mergad till `main`. Extern OIDC-verifiering,
+oberoende säkerhetsgranskning och Digg-godkännande återstår.
 
 ## Börja här
 
 | Uppgift | Instruktion |
-|---|---|
-| Bygg eller kör iPhone-appen | [iOS: Xcode, signering, funktioner och tester](ios/README.md) |
-| Kör verifierare och testtjänst | [Linuxinstallation, API-flöden och tester](verification/README.md) |
-| Prova SAML/WebAuthn med syntetiska identiteter | [Protokollabben](prototype/README.md) |
-| Bygg och leverera servern | [Isolerad byggmiljö](deployment/build/README.md), [drift och återställning](deployment/README.md) |
-| Förstå komponenter och säkerhetsgränser | [Arkitektur](docs/arkitektur.md) |
-| Ändra kod och verifiera resultatet | [Utveckling](docs/utveckling.md), [testöversikt](docs/testning.md) |
+| --- | --- |
+| Förbered stöd i en e-tjänst | [Integration: SAML, testmiljö och exempel](integrations/README.md) |
+| Kör ett lokalt test utan pass | [SAML/WebAuthn-labb](prototype/README.md) |
+| Bygg iPhone-appen | [iOS](ios/README.md) |
+| Förbered sandboxnycklar | [Certifikat och metadata](deployment/federation/README.md) |
+| Kör servern | [Verifierare](verification/README.md), [drift](deployment/README.md) |
+| Granska lösningen | [Arkitektur](docs/arkitektur.md), [säkerhet](SECURITY.md), [tester](docs/testning.md) |
+| Arbeta med koden | [Utveckling](docs/utveckling.md), [beroenden och attribution](THIRD_PARTY.md) |
 
-## Betan
+[Folkidentitet.se](https://folkidentitet.se) är projektets webbplats.
+App, pilotserver och sandbox har separata versioner och driftsättningar.
+[TestFlight-instruktionen](docs/testflight-beta.md) beskriver betans giltighet
+och [driftinstruktionen](deployment/README.md) dess öppettider.
 
-[Projektsidan](https://openid.tensetti.io), [testkonsolen](https://openid.tensetti.io/test)
-och [underskriftstestet](https://openid.tensetti.io/sign) har separat hosting.
-En commit i repot uppdaterar inte automatiskt dessa tjänster eller telefonen.
+## Licens
 
-- [Appens utgåvor](ios/README.md#utgåvor) skiljer TestFlight-piloten från utvecklingsbygget.
-- [Betans öppettider och slutstopp](deployment/README.md#betans-öppettider) anger driftperioden.
-- [TestFlight-läget](docs/testflight-beta.md) beskriver automatisk testaktivering och giltighet.
-- [Avisering och spärr](docs/avisering-och-sparr.md) beskriver återstående åtkomst när huvudservern är avstängd.
+Integrationsmaterial och exempel i `integrations/` är [MIT-licensierade](integrations/LICENSE):
+gratis att använda och anpassa även kommersiellt, med bevarad namnangivelse.
+Övrig egen kod får användas kostnadsfritt i oförändrad form enligt
+[Tjipp Source-Available License 1.0](LICENSE). Kodändringar kräver tillstånd
+enligt den licensen. Tredjepartskomponenter behåller sina egna villkor.
 
-Nya TestFlight-installationer ansluter utan VPN. Befintliga privata
-serverbindningar behålls. Standardlägets manuella aktivering och
-TestFlight-lägets automatiska aktivering är två skilda konfigurationer.
-
-## Teknisk dokumentation
-
-| Område | Dokument |
-|---|---|
-| Identitet | [Registerbindning](docs/registerbindning.md), [spärr och avisering](docs/avisering-och-sparr.md) |
-| Registrering och data | [Information och kvitton](docs/registreringsinformation.md), [personutdrag](docs/personuppgiftsutdrag.md), [radering](docs/radering-rattighetsarende.md), [återställningsbindning](docs/aterstallningsbindning.md) |
-| Protokoll | [OIDC](docs/oidc-pilot.md), [SAML-/OIDC- och underskriftsprov](docs/provningsunderlag.md), [PDF-signatur](docs/pdf-underskrift.md) |
-| Drift | [PostgreSQL/OpenBao](deployment/cluster/README.md), [separat spärrtjänst](deployment/continuity/README.md), [journalexport](docs/arkivexport.md) |
-| Leverans | [Kandidat och återgång](docs/releasekandidat.md), [prov på fysisk iPhone](docs/fysisk-acceptans.md) |
-| Valfri infrastruktur | [AWS-kompatibilitetsprov](deployment/aws/README.md), [backup och loggning](deployment/security/README.md), [hälsokontrollcontainer utan e-id](ops/README.md) |
-| Webbsida | [Källkod och publicering](deployment/project-site/HOSTING.md) |
-| Beroenden | [Versioner och licenser](THIRD_PARTY.md), [tekniska källor](docs/SOURCES.md) |
-
-Dokumentationen beskriver implementation och körning. Arbetsplaner,
-organisationsdokument och historiska testrapporter förvaras utanför kodbasen.
-Aktuella testresultat finns i [GitHub Actions](https://github.com/Jtensetti/openID/actions).
-Äldre borttagna underlag finns kvar i Git-historiken.
-
-Verkliga pass, personakter, privata nycklar och driftdata får inte läggas i
-repot. Tester använder genererade identiteter. Kodagenter börjar i [AGENTS.md](AGENTS.md).
-Projektets egen licens är ännu inte beslutad; tredjepartslicenser gäller respektive filer.
-Namnet openID innebär ingen anknytning till OpenID Foundation eller Digg.
+Kontakt: [Jonatan Tensetti](mailto:Jonatan@tensetti.se).
+[Rapportera säkerhetsproblem privat](SECURITY.md#rapportera-problem).

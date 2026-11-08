@@ -145,9 +145,11 @@ class Wallet:
                     expires INTEGER NOT NULL, code TEXT NOT NULL, binding TEXT NOT NULL,
                     audience TEXT NOT NULL);
                 CREATE INDEX IF NOT EXISTS request_pending ON requests(credential,state,expires);
+                CREATE INDEX IF NOT EXISTS request_expiry ON requests(expires);
                 CREATE INDEX IF NOT EXISTS event_recent ON events(credential,id DESC);
                 CREATE INDEX IF NOT EXISTS profile_person ON profiles(person);
                 CREATE INDEX IF NOT EXISTS federation_pending ON federation_requests(state,expires);
+                CREATE INDEX IF NOT EXISTS federation_expiry ON federation_requests(expires);
                 CREATE TABLE IF NOT EXISTS retention_runs (
                     id INTEGER PRIMARY KEY, time INTEGER NOT NULL,
                     policy_ref TEXT NOT NULL, policy_sha256 TEXT NOT NULL,

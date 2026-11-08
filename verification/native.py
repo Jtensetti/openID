@@ -166,13 +166,19 @@ class NativeSessions:
         return self.enrollment_policy.public()
     @session_operation
     def consent(self,request):
-        if set(request)!={'id','payload','assertion'}:raise ValueError('fields')
+        if set(request)!={'id','payload','assertion','deviceProof'}:raise ValueError('fields')
         ident=request['id'];pending=self.current(ident,'consent');self.pending.pop(ident)
         if self.enrollment_policy is None or self.wallet is None:raise ValueError('enrollment policy required')
         data=self.signed(request,pending,4096)
         self.live(pending)
         if set(data)!={'id','nonce','devicePublicKey','acceptance','receipt'}:raise ValueError('consent fields')
         self.enrollment_policy.acceptance(data['acceptance'])
+        if not isinstance(request['deviceProof'],str) or len(request['deviceProof'])>256:
+            raise ValueError('device proof size')
+        # The Secure Enclave key signs the exact App Attest-bound choice bytes.
+        # A substituted public key cannot be enrolled by an attested app instance.
+        self.wallet.crypto('verify',publicKey=data['devicePublicKey'],payload=request['payload'],
+            signature=request['deviceProof'])
         receipt=self.wallet.record_acceptance(data['devicePublicKey'],self.enrollment_policy,
             {'payload':request['payload'],'assertion':request['assertion'],'appPublicKey':pending['publicKey']},data['receipt'])
         pending.update(phase='document',nonce=secrets.token_urlsafe(32),

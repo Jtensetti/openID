@@ -1,7 +1,7 @@
 """Disposable OIDC end-to-end test; synthetic data, isolated network, verified TLS."""
 import http.cookiejar, http.server, http.client, threading
 from html.parser import HTMLParser
-import json, os, re, ssl, subprocess, tempfile, time, base64
+import json, re, ssl, subprocess, tempfile, time, base64
 from pathlib import Path
 import urllib.error, urllib.parse, urllib.request
 from federation import FederationServer

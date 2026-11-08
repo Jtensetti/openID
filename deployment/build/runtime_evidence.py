@@ -168,7 +168,6 @@ def collect():
         if importlib.util.find_spec(name) is not None: raise ValueError('unused module remains: '+name)
     for name in ('nscd','bzip2recover','ldd','bash','sh','mount','nsenter','infocmp'):
         if shutil.which(name): raise ValueError('unused tool remains: '+name)
-    stdlib=Path('/usr/local/lib/python3.12')
     decoder_count=check_sources(Path('/app/verification'))
     for raw in (b'YQ==Zg==',b'YQ==junk',b'Y Q==',b'YQ==\n'):
         try: base64.b64decode(raw,validate=True)

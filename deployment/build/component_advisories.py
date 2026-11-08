@@ -1,5 +1,5 @@
 """Complement Trivy's fixed-version Wolfi feed with all unresolved vendor statuses."""
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from email.utils import parsedate_to_datetime
 import hashlib
 import io

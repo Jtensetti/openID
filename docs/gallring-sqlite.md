@@ -4,6 +4,8 @@
 gallring i ett befintligt pilotregister. Den behöver en uttrycklig policyfil
 och körs av kontot som äger den privata databasen. Ingen schemaläggning
 eller standardpolicy aktiveras av kodändringen.
+Registerschemat indexerar utgångstid för inloggnings- och federationsbegäranden
+så att gallringen kan söka kandidater utan en hel tabellskanning.
 
 Före införande behöver ansvarig besluta ändamål, tider, undantag, backuphantering
 och vad som måste bevaras som utgivnings-/underskriftsbevis. Policyreferensen

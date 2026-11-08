@@ -48,7 +48,7 @@ def inventory(root):
     if not re.fullmatch(r'[0-9]+(?:\.[0-9]+){1,2}', bootstrap['version']) or not re.fullmatch(r'[a-f0-9]{64}', bootstrap['sha256']):
         raise ValueError('unpinned Python bootstrap tool')
     add({'package': {'ecosystem': 'PyPI', 'name': 'pip'}, 'version': bootstrap['version']}, source)
-    for directory in ('prototype', 'verification'):
+    for directory in ('prototype', 'verification', 'verification/age_wallet'):
         source, raw = read(root/directory/'package-lock.json')
         packages = json.loads(raw)['packages']
         if not packages: raise ValueError('empty npm lock')

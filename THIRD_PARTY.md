@@ -38,6 +38,26 @@ Pass-, NFC-, App Attest-, QR- och modellkomponenter redovisas i
 
 ## Anpassad källkod
 
+### Externt API för åldersverifiering
+
+Åldersadapterns OpenID4VP-kontrakt utgår från EU:s
+[`av-srv-verifier-endpoint`](https://github.com/eu-digital-identity-wallet/av-srv-verifier-endpoint/tree/787089b7239e39dceaf31c0274d9de745b880194),
+källrevision `787089b7239e39dceaf31c0274d9de745b880194`, kontrollerad 2026-11-08.
+Projektets kodlicens är Apache-2.0. Vi kopierar eller paketerar inte dess kod,
+JAR:er eller container; inga Python-/npm-/Maven-beroenden läggs till av adaptern.
+Revisionen låser det granskade API-kontraktet, inte en verifierad driftsartefakt.
+Ingen SBOM- eller sårbarhetsbedömning av en separat installerad verifierarmotor
+görs genom denna ändring. Dess byggkedja och drift måste granskas separat.
+
+Den äldre `av-srv-web-verifier-endpoint-23220-4-kt` används inte.
+EU:s [webbgränssnitt](https://github.com/eu-digital-identity-wallet/av-web-verifier-ui/tree/7cb50392e3582928c22d03de2df67c60e6ba0574)
+vid `7cb50392e3582928c22d03de2df67c60e6ba0574` användes för att läsa
+DC API-anropsformen. Kod har inte kopierats. Mänskligt läsbara resultatrader
+från en demo används inte som kryptografiskt tillitsbeslut.
+Se [integration, källor och kvarstående prov](docs/aldersverifiering.md).
+
+### Befintlig SAML-adapter
+
 `prototype/src/main/java/lab/LabResponseProcessor.java` bygger på G05-adaptern.
 Ursprung, källfil och revision finns i [ATTRIBUTION.md](prototype/licenses/ATTRIBUTION.md).
 Copyright, författare och licenshuvud har bevarats. Anpassningen kräver
@@ -276,12 +296,36 @@ komponentregister, licenser och SBOM kvarstår; hjullåset ersätter dem inte.
 Förvaltaren ansvarar för versions-, licens- och advisorybevakning och uppdatering av den låsta Debianbasen. Oberoende
 granskning, integrationstester och behörigt releasebeslut krävs fortsatt.
 
+## mdoc-labb för åldersbevis
+
+`verification/age_wallet/package-lock.json` låser npm-artefakter och deras
+integritetshashar. `@owf/mdoc` 0.9.3 kommer från
+[identity-common-ts](https://github.com/openwallet-foundation-labs/identity-common-ts),
+inte de arkiverade föregångarna `auth0-lab/mdl` eller `mdoc-ts`.
+Upstream granskades vid `f6d2c57685b31f9c71fcfa734d023842c9a5bf36`.
+Biblioteket använder Apache-2.0; HPKE-biblioteket `hpke` 1.1.8 från
+[panva/hpke](https://github.com/panva/hpke) använder MIT.
+
+Installera med `npm ci --ignore-scripts --omit=optional`; de valfria native-
+CBOR-paketen används inte. De 24 installerade paketen omfattar Apache-2.0,
+MIT, BSD-3-Clause, 0BSD och MIT/Zlib. Fullständiga licenstexter och attribution
+finns i `verification/age_wallet/THIRD_PARTY_LICENSES.txt`.
+`sbom.cdx.json` genereras med `npm sbom --sbom-format=cyclonedx --omit=optional`.
+`dependency-audit.json` innehåller resultat från `npm audit --omit=optional --json`;
+CI:s OSV-kontroll omfattar även det nya låset, inklusive valfria paket.
+Inga källfiler från EU:s EUPL-licensierade referensapp har kopierats in.
+
+Installations- och uppdateringsansvar samt oberoende kryptografisk granskning
+återstår före produktion. Licensfri programvara innebär ingen certifiering,
+garanti eller betrodd utfärdarstatus.
+
 ## Projektlicens och förvaltning
 
-**Projektets egen licens är inte beslutad.** POM/SBOM använder `NOASSERTION`
-så att parentens Apache-licens inte ärvs som projektbeslut. Före distribution
-behövs beslut om projektlicens, bidragsvillkor och tillämpliga
-attributions- och källkodskrav. Tredjepartslicenserna gäller sina respektive filer.
+Egen kod och dokumentation omfattas av [projektlicensen](LICENSE);
+`integrations/` omfattas av [MIT](integrations/LICENSE). Tredjepartskod,
+anpassningar, modeller och beroenden behåller sina respektive licenser.
+Licens- och NOTICE-filer ska följa med vid distribution. POM anger den egna
+licensen; äldre SBOM-filer beskriver det dåvarande licensläget.
 
 Formellt uppdateringsansvar och produktionsförvaltare är inte utsedda.
 Beroendeändringar ska uppdatera lås, SBOM, licens-/advisorykontroll och

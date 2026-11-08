@@ -57,6 +57,9 @@ Efter fem misslyckade exportförsök behövs operativ åtgärd.
 Betans aviserare når bara utboxens särskilda Unix-socket. Bryggan äger
 transaktionerna; aviseraren monterar varken register eller profilnyckel.
 Se [processernas åtkomst](../README.md#processer-och-nycklar-i-betan).
+Exportören håller inget SQLite-skrivlås under SQS-anropet. Dubbletter med
+samma händelse-ID kan uppstå vid samtidig export eller avbrott före kvittens;
+konsumenten ska avduplicera dem.
 
 ## Tester och kvarvarande arbete
 

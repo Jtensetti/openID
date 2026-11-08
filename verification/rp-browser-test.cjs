@@ -75,7 +75,21 @@ const path = require('node:path');
     request = await start(); await command('reject',{requestId:request.id}); await visible('unavailable');
     assert.equal(await page.locator('#subject').textContent(),'');
     await page.locator('#again').click(); await visible('ready');
-    request = await start(); await page.locator('#cancel').click(); await visible('ready');
+    request = await start();
+    let pollingStarted, releasePoll;
+    const pendingPoll = new Promise(resolve => { pollingStarted = resolve; });
+    await page.route('**/poll', async route => {
+      pollingStarted();
+      await new Promise(resolve => { releasePoll = resolve; });
+      // Cancellation may already have closed the request while the test held it.
+      await route.abort().catch(() => {});
+    });
+    await page.locator('#cancel').focus();
+    await pendingPoll;
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'cancel');
+    assert.equal(await page.locator('#cancel').isEnabled(), true);
+    await page.locator('#cancel').click(); await visible('ready');
+    releasePoll(); await page.unroute('**/poll');
     assert.equal((await command('snapshot')).requests.length,0);
     console.log('PASS: signed rejection and cancellation remove the live request');
 

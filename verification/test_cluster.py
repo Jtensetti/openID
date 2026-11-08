@@ -18,7 +18,6 @@ import urllib.request
 
 from test_wallet import crypt
 from test_identity import document
-from wallet import Wallet
 
 DSN = os.environ.get('OPENID_TEST_POSTGRES')
 
