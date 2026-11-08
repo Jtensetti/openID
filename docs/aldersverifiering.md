@@ -10,8 +10,8 @@ certifierad åldersutfärdare eller verifierad produktionsinstallation.
 | Roll | Uppgift och data |
 |---|---|
 | Avtalskund | Koncern eller annan kund som har en eller flera registrerade webbplatser. Kund-ID hör till konfigurationen, inte användarens bevis. |
-| Utfärdare | Labben signerar syntetiska mdoc-bevis. Autentiserad utgivning från Tjipps passregister återstår. |
-| Plånbok | Labben har en programvaruplånbok med engångsbevis och separata nycklar. Native-stöd för dessa bevis ingår ännu inte i Tjipp-appen. |
+| Utfärdare | Privat utgivningsmodul binder innehavarsignatur, bevisnycklar och ålderspolicy. Riktiga attesterings-/evidenskontroller och skyddad utfärdarsignering måste kopplas in före användning. |
+| Plånbok | Programvaruplånbok med engångsbevis samt native nyckelkomponent. iPhone-appen kan ännu inte ta emot eller presentera mdoc-bevis. |
 | Verifierare | Kontrollerar bevis, signaturer, utfärdartillit, tider och sessionsbindning. DC API använder OWF mdoc och HPKE; generisk OpenID4VP använder separat EU-verifierarmotor. |
 | Webbplatsens server | Startar kontrollen med sin egen API-nyckel, binder den till sin webbläsarsession och konsumerar ett godkännande en gång. |
 
@@ -48,6 +48,64 @@ En kommande utfärdare måste läsa profilen genom den skyddade profilfunktionen
 kontrollera aktiv credential och aktuell spärr-/verifieringsstatus, binda
 utgivningen till plånbokens nyckel och använda betrodd servertid. Ingen
 publik endpoint får ta emot födelsedatum och göra om dem till ett betrott bevis.
+
+## Privat utgivningsbindning och native-nycklar
+
+`age_issuance.AgeIssuance` läser en autentiserad, krypterad profil genom den
+befintliga privata SQLite-plånboken. Modulen har ingen HTTP-rutt och accepterar
+inte den publika betan eller PostgreSQL. Konstruktionen kräver tre uttryckliga
+beroenden: `evidence(credential_id)`, `attest(credential_id, signed_bytes,
+attestation)` och `issue(public_keys=..., valid_until=...)`. Inga standardvärden
+godkänner en kontroll. De två första måste returnera exakt `True` efter faktisk
+kontroll; den sista måste skapa verifierbara åldersbevis med angiven nyckel och
+livslängd. Testdubblarna är inte produktionsimplementationer.
+
+| Övergång | Förvillkor och behörighet |
+|---|---|
+| Start → väntande | Aktiv innehavarnyckel, autentiserad vuxenprofil, aktuellt evidensbeslut, 1–30 unika P-256-nycklar. Högst 32 samtidiga begäranden. |
+| Väntande → förbrukad begäran | Engångschallenge, högst 60 sekunder. Begäran förbrukas före signaturkontroll även vid fel. |
+| Förbrukad → reserverade nycklar | Innehavaren och varje bevisnyckel signerar exakt samma nyckellista, origin, åtgärd och challenge. Färsk attestering av dessa bytes krävs. |
+| Reserverade → utfärdade | Nyckelfingeravtryck har skrivits atomärt före signering. Utfärdaren får endast publika nycklar och högst fem minuters giltighet. Spärr, evidens och tid kontrolleras igen före svar. |
+| Reserverade → misslyckade | Signeringsfel, avbrott, spärr eller utgång lämnar nycklarna förbrukade. Ny begäran måste använda nya nycklar. |
+
+Nyckelreservationerna består över processomstart och serialiserar separata
+utgivningsinstanser. Den privata tabellen har ett tak på 10 000 nycklar och
+ingen automatisk rensning eller administrativ återaktivering. Omstart förlorar
+väntande challenges. En återställd äldre databas kan förlora reservationer:
+den får inte öppnas för ny utgivning innan en separat kontinuitetslösning finns.
+En redan utlämnad offline-mdoc kan fortfarande gälla fram till sin korta
+utgångstid efter innehavarspärr; omedelbar spärr av redan utgivna bevis ingår inte.
+Utfärdaren ser kopplingen mellan identitet och utgivningsnycklar. Detta är inte
+ett olänkbart ZKP-system. Endast händelsetypen loggas, inga målwebbplatser.
+
+`ios/PassportCapture/AgeProofKeys.swift` skapar separata Secure Enclave-nycklar
+med lokal användarverifiering. Nyckelblobbar lagras i en separat Keychain-tjänst
+utan synkronisering, med `WhenPasscodeSetThisDeviceOnly`. En unik `SecItemAdd`
+förbrukar nyckeln före radering och signering; kvarvarande markörer stoppar
+återförsök även efter raderingsfel eller parallella anrop. Nycklarna kan användas
+för en enda signerad utgivningsbegäran och en enda presentationssignatur.
+Utgivning använder DER-signatur; COSE använder fast 64-byte `r || s`.
+
+Komponenten är **nyckelhantering**, inte native mdoc-verifiering eller en färdig
+provider. Integrationen måste verifiera mottaget bevis, jämföra plattformens
+parsade begäran med rådata, visa faktisk OS-origin och skapa rätt
+DeviceAuthentication före `consumeSignature`. Delad Keychain-grupp och
+provider-entitlement är inte konfigurerade. Inget nytt UI eller utgivningsanrop
+är aktiverat i den installerade appen. XCTest använder en minneslagring och
+riktiga CryptoKit-programvarusignaturer; fysisk Secure Enclave/Keychain och
+app/extension-prov återstår.
+
+Det granskade EU-biblioteket `av-lib-ios-w3c-dc-api`, revision
+`14505c81dfbb08d082a58ad31b2b0f6d20ec780e`, har en tom
+`validateConsistency(request:rawRequest:)`. Ett anrop till den får därför inte
+räknas som genomförd samtyckes-/rådatakontroll. Biblioteket har inte lagts in som
+beroende. API-källa: [DcApi18013AnnexC.swift](https://github.com/eu-digital-identity-wallet/av-lib-ios-w3c-dc-api/blob/14505c81dfbb08d082a58ad31b2b0f6d20ec780e/Sources/DcApi18013AnnexC/DcApi18013AnnexC.swift).
+
+Kör `python3 -m unittest -v test_age_issuance` från `verification/` efter att
+mdoc-labbens npm-beroenden installerats. Testet binder riktiga innehavar- och
+bevisnyckelsignaturer till en syntetisk lagrad profil och presenterar utfärdade
+mdoc-bevis för två sajter. Attestering och aktuell evidens är uttryckliga
+testdubblar; det är inte ett fysiskt pass- eller Apple-prov.
 
 ## mdoc och Digital Credentials API
 

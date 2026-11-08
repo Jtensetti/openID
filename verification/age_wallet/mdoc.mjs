@@ -47,15 +47,17 @@ export async function verifyCredential(credential, signerPins, now = new Date())
 
 // Synthetic/private issuance only. Authentication and the active-passport
 // decision must be supplied by a real issuer; this module exposes no HTTP route.
-export async function issueAgeCredential({ signerKey, signerCertificate, holderPublicKey, now = new Date(), ageOver18 = true }) {
+export async function issueAgeCredential({ signerKey, signerCertificate, holderPublicKey, now = new Date(), ageOver18 = true, validUntil }) {
   if (typeof ageOver18 !== 'boolean' || holderPublicKey.d) reject();
   const issuer = new Issuer(AGE_DOCTYPE, context);
   issuer.addIssuerNamespace(AGE_DOCTYPE, { age_over_18: ageOver18 });
   const signed = new Date(now);
+  const until = validUntil === undefined ? new Date(signed.getTime() + 86400000) : new Date(validUntil);
+  if (!Number.isFinite(signed.getTime()) || !Number.isFinite(until.getTime()) || until <= signed || until - signed > 86400000) reject();
   return (await issuer.sign({ signingKey: CoseKey.fromJwk(signerKey), certificates: [signerCertificate],
     algorithm: SignatureAlgorithm.ES256, digestAlgorithm: 'SHA-256',
     deviceKeyInfo: { deviceKey: DeviceKey.fromJwk(holderPublicKey) },
-    validityInfo: { signed, validFrom: signed, validUntil: new Date(signed.getTime() + 86400000) },
+    validityInfo: { signed, validFrom: signed, validUntil: until },
   })).encodedForOid4Vci;
 }
 export async function createRequest(siteOrigin, nonce) {

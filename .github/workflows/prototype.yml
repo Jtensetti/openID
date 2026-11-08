@@ -96,7 +96,7 @@ jobs:
           .venv/bin/python -m unittest -v test_audit_archive
           .venv/bin/python -m unittest -v test_sandbox_federation test_runtime_isolation
           .venv/bin/python -m unittest -v test_http_transport
-          .venv/bin/python -m unittest -v test_age_gateway test_age_http test_age_backend test_age_eligibility test_age_dc_backend
+          .venv/bin/python -m unittest -v test_age_gateway test_age_http test_age_backend test_age_eligibility test_age_dc_backend test_age_issuance
           .venv/bin/python -m unittest -v test_enrollment_policy test_acceptance_journal test_enrollment_consent
           .venv/bin/python -m unittest -v test_sqlite_retention test_consent_retention test_subject_access test_subject_erasure
           .venv/bin/python -m unittest -v test_test_beta test_crl_maintenance
