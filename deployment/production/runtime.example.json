@@ -1,0 +1,18 @@
+{
+  "bind": "127.0.0.1",
+  "listenPort": 8767,
+  "trustedProxy": "127.0.0.1",
+  "origin": "https://api.example.org",
+  "team": "YOURTEAMID",
+  "bundle": "se.openid.PassportCapture",
+  "developmentAttestation": false,
+  "publicEnrollment": false,
+  "newRegistrationsEnabled": false,
+  "poseCheck": "enforce",
+  "tlsCert": "/srv/openid/secrets/server.pem",
+  "tlsKey": "/srv/openid/secrets/server-key.pem",
+  "csca": "/srv/openid/secrets/trusted-csca.pem",
+  "cscaCrl": "/srv/openid/secrets/csca.crl",
+  "pairingFile": "/srv/openid/secrets/pairing",
+  "database": "/srv/openid/data/wallet.sqlite"
+}

@@ -3,6 +3,7 @@
 Requires the operator's nginx and OpenSSL. No pilot keys, account, DNS changes or
 live ports are used. The installed nginx version is included in the result.
 """
+import argparse
 import base64
 import http.client
 import http.server
@@ -19,6 +20,9 @@ import threading
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
+parser = argparse.ArgumentParser()
+parser.add_argument('--configuration', type=Path, default=ROOT / 'deployment/beta-nginx.conf')
+arguments = parser.parse_args()
 NGINX = shutil.which('nginx')
 if not NGINX:
     raise SystemExit('nginx must be installed to exercise beta ingress')
@@ -82,16 +86,24 @@ with tempfile.TemporaryDirectory(prefix='openid-ingress-') as temporary:
     upstream.socket = tls.wrap_socket(upstream.socket, server_side=True)
     threading.Thread(target=upstream.serve_forever, daemon=True).start()
     public_port, http_port = port(), port()
-    config = (ROOT / 'deployment/beta-nginx.conf').read_text()
+    config = arguments.configuration.read_text()
+    for name, host in {'API': 'api.openid.tensetti.io', 'IDP': 'idp.openid.tensetti.io', 'SP': 'openid.tensetti.io'}.items():
+        config = config.replace(f'@{name}_HOST@', host)
     for old, new in {
         'listen 443 ssl': f'listen 127.0.0.1:{public_port} ssl',
         'listen 80 default_server': f'listen 127.0.0.1:{http_port} default_server',
         '/etc/letsencrypt/live/openid-beta/fullchain.pem': str(cert),
         '/etc/letsencrypt/live/openid-beta/privkey.pem': str(key),
         '/etc/nginx/openid-saml.crt': str(cert), '/etc/nginx/openid-api.crt': str(cert),
+        '/etc/nginx/tjipp-idp-tls.crt': str(cert), '/etc/nginx/tjipp-sp-tls.crt': str(cert),
+        '/etc/nginx/tjipp-api-tls.crt': str(cert),
+        '/etc/letsencrypt/live/tjipp/fullchain.pem': str(cert),
+        '/etc/letsencrypt/live/tjipp/privkey.pem': str(key),
         '/etc/nginx/openid-beta.htpasswd': str(root / 'users'),
         '/var/log/nginx/openid-error.log': str(root / 'error.log'),
+        '/var/log/nginx/tjipp-error.log': str(root / 'error.log'),
         '/var/www/openid-beta': str(root), '/var/www/openid-acme': str(root),
+        '/var/www/tjipp-acme': str(root), '/var/www/tjipp': str(root),
         '127.0.0.1:9444': '127.0.0.1:' + str(upstream.server_port),
         '127.0.0.1:9443': '127.0.0.1:' + str(upstream.server_port),
         '127.0.0.1:8767': '127.0.0.1:' + str(upstream.server_port),

@@ -8,7 +8,7 @@ import javax.net.ssl.*;
 import se.swedenconnect.security.credential.KeyStoreCredential;
 import se.swedenconnect.security.credential.PkiCredential;
 
-public final class TestKeys {
+public final class TestKeys implements ServiceKeys {
   public static final String PASSWORD = "test-only-changeit";
   private final Path directory;
 
@@ -70,4 +70,6 @@ public final class TestKeys {
     return context;
   }
   public Path directory() { return directory; }
+  public Path storePath(String alias) { return directory.resolve(alias + ".p12"); }
+  public String password(String alias) { return PASSWORD; }
 }

@@ -13,6 +13,7 @@ Testantal från äldre revisioner används inte som bevis för den aktuella.
 | Åldersverifiering | [Avgränsad verifierarintegration](aldersverifiering.md#tester). Python och Node; verifierare och plånbok ersätts av testdubblar i integrationsproven. |
 | iPhone | [Bygge och simulatorprov](../ios/README.md#bygg-och-testa). macOS och Xcode. |
 | Pilotcontainer | [Drift- och kapacitetsprov](../deployment/README.md#drift-och-kapacitet) samt [export/import av image](../deployment/build/README.md). |
+| Sammanhängande driftprofil | [Konfiguration, nyckelgränser och ingress](../deployment/production/README.md#automatiska-prov). Syntetiska prov; inte verifierad produktionsdrift. |
 | PostgreSQL och OpenBao | [Registertester](../deployment/cluster/README.md#tester). Isolerade syntetiska register. |
 | Nginx | `python3 deployment/test_beta_nginx.py`. Linux och nginx; egna temporära kataloger, ingen ändring av systemtjänsten. |
 | AWS-mallar | [Kompatibilitetsprov](../deployment/aws/README.md), [arkiv](../deployment/archive/README.md) och [backup/loggning](../deployment/security/README.md). Lokala mallprov skapar inga AWS-resurser. |

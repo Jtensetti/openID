@@ -10,7 +10,7 @@ import se.swedenconnect.opensaml.sweid.xmlsec.config.SwedishEidSecurityConfigura
 
 /** Command-line entry point for local SAML and passport tools. */
 public final class Lab implements AutoCloseable {
-  public final TestKeys keys;
+  public final ServiceKeys keys;
   public final String idpBase, spBase;
   public final SyntheticRegistry registry;
   public final RelyingParty sp;
@@ -37,30 +37,44 @@ public final class Lab implements AutoCloseable {
   private Lab(Path keyDirectory, int idpPort, int spPort, SyntheticRegistry registry, boolean webAuthn,
       lab.phone.PhoneBridge phone, boolean startSp, PilotOrigins origins, boolean sandbox,
       SandboxConfig syntheticSandbox) throws Exception {
+    this(keyDirectory, idpPort, spPort, registry, webAuthn, phone, startSp, origins, sandbox, syntheticSandbox, null);
+  }
+  static Lab runtimeIdp(RuntimeKeys keys, lab.phone.PhoneBridge phone, PilotOrigins origins) throws Exception {
+    return runtimeIdp(keys, phone, origins, 9443, 9444);
+  }
+  static Lab runtimeIdp(RuntimeKeys keys, lab.phone.PhoneBridge phone, PilotOrigins origins,
+      int idpPort, int spPort) throws Exception {
+    return new Lab(keys.directory(), idpPort, spPort, new SyntheticRegistry(java.time.Clock.systemUTC()),
+        false, phone, false, origins, false, null, keys);
+  }
+  private Lab(Path keyDirectory, int idpPort, int spPort, SyntheticRegistry registry, boolean webAuthn,
+      lab.phone.PhoneBridge phone, boolean startSp, PilotOrigins origins, boolean sandbox,
+      SandboxConfig syntheticSandbox, RuntimeKeys runtimeKeys) throws Exception {
     if (syntheticSandbox != null && (sandbox || phone != null || origins != null || webAuthn || startSp))
       throw new IllegalArgumentException("Sandbox is a standalone synthetic-only IdP");
     if (sandbox && (phone == null || webAuthn)) throw new IllegalArgumentException("Sandbox connection requires app authentication");
     if (origins != null && (phone == null || webAuthn)) throw new IllegalArgumentException("Private phone pilot only");
     if (idpPort < 1024 || spPort < 1024 || idpPort > 65535 || spPort > 65535 || idpPort == spPort)
       throw new IllegalArgumentException("Two distinct unprivileged loopback ports are required");
-    keys = new TestKeys(keyDirectory); this.registry = registry;
+    keys = runtimeKeys == null ? new TestKeys(keyDirectory) : runtimeKeys; this.registry = registry;
     String host = webAuthn || phone != null ? "localhost" : "127.0.0.1";
     idpBase = syntheticSandbox != null ? syntheticSandbox.idp() : origins == null ? "https://" + host + ":" + idpPort : origins.idp();
     spBase = syntheticSandbox != null ? SandboxConfig.TEST_CLIENT : origins == null ? "https://" + host + ":" + spPort : origins.sp();
     if (!webAuthn && !registry.passkeys().isEmpty()) throw new IllegalStateException("Passkey state requires start-web; no downgrade to simulated approval");
     OpenSAMLInitializer.getInstance().initialize(new OpenSAMLSecurityDefaultsConfig(new LabSecurityConfiguration(sandbox || syntheticSandbox != null)), new OpenSAMLSecurityExtensionConfig());
-    Path metadata = keys.directory().resolve("sp-metadata.xml");
+    Path metadataDirectory = runtimeKeys == null ? keys.directory() : Files.createTempDirectory("tjipp-metadata-");
+    Path metadata = metadataDirectory.resolve("sp-metadata.xml");
     if (syntheticSandbox == null) Files.writeString(metadata, Metadata.sp(keys, spBase, phone != null));
     // Export the pinned, synthetic IdP view for offline metadata checks; not federation-approved metadata.
-    Files.writeString(keys.directory().resolve("idp-metadata.xml"), Metadata.idp(keys, idpBase));
-    Path signMetadata = keys.directory().resolve("sign-metadata.xml");
+    Files.writeString(metadataDirectory.resolve("idp-metadata.xml"), Metadata.idp(keys, idpBase));
+    Path signMetadata = metadataDirectory.resolve("sign-metadata.xml");
     if (phone != null) Files.writeString(signMetadata, Metadata.signService(keys, spBase));
     Map<String, Object> p = new HashMap<>();
     p.put("spring.config.location", "classpath:/application.properties");
     p.put("spring.main.banner-mode", "off");
     p.put("server.address", "127.0.0.1"); p.put("server.port", idpPort);
-    p.put("server.ssl.enabled", true); p.put("server.ssl.key-store", keys.directory().resolve("tls.p12").toUri().toString());
-    p.put("server.ssl.key-store-password", TestKeys.PASSWORD); p.put("server.ssl.key-store-type", "PKCS12");
+    p.put("server.ssl.enabled", true); p.put("server.ssl.key-store", keys.storePath("tls").toUri().toString());
+    p.put("server.ssl.key-store-password", keys.password("tls")); p.put("server.ssl.key-store-type", "PKCS12");
     p.put("server.ssl.key-alias", "tls"); p.put("server.ssl.enabled-protocols", "TLSv1.3,TLSv1.2");
     p.put("server.servlet.session.cookie.name", "__Host-lab-idp"); p.put("server.servlet.session.cookie.secure", true);
     p.put("server.servlet.session.cookie.http-only", true); p.put("server.servlet.session.cookie.same-site", "strict");
@@ -77,18 +91,18 @@ public final class Lab implements AutoCloseable {
     if (phone != null) p.put("authn-server.saml.metadata-providers[1].location", signMetadata.toUri().toString());
     p.put("authn-server.saml.credentials.default-credential.bundle", "lab-idp");
     p.put("credential.bundles.jks.lab-idp.key.alias", "idp");
-    p.put("credential.bundles.jks.lab-idp.key.key-password", TestKeys.PASSWORD);
-    p.put("credential.bundles.jks.lab-idp.store.location", keys.directory().resolve("idp.p12").toUri().toString());
-    p.put("credential.bundles.jks.lab-idp.store.password", TestKeys.PASSWORD);
+    p.put("credential.bundles.jks.lab-idp.key.key-password", keys.password("idp"));
+    p.put("credential.bundles.jks.lab-idp.store.location", keys.storePath("idp").toUri().toString());
+    p.put("credential.bundles.jks.lab-idp.store.password", keys.password("idp"));
     p.put("credential.bundles.jks.lab-idp.store.type", "PKCS12");
-    p.put("authn-server.subject-identifier.secret", UUID.randomUUID().toString());
+    p.put("authn-server.subject-identifier.secret", runtimeKeys == null ? UUID.randomUUID().toString() : runtimeKeys.subjectSecret());
     p.put("authn-server.saml.metadata.ui-info.display-names.sv", phone == null ? "SIMULERAD e-id-labb" : "openID");
     p.put("lab.idp-base", idpBase); p.put("lab.sp-base", spBase);
     p.put("lab.webauthn", webAuthn);
     p.put("lab.phone", phone != null);
     p.put("lab.sandbox", sandbox);
-    if (sandbox) SwedenConnectSandbox.apply(p, keys, idpBase);
-    if (syntheticSandbox != null) syntheticSandbox.apply(p, keys);
+    if (sandbox) SwedenConnectSandbox.apply(p, (TestKeys) keys, idpBase);
+    if (syntheticSandbox != null) syntheticSandbox.apply(p, (TestKeys) keys);
     StandardEnvironment env = new StandardEnvironment();
     // Security settings cannot be replaced with production metadata, keys or a public bind through environment/CLI.
     env.getPropertySources().remove(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME);
@@ -107,6 +121,20 @@ public final class Lab implements AutoCloseable {
     finally { try { registry.close(); } catch (Exception e) { throw new IllegalStateException("Could not close persistent registry"); } }
   }
   public static void main(String[] args) throws Exception {
+    if (args.length == 4 && Set.of("runtime-idp", "runtime-sp").contains(args[0])) {
+      String role = args[0].equals("runtime-idp") ? "idp" : "sp";
+      var keys = new RuntimeKeys(Path.of(args[1]), role);
+      var origins = PilotOrigins.read(Path.of(args[3]));
+      var bridge = new lab.phone.PhoneBridge(Path.of(args[2]), origins.sp() + "/sp", false);
+      AutoCloseable service;
+      if (role.equals("idp")) service = runtimeIdp(keys, bridge, origins);
+      else {
+        OpenSAMLInitializer.getInstance().initialize(new OpenSAMLSecurityDefaultsConfig(new LabSecurityConfiguration()), new OpenSAMLSecurityExtensionConfig());
+        service = new RelyingParty(keys, origins.idp(), origins.sp(), null, bridge, 9444);
+      }
+      Runtime.getRuntime().addShutdownHook(new Thread(() -> { try { service.close(); } catch (Exception ignored) {} }));
+      System.out.println("Tjipp runtime " + role + " started; trust approval is separate"); return;
+    }
     if (args.length == 2 && args[0].equals("phone-sandbox-init")) { SwedenConnectSandbox.initialize(Path.of(args[1])); return; }
     if (args.length == 2 && args[0].equals("check-crls")) { lab.proofing.CrlCommand.run(args[1]); return; }
     if ((args.length == 2 || args.length == 3) && args[0].equals("verify-passport")) { lab.proofing.PassportCommand.run(args[1], args.length == 3 ? args[2] : null); return; }

@@ -45,13 +45,13 @@ public final class RelyingParty implements AutoCloseable {
   private final PilotOidcClient oidc;
   private final TestConsole console;
 
-  public RelyingParty(TestKeys keys, String idpBase, String base, SyntheticRegistry registry) throws Exception {
+  public RelyingParty(ServiceKeys keys, String idpBase, String base, SyntheticRegistry registry) throws Exception {
     this(keys, idpBase, base, registry, null);
   }
-  public RelyingParty(TestKeys keys, String idpBase, String base, SyntheticRegistry registry, PhoneBridge phone) throws Exception {
+  public RelyingParty(ServiceKeys keys, String idpBase, String base, SyntheticRegistry registry, PhoneBridge phone) throws Exception {
     this(keys, idpBase, base, registry, phone, URI.create(base).getPort());
   }
-  public RelyingParty(TestKeys keys, String idpBase, String base, SyntheticRegistry registry, PhoneBridge phone, int listenPort) throws Exception {
+  public RelyingParty(ServiceKeys keys, String idpBase, String base, SyntheticRegistry registry, PhoneBridge phone, int listenPort) throws Exception {
     if (listenPort < 1024 || listenPort > 65535) throw new IllegalArgumentException("Unprivileged loopback port required");
     this.base = base; this.idpBase = idpBase; this.registry = registry; this.phone = phone;
     oidc = phone != null && URI.create(base).getPort() == -1 ? new PilotOidcClient(keys, idpBase, base, phone) : null;

@@ -18,6 +18,8 @@ jobs:
           git rev-parse HEAD > "$RUNNER_TEMP/nginx-tested-revision.txt"
           sha256sum deployment/beta-nginx.conf > "$RUNNER_TEMP/nginx-config.sha256"
           python3 deployment/test_beta_nginx.py | tee "$RUNNER_TEMP/nginx-ingress.json"
+          sha256sum deployment/production/nginx.conf.in > "$RUNNER_TEMP/production-nginx-config.sha256"
+          python3 deployment/test_beta_nginx.py --configuration deployment/production/nginx.conf.in | tee "$RUNNER_TEMP/production-nginx-ingress.json"
       - name: Save ingress regression evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -27,6 +29,8 @@ jobs:
             ${{ runner.temp }}/nginx-tested-revision.txt
             ${{ runner.temp }}/nginx-config.sha256
             ${{ runner.temp }}/nginx-ingress.json
+            ${{ runner.temp }}/production-nginx-config.sha256
+            ${{ runner.temp }}/production-nginx-ingress.json
           retention-days: 90
       - name: Test resource expiry boundaries
         run: |
