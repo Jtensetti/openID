@@ -1,0 +1,259 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Permanent Tjipp host in Stockholm with private administration and retained data.
+
+Parameters:
+  AmiId:
+    Type: AWS::EC2::Image::Id
+    Description: Resolved Canonical Ubuntu 24.04 LTS amd64 gp3 AMI in Stockholm.
+  AvailabilityZone:
+    Type: String
+    Default: eu-north-1a
+    AllowedValues: [eu-north-1a, eu-north-1b, eu-north-1c]
+  InstanceType:
+    Type: String
+    Default: t3.large
+    AllowedValues: [t3.medium, t3.large]
+  PublicIngress:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['false', 'true']
+    Description: Enable HTTP for ACME and HTTPS after the ingress is prepared.
+  RevocationFunctionName:
+    Type: String
+    Default: not-configured
+    AllowedPattern: '^[A-Za-z0-9_-]{1,64}$'
+    Description: BackendFunction output from the new continuity stack.
+  NoticeQueueName:
+    Type: String
+    Default: not-configured
+    AllowedPattern: '^[A-Za-z0-9_-]{1,80}$'
+    Description: Queue name from the new continuity stack NoticeQueueArn output.
+
+Rules:
+  ContinuityParameters:
+    Assertions:
+      - Assert: !Or
+          - !And
+            - !Equals [!Ref RevocationFunctionName, not-configured]
+            - !Equals [!Ref NoticeQueueName, not-configured]
+          - !And
+            - !Not [!Equals [!Ref RevocationFunctionName, not-configured]]
+            - !Not [!Equals [!Ref NoticeQueueName, not-configured]]
+        AssertDescription: Provide both continuity outputs or leave both at their defaults during host setup.
+
+Conditions:
+  HasPublicIngress: !Equals [!Ref PublicIngress, 'true']
+  HasContinuity: !Not [!Equals [!Ref RevocationFunctionName, not-configured]]
+
+Resources:
+  Network:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.79.0.0/24
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+
+  Gateway:
+    Type: AWS::EC2::InternetGateway
+
+  GatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Network
+      InternetGatewayId: !Ref Gateway
+
+  HostSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Network
+      CidrBlock: 10.79.0.0/26
+      AvailabilityZone: !Ref AvailabilityZone
+      MapPublicIpOnLaunch: false
+
+  HostRoutes:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Network
+
+  InternetRoute:
+    Type: AWS::EC2::Route
+    DependsOn: GatewayAttachment
+    Properties:
+      RouteTableId: !Ref HostRoutes
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref Gateway
+
+  HostRouteAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref HostSubnet
+      RouteTableId: !Ref HostRoutes
+
+  HostSecurity:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Tjipp HTTPS egress for Session Manager and runtime dependencies.
+      VpcId: !Ref Network
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+
+  AcmeIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: HasPublicIngress
+    Properties:
+      GroupId: !Ref HostSecurity
+      IpProtocol: tcp
+      FromPort: 80
+      ToPort: 80
+      CidrIp: 0.0.0.0/0
+
+  HttpsIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: HasPublicIngress
+    Properties:
+      GroupId: !Ref HostSecurity
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      CidrIp: 0.0.0.0/0
+
+  HostRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: NoParameterStoreReads
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Deny
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                  - ssm:GetParametersByPath
+                  - ssm:GetParameterHistory
+                Resource: '*'
+
+  RuntimePermissions:
+    Type: AWS::IAM::Policy
+    Condition: HasContinuity
+    Properties:
+      PolicyName: TjippContinuity
+      Roles: [!Ref HostRole]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: lambda:InvokeFunction
+            Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${RevocationFunctionName}
+          - Effect: Allow
+            Action: sqs:SendMessage
+            Resource: !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:${NoticeQueueName}
+
+  HostProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref HostRole]
+
+  HostLaunch:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        ImageId: !Ref AmiId
+        InstanceType: !Ref InstanceType
+        IamInstanceProfile:
+          Name: !Ref HostProfile
+        CreditSpecification:
+          CpuCredits: standard
+        MetadataOptions:
+          HttpEndpoint: enabled
+          HttpTokens: required
+          HttpPutResponseHopLimit: 1
+          InstanceMetadataTags: disabled
+        NetworkInterfaces:
+          - DeviceIndex: 0
+            AssociatePublicIpAddress: false
+            SubnetId: !Ref HostSubnet
+            Groups: [!Ref HostSecurity]
+        BlockDeviceMappings:
+          - DeviceName: /dev/sda1
+            Ebs:
+              Encrypted: true
+              DeleteOnTermination: true
+              VolumeType: gp3
+              VolumeSize: 20
+
+  Host:
+    Type: AWS::EC2::Instance
+    DependsOn: [InternetRoute, HostRouteAssociation]
+    Properties:
+      LaunchTemplate:
+        LaunchTemplateId: !Ref HostLaunch
+        Version: !GetAtt HostLaunch.LatestVersionNumber
+      Tags:
+        - Key: Name
+          Value: !Ref AWS::StackName
+        - Key: Project
+          Value: Tjipp
+
+  DataDisk:
+    Type: AWS::EC2::Volume
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      AvailabilityZone: !Ref AvailabilityZone
+      Encrypted: true
+      VolumeType: gp3
+      Size: 30
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-data'
+        - Key: Project
+          Value: Tjipp
+
+  AttachDataDisk:
+    Type: AWS::EC2::VolumeAttachment
+    Properties:
+      InstanceId: !Ref Host
+      VolumeId: !Ref DataDisk
+      Device: /dev/sdf
+
+  Address:
+    Type: AWS::EC2::EIP
+    DependsOn: GatewayAttachment
+    Properties:
+      Domain: vpc
+
+  AddressAssociation:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt Address.AllocationId
+      InstanceId: !Ref Host
+
+Outputs:
+  InstanceId:
+    Description: EC2 instance for Session Manager and the monitoring stack.
+    Value: !Ref Host
+  DataVolumeId:
+    Description: Persistent EBS volume to mount at /srv/tjipp.
+    Value: !Ref DataDisk
+  PublicIPv4:
+    Description: Static address for the approved ingress DNS records.
+    Value: !Ref Address
+  AllocationId:
+    Description: Allocation ID for the address managed by this stack.
+    Value: !GetAtt Address.AllocationId
+  HostRoleArn:
+    Description: Host role to verify against the configured function and queue.
+    Value: !GetAtt HostRole.Arn

@@ -40,6 +40,10 @@ och seccomp. API och Java-tjänster binds till loopback. Endast ingressens
 HTTPS och avsedd administration får nås utifrån. En 8 GiB-värd är utgångspunkt
 för kapacitetsprov; verkliga mätningar avgör dimensioneringen.
 
+[AWS-värden](aws.md) beskriver nät, instansroll, diskar och startkontroll för
+den permanenta miljön i Stockholm. Samma mall kan granskas som en
+CloudFormation-förändringsplan före exekvering.
+
 Det finns ingen autoskalning eller kampanjstyrd avstängning. Register och
 pågående NFC-sessioner stöder inte flera parallella verifierarrepliker.
 En värd är en gemensam felpunkt. Backup, återställning, övervakning,
