@@ -11,8 +11,8 @@ Parameters:
     AllowedValues: [eu-north-1a, eu-north-1b, eu-north-1c]
   InstanceType:
     Type: String
-    Default: t3.large
-    AllowedValues: [t3.medium, t3.large]
+    Default: m7i-flex.large
+    AllowedValues: [c7i-flex.large, m7i-flex.large]
   PublicIngress:
     Type: String
     Default: 'false'
@@ -174,8 +174,6 @@ Resources:
         InstanceType: !Ref InstanceType
         IamInstanceProfile:
           Name: !Ref HostProfile
-        CreditSpecification:
-          CpuCredits: standard
         MetadataOptions:
           HttpEndpoint: enabled
           HttpTokens: required

@@ -6,8 +6,9 @@ amd64-AMI med gp3 och kontrollera dess ägare `099720109477`, tillgänglighet
 och rotenheten `/dev/sda1` före användning. Spara AMI-ID, zon och revision
 tillsammans med CloudFormations förändringsplan.
 
-Mallen väljer en `t3.large` med 8 GiB som utgångspunkt för kapacitetsprov.
-CPU-krediter körs i Standard-läge. Krypterad gp3 lagrar 20 GiB på systemdisken
+Mallen väljer en `m7i-flex.large` med 8 GiB som utgångspunkt för kapacitetsprov.
+`c7i-flex.large` med 4 GiB kan provas för lägre resursbehov.
+Krypterad gp3 lagrar 20 GiB på systemdisken
 och 30 GiB på datadisken. En ny fast IPv4-adress ger utgående HTTPS till
 Session Manager, Ubuntu och driftens externa beroenden. Det separata
 undernätet har en internetgateway. `PublicIngress=false` håller inkommande
@@ -35,8 +36,11 @@ aws cloudformation validate-template --region eu-north-1 \
   --template-body file://deployment/production/host.yaml
 ```
 
-Använd en CREATE-förändringsplan för den nya stacken. Tilldela `AmiId` det
-verifierade ID:t, välj zon och använd `CAPABILITY_IAM`. Läs samtliga ändringar
+Använd en CREATE-förändringsplan för den nya stacken. Kontrollera aktuell
+kontoplan och, om den är Free, instanstypens `free-tier-eligible`-värde,
+kvarvarande krediter och planens slutdatum. Kontrollera instanstypens
+tillgänglighet i vald zon. Tilldela `AmiId` det verifierade ID:t och använd
+`CAPABILITY_IAM`. Läs samtliga ändringar
 och valideringshändelser. Bevara planens ID, resurslista och parametrar.
 Exekvering startar debitering för värd, volymer och adress. En stoppad värd
 lämnar kostnaden för volymer och fast adress. Redovisa kvarvarande historiska
@@ -46,8 +50,9 @@ adresser separat fram till avveckling.
 
 1. Läs `InstanceId`, `DataVolumeId` och `PublicIPv4` från stacken. Kontrollera
    instansens faktiska AMI, metadataalternativ, gruppregler, volymer och
-   SSM-status. Läs in systemuppdateringar från signerade Ubuntu-arkiv över
-   HTTPS. Installera Ubuntu-paketen `docker.io`, `docker-compose-v2`, `nginx`
+   SSM-status. Använd Canonicals signerade arkiv över HTTPS i
+   `/etc/apt/sources.list.d/ubuntu.sources`. Behåll arkivens nyckelring.
+   Läs in systemuppdateringar och installera Ubuntu-paketen `docker.io`, `docker-compose-v2`, `nginx`
    och `certbot`. Anteckna exakta installerade versioner. Maska
    `docker.service` och `docker.socket` före installationen så att Docker
    börjar starta först med volymkontrollen på plats.
