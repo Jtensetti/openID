@@ -5,12 +5,11 @@ Den här profilen samlar appens befintliga serverkedja i ett Compose-projekt,
 explicita tjänstenycklar i stället för labbinitiering. Det är en teknisk
 driftdefinition, inte ett godkännande att utfärda e-legitimationer.
 
-Profilen knyter för närvarande IdP:n till den egna kontotjänstens fasta
-SAML-/OIDC-konfiguration. Den hämtar ännu inte Sweden Connects externa
-motpartsmetadata. En separat runtimekonfiguration för federationens
-ankare, krypteringsnyckel och testklienter återstår före externt anslutningsprov.
-Det äldre `phone-sandbox-idp`-läget ska inte användas som reservväg med
-produktionsnycklar.
+`federation.json` väljer uttryckligen den egna kontotjänsten (`private`) eller
+dessutom Sweden Connects SAML-sandbox (`sweden-connect-sandbox`). Samma fil
+monteras skrivskyddad i IdP, kontotjänst och registerbrygga. Inget läge ger
+en tillitsnivå eller öppnar registrering. Det äldre `phone-sandbox-idp`-läget
+ska inte användas som reservväg med driftens nycklar.
 
 ## Ingående delar
 
@@ -19,8 +18,8 @@ produktionsnycklar.
 | `verifier` | Register och verifieringskonfiguration | App-API på TLS/loopback 8767, privat profilnyckelsocket, separat spärrtjänst |
 | `vault` | Endast profilnyckel | Avgränsad Unix-socket; lämnar inte ut rånyckeln |
 | `bridge` | Register och konfiguration | Separata Unix-socketar för federation och avisering; samma spärrtjänst som API:t |
-| `idp` | Egna TLS-/utfärdarnycklar och publikt SP-certifikat | SAML/OIDC på TLS/loopback 9443; federationens socket |
-| `sp` | Egna TLS-/SP-nycklar och publikt IdP-certifikat | Kontotjänst, protokoll- och underskriftsprov på TLS/loopback 9444 |
+| `idp` | Egna TLS-, signerings- och krypteringsnycklar, publikt SP-certifikat, separat metadatatillstånd | SAML/OIDC på TLS/loopback 9443; federationens socket |
+| `sp` | Egna TLS-/SP-nycklar och publika IdP-certifikat | Kontotjänst, protokoll- och underskriftsprov på TLS/loopback 9444 |
 | `notice-exporter` | Ingen register- eller nyckelmontering | Aviseringssocket och en uttryckligt vald SQS-kö |
 
 Värden kör nginx enligt `nginx.conf.in`. `ingress.py` hämtar tre skilda
@@ -62,15 +61,17 @@ filer i ett byggarkiv, en PR eller ett publikt testresultat.
 | --- | --- | --- |
 | `data`, `secrets` | 10001:20002 | 0700; privata filer 0600 |
 | `runtime.json`, `continuity.json` | 10001:20002 | 0600 |
-| `origins.json` | Administratör | Läsbar för tjänsterna; skrivbar endast av administratör |
+| `origins.json`, `federation.json` | Administratör | Läsbar för tjänsterna; skrivbar endast av administratör |
 | `vault/private` | 10005:20002 | 0700; `wallet.identity-key` 0600 |
 | `vault/socket` | 10005:20002 | 2710 |
 | `ipc/federation` | 10001:20001 | 2710 |
 | `ipc/notice` | 10001:20003 | 2710 |
 | `federation-idp` | 10002:20001 | 0700; alla filer 0600 |
 | `federation-sp` | 10003:20001 | 0700; alla filer 0600 |
+| `federation-state` | 10002:20001 | 0700; separat från nyckelkatalogerna |
 
-Utgå från `runtime.example.json` och `continuity.example.json`; ersätt
+Utgå från `runtime.example.json`, `continuity.example.json` och
+`federation.example.json`; ersätt
 exempelvärdena med den verkliga miljön. `origins.json` innehåller endast
 `idp` och `sp`, se [formatet](../pilot-origins.example.json).
 `secrets` innehåller API:ts TLS-certifikat/-nyckel, privat kopplingskod,
@@ -89,15 +90,16 @@ Saknade filer stoppar starten; de faller aldrig tillbaka till `phone-init`.
 
 | Katalog | Exakt filuppsättning |
 | --- | --- |
-| `federation-idp` | `tls.p12`, `tls.password`, `idp.p12`, `idp.password`, `sp.crt`, `subject-secret` |
-| `federation-sp` | `tls.p12`, `tls.password`, `sp.p12`, `sp.password`, `idp.crt` |
+| `federation-idp` | `tls.p12`, `tls.password`, `idp.p12`, `idp.password`, `encryption.p12`, `encryption.password`, `sp.crt`, `subject-secret` |
+| `federation-sp` | `tls.p12`, `tls.password`, `sp.p12`, `sp.password`, `idp.crt`, `idp-encryption.crt` |
 
 Varje PKCS#12-fil får innehålla exakt en privat nyckel, med alias `tls`,
-`idp` respektive `sp`. Lösenordsfiler och `subject-secret` innehåller ett
+`idp`, `encryption` respektive `sp`. Lösenordsfiler och `subject-secret` innehåller ett
 separat slumpvärde om 43–128 URL-säkra tecken. Bevara `subject-secret` över
 omstarter. Certifikat ska vara giltiga RSA-certifikat om minst 3072 bitar;
 interna TLS-certifikat måste täcka `localhost` och `127.0.0.1`.
-IdP och SP måste ha olika nycklar. Motpartens fil innehåller endast dess
+TLS, IdP-signering, IdP-kryptering och SP måste ha olika nycklar. De två
+tjänsterna ska även ha var sitt interna TLS-par. Motpartens fil innehåller endast dess
 publika certifikat. Extra filer, labbmarkörer, delade rättigheter och
 symboliska länkar avvisas.
 
@@ -111,6 +113,25 @@ nyckelrotation och verklig flerpersonkontroll är inte verifierade genom den.
 Kontotjänstens dokumentunderskrift använder fortfarande test-CA och nycklar
 i processminnet; [begränsningarna](../../docs/pdf-underskrift.md) gäller även här.
 Autentiseringskontexten förblir privat pilotstatus och intygar ingen LoA 1–4.
+
+### Sweden Connects testfederation
+
+Sandboxprofilen hämtar endast den fasta signerade SAML-SP-feeden från
+`https://md.sandbox.swedenconnect.se/metadata/mdx/role/sp.xml`. Dess
+signatur kontrolleras med det versionsbundna certifikatet i jar-filen,
+SHA-256 `86b5306355636b184de4b0e29c7c417429ece79164fb4680acf0b5f28b1cc0ea`.
+HTTPS-värdnamnskontroll behålls. Hämtad metadata och egna genererade
+metadatafiler skrivs i `federation-state`, aldrig bland privata nycklar.
+
+Endast de tre fasta mottagarna `testsp1`, `testsp2` och `test-signservice1`
+under `https://testclient.sandbox.swedenconnect.se/` tillåts utöver den egna
+kontotjänsten. Både Java-adaptern och registerbryggan binder begäran och
+appens godkännande till den exakta mottagaren. SP2 får inget personnummer;
+övriga får ett endast när det finns autentiserat i passprofilen. Foto,
+passnummer och interna register-ID:n lämnas inte i dessa federationssvar.
+Ett externt anslutningsprov mot faktiska testklienter återstår efter
+leveransgrinden. Sweden Connects OIDC-federation ingår inte i denna profil;
+den egna kontotjänstens befintliga OIDC-flöde behålls.
 
 ## Kandidat, start och kontroll
 
@@ -161,6 +182,9 @@ python3 deployment/test_beta_nginx.py --configuration deployment/production/ngin
 Compose-proven använder Docker Compose för att rendera den faktiska filen;
 de hoppas över om verktyget saknas lokalt och körs obligatoriskt i CI.
 Java-proven verifierar privata nyckelgränser, felaktiga credentialfiler,
-publik OIDC-nyckelbindning och SP-start utan IdP:ns privata nyckel.
+profilval, separat metadatalagring och publik OIDC-nyckelbindning.
+Protokollproven kör de faktiska `runtime-idp`-/`runtime-sp`-kommandona med
+separata genererade tjänstenycklar och syntetiska identiteter. De använder
+en lokal TLS-relä för fasta testvärdnamn och behöver inget externt nät.
 Ingressproven använder genererade certifikat och en syntetisk bakomliggande
 tjänst. De provar varken verklig passkontroll, HSM eller en driftsatt miljö.

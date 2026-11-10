@@ -61,18 +61,13 @@ public final class Metadata {
   }
   public static String idp(ServiceKeys keys, String base) throws Exception {
     String credentials = key(keys, "idp");
-    var encryption = keys.directory().resolve("idp-encryption.crt");
-    if (java.nio.file.Files.exists(encryption)) {
-      try (var input = java.nio.file.Files.newInputStream(encryption)) {
-        var certificate = (java.security.cert.X509Certificate) java.security.cert.CertificateFactory.getInstance("X.509").generateCertificate(input);
+    var certificate = keys.encryptionCertificate();
+    if (certificate != null) {
         certificate.checkValidity();
-        if (!"CN=Tjipp-Sandbox-Encryption".equals(certificate.getSubjectX500Principal().getName()))
-          throw new IllegalArgumentException("Unexpected encryption certificate");
         credentials = credentials.replace("<md:KeyDescriptor>", "<md:KeyDescriptor use=\"signing\">") +
             "<md:KeyDescriptor use=\"encryption\"><ds:KeyInfo><ds:X509Data><ds:X509Certificate>" +
             Base64.getEncoder().encodeToString(certificate.getEncoded()) +
             "</ds:X509Certificate></ds:X509Data></ds:KeyInfo></md:KeyDescriptor>";
-      }
     }
     return header(base + "/idp") + """
         <md:IDPSSODescriptor WantAuthnRequestsSigned="true" protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">

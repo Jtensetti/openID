@@ -94,5 +94,16 @@ class ComposeTests(unittest.TestCase):
         self.config['services']['idp'].setdefault('environment', {})['JAVA_TOOL_OPTIONS'] = '-javaagent:/tmp/agent.jar'
         with self.assertRaises(ValueError): self.check()
 
+    def test_shared_profile_cannot_be_omitted_or_overridden_with_legacy_switch(self):
+        del self.config['services']['bridge']['environment']['OPENID_FEDERATION_CONFIG']
+        with self.assertRaises(ValueError): self.check()
+        self.config = copy.deepcopy(self.configuration)
+        self.config['services']['bridge']['environment']['OPENID_SWEDEN_CONNECT_SANDBOX'] = 'true'
+        with self.assertRaises(ValueError): self.check()
+        self.config = copy.deepcopy(self.configuration)
+        mount = next(m for m in self.config['services']['sp']['volumes'] if m['target'] == '/srv/openid/federation.json')
+        mount['read_only'] = False
+        with self.assertRaises(ValueError): self.check()
+
 
 if __name__ == '__main__': unittest.main()

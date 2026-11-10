@@ -11,12 +11,14 @@ MOUNTS = {
                  'data': ('data', False), 'continuity.json': ('continuity.json', True),
                  'vault-ipc': ('vault/socket', True)},
     'bridge': {'data': ('data', False), 'continuity.json': ('continuity.json', True),
-               'origins.json': ('origins.json', True), 'federation-ipc': ('ipc/federation', False),
+               'origins.json': ('origins.json', True), 'federation.json': ('federation.json', True),
+               'federation-ipc': ('ipc/federation', False),
                'notice-ipc': ('ipc/notice', False), 'vault-ipc': ('vault/socket', True)},
     'idp': {'federation': ('federation-idp', True), 'federation-ipc': ('ipc/federation', True),
-            'origins.json': ('origins.json', True)},
+            'origins.json': ('origins.json', True), 'federation.json': ('federation.json', True),
+            'federation-state': ('federation-state', False)},
     'sp': {'federation': ('federation-sp', True), 'federation-ipc': ('ipc/federation', True),
-           'origins.json': ('origins.json', True)},
+           'origins.json': ('origins.json', True), 'federation.json': ('federation.json', True)},
     'notice-exporter': {'notice-ipc': ('ipc/notice', True)},
 }
 IDENTITIES = {'vault': '10005:20002', 'verifier': '10001:20002', 'bridge': '10001:20001',
@@ -28,6 +30,7 @@ ENVIRONMENTS = {
                  'OPENID_IDENTITY_VAULT_SOCKET': '/srv/openid/vault-ipc/vault.sock'},
     'bridge': {'OPENID_CONTINUITY_CONFIG': '/srv/openid/continuity.json',
                'OPENID_PILOT_ORIGINS': '/srv/openid/origins.json',
+               'OPENID_FEDERATION_CONFIG': '/srv/openid/federation.json',
                'OPENID_IDENTITY_VAULT_SOCKET': '/srv/openid/vault-ipc/vault.sock',
                'OPENID_FEDERATION_SOCKET': '/srv/openid/federation-ipc/federation.sock',
                'OPENID_FEDERATION_GROUP': '20001', 'OPENID_NOTICE_SOCKET': '/srv/openid/notice-ipc/notice.sock',
@@ -81,8 +84,10 @@ def check_compose(config, image_id, directory):
         if name in {'idp', 'sp'}:
             require(service.get('entrypoint') == ['java', '-Xmx384m' if name == 'idp' else '-Xmx192m',
                     '-jar', '/app/prototype/target/isolated-eid-lab.jar'], 'Unexpected Java entrypoint')
-            require(service.get('command') == [f'runtime-{name}', '/srv/openid/federation',
-                    '/srv/openid/federation-ipc/federation.sock', '/srv/openid/origins.json'],
+            command = [f'runtime-{name}', '/srv/openid/federation', '/srv/openid/federation-ipc/federation.sock',
+                       '/srv/openid/origins.json', '/srv/openid/federation.json']
+            if name == 'idp': command.append('/srv/openid/federation-state')
+            require(service.get('command') == command,
                     'Explicit runtime credentials required')
         elif name == 'verifier':
             require(not service.get('entrypoint') and not service.get('command'), 'Use the packaged verifier entrypoint')
@@ -119,6 +124,9 @@ def main():
     if args.command == 'compose':
         check_compose(json.load(sys.stdin), args.image_id, args.directory)
     else:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'verification'))
+        from federation_config import read_profile
+        read_profile(args.directory / 'federation.json')
         check_settings(json.loads((args.directory / 'runtime.json').read_text()),
                        json.loads((args.directory / 'continuity.json').read_text()))
     print('Configuration checked; deployment, end-to-end checks and release approval are separate')

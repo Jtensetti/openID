@@ -63,6 +63,7 @@ services:
     environment:
       OPENID_CONTINUITY_CONFIG: /srv/openid/continuity.json
       OPENID_PILOT_ORIGINS: /srv/openid/origins.json
+      OPENID_FEDERATION_CONFIG: /srv/openid/federation.json
       OPENID_IDENTITY_VAULT_SOCKET: /srv/openid/vault-ipc/vault.sock
       OPENID_FEDERATION_SOCKET: /srv/openid/federation-ipc/federation.sock
       OPENID_FEDERATION_GROUP: "20001"
@@ -72,6 +73,7 @@ services:
       - ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/data:/srv/openid/data
       - ${TJIPP_DIRECTORY}/continuity.json:/srv/openid/continuity.json:ro
       - ${TJIPP_DIRECTORY}/origins.json:/srv/openid/origins.json:ro
+      - ${TJIPP_DIRECTORY}/federation.json:/srv/openid/federation.json:ro
       - ${TJIPP_DIRECTORY}/ipc/federation:/srv/openid/federation-ipc
       - ${TJIPP_DIRECTORY}/ipc/notice:/srv/openid/notice-ipc
       - ${TJIPP_DIRECTORY}/vault/socket:/srv/openid/vault-ipc:ro
@@ -82,11 +84,13 @@ services:
     cpus: 1
     healthcheck: {disable: true}
     entrypoint: [java, -Xmx384m, -jar, /app/prototype/target/isolated-eid-lab.jar]
-    command: [runtime-idp, /srv/openid/federation, /srv/openid/federation-ipc/federation.sock, /srv/openid/origins.json]
+    command: [runtime-idp, /srv/openid/federation, /srv/openid/federation-ipc/federation.sock, /srv/openid/origins.json, /srv/openid/federation.json, /srv/openid/federation-state]
     volumes:
       - ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/federation-idp:/srv/openid/federation:ro
       - ${TJIPP_DIRECTORY}/ipc/federation:/srv/openid/federation-ipc:ro
       - ${TJIPP_DIRECTORY}/origins.json:/srv/openid/origins.json:ro
+      - ${TJIPP_DIRECTORY}/federation.json:/srv/openid/federation.json:ro
+      - ${TJIPP_DIRECTORY}/federation-state:/srv/openid/federation-state
   sp:
     <<: *service
     user: "10003:20001"
@@ -94,11 +98,12 @@ services:
     cpus: 0.5
     healthcheck: {disable: true}
     entrypoint: [java, -Xmx192m, -jar, /app/prototype/target/isolated-eid-lab.jar]
-    command: [runtime-sp, /srv/openid/federation, /srv/openid/federation-ipc/federation.sock, /srv/openid/origins.json]
+    command: [runtime-sp, /srv/openid/federation, /srv/openid/federation-ipc/federation.sock, /srv/openid/origins.json, /srv/openid/federation.json]
     volumes:
       - ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/federation-sp:/srv/openid/federation:ro
       - ${TJIPP_DIRECTORY}/ipc/federation:/srv/openid/federation-ipc:ro
       - ${TJIPP_DIRECTORY}/origins.json:/srv/openid/origins.json:ro
+      - ${TJIPP_DIRECTORY}/federation.json:/srv/openid/federation.json:ro
   notice-exporter:
     <<: *service
     user: "10004:20003"

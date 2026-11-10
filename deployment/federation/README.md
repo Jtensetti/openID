@@ -1,5 +1,9 @@
 # Federationsnycklar och metadata: isolerat sandboxprov
 
+Den samlade tjänstens runtimekonfiguration beskrivs i
+[driftprofilen](../production/README.md#sweden-connects-testfederation).
+Skripten här genererar fristående labbcertifikat och provisionerar inte den profilen.
+
 Den lokala SAML-labben har redan självsignerade testcertifikat och PAdES-B-B med en separat, ej betrodd test-CA. Det här paketet lägger till **separata** SAML-signering- och krypteringscertifikat samt en läsande metadatakontroll. Varken nycklar, certifikat eller tillit i en driftsatt tjänst ändras.
 
 ## Skapa syntetiska certifikat lokalt

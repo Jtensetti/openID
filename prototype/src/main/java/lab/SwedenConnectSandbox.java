@@ -55,16 +55,36 @@ public final class SwedenConnectSandbox {
 
   static void apply(Map<String, Object> p, TestKeys keys, String origin) throws Exception {
     validate(keys);
+    apply(p, keys, origin, keys.directory(), keys.directory().resolve(CERTIFICATE).toUri().toString());
+  }
+
+  static void apply(Map<String, Object> p, RuntimeKeys keys, String origin, Path state) throws Exception {
+    try (var input = SwedenConnectSandbox.class.getResourceAsStream("/sandbox/saml-metadata-signing.crt")) {
+      var certificate = CertificateFactory.getInstance("X.509").generateCertificate(java.util.Objects.requireNonNull(input));
+      if (!FINGERPRINT.equals(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(certificate.getEncoded()))))
+        throw new IllegalStateException("Unexpected packaged Sandbox trust anchor");
+    }
+    apply(p, keys, origin, state, "classpath:/sandbox/saml-metadata-signing.crt");
+  }
+
+  static void encryption(Map<String, Object> p, ServiceKeys keys) throws Exception {
+    var certificate = keys.encryptionCertificate();
+    if (certificate == null || Arrays.equals(certificate.getPublicKey().getEncoded(), keys.certificate("idp").getPublicKey().getEncoded()))
+      throw new IllegalStateException("Separate issuer encryption key required");
+    p.put("authn-server.saml.credentials.encrypt.bundle", "issuer-encryption");
+    p.put("credential.bundles.jks.issuer-encryption.key.alias", "encryption");
+    p.put("credential.bundles.jks.issuer-encryption.key.key-password", keys.password("encryption"));
+    p.put("credential.bundles.jks.issuer-encryption.store.location", keys.storePath("encryption").toUri().toString());
+    p.put("credential.bundles.jks.issuer-encryption.store.password", keys.password("encryption"));
+    p.put("credential.bundles.jks.issuer-encryption.store.type", "PKCS12");
+  }
+
+  private static void apply(Map<String, Object> p, ServiceKeys keys, String origin, Path state, String anchor) throws Exception {
+    encryption(p, keys);
     p.put("authn-server.saml.metadata-providers[2].location", "https://md.sandbox.swedenconnect.se/metadata/mdx/role/sp.xml");
-    p.put("authn-server.saml.metadata-providers[2].validation-certificate", keys.directory().resolve(CERTIFICATE).toUri().toString());
-    p.put("authn-server.saml.metadata-providers[2].backup-location", keys.directory().resolve("sandbox-sp-metadata-backup.xml").toUri().toString());
+    p.put("authn-server.saml.metadata-providers[2].validation-certificate", anchor);
+    p.put("authn-server.saml.metadata-providers[2].backup-location", state.resolve("sandbox-sp-metadata-backup.xml").toUri().toString());
     p.put("authn-server.saml.metadata-providers[2].skip-hostname-verification", false);
-    p.put("authn-server.saml.credentials.encrypt.bundle", "sandbox-encryption");
-    p.put("credential.bundles.jks.sandbox-encryption.key.alias", "encryption");
-    p.put("credential.bundles.jks.sandbox-encryption.key.key-password", TestKeys.PASSWORD);
-    p.put("credential.bundles.jks.sandbox-encryption.store.location", keys.directory().resolve("encryption.p12").toUri().toString());
-    p.put("credential.bundles.jks.sandbox-encryption.store.password", TestKeys.PASSWORD);
-    p.put("credential.bundles.jks.sandbox-encryption.store.type", "PKCS12");
     p.put("server.servlet.session.cookie.same-site", "lax");
     p.remove("authn-server.saml.metadata.ui-info.display-names.sv");
     for (String language : List.of("sv", "en")) {

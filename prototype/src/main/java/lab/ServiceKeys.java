@@ -12,5 +12,6 @@ public interface ServiceKeys {
   String password(String alias);
   X509Certificate certificate(String alias) throws Exception;
   PkiCredential credential(String alias) throws Exception;
+  default X509Certificate encryptionCertificate() throws Exception { return null; }
   SSLContext sslContext() throws Exception;
 }

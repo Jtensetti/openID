@@ -1,8 +1,10 @@
 # Arkitektur
 
 Appflödet består av en iPhone-klient, en verifieringsserver med SQLite-register
-och separata Java-processer för SAML/OIDC. Den publika betan använder dessutom
-en oberoende spärrtjänst och aviseringskö. Se [avisering och spärr](avisering-och-sparr.md). Det finns också två äldre testlägen.
+och separata Java-processer för SAML/OIDC. Den samlade driftprofilen omfattar
+även separat profilnyckeltjänst, oberoende spärrtjänst och avisering.
+Se [driftprofilen](../deployment/production/README.md) och
+[avisering och spärr](avisering-och-sparr.md). Äldre labblägen är separata.
 
 ## Komponenter
 
@@ -31,6 +33,15 @@ resursbegränsade processer med Landlock/seccomp på Linux. Se [bildarbetare](bi
 Databasens transaktioner avgör samtidiga godkännanden och spärrar. Ett fillås
 hindrar flera runtime-processer på samma databas. Detta är en ensam nod,
 inte en distribuerad tjänst. [Start och drift](../deployment/README.md).
+
+`runtime-idp` och `runtime-sp` läser rollspecifika credentialkataloger utan
+labbinitiering eller genererad reservnyckel. IdP:n behåller signerings- och
+krypteringsnycklar; SP:n får endast deras publika certifikat. IdP:ns metadata
+har en separat skrivbar katalog. Samma skrivskyddade `federation.json` styr
+IdP och registerbrygga: privat profil eller Sweden Connects fasta
+SAML-sandboxfeed med versionsbundet signeringsankare och tre tillåtna
+externa mottagare. Övriga externa requester-ID:n avvisas före appgodkännande.
+Profilerna ger ingen LoA och ändrar inte registreringsbeslut.
 
 Betans nginx ersätter `X-OpenID-Client-IP` med anslutningens adress. Endast
 en explicit betrodd loopbackproxy får förmedla den till trafikbegränsningen;
@@ -102,7 +113,9 @@ Spärr, ersatt nyckel eller registeravbrott nekar fortsatt åtkomst.
 
 Tjänsten får namn, MRZ-födelsedatum, förminskat passfoto, tjänstesubjekt,
 credentialreferens och profilversion. MRZ:s tvåsiffriga årtal används utan
-härledning av sekel, ålder eller svenskt personnummer.
+härledning av sekel, ålder eller svenskt personnummer. Dessa attribut avser
+den egna kontotjänsten. Sandboxens externa testklienter får en separat
+begränsad attributuppsättning enligt [driftprofilen](../deployment/production/README.md#sweden-connects-testfederation).
 
 ## Livscykel och lagring
 

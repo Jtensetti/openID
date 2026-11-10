@@ -37,19 +37,27 @@ public final class Lab implements AutoCloseable {
   private Lab(Path keyDirectory, int idpPort, int spPort, SyntheticRegistry registry, boolean webAuthn,
       lab.phone.PhoneBridge phone, boolean startSp, PilotOrigins origins, boolean sandbox,
       SandboxConfig syntheticSandbox) throws Exception {
-    this(keyDirectory, idpPort, spPort, registry, webAuthn, phone, startSp, origins, sandbox, syntheticSandbox, null);
-  }
-  static Lab runtimeIdp(RuntimeKeys keys, lab.phone.PhoneBridge phone, PilotOrigins origins) throws Exception {
-    return runtimeIdp(keys, phone, origins, 9443, 9444);
+    this(keyDirectory, idpPort, spPort, registry, webAuthn, phone, startSp, origins, sandbox, syntheticSandbox, null, null);
   }
   static Lab runtimeIdp(RuntimeKeys keys, lab.phone.PhoneBridge phone, PilotOrigins origins,
-      int idpPort, int spPort) throws Exception {
+      RuntimeFederation federation, Path state) throws Exception {
+    return runtimeIdp(keys, phone, origins, federation, state, 9443, 9444);
+  }
+  static Lab runtimeIdp(RuntimeKeys keys, lab.phone.PhoneBridge phone, PilotOrigins origins,
+      RuntimeFederation federation, Path state, int idpPort, int spPort) throws Exception {
+    Path directory = state.toAbsolutePath().normalize();
+    if (!state.isAbsolute() || !directory.equals(directory.toRealPath())
+        || !Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)
+        || !Files.getPosixFilePermissions(directory).equals(java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"))
+        || !Files.getOwner(directory).equals(Files.getOwner(keys.directory()))
+        || directory.startsWith(keys.directory()) || keys.directory().startsWith(directory))
+      throw new IllegalArgumentException("Separate private issuer metadata directory required");
     return new Lab(keys.directory(), idpPort, spPort, new SyntheticRegistry(java.time.Clock.systemUTC()),
-        false, phone, false, origins, false, null, keys);
+        false, phone, false, origins, federation.sandbox(), null, keys, directory);
   }
   private Lab(Path keyDirectory, int idpPort, int spPort, SyntheticRegistry registry, boolean webAuthn,
       lab.phone.PhoneBridge phone, boolean startSp, PilotOrigins origins, boolean sandbox,
-      SandboxConfig syntheticSandbox, RuntimeKeys runtimeKeys) throws Exception {
+      SandboxConfig syntheticSandbox, RuntimeKeys runtimeKeys, Path runtimeMetadata) throws Exception {
     if (syntheticSandbox != null && (sandbox || phone != null || origins != null || webAuthn || startSp))
       throw new IllegalArgumentException("Sandbox is a standalone synthetic-only IdP");
     if (sandbox && (phone == null || webAuthn)) throw new IllegalArgumentException("Sandbox connection requires app authentication");
@@ -62,13 +70,13 @@ public final class Lab implements AutoCloseable {
     spBase = syntheticSandbox != null ? SandboxConfig.TEST_CLIENT : origins == null ? "https://" + host + ":" + spPort : origins.sp();
     if (!webAuthn && !registry.passkeys().isEmpty()) throw new IllegalStateException("Passkey state requires start-web; no downgrade to simulated approval");
     OpenSAMLInitializer.getInstance().initialize(new OpenSAMLSecurityDefaultsConfig(new LabSecurityConfiguration(sandbox || syntheticSandbox != null)), new OpenSAMLSecurityExtensionConfig());
-    Path metadataDirectory = runtimeKeys == null ? keys.directory() : Files.createTempDirectory("tjipp-metadata-");
+    Path metadataDirectory = runtimeKeys == null ? keys.directory() : Objects.requireNonNull(runtimeMetadata);
     Path metadata = metadataDirectory.resolve("sp-metadata.xml");
-    if (syntheticSandbox == null) Files.writeString(metadata, Metadata.sp(keys, spBase, phone != null));
-    // Export the pinned, synthetic IdP view for offline metadata checks; not federation-approved metadata.
-    Files.writeString(metadataDirectory.resolve("idp-metadata.xml"), Metadata.idp(keys, idpBase));
+    if (syntheticSandbox == null) writeMetadata(metadata, Metadata.sp(keys, spBase, phone != null));
+    // Export the pinned IdP view for offline checks; external registration is separate.
+    writeMetadata(metadataDirectory.resolve("idp-metadata.xml"), Metadata.idp(keys, idpBase));
     Path signMetadata = metadataDirectory.resolve("sign-metadata.xml");
-    if (phone != null) Files.writeString(signMetadata, Metadata.signService(keys, spBase));
+    if (phone != null) writeMetadata(signMetadata, Metadata.signService(keys, spBase));
     Map<String, Object> p = new HashMap<>();
     p.put("spring.config.location", "classpath:/application.properties");
     p.put("spring.main.banner-mode", "off");
@@ -101,7 +109,11 @@ public final class Lab implements AutoCloseable {
     p.put("lab.webauthn", webAuthn);
     p.put("lab.phone", phone != null);
     p.put("lab.sandbox", sandbox);
-    if (sandbox) SwedenConnectSandbox.apply(p, (TestKeys) keys, idpBase);
+    if (runtimeKeys != null) {
+      SwedenConnectSandbox.encryption(p, runtimeKeys);
+      if (sandbox) SwedenConnectSandbox.apply(p, runtimeKeys, idpBase, metadataDirectory);
+    }
+    else if (sandbox) SwedenConnectSandbox.apply(p, (TestKeys) keys, idpBase);
     if (syntheticSandbox != null) syntheticSandbox.apply(p, (TestKeys) keys);
     StandardEnvironment env = new StandardEnvironment();
     // Security settings cannot be replaced with production metadata, keys or a public bind through environment/CLI.
@@ -116,18 +128,25 @@ public final class Lab implements AutoCloseable {
     try { sp = startSp ? new RelyingParty(keys, idpBase, spBase, registry, phone, spPort) : null; }
     catch (Exception e) { idp.close(); throw e; }
   }
+  private static void writeMetadata(Path path, String value) throws Exception {
+    Files.writeString(path, value, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING,
+        StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
+    Files.setPosixFilePermissions(path, java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));
+  }
   @Override public void close() {
     try { if (sp != null) sp.close(); idp.close(); }
     finally { try { registry.close(); } catch (Exception e) { throw new IllegalStateException("Could not close persistent registry"); } }
   }
   public static void main(String[] args) throws Exception {
-    if (args.length == 4 && Set.of("runtime-idp", "runtime-sp").contains(args[0])) {
+    if (args.length > 0 && Set.of("runtime-idp", "runtime-sp").contains(args[0])) {
       String role = args[0].equals("runtime-idp") ? "idp" : "sp";
+      if (args.length != (role.equals("idp") ? 6 : 5)) throw new IllegalArgumentException("Explicit runtime keys, socket, origins, federation profile and issuer metadata directory required");
       var keys = new RuntimeKeys(Path.of(args[1]), role);
       var origins = PilotOrigins.read(Path.of(args[3]));
-      var bridge = new lab.phone.PhoneBridge(Path.of(args[2]), origins.sp() + "/sp", false);
+      var federation = RuntimeFederation.read(Path.of(args[4]));
+      var bridge = new lab.phone.PhoneBridge(Path.of(args[2]), origins.sp() + "/sp", role.equals("idp") && federation.sandbox());
       AutoCloseable service;
-      if (role.equals("idp")) service = runtimeIdp(keys, bridge, origins);
+      if (role.equals("idp")) service = runtimeIdp(keys, bridge, origins, federation, Path.of(args[5]));
       else {
         OpenSAMLInitializer.getInstance().initialize(new OpenSAMLSecurityDefaultsConfig(new LabSecurityConfiguration()), new OpenSAMLSecurityExtensionConfig());
         service = new RelyingParty(keys, origins.idp(), origins.sp(), null, bridge, 9444);

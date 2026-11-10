@@ -31,12 +31,13 @@ public final class RuntimeKeys implements ServiceKeys {
     String peer = role.equals("idp") ? "sp" : "idp";
     Set<String> expected = new HashSet<>(Set.of("tls.p12", "tls.password", role + ".p12",
         role + ".password", peer + ".crt"));
-    if (role.equals("idp")) expected.add("subject-secret");
+    if (role.equals("idp")) expected.addAll(Set.of("subject-secret", "encryption.p12", "encryption.password"));
+    else expected.add("idp-encryption.crt");
     try (var files = Files.list(directory)) {
       if (!files.map(p -> p.getFileName().toString()).collect(java.util.stream.Collectors.toSet()).equals(expected))
         throw new IllegalArgumentException("Unexpected or missing service credential file");
     }
-    for (String alias : List.of("tls", role)) {
+    for (String alias : role.equals("idp") ? List.of("tls", role, "encryption") : List.of("tls", role)) {
       String password = new String(readPrivate(alias + ".password", 256), java.nio.charset.StandardCharsets.US_ASCII).strip();
       if (!password.matches("[A-Za-z0-9_-]{43,128}")) throw new IllegalArgumentException("Strong private store password required");
       var store = KeyStore.getInstance("PKCS12");
@@ -57,6 +58,17 @@ public final class RuntimeKeys implements ServiceKeys {
     if (peerCertificates.size() != 1) throw new IllegalArgumentException("Exactly one pinned peer certificate required");
     var peerCertificate = (X509Certificate) peerCertificates.iterator().next();
     validateCertificate(peerCertificate); certificates.put(peer, peerCertificate);
+    if (role.equals("sp")) {
+      var parsed = CertificateFactory.getInstance("X.509").generateCertificates(
+          new ByteArrayInputStream(readPrivate("idp-encryption.crt", 65_536)));
+      if (parsed.size() != 1) throw new IllegalArgumentException("One pinned issuer encryption certificate required");
+      var encryption = (X509Certificate) parsed.iterator().next();
+      validateCertificate(encryption); certificates.put("encryption", encryption);
+    }
+    var distinct = new HashSet<String>();
+    for (String alias : List.of("tls", "idp", "sp", "encryption"))
+      distinct.add(Base64.getEncoder().encodeToString(certificate(alias).getPublicKey().getEncoded()));
+    if (distinct.size() != 4) throw new IllegalArgumentException("Distinct TLS, issuer signing/encryption and recipient keys required");
     if (Arrays.equals(certificate(role).getPublicKey().getEncoded(), peerCertificate.getPublicKey().getEncoded()))
       throw new IllegalArgumentException("Distinct issuer and recipient keys required");
     if (Arrays.equals(certificate("tls").getPublicKey().getEncoded(), certificate(role).getPublicKey().getEncoded())
@@ -108,6 +120,7 @@ public final class RuntimeKeys implements ServiceKeys {
     requirePrivate(alias);
     return new KeyStoreCredential(stores.get(alias), alias, password(alias).toCharArray());
   }
+  @Override public X509Certificate encryptionCertificate() { return certificate("encryption"); }
   public String subjectSecret() {
     if (!role.equals("idp")) throw new IllegalArgumentException("Issuer role required");
     return subjectSecret;

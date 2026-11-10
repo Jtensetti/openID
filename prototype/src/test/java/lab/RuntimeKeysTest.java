@@ -14,7 +14,7 @@ class RuntimeKeysTest {
   static final String PASSWORD = "R".repeat(43);
 
   @BeforeAll static void generate() throws Exception {
-    for (String alias : List.of("tls", "idp", "sp")) {
+    for (String alias : List.of("tls", "idp", "sp", "encryption")) {
       var arguments = new ArrayList<>(List.of(Path.of(System.getProperty("java.home"), "bin", "keytool").toString(),
           "-genkeypair", "-alias", alias, "-keyalg", "RSA", "-keysize", "3072", "-sigalg", "SHA256withRSA",
           "-validity", "2", "-dname", "CN=Generated-runtime-test-" + alias, "-storetype", "PKCS12",
@@ -33,12 +33,13 @@ class RuntimeKeysTest {
     Path root = work.resolve(UUID.randomUUID().toString()); Files.createDirectory(root);
     Files.setPosixFilePermissions(root, PosixFilePermissions.fromString("rwx------"));
     String peer = role.equals("idp") ? "sp" : "idp";
-    for (String alias : List.of("tls", role)) {
+    for (String alias : role.equals("idp") ? List.of("tls", role, "encryption") : List.of("tls", role)) {
       Files.copy(fixture.resolve(alias + ".p12"), root.resolve(alias + ".p12"));
       Files.writeString(root.resolve(alias + ".password"), PASSWORD + "\n");
     }
     Files.copy(fixture.resolve(peer + ".crt"), root.resolve(peer + ".crt"));
     if (role.equals("idp")) Files.writeString(root.resolve("subject-secret"), "S".repeat(43) + "\n");
+    else Files.copy(fixture.resolve("encryption.crt"), root.resolve("idp-encryption.crt"));
     try (var files = Files.list(root)) {
       for (Path file : files.toList()) Files.setPosixFilePermissions(file, PosixFilePermissions.fromString("rw-------"));
     }
@@ -53,6 +54,9 @@ class RuntimeKeysTest {
       assertThrows(IllegalArgumentException.class, () -> keys.credential(peer));
       assertThrows(IllegalArgumentException.class, () -> keys.storePath(peer));
       assertThrows(IllegalArgumentException.class, () -> keys.password(peer));
+      if (role.equals("idp")) assertNotNull(keys.credential("encryption").getPrivateKey());
+      else assertThrows(IllegalArgumentException.class, () -> keys.credential("encryption"));
+      assertNotNull(keys.encryptionCertificate());
       assertNotNull(keys.sslContext());
     }
   }
@@ -94,7 +98,9 @@ class RuntimeKeysTest {
     var bridge = new lab.phone.PhoneBridge(work.resolve("absent.sock"), origins.sp() + "/sp");
     int idpPort = FlowTest.freePort(), spPort = FlowTest.freePort();
     while (spPort == idpPort) spPort = FlowTest.freePort();
-    try (var service = Lab.runtimeIdp(keys, bridge, origins, idpPort, spPort);
+    Path state = Files.createDirectory(work.resolve("metadata")).toRealPath();
+    Files.setPosixFilePermissions(state, PosixFilePermissions.fromString("rwx------"));
+    try (var service = Lab.runtimeIdp(keys, bridge, origins, new RuntimeFederation(false), state, idpPort, spPort);
          var socket = (javax.net.ssl.SSLSocket) keys.sslContext().getSocketFactory().createSocket("localhost", idpPort)) {
       socket.setSoTimeout(5000);
       var parameters = socket.getSSLParameters(); parameters.setEndpointIdentificationAlgorithm("HTTPS");
@@ -104,8 +110,10 @@ class RuntimeKeysTest {
       String reply = new String(socket.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
       assertTrue(reply.startsWith("HTTP/1.1 200"), reply.substring(0, Math.min(200, reply.length())));
       assertTrue(reply.contains(origins.idp() + "/idp"));
+      assertTrue(reply.contains(Base64.getEncoder().encodeToString(keys.certificate("encryption").getEncoded())));
       assertFalse(Files.exists(keys.directory().resolve("sp.p12")));
       assertFalse(Files.exists(keys.directory().resolve("idp-metadata.xml")));
+      assertTrue(Files.exists(state.resolve("idp-metadata.xml")));
     }
   }
   @Test void copiedPeerPrivateStoreStopsStart() throws Exception {
@@ -136,5 +144,36 @@ class RuntimeKeysTest {
   @Test void issuerAndRecipientCannotShareKey() throws Exception {
     Path root = prepare("sp"); Files.copy(fixture.resolve("sp.crt"), root.resolve("idp.crt"), StandardCopyOption.REPLACE_EXISTING);
     assertThrows(IllegalArgumentException.class, () -> new RuntimeKeys(root, "sp"));
+  }
+  @Test void recipientCannotHaveIssuerEncryptionPrivateKeyOrOmitPublicKey() throws Exception {
+    Path root = prepare("sp");
+    Files.delete(root.resolve("idp-encryption.crt"));
+    assertThrows(IllegalArgumentException.class, () -> new RuntimeKeys(root, "sp"));
+    Path recipient = prepare("sp"); Files.copy(fixture.resolve("encryption.p12"), recipient.resolve("encryption.p12"));
+    assertThrows(IllegalArgumentException.class, () -> new RuntimeKeys(recipient, "sp"));
+  }
+  @Test void issuerSigningKeyCannotAlsoBeThePublicEncryptionKey() throws Exception {
+    Path root = prepare("sp"); Files.copy(fixture.resolve("idp.crt"), root.resolve("idp-encryption.crt"), StandardCopyOption.REPLACE_EXISTING);
+    assertThrows(IllegalArgumentException.class, () -> new RuntimeKeys(root, "sp"));
+  }
+  @Test void runtimeSandboxPinsPackagedAnchorAndSeparatesMetadataFromKeys() throws Exception {
+    var keys = new RuntimeKeys(prepare("idp"), "idp");
+    var properties = new HashMap<String, Object>();
+    Path state = work.resolve("metadata").toAbsolutePath();
+    SwedenConnectSandbox.apply(properties, keys, "https://idp.example.test", state);
+    assertEquals("classpath:/sandbox/saml-metadata-signing.crt", properties.get("authn-server.saml.metadata-providers[2].validation-certificate"));
+    assertEquals(state.resolve("sandbox-sp-metadata-backup.xml").toUri().toString(), properties.get("authn-server.saml.metadata-providers[2].backup-location"));
+    assertEquals(false, properties.get("authn-server.saml.metadata-providers[2].skip-hostname-verification"));
+    assertEquals(keys.storePath("encryption").toUri().toString(), properties.get("credential.bundles.jks.issuer-encryption.store.location"));
+    assertFalse(properties.toString().contains("loa3"));
+  }
+  @Test void metadataCannotWriteIntoKeysOrSharedDirectory() throws Exception {
+    var keys = new RuntimeKeys(prepare("idp"), "idp");
+    var origins = new PilotOrigins("https://idp.example.test", "https://sp.example.test");
+    var bridge = new lab.phone.PhoneBridge(work.resolve("absent.sock"), origins.sp() + "/sp");
+    assertThrows(IllegalArgumentException.class, () -> Lab.runtimeIdp(keys, bridge, origins, new RuntimeFederation(false), keys.directory()));
+    Path state = Files.createDirectory(work.resolve("shared")).toRealPath();
+    Files.setPosixFilePermissions(state, PosixFilePermissions.fromString("rwxr-xr-x"));
+    assertThrows(IllegalArgumentException.class, () -> Lab.runtimeIdp(keys, bridge, origins, new RuntimeFederation(false), state));
   }
 }
