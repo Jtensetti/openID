@@ -1,5 +1,6 @@
 """Private component readiness; never prints profiles, sessions or credentials."""
 import http.client
+from html.parser import HTMLParser
 import json
 from pathlib import Path
 import ssl
@@ -11,6 +12,23 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'verification'))
 from aws_credential_process import load
 from federation_config import read_origins
 from ipc_support import request
+
+
+def sp_ready(body):
+    class Marker(HTMLParser):
+        def __init__(self):
+            super().__init__();self.current=None;self.markers=[]
+        def handle_starttag(self,tag,attrs):
+            if tag=='main':
+                if self.current is not None:raise ValueError('nested readiness marker')
+                self.current=[]
+        def handle_endtag(self,tag):
+            if tag=='main' and self.current is not None:
+                self.markers.append(''.join(self.current));self.current=None
+        def handle_data(self,text):
+            if self.current is not None:self.current.append(text)
+    parser=Marker();parser.feed(body.decode('utf-8'));parser.close()
+    return parser.current is None and parser.markers==['READY']
 
 
 def main():
@@ -40,7 +58,7 @@ def main():
                 response = connection.getresponse(); body = response.read(16385)
                 if response.status != 200 or len(body) > 16384:
                     raise ValueError('federation unavailable')
-                if name == 'sp' and body != b'READY': raise ValueError('SP storage unavailable')
+                if name == 'sp' and not sp_ready(body): raise ValueError('SP storage unavailable')
             finally: connection.close()
         else: raise ValueError('unknown component')
         return 0
