@@ -107,7 +107,9 @@ OpenBao startas med TLS och beständig Raft, aldrig `-dev`. Initiering,
 unseal, audit, Transit-nycklar och avgränsade tjänstetokens provisioneras
 separat under beslutad nyckelhantering. Starten initierar eller låser inte
 upp tjänsten och återfaller inte till rånyckelfil eller root-token.
-Minneslåsning är avstängd för Raft; värdens swap måste därför vara avstängd.
+OpenBao använder inte mlock; värdens swap ska vara avstängd och tjänstens
+minnes- och swapgräns ska vara lika. Den gamla inställningen
+`disable_mlock` används inte. Se [OpenBaos driftanvisning](https://openbao.org/docs/install/).
 
 **Obevakad drift är ännu inte verifierad.** Inför och prova förnyelse av
 OpenBao-tokens med ägarskyddat filbyte, utgång/återinloggning, planerad

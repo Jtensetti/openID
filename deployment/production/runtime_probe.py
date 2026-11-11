@@ -96,7 +96,7 @@ class Runtime:
         print('Synthetic runtime phase: '+value,flush=True)
 
     def diagnostics(self):
-        states={}
+        states={};vendor_logs={}
         for name in IDENTITIES:
             try:
                 identifier=self.container(name)
@@ -104,8 +104,12 @@ class Runtime:
                     state=json.loads(command(['docker','inspect',identifier]))[0]['State']
                     states[name]={'status':state['Status'],'exitCode':state['ExitCode'],
                                   'health':state.get('Health',{}).get('Status')}
+                    if name in VENDORS:
+                        log=subprocess.run(['docker','logs','--tail','20',identifier],capture_output=True,text=True,timeout=10)
+                        vendor_logs[name]=(log.stdout+log.stderr)[-4000:]
             except Exception:pass
         self.report['componentStatus']=states
+        self.report['syntheticVendorStartupLogs']=vendor_logs
         if self.aws is not None:self.report['syntheticUpstreamErrors']=list(self.aws.errors)
 
     def directory(self,name,uid,gid,mode):
@@ -434,13 +438,13 @@ class Runtime:
                     script='from pathlib import Path;import sys\ntry:Path('+repr(str(self.root/'aws'/owner/'session.json'))+').read_bytes()\nexcept PermissionError:sys.exit(17)\nsys.exit(0)'
                     groups='--groups='+','.join(map(str,GROUPS.get(name,[]))) if GROUPS.get(name) else '--clear-groups'
                     result=subprocess.run(['setpriv','--reuid='+str(uid),'--regid='+str(gid),groups,'--no-new-privs',
-                        '--bounding-set=-all','--inh-caps=-all','--ambient-caps=-all',sys.executable,'-c',script],capture_output=True,timeout=5)
+                        '--bounding-set=-all','--inh-caps=-all','--ambient-caps=-all','/usr/bin/python3','-c',script],capture_output=True,timeout=5)
                     owns=(name=='continuity' and owner=='continuity') or (name=='notice-exporter' and owner=='notices')
                     assert result.returncode==(0 if owns else 17),'per-UID cloud session ownership failed'
                 for family,address in [(socket.AF_INET,'169.254.169.254'),(socket.AF_INET6,'fd00:ec2::254')]:
                     script='import socket,sys;s=socket.socket('+str(int(family))+',socket.SOCK_STREAM);s.settimeout(2)\ntry:s.connect(('+repr(address)+',80))\nexcept OSError:sys.exit(0)\nsys.exit(3)'
                     result=subprocess.run(['setpriv','--reuid='+str(uid),'--regid='+str(gid),'--clear-groups','--no-new-privs',
-                        '--bounding-set=-all','--inh-caps=-all','--ambient-caps=-all',sys.executable,'-c',script],capture_output=True,timeout=5)
+                        '--bounding-set=-all','--inh-caps=-all','--ambient-caps=-all','/usr/bin/python3','-c',script],capture_output=True,timeout=5)
                     assert result.returncode==0,'non-root service can reach synthetic IMDS'
             report.append({'service':name,'uid':uid,'gid':gid,'actual_container_inspected':True,
                            'imds_ipv4':'blocked' if uid else 'trusted_rotator','imds_ipv6':'blocked' if uid else 'trusted_rotator'})
