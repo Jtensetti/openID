@@ -21,11 +21,11 @@ DO $$ BEGIN
 END $$;
 LOCK TABLE credentials,profiles,activation_proposals IN ACCESS EXCLUSIVE MODE;
 CREATE TABLE registry_evidence (
- reference text PRIMARY KEY CHECK(reference ~ '^[A-Za-z0-9:_-]{32,128}$'),
+ reference text PRIMARY KEY CHECK(reference ~ '^vault:v1:[A-Za-z0-9+/]{43}=$'),
  credential text NOT NULL REFERENCES credentials(id) ON DELETE CASCADE);
 CREATE TABLE registry_bindings (
  credential text PRIMARY KEY REFERENCES profiles(credential) ON DELETE CASCADE,
- person_tag text NOT NULL CHECK(person_tag ~ '^[A-Za-z0-9:_-]{32,128}$'),
+ person_tag text NOT NULL CHECK(person_tag ~ '^vault:v1:[A-Za-z0-9+/]{43}=$'),
  sealed text NOT NULL CHECK(octet_length(sealed)<=65536),
  source text NOT NULL CHECK(source ~ '^[a-z][a-z0-9-]{2,63}$'),
  identity_kind text NOT NULL CHECK(identity_kind IN ('personnummer','samordningsnummer','synthetic')),
@@ -48,8 +48,8 @@ BEGIN
   OR checked_epoch>now_epoch OR until_epoch<=now_epoch OR until_epoch>checked_epoch+86400
   OR registry_source IS NULL OR registry_source !~ '^[a-z][a-z0-9-]{2,63}$'
   OR identity_kind IS NULL OR identity_kind NOT IN ('personnummer','samordningsnummer','synthetic')
-  OR person_reference IS NULL OR person_reference !~ '^[A-Za-z0-9:_-]{32,128}$'
-  OR evidence_reference IS NULL OR evidence_reference !~ '^[A-Za-z0-9:_-]{32,128}$'
+  OR person_reference IS NULL OR person_reference !~ '^vault:v1:[A-Za-z0-9+/]{43}=$'
+  OR evidence_reference IS NULL OR evidence_reference !~ '^vault:v1:[A-Za-z0-9+/]{43}=$'
   OR sealed_binding IS NULL OR octet_length(sealed_binding)>65536
  THEN RAISE EXCEPTION 'valid registry evidence required'; END IF;
  SELECT * INTO c FROM credentials WHERE id=target FOR UPDATE;

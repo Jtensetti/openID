@@ -262,8 +262,8 @@ class ClusterTests(unittest.TestCase):
         for index in (0,5,6,7,8):
             args=list(row)
             args[index]=0 if index in (7,8) else 'f'*64
-            args[9]='registry-test-'+secrets.token_hex(32)
-            with self.subTest(index=index),self.assertRaises(self.psycopg.Error):self.sql('registry',function,args)
+            expected='valid registry evidence required' if index in (7,8) else 'registry profile changed'
+            with self.subTest(index=index),self.assertRaisesRegex(self.psycopg.Error,expected):self.sql('registry',function,args)
         for statement in ('DELETE FROM registry_evidence','DELETE FROM registry_bindings',
                           "UPDATE registry_bindings SET valid_until=valid_until+1"):
             with self.assertRaises(self.psycopg.Error):self.sql('registry',statement)
@@ -1527,6 +1527,7 @@ with ExitStack() as stack:
         with self.psycopg.connect(DSN,autocommit=True) as admin:
             admin.execute('TRUNCATE openid.erasure_runs,openid.credentials,openid.persons,openid.operator_events,openid.maintenance_runs,openid.biometric_attempts RESTART IDENTITY CASCADE')
         self.enroller.vault=TransitVault(source['address'],tokens['enroller'],str(cluster.cert))
+        self.registry_store.vault=TransitVault(source['address'],tokens['registry'],str(cluster.cert))
         self.ident=self.enroller.enroll(self.keys[0]['publicKey'],document())['id'];self.activate()
         destination=self.root/('paired-'+secrets.token_hex(8))
         backup(self.dsns['backup'],destination,local_test=True)
