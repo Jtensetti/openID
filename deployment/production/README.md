@@ -232,7 +232,8 @@ organisatorisk kontroll, oberoende granskning eller Diggs beslut.
 kompletta kanoniska runtimeprov, källrevision och källträd. Det kräver den
 låsta leverantörskällan och bildens uppmätta linux/amd64-ID i Docker,
 läser OS-identitet och installerade dpkg-/APK-paket samt kör binärernas
-versionskommandon utan nät, driftvolymer eller extra kapabiliteter.
+versionskommandon utan nät, driftvolymer eller extra kapabiliteter. Appen
+inventeras med sin befintliga Python; den saknar avsiktligt kommandoskal.
 Källbindningen bygger på Docker-daemonens upplösning av den låsta referensen;
 den är ingen oberoende attestering av registret eller en komplett SBOM.
 
@@ -251,7 +252,10 @@ och avvisad appbedömning redovisas separat. Inventeringen kan lyckas samtidigt
 som `releaseStatus` är `BLOCKED`; `--require-release-ready` nekar då med
 felkod 2. Ofullständig inventering ger felkod 1 även utan denna flagga.
 
-CI behåller inventeringen även när appens OS-bedömning underkänns.
+CI kräver `--require-release-ready` före paketeringen och behåller
+inventeringen även när appens OS-bedömning eller leveransberedskapen
+underkänns. Därmed kan den äldre en-image-paketeringen inte fortsätta
+enbart för att appens bedömning skulle passera.
 Detta verktyg exporterar eller importerar inga bilder. Full bedömning av
 alla tre, versionsbundet export-/importpaket och verifierad återläsning
 återstår före leverans. Den äldre `image_bundle.py` hanterar en enda

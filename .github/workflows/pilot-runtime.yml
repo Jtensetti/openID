@@ -295,7 +295,8 @@ jobs:
             --image "$(cat "$RUNNER_TEMP/image-id.txt")" \
             --runtime "$RUNNER_TEMP/canonical-runtime.json" \
             --os-audit "$RUNNER_TEMP/image-os-audit" \
-            --output "$RUNNER_TEMP/three-image-inventory.json"
+            --output "$RUNNER_TEMP/three-image-inventory.json" \
+            --require-release-ready
       - name: Save image package inventory
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

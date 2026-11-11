@@ -51,6 +51,9 @@ class FakeDocker:
         self.calls.append(args)
         if args[:3] == ['docker', 'image', 'inspect']:
             return json.dumps(self.inspection[args[3]]).encode()
+        if args[args.index('--entrypoint') + 2] == IMAGE:
+            if args[args.index('--entrypoint') + 1] != 'python':
+                raise ValueError('hardened application has no shell')
         return self.contents[args[args.index('--entrypoint') + 2]]
 
 

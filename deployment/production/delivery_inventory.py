@@ -48,6 +48,17 @@ printf '\000versions\000'
 '''
 VERSIONS = {'application': 'python --version\nnode --version\njava -version 2>&1\n',
             'postgres': 'postgres --version\n', 'openbao': 'bao version\n'}
+APPLICATION_PROBE = r'''from pathlib import Path
+import subprocess
+import sys
+sys.stdout.write('os-release\0' + Path('/etc/os-release').read_text() + '\0manager\0dpkg\0packages\0')
+sys.stdout.flush()
+subprocess.run(['dpkg-query', '-W', '-f', '${binary:Package}\t${Version}\t${Architecture}\t${db:Status-Status}\n'], check=True)
+sys.stdout.write('\0versions\0')
+sys.stdout.flush()
+for args in [['python', '--version'], ['node', '--version'], ['java', '-version']]:
+    subprocess.run(args, check=True, stderr=subprocess.STDOUT)
+'''
 
 
 def require(condition, reason):
@@ -170,11 +181,14 @@ def image_inventory(role, image_id, runner=command):
         aliases = {repository, 'docker.io/library/' + repository} if '/' not in repository else {repository}
         require(any(ref == repo + '@' + sha for repo in aliases for ref in info.get('RepoDigests', [])),
                 'locked registry repository/digest not present in local daemon resolution')
-    raw = runner(['docker', 'run', '--rm', '--pull', 'never', '--network', 'none', '--read-only',
+    invocation = ['docker', 'run', '--rm', '--pull', 'never', '--network', 'none', '--read-only',
                   '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--pids-limit', '64',
                   '--memory', '256m', '--memory-swap', '256m', '--cpus', '1',
-                  '--tmpfs', '/tmp:size=16m,mode=1777', '--entrypoint', '/bin/sh',
-                  image_id, '-eu', '-c', PROBE + VERSIONS[role]])
+                  '--tmpfs', '/tmp:size=16m,mode=1777', '--entrypoint']
+    # The hardened application has no shell. Use its existing Python runtime.
+    invocation += ['python', image_id, '-c', APPLICATION_PROBE] if role == 'application' else [
+        '/bin/sh', image_id, '-eu', '-c', PROBE + VERSIONS[role]]
+    raw = runner(invocation)
     return {'role': role, 'source': source, 'imageID': image_id, 'platform': 'linux/amd64',
             'sourceBinding': 'local_docker_daemon_resolution', 'inventoryComplete': True,
             **parse_inventory(raw)}
