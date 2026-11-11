@@ -4,7 +4,7 @@ DO $$
 DECLARE name text; existing record;
 BEGIN
  FOREACH name IN ARRAY ARRAY['openid_owner','openid_enroller','openid_wallet','openid_requester',
-  'openid_approver','openid_revoker','openid_maintenance','openid_auditor','openid_backup','openid_registry'] LOOP
+  'openid_approver','openid_revoker','openid_maintenance','openid_auditor','openid_backup','openid_registry','openid_continuity','openid_contact'] LOOP
   SELECT * INTO existing FROM pg_roles WHERE rolname=name;
   IF NOT FOUND THEN EXECUTE format('CREATE ROLE %I NOLOGIN',name);
   ELSIF existing.rolcanlogin OR existing.rolsuper OR existing.rolcreatedb OR existing.rolcreaterole
@@ -19,8 +19,8 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 SET ROLE openid_owner;
 SET search_path=openid,pg_catalog;
 ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
-CREATE TABLE schema_version(version integer PRIMARY KEY CHECK(version=8));
-INSERT INTO schema_version VALUES(8);
+CREATE TABLE schema_version(version integer PRIMARY KEY CHECK(version=9));
+INSERT INTO schema_version VALUES(9);
 CREATE TABLE credentials (
  id text PRIMARY KEY CHECK(id ~ '^[a-f0-9]{64}$'), public_key text UNIQUE NOT NULL,
  state text NOT NULL CHECK(state IN ('PENDING_REVIEW','ACTIVE','REVOKED')), created bigint NOT NULL,
@@ -123,6 +123,35 @@ CREATE TABLE pairwise_subjects(person text REFERENCES persons, audience text, su
 CREATE TABLE activation_proposals(id text PRIMARY KEY, credential text REFERENCES credentials, profile_version text NOT NULL,
  requester name NOT NULL, decision text NOT NULL, hours integer NOT NULL CHECK(hours BETWEEN 1 AND 72),
  created bigint NOT NULL, expires bigint NOT NULL, approved_by name, approved_at bigint, registry_reference text);
+-- A fresh issuer namespace is pinned by an administrator before services start.
+-- It must never name an old pilot authority. Applications/operators cannot change it.
+CREATE TABLE continuity_config(id integer PRIMARY KEY CHECK(id=1), authority text NOT NULL
+ CHECK(authority ~ '^arn:aws:lambda:eu-north-1:[0-9]{12}:function:[A-Za-z0-9_-]{1,64}$'));
+-- No credential FK: confirmations must commit independently of a holder transaction.
+-- These are controller attestations, not cryptographic proof of an AWS response.
+CREATE TABLE external_revocations(credential text PRIMARY KEY CHECK(credential ~ '^[a-f0-9]{64}$'),
+ authority text NOT NULL, confirmed_at bigint NOT NULL, actor name NOT NULL);
+CREATE TABLE notice_contacts(credential text PRIMARY KEY REFERENCES credentials,
+ contact_version text NOT NULL CHECK(contact_version ~ '^[A-Za-z0-9_-]{16,128}$'),
+ evidence text NOT NULL CHECK(evidence ~ '^[A-Za-z0-9_-]{16,128}$'));
+CREATE TABLE revocation_codes(credential text PRIMARY KEY REFERENCES credentials,
+ sealed text NOT NULL CHECK(octet_length(sealed)<=65536),
+ contact_version text NOT NULL CHECK(contact_version ~ '^[A-Za-z0-9_-]{16,128}$'),
+ evidence text NOT NULL CHECK(evidence ~ '^[A-Za-z0-9_-]{16,128}$'));
+CREATE TABLE notice_outbox(event text PRIMARY KEY CHECK(event ~ '^[a-f0-9]{64}$'),
+ credential text UNIQUE NOT NULL REFERENCES credentials, contact_version text NOT NULL,
+ kind text NOT NULL CHECK(kind='ACTIVATED_V1'), created bigint NOT NULL,
+ status text NOT NULL DEFAULT 'PENDING' CHECK(status IN ('PENDING','QUEUED','CANCELLED')),
+ attempts integer NOT NULL DEFAULT 0 CHECK(attempts BETWEEN 0 AND 5), accepted_reference text);
+CREATE INDEX notice_outbox_pending ON notice_outbox(status,created,event) WHERE attempts<5;
+ALTER TABLE activation_proposals ADD COLUMN contact_version text;
+CREATE TABLE approval_intents(id text PRIMARY KEY CHECK(id ~ '^[a-f0-9]{64}$'),
+ proposal text UNIQUE NOT NULL REFERENCES activation_proposals, credential text NOT NULL REFERENCES credentials,
+ approver name NOT NULL, created bigint NOT NULL, expires bigint NOT NULL,
+ completed_by name, completed_at bigint, CHECK((completed_by IS NULL)=(completed_at IS NULL)));
+CREATE TABLE intent_revocations(intent text NOT NULL REFERENCES approval_intents,
+ credential text NOT NULL CHECK(credential ~ '^[a-f0-9]{64}$'), authority text NOT NULL,
+ confirmed_at bigint NOT NULL, PRIMARY KEY(intent,credential));
 CREATE TABLE operator_events(id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, actor name NOT NULL,
  kind text NOT NULL, credential text, proposal text, time timestamptz NOT NULL DEFAULT clock_timestamp());
 CREATE TABLE maintenance_runs(id integer PRIMARY KEY CHECK(id=1), completed_at timestamptz NOT NULL, removed bigint NOT NULL);
@@ -225,6 +254,10 @@ BEGIN
    OR abs(NEW.created-extract(epoch FROM clock_timestamp()))>60 THEN
    RAISE EXCEPTION 'pending credential required';
   END IF;
+ ELSIF current_user!='openid_owner' AND NEW.state='REVOKED'
+  AND NOT EXISTS(SELECT 1 FROM external_revocations WHERE credential=NEW.id
+   AND authority=(SELECT authority FROM continuity_config WHERE id=1)) THEN
+  RAISE EXCEPTION 'independent revocation not confirmed';
  ELSIF current_user!='openid_owner' AND NEW.state!='REVOKED' THEN
   RAISE EXCEPTION 'activation requires approval';
  ELSIF OLD.state='REVOKED' AND NEW.state!='REVOKED' THEN
@@ -280,7 +313,7 @@ END $$;
 
 CREATE FUNCTION request_activation(target text, reference text, validity integer) RETURNS text
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $$
-DECLARE c credentials; p profiles; binding registry_bindings; proposal text; now_epoch bigint:=extract(epoch FROM clock_timestamp())::bigint;
+DECLARE c credentials; p profiles; binding registry_bindings; contact notice_contacts; proposal text; now_epoch bigint:=extract(epoch FROM clock_timestamp())::bigint;
 BEGIN
  IF reference !~ '^[A-Za-z0-9_-]{8,80}$' OR validity NOT BETWEEN 1 AND 72 OR validity IS NULL THEN
   RAISE EXCEPTION 'invalid decision';
@@ -296,10 +329,13 @@ BEGIN
   OR binding.document_reference IS DISTINCT FROM (SELECT document_tag FROM persons WHERE id=p.person)
   OR binding.checked_at>now_epoch OR binding.valid_until<=now_epoch
  THEN RAISE EXCEPTION 'fresh registry evidence required'; END IF;
+ SELECT * INTO contact FROM notice_contacts WHERE credential=target;
+ IF contact.credential IS NULL THEN RAISE EXCEPTION 'separately verified contact required'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM continuity_config WHERE id=1) THEN RAISE EXCEPTION 'continuity authority required'; END IF;
  IF EXISTS(SELECT 1 FROM activation_proposals WHERE credential=target AND expires>now_epoch AND approved_at IS NULL) THEN
   RAISE EXCEPTION 'proposal already pending'; END IF;
  proposal:=replace(gen_random_uuid()::text||gen_random_uuid()::text,'-','');
- INSERT INTO activation_proposals VALUES(proposal,target,p.version,session_user,reference,validity,now_epoch,now_epoch+3600,NULL,NULL,binding.evidence_reference);
+ INSERT INTO activation_proposals VALUES(proposal,target,p.version,session_user,reference,validity,now_epoch,now_epoch+3600,NULL,NULL,binding.evidence_reference,contact.contact_version);
  INSERT INTO operator_events(actor,kind,credential,proposal) VALUES(session_user,'ACTIVATION_REQUESTED',target,proposal);
  RETURN proposal;
 END $$;
@@ -307,6 +343,9 @@ END $$;
 CREATE FUNCTION revoke_credential(target text) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $$
 BEGIN
+ IF NOT EXISTS(SELECT 1 FROM external_revocations WHERE credential=target
+  AND authority=(SELECT authority FROM continuity_config WHERE id=1)) THEN
+  RAISE EXCEPTION 'independent revocation not confirmed'; END IF;
  PERFORM 1 FROM credentials WHERE id=target FOR UPDATE;
  IF NOT FOUND THEN RAISE EXCEPTION 'credential unavailable'; END IF;
  UPDATE credentials SET state='REVOKED' WHERE id=target AND state!='REVOKED';
@@ -317,40 +356,164 @@ BEGIN
  INSERT INTO operator_events(actor,kind,credential) VALUES(session_user,'REVOKED',target);
 END $$;
 
-CREATE FUNCTION approve_activation(proposal_id text) RETURNS void
+-- Both operator decisions are necessary, but only the continuity controller may
+-- finish issuance after independently revoking every replaced key.
+CREATE FUNCTION approve_activation(proposal_id text) RETURNS text
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $$
-DECLARE proposal activation_proposals; c credentials; p profiles; binding registry_bindings; old_id text;
- now_epoch bigint:=extract(epoch FROM clock_timestamp())::bigint;
+DECLARE proposal activation_proposals; p profiles; binding registry_bindings; intent text;
+ now_epoch bigint;
 BEGIN
  SELECT * INTO proposal FROM activation_proposals WHERE id=proposal_id FOR UPDATE;
- IF proposal.id IS NULL OR proposal.requester=session_user OR proposal.approved_at IS NOT NULL OR proposal.expires<=now_epoch THEN
+ now_epoch:=floor(extract(epoch FROM clock_timestamp()))::bigint;
+ IF proposal.id IS NULL OR proposal.requester=session_user OR proposal.approved_at IS NOT NULL
+  OR proposal.expires<=now_epoch OR EXISTS(SELECT 1 FROM approval_intents WHERE proposal=proposal_id) THEN
   RAISE EXCEPTION 'independent unused approval required'; END IF;
+ PERFORM 1 FROM credentials WHERE id=proposal.credential AND state='PENDING_REVIEW' FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'new proofing required'; END IF;
  SELECT * INTO p FROM profiles WHERE credential=proposal.credential;
+ SELECT * INTO binding FROM registry_bindings WHERE credential=proposal.credential FOR UPDATE;
+ now_epoch:=floor(extract(epoch FROM clock_timestamp()))::bigint;
  IF p.credential IS NULL OR p.version!=proposal.profile_version OR p.document_expires<=now_epoch THEN
   RAISE EXCEPTION 'profile unavailable'; END IF;
- -- All replacements for one person use this order: person, then sorted credentials.
- PERFORM 1 FROM persons WHERE id=p.person FOR UPDATE;
- PERFORM 1 FROM credentials WHERE id IN (SELECT credential FROM profiles WHERE person=p.person) ORDER BY id FOR UPDATE;
- SELECT * INTO c FROM credentials WHERE id=proposal.credential;
- SELECT * INTO p FROM profiles WHERE credential=proposal.credential;
- now_epoch:=extract(epoch FROM clock_timestamp())::bigint;
- IF proposal.expires<=now_epoch OR p.credential IS NULL OR p.version!=proposal.profile_version
-  OR p.document_expires<=now_epoch THEN RAISE EXCEPTION 'profile unavailable'; END IF;
- IF c.state!='PENDING_REVIEW' OR c.created<now_epoch-86400 THEN RAISE EXCEPTION 'new proofing required'; END IF;
- SELECT * INTO binding FROM registry_bindings WHERE credential=c.id FOR UPDATE;
  IF binding.credential IS NULL OR binding.identity_kind='synthetic'
   OR binding.evidence_reference IS DISTINCT FROM proposal.registry_reference
   OR binding.profile_version!=p.version
   OR binding.document_reference IS DISTINCT FROM (SELECT document_tag FROM persons WHERE id=p.person)
   OR binding.checked_at>now_epoch OR binding.valid_until<=now_epoch
  THEN RAISE EXCEPTION 'fresh unchanged registry evidence required'; END IF;
- FOR old_id IN SELECT credential FROM profiles WHERE person=p.person AND credential!=c.id ORDER BY credential LOOP
-  PERFORM revoke_credential(old_id);
- END LOOP;
- UPDATE credentials SET state='ACTIVE',expires=least(now_epoch+proposal.hours*3600,p.document_expires),decision=proposal.decision WHERE id=c.id;
- UPDATE activation_proposals SET approved_by=session_user,approved_at=now_epoch WHERE id=proposal_id;
- INSERT INTO events(credential,kind,time) VALUES(c.id,'ACTIVATED',now_epoch);
- INSERT INTO operator_events(actor,kind,credential,proposal) VALUES(session_user,'ACTIVATED',c.id,proposal_id);
+ IF proposal.contact_version IS DISTINCT FROM
+  (SELECT contact_version FROM notice_contacts WHERE credential=proposal.credential) THEN
+  RAISE EXCEPTION 'unchanged verified contact required'; END IF;
+ IF proposal.expires<=now_epoch THEN RAISE EXCEPTION 'approval expired'; END IF;
+ intent:=replace(gen_random_uuid()::text||gen_random_uuid()::text,'-','');
+ UPDATE activation_proposals SET expires=least(expires,now_epoch+300) WHERE id=proposal_id;
+ INSERT INTO approval_intents VALUES(intent,proposal_id,proposal.credential,session_user,now_epoch,
+  least(proposal.expires,now_epoch+300),NULL,NULL);
+ INSERT INTO operator_events(actor,kind,credential,proposal)
+  VALUES(session_user,'ACTIVATION_APPROVED',proposal.credential,proposal_id);
+ RETURN intent;
+END $$;
+
+-- Private shared validation: locks last only for this short SQL transaction.
+-- No external network calls run while these rows are held.
+CREATE FUNCTION activation_context(intent_id text) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $$
+DECLARE item approval_intents; proposal activation_proposals; p profiles; c credentials;
+ binding registry_bindings; now_epoch bigint; previous text[];
+BEGIN
+ SELECT * INTO item FROM approval_intents WHERE id=intent_id FOR UPDATE;
+ IF item.id IS NULL THEN RAISE EXCEPTION 'approval intent unavailable'; END IF;
+ IF item.completed_at IS NOT NULL THEN RETURN jsonb_build_object('completed',true); END IF;
+ SELECT * INTO proposal FROM activation_proposals WHERE id=item.proposal FOR UPDATE;
+ SELECT * INTO p FROM profiles WHERE credential=item.credential;
+ IF p.credential IS NULL THEN RAISE EXCEPTION 'profile unavailable'; END IF;
+ -- The present person grouping is a document binding, not yet a cross-passport identity link.
+ PERFORM 1 FROM persons WHERE id=p.person FOR UPDATE;
+ PERFORM 1 FROM credentials WHERE id IN
+  (SELECT credential FROM credential_persons WHERE person=p.person) ORDER BY id FOR UPDATE;
+ SELECT * INTO c FROM credentials WHERE id=item.credential;
+ SELECT * INTO p FROM profiles WHERE credential=item.credential;
+ SELECT * INTO binding FROM registry_bindings WHERE credential=item.credential FOR UPDATE;
+ now_epoch:=floor(extract(epoch FROM clock_timestamp()))::bigint;
+ IF item.expires<=now_epoch OR proposal.expires<=now_epoch OR proposal.approved_at IS NOT NULL
+  OR item.approver=proposal.requester OR item.credential IS DISTINCT FROM proposal.credential
+  OR p.credential IS NULL OR p.version IS DISTINCT FROM proposal.profile_version
+  OR p.document_expires<=now_epoch THEN RAISE EXCEPTION 'approval or profile expired'; END IF;
+ IF c.state!='PENDING_REVIEW' OR c.created<now_epoch-86400 THEN RAISE EXCEPTION 'new proofing required'; END IF;
+ IF binding.credential IS NULL OR binding.identity_kind='synthetic'
+  OR binding.evidence_reference IS DISTINCT FROM proposal.registry_reference
+  OR binding.profile_version IS DISTINCT FROM p.version
+  OR binding.document_reference IS DISTINCT FROM (SELECT document_tag FROM persons WHERE id=p.person)
+  OR binding.checked_at>now_epoch OR binding.valid_until<=now_epoch
+ THEN RAISE EXCEPTION 'fresh unchanged registry evidence required'; END IF;
+ IF proposal.contact_version IS DISTINCT FROM
+  (SELECT contact_version FROM notice_contacts WHERE credential=c.id) THEN
+  RAISE EXCEPTION 'unchanged verified contact required'; END IF;
+ SELECT coalesce(array_agg(credential ORDER BY credential),'{}'::text[]) INTO previous
+  FROM credential_persons WHERE person=p.person AND credential!=c.id;
+ RETURN jsonb_build_object('completed',false,'credential',c.id,'previous',previous,'confirmed',coalesce(
+  (SELECT jsonb_agg(credential ORDER BY credential) FROM intent_revocations WHERE intent=intent_id),'[]'::jsonb));
+END $$;
+
+CREATE FUNCTION activation_snapshot(intent_id text) RETURNS jsonb
+LANGUAGE sql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $$
+ SELECT activation_context(intent_id);
+$$;
+
+CREATE FUNCTION confirm_external_revocation(target text,source text) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $$
+BEGIN
+ IF target IS NULL OR target !~ '^[a-f0-9]{64}$' OR source IS NULL
+  OR source IS DISTINCT FROM (SELECT authority FROM continuity_config WHERE id=1)
+ THEN RAISE EXCEPTION 'pinned authority confirmation required'; END IF;
+ INSERT INTO external_revocations VALUES(target,source,
+  floor(extract(epoch FROM clock_timestamp()))::bigint,session_user)
+  ON CONFLICT(credential) DO NOTHING;
+END $$;
+
+CREATE FUNCTION confirm_intent_revocation(intent_id text,target text,source text) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $$
+BEGIN
+ IF source IS NULL OR source IS DISTINCT FROM (SELECT authority FROM continuity_config WHERE id=1)
+  OR NOT EXISTS(SELECT 1 FROM external_revocations WHERE credential=target AND authority=source)
+ THEN RAISE EXCEPTION 'committed external revocation required'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM approval_intents i
+  JOIN credential_persons owner ON owner.credential=i.credential
+  JOIN credential_persons old ON old.person=owner.person AND old.credential=target AND old.credential!=i.credential
+  WHERE i.id=intent_id AND i.completed_at IS NULL AND i.expires>extract(epoch FROM clock_timestamp()))
+ THEN RAISE EXCEPTION 'live intent required'; END IF;
+ INSERT INTO intent_revocations VALUES(intent_id,target,source,
+  floor(extract(epoch FROM clock_timestamp()))::bigint) ON CONFLICT(intent,credential) DO NOTHING;
+END $$;
+
+CREATE FUNCTION complete_activation(intent_id text,source text,previous text[]) RETURNS boolean
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $$
+DECLARE context jsonb; item approval_intents; proposal activation_proposals; old_id text; now_epoch bigint;
+BEGIN
+ context:=activation_context(intent_id);
+ IF (context->>'completed')::boolean THEN RETURN false; END IF;
+ IF source IS NULL OR source IS DISTINCT FROM (SELECT authority FROM continuity_config WHERE id=1)
+  OR previous IS NULL OR context->'previous' IS DISTINCT FROM to_jsonb(previous)
+ THEN RAISE EXCEPTION 'activation snapshot changed'; END IF;
+ IF EXISTS(SELECT 1 FROM external_revocations WHERE credential=context->>'credential')
+  OR EXISTS(SELECT 1 FROM unnest(previous) key WHERE NOT EXISTS
+   (SELECT 1 FROM intent_revocations e WHERE e.intent=intent_id AND e.credential=key AND e.authority=source))
+ THEN RAISE EXCEPTION 'independent revocation not confirmed'; END IF;
+ SELECT * INTO item FROM approval_intents WHERE id=intent_id;
+ SELECT * INTO proposal FROM activation_proposals WHERE id=item.proposal;
+ FOR old_id IN SELECT unnest(previous) LOOP PERFORM revoke_credential(old_id); END LOOP;
+ now_epoch:=floor(extract(epoch FROM clock_timestamp()))::bigint;
+ IF item.expires<=now_epoch OR proposal.expires<=now_epoch THEN RAISE EXCEPTION 'approval expired'; END IF;
+ UPDATE credentials SET state='ACTIVE',
+  expires=least(now_epoch+proposal.hours*3600,(SELECT document_expires FROM profiles WHERE credential=item.credential)),
+  decision=proposal.decision WHERE id=item.credential;
+ INSERT INTO notice_outbox(event,credential,contact_version,kind,created) VALUES
+  (encode(sha256(convert_to('activation:v1:'||item.credential,'UTF8')),'hex'),
+   item.credential,proposal.contact_version,'ACTIVATED_V1',now_epoch);
+ UPDATE activation_proposals SET approved_by=item.approver,approved_at=now_epoch WHERE id=proposal.id;
+ UPDATE approval_intents SET completed_by=session_user,completed_at=now_epoch WHERE id=intent_id;
+ INSERT INTO events(credential,kind,time) VALUES(item.credential,'ACTIVATED',now_epoch);
+ INSERT INTO operator_events(actor,kind,credential,proposal) VALUES(session_user,'ACTIVATED',item.credential,proposal.id);
+ RETURN true;
+END $$;
+
+-- Separately authorized contact preparation cannot activate or redirect a binding.
+CREATE FUNCTION stage_revocation_contact(target text,sealed_value text,version text,evidence_ref text) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $$
+BEGIN
+ PERFORM 1 FROM credentials WHERE id=target AND state IN ('PENDING_REVIEW','ACTIVE') FOR UPDATE;
+ IF NOT FOUND OR NOT EXISTS(SELECT 1 FROM profiles WHERE credential=target) THEN
+  RAISE EXCEPTION 'verified passport profile required'; END IF;
+ INSERT INTO revocation_codes VALUES(target,sealed_value,version,evidence_ref);
+END $$;
+CREATE FUNCTION bind_revocation_contact(target text,version text,evidence_ref text) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $$
+BEGIN
+ PERFORM 1 FROM credentials WHERE id=target AND state IN ('PENDING_REVIEW','ACTIVE') FOR UPDATE;
+ IF NOT FOUND OR NOT EXISTS(SELECT 1 FROM revocation_codes
+  WHERE credential=target AND contact_version=version AND evidence=evidence_ref) THEN
+  RAISE EXCEPTION 'prepared contact required'; END IF;
+ INSERT INTO notice_contacts VALUES(target,version,evidence_ref);
 END $$;
 
 -- Deliberate fail-closed restore: run before any service receives access to a restored registry.
@@ -367,6 +530,8 @@ BEGIN
  -- Restored lookups are historical; keep consumed references to prevent replay.
  DELETE FROM registry_bindings;
  UPDATE activation_proposals SET expires=0 WHERE approved_at IS NULL;
+ UPDATE approval_intents SET expires=0 WHERE completed_at IS NULL;
+ UPDATE notice_outbox SET status='CANCELLED' WHERE status='PENDING';
  INSERT INTO operator_events(actor,kind) VALUES(session_user,'RESTORE_REVOKED_ALL');
 END $$;
 
@@ -401,6 +566,7 @@ BEGIN
  GET DIAGNOSTICS n=ROW_COUNT; removed:=removed+n;
  DELETE FROM activation_proposals WHERE id IN (SELECT p.id FROM activation_proposals p JOIN credentials c ON c.id=p.credential
   WHERE greatest(p.expires,coalesce(p.approved_at,0),coalesce(c.expires,c.created+86400))<now_epoch-event_days::bigint*86400
+  AND NOT EXISTS(SELECT 1 FROM approval_intents i WHERE i.proposal=p.id)
   ORDER BY p.id LIMIT max_batch FOR UPDATE OF p SKIP LOCKED);
  GET DIAGNOSTICS n=ROW_COUNT; removed:=removed+n;
  DELETE FROM biometric_attempts WHERE document_tag IN (SELECT document_tag FROM biometric_attempts
@@ -434,7 +600,17 @@ GRANT SELECT ON operator_events TO openid_auditor;
 GRANT SELECT ON activation_proposals TO openid_requester,openid_approver,openid_auditor;
 GRANT EXECUTE ON FUNCTION request_activation(text,text,integer) TO openid_requester;
 GRANT EXECUTE ON FUNCTION approve_activation(text) TO openid_approver;
-GRANT EXECUTE ON FUNCTION revoke_credential(text),revoke_all_after_restore() TO openid_revoker;
+GRANT EXECUTE ON FUNCTION revoke_credential(text) TO openid_revoker,openid_continuity;
+-- Full local restore invalidation is restricted to the owner running isolated recovery.
+GRANT USAGE ON SCHEMA openid TO openid_continuity,openid_contact;
+GRANT SELECT ON continuity_config TO openid_enroller,openid_wallet,openid_registry,openid_contact,openid_continuity,openid_maintenance;
+GRANT SELECT ON schema_version,credentials,profiles,revocation_codes,notice_contacts TO openid_contact;
+GRANT EXECUTE ON FUNCTION stage_revocation_contact(text,text,text,text),bind_revocation_contact(text,text,text) TO openid_contact;
+GRANT EXECUTE ON FUNCTION activation_snapshot(text),complete_activation(text,text,text[]),
+ confirm_external_revocation(text,text),confirm_intent_revocation(text,text,text) TO openid_continuity;
+GRANT SELECT ON notice_outbox,notice_contacts,revocation_codes,external_revocations TO openid_wallet;
+GRANT UPDATE(status,attempts,accepted_reference) ON notice_outbox TO openid_wallet;
+GRANT SELECT ON approval_intents,intent_revocations,external_revocations,notice_contacts,notice_outbox TO openid_auditor;
 GRANT SELECT ON requests,federation_requests,challenges,events,activation_proposals TO openid_maintenance;
 GRANT UPDATE(sealed) ON profiles TO openid_maintenance;
 GRANT EXECUTE ON FUNCTION purge_expired(integer,integer,integer) TO openid_maintenance;

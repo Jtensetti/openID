@@ -15,7 +15,7 @@ class ClusterRevocationConfigTests(unittest.TestCase):
             config=dict(role='proofing',bind='127.0.0.1',port=8765,origin='https://localhost:8765',workers=1,
                 baoAddress='https://localhost:8200',team='A'*10,bundle='se.openid.PassportCapture',developmentAttestation=True)
             config.update({field:str(secret) for field in ('databaseFile','baoTokenFile','baoCA','tlsCert','tlsKey',
-                'pairingFile','metricsFile','csca','jar')})
+                'pairingFile','metricsFile','csca','jar','continuityFile')})
             path=root/'config.json'
             # Only TLS parsing is replaced here; this is a configuration boundary test.
             with patch('cluster_serve.ssl.SSLContext'):

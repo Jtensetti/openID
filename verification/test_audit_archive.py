@@ -274,11 +274,11 @@ class ArchiveTests(unittest.TestCase):
         manifest={'format':5,'backend':'postgresql','source_revision':REVISION,'files':files,
             'snapshot':{'database_schema':7,'read_at':'2026-01-01T00:00:00+00:00'}}
         path=self.destination/'manifest.json'
-        for schema in (7,6,4,8,9,True,None):
+        for schema in (7,6,4,8,9,10,True,None):
             manifest['snapshot']['database_schema']=schema
             raw=archive.encoded(manifest);path.write_bytes(raw);path.chmod(0o600)
             digest=hashlib.sha256(raw).hexdigest()
-            if type(schema) is int and schema in (7,8):self.assertEqual(0,archive.verify(self.destination,digest)['rows'])
+            if type(schema) is int and schema in (7,8,9):self.assertEqual(0,archive.verify(self.destination,digest)['rows'])
             else:
                 with self.assertRaises(ValueError):archive.verify(self.destination,digest)
         manifest['snapshot']['database_schema']=7

@@ -46,7 +46,7 @@ byggen och behålls i källträdet; gamla fristående testresultat gör det inte
 | Certifikatspärr | Signerade CRL:er, spärrad DSC, utgång, återgång och atomiska filbyten. Utgång under registrering ska stoppa aktivering. | Operativ källa, aktualitet och återställning i drift. |
 | Biometri | Modellinferens, huvudordning, parallax, försöksbudget, fel och samtidighet. | Kalibrerad felacceptans/felavvisning, presentationer, injektion och fysisk kamerakedja. |
 | iPhone | Nyckelflöde, nätverksgräns, avbrott, registreringsåterhämtning, kameraguide och UI-fixturer. | Secure Enclave, App Attest, NFC, Face ID och fysisk användbarhet. |
-| Livscykel | Aktivering enligt valt läge, utgång, spärr, engångsbruk och nyckelbyte. | Aktuell serverkonfiguration och sammanhängande telefonprov. |
+| Livscykel | Aktivering enligt valt läge, kortlivade PG-intent, atomisk avisering, utgång, fristående spärr, rollback, engångsbruk och byte inom samma dokumentgrupp. | Aktuell serverkonfiguration och sammanhängande telefonprov. |
 | Registreringsval | Exakt text, separata val, signerade kvitton, återkallelse och utgång under automatisk aktivering. | Beslutad information, faktisk app-/serverkombination och deltagarnas tidigare registreringar. |
 | Datahantering | Avgränsade personutdrag, hemliga fält uteslutna, beslutsbunden radering och återspelning vid restore, även i TestFlight-registret. | Riktiga ärenden, lagringstider, externa kopior och operativ återläsning. |
 | Bildarbetare | Formatgränser, resursbudget, pipe-/tidsgränser och Linux fil-/systemanropsisolering. | Faktisk värdkärna och oberoende angreppsprov. |

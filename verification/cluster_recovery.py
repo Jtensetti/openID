@@ -25,7 +25,12 @@ LEGACY_TABLES = ('credentials', 'persons', 'credential_persons', 'profiles', 're
           'operator_events', 'maintenance_runs', 'biometric_attempts', 'security_codes', 'enrollment_quarantine',
           'enrollment_policies', 'enrollment_consents', 'credential_consents', 'consent_retention_runs',
           'erasure_runs', 'erasure_subjects')
-TABLES = LEGACY_TABLES[:4] + ('registry_evidence', 'registry_bindings') + LEGACY_TABLES[4:]
+SCHEMA8_TABLES = LEGACY_TABLES[:4] + ('registry_evidence', 'registry_bindings') + LEGACY_TABLES[4:]
+SCHEMA8_HASH = '811acc673f50aff3a4ecfc500839d6f421ce1d28095e9c98c608cac7d730947b'
+SCHEMA8_PROPOSAL_COLUMNS = ('id','credential','profile_version','requester','decision','hours',
+                           'created','expires','approved_by','approved_at','registry_reference')
+TABLES = SCHEMA8_TABLES + ('continuity_config', 'external_revocations', 'notice_contacts',
+                          'revocation_codes', 'notice_outbox', 'approval_intents', 'intent_revocations')
 # Exact reviewed schema 7, retained as fixtures/schema-v7.sql. Older archives
 # have ten proposal columns and no registry proof. Never infer missing evidence.
 LEGACY_SCHEMA = '9ec480fd6f05b3d164675930ba1a5aea415c520d61ad6f2731e22653a7951fd3'
@@ -86,7 +91,7 @@ def backup(dsn, destination, *, local_test=False, max_bytes=MAX_BYTES):
     try:
         with psycopg.connect(**options(dsn, local_test)) as db:
             db.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
-            if db.info.server_version // 10000 != 18 or db.execute('SELECT version FROM openid.schema_version').fetchall() != [(8,)]:
+            if db.info.server_version // 10000 != 18 or db.execute('SELECT version FROM openid.schema_version').fetchall() != [(9,)]:
                 raise ValueError('unsupported register version')
             for table in TABLES:
                 digest = hashlib.sha256()
@@ -130,9 +135,9 @@ def read_backup(source, stack, deadline, max_bytes):
     if (set(manifest) != {'format', 'schema', 'postgresMajor', 'tables'}
             or type(manifest['format']) is not int or manifest['format'] != 1
             or type(manifest['postgresMajor']) is not int or manifest['postgresMajor'] != 18
-            or manifest['schema'] not in (hashlib.sha256(SCHEMA.read_bytes()).hexdigest(), LEGACY_SCHEMA)):
+            or manifest['schema'] not in (hashlib.sha256(SCHEMA.read_bytes()).hexdigest(), LEGACY_SCHEMA, SCHEMA8_HASH)):
         raise ValueError('backup version or tables')
-    tables = LEGACY_TABLES if manifest['schema'] == LEGACY_SCHEMA else TABLES
+    tables = {LEGACY_SCHEMA: LEGACY_TABLES, SCHEMA8_HASH: SCHEMA8_TABLES}.get(manifest['schema'], TABLES)
     if type(manifest['tables']) is not dict or set(manifest['tables']) != set(tables):
         raise ValueError('backup version or tables')
     streams = {}
@@ -190,8 +195,10 @@ def restore(admin_dsn, source, target, vault, *, local_test=False, max_bytes=MAX
                     digest = hashlib.sha256()
                     size = 0
                     with db.cursor() as cursor:
-                        columns = (sql.SQL(' ({})').format(sql.SQL(',').join(map(sql.Identifier, LEGACY_PROPOSAL_COLUMNS)))
-                                   if manifest['schema'] == LEGACY_SCHEMA and table == 'activation_proposals' else sql.SQL(''))
+                        old_columns = {LEGACY_SCHEMA: LEGACY_PROPOSAL_COLUMNS,
+                                       SCHEMA8_HASH: SCHEMA8_PROPOSAL_COLUMNS}.get(manifest['schema'])
+                        columns = (sql.SQL(' ({})').format(sql.SQL(',').join(map(sql.Identifier, old_columns)))
+                                   if old_columns and table == 'activation_proposals' else sql.SQL(''))
                         query = sql.SQL('COPY openid.{}{} FROM STDIN (FORMAT BINARY)').format(sql.Identifier(table), columns)
                         with cursor.copy(query) as copy:
                             for chunk in iter(lambda: stream.read(1024 * 1024), b''):

@@ -22,17 +22,17 @@ ERASE = {'profiles': ('registry_bindings', 'profiles'), 'securityCodes': ('secur
          'authentication': ('requests', 'challenges'), 'signatures': (),
          'consents': ('credential_consents', 'enrollment_consents', 'enrollment_policies'),
          'contacts': ('revocation_codes', 'test_beta_revocation_codes', 'notice_outbox', 'notice_contacts'),
-         'lifecycle': ('events', 'activation_proposals', 'operator_events', 'profile_evidence', 'registry_evidence')}
+         'lifecycle': ('events', 'intent_revocations', 'approval_intents', 'activation_proposals', 'operator_events', 'profile_evidence', 'registry_evidence')}
 ORDER = ('registry_bindings', 'profiles', 'security_codes', 'requests', 'challenges', 'federation_requests',
          'credential_consents', 'enrollment_consents', 'enrollment_policies',
          'revocation_codes', 'test_beta_revocation_codes', 'notice_outbox', 'notice_contacts', 'events',
-         'activation_proposals', 'operator_events', 'profile_evidence', 'registry_evidence')
+         'intent_revocations', 'approval_intents', 'activation_proposals', 'operator_events', 'profile_evidence', 'registry_evidence')
 KEYS = {'enrollment_policies': 'digest', 'notice_outbox': 'event',
         'registry_evidence': 'reference',
         **{t: 'credential' for t in ('registry_bindings', 'profiles', 'security_codes', 'credential_consents',
             'notice_contacts', 'revocation_codes', 'test_beta_revocation_codes', 'profile_evidence')},
         **{t: 'id' for t in ('requests', 'challenges', 'federation_requests',
-            'enrollment_consents', 'events', 'activation_proposals', 'operator_events')}}
+            'enrollment_consents', 'events', 'approval_intents', 'activation_proposals', 'operator_events')}}
 
 
 class Context:
@@ -130,7 +130,7 @@ def scope(ctx, config, *, replay=False):
     # that several unlinked keys belong to the same person.
     if unlinked and len(known) > 1: raise ValueError('unlinked keys require separate verified cases')
     for table in ('security_codes', 'requests', 'challenges', 'federation_requests', 'events',
-                  'activation_proposals', 'operator_events', 'profile_evidence',
+                  'activation_proposals', 'approval_intents', 'intent_revocations', 'external_revocations', 'operator_events', 'profile_evidence',
                   'credential_consents', 'notice_contacts', 'notice_outbox', 'revocation_codes', 'test_beta_revocation_codes'):
         ctx.get(table, 'credential', ids)
     for table in ('test_beta_policy', 'test_beta_deadline'): ctx.get(table)
@@ -201,7 +201,11 @@ def apply_in_transaction(ctx, config, *, expected=None, replay=False, approved=N
         return dict(prepared, status='ALREADY_APPLIED', journalId=ident, retentionReviewRequired=overdue)
     for table in ORDER:
         for row in selected.get(table, ()):
-            result = ctx.execute('DELETE FROM '+ctx.table(table)+' WHERE '+KEYS[table]+'=?', (row[KEYS[table]],))
+            if table == 'intent_revocations':
+                result = ctx.execute('DELETE FROM '+ctx.table(table)+' WHERE intent=? AND credential=?',
+                                     (row['intent'], row['credential']))
+            else:
+                result = ctx.execute('DELETE FROM '+ctx.table(table)+' WHERE '+KEYS[table]+'=?', (row[KEYS[table]],))
             if result.rowcount != 1: raise ValueError('erasure count mismatch')
     row = (ident, now, encoded(config).decode(), prepared['planSHA256'], encoded(prepared['delete']).decode())
     validate_journal(row)

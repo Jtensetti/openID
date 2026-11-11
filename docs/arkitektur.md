@@ -161,7 +161,10 @@ nyckelrader låses vid beslut. Giltighet använder databasens tid i transaktione
 
 OpenBao Transit krypterar profiler med person- och enhetsbunden kontext.
 Registreringskontot kan kryptera, autentiseringskontot dekryptera och
-underhållskontot omkryptera. Två olika databaslogins krävs för aktivering.
+underhållskontot omkryptera. Två olika databaslogins krävs för ett kortlivat aktiveringsintent. En separat
+controller kontrollerar aktuell fristående spärr, spärrar ersatta nycklar
+utan databaslås och slutför aktivering och aviseringspost atomiskt.
+PostgreSQL-autentisering saknar reservväg till enbart lokal ACTIVE-status.
 Detta ändrar inte SQLite-lägets lokala administratörsrättigheter.
 
 [Driftinstruktionen](../deployment/cluster/README.md) beskriver roller,
@@ -173,7 +176,9 @@ befintliga lokala SAML-socketprotokollet till PostgreSQL-registret.
 `cluster_recovery.py` tar en konsekvent registerbackup via PostgreSQL COPY.
 Återställning skapar en ny databas med betrodd schemakod, spärrar gamla
 nycklar och kontrollerar profilernas dekryptering innan data får sparas.
-Databasen lämnas stängd utan anslutningsrätt för applikationen. Backupen
+Den lokala karantänen anropar inte den aktiva spärrtjänsten; ett faktiskt
+återgångsbeslut kräver separat operativ kontroll. Databasen lämnas stängd
+utan anslutningsrätt för applikationen. Backupen
 omfattar inte OpenBao, databaslogins eller infrastrukturkonfiguration.
 
 ## Förtroendegränser

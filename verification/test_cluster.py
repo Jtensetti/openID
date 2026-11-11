@@ -57,7 +57,7 @@ class ClusterTests(unittest.TestCase):
         cls.bao_request('transit/keys/openid-profile/config', {'auto_rotate_period':'720h'})
         cls.bao_request('transit/keys/openid-index', {'type':'hmac', 'key_size':32, 'exportable':False})
         cls.token_files = {}
-        for role in ('enroller','wallet','registry','maintenance'):
+        for role in ('enroller','wallet','registry','contact','maintenance'):
             policy=(Path(__file__).parents[1]/'deployment/cluster'/(role+'.hcl')).read_text()
             cls.bao_request('sys/policies/acl/'+role, {'policy':policy})
             response=cls.bao_request('auth/token/create', {'policies':[role], 'no_default_policy':True, 'ttl':'1h'})
@@ -69,7 +69,8 @@ class ClusterTests(unittest.TestCase):
             db.execute((Path(__file__).parents[1]/'deployment/cluster/archive-access.sql').read_text(), prepare=False)
             for user, roles in {'enroller':['enroller'], 'wallet':['wallet'], 'alice':['requester'],
                 'bob':['approver'], 'registry':['registry'], 'carol':['requester','approver'], 'revoker':['revoker'],
-                'maintenance':['maintenance'], 'auditor':['auditor'], 'backup':['backup']}.items():
+                'maintenance':['maintenance'], 'auditor':['auditor'], 'backup':['backup'],
+                'contact':['contact'], 'continuity':['continuity']}.items():
                 password=secrets.token_urlsafe(32)
                 from psycopg import sql
                 db.execute(sql.SQL('CREATE ROLE {} LOGIN PASSWORD {}').format(sql.Identifier('test_'+user),sql.Literal(password)))
@@ -95,7 +96,13 @@ class ClusterTests(unittest.TestCase):
 
     def setUp(self):
         with self.psycopg.connect(DSN, autocommit=True) as db:
-            db.execute('TRUNCATE openid.erasure_runs,openid.credentials,openid.persons,openid.operator_events,openid.maintenance_runs,openid.biometric_attempts,openid.enrollment_quarantine,openid.enrollment_policies,openid.consent_retention_runs RESTART IDENTITY CASCADE')
+            db.execute('TRUNCATE openid.external_revocations,openid.continuity_config,openid.erasure_runs,openid.credentials,openid.persons,openid.operator_events,openid.maintenance_runs,openid.biometric_attempts,openid.enrollment_quarantine,openid.enrollment_policies,openid.consent_retention_runs RESTART IDENTITY CASCADE')
+            from test_continuity_support import REFERENCE, SyntheticContinuity
+            db.execute('INSERT INTO openid.continuity_config VALUES(1,%s)', (REFERENCE,))
+        from postgres_continuity import PostgresContinuity
+        self.synthetic=SyntheticContinuity()
+        self.controller=PostgresContinuity(self.dsns['continuity'],self.synthetic.authority,local_test=True)
+        self.addCleanup(self.controller.close)
         self.enroller=self.store('enroller')
         self.a=self.store('wallet'); self.b=self.store('wallet')
         self.registry_store=self.store('registry')
@@ -104,18 +111,44 @@ class ClusterTests(unittest.TestCase):
     def store(self, role, origin='https://localhost:8765'):
         from postgres import PostgresWallet
         from transit import TransitVault
-        store=PostgresWallet(self.dsns[role],origin,TransitVault(self.address,self.token_files[role],local_test=True),local_test=True)
+        store=PostgresWallet(self.dsns[role],origin,TransitVault(self.address,self.token_files[role],local_test=True),local_test=True,revocation=self.controller)
         self.addCleanup(store.close)
         return store
 
-    def sql(self, role, query, args=()):
+    def raw_sql(self, role, query, args=()):
         with self.psycopg.connect(self.dsns[role], options='-c search_path=openid,pg_catalog') as db:
             result=db.execute(query,args)
             return result.fetchall() if result.description else None
 
+    def sql(self, role, query, args=()):
+        # Existing behavioral fixtures use the full controller chain. Direct
+        # capability-denial tests use raw_sql or their own operator connection.
+        if role=='revoker' and query=='SELECT revoke_credential(%s)':
+            self.controller.revoke(args[0])
+        result=self.raw_sql(role,query,args)
+        if query=='SELECT approve_activation(%s)':
+            self.controller.complete(result[0][0])
+        return result
+
+    def contact(self, credential, wallet=None):
+        from continuity_operator import prepare
+        from postgres import PostgresWallet
+        from psycopg.conninfo import conninfo_to_dict,make_conninfo
+        wallet=wallet or self.registry_store
+        with wallet.transaction() as db: database=db.execute('SELECT current_database()').fetchone()[0]
+        dsn=make_conninfo(**(conninfo_to_dict(self.dsns['contact'])|{'dbname':database}))
+        # The general fixture borrows the supplied cryptographic capability.
+        # A dedicated test below also exercises the separate contact token.
+        contact=PostgresWallet(dsn,wallet.origin,wallet.vault,local_test=True,revocation=self.controller)
+        try:
+            return prepare(contact,credential,'synthetic@example.invalid','SYNTHETIC_CONTACT_REVIEW',
+                           self.synthetic,'ledger','contacts')
+        finally:contact.close()
+
     def registry_binding(self, ident=None, *, wallet=None, transform=None):
         from registry_binding import RegistryBindings, RegistryResult
         wallet = wallet or self.registry_store
+        self.contact(ident or self.ident,wallet)
         def lookup(query):
             now = int(wallet.clock())
             result = RegistryResult(query.nonce, query.credential, query.profile_version,
@@ -149,6 +182,228 @@ class ClusterTests(unittest.TestCase):
         path=destination/'manifest.json';path.write_text(json.dumps(manifest));path.chmod(0o600)
         return destination
 
+    def version8_backup(self, db):
+        from cluster_recovery import SCHEMA8_HASH, SCHEMA8_TABLES
+        fixture=(Path(__file__).parent/'fixtures/schema-v8.sql').read_bytes()
+        self.assertEqual(SCHEMA8_HASH,hashlib.sha256(fixture).hexdigest())
+        self.assertEqual([(8,)],db.execute('SELECT version FROM openid.schema_version').fetchall())
+        destination=self.root/('schema8-backup-'+secrets.token_hex(8));destination.mkdir(mode=0o700)
+        manifest={'format':1,'schema':SCHEMA8_HASH,'postgresMajor':18,'tables':{}}
+        for table in SCHEMA8_TABLES:
+            with db.cursor() as cursor:
+                with cursor.copy('COPY openid.'+table+' TO STDOUT (FORMAT BINARY)') as copy:
+                    raw=b''.join(copy)
+                rows=cursor.rowcount
+            part=destination/(table+'.copy');part.write_bytes(raw);part.chmod(0o600)
+            manifest['tables'][table]={'rows':rows,'bytes':len(raw),'sha256':hashlib.sha256(raw).hexdigest()}
+        part=destination/'manifest.json';part.write_text(json.dumps(manifest));part.chmod(0o600)
+        return destination
+
+    def intent(self, credential=None):
+        credential=credential or self.ident
+        self.registry_binding(credential)
+        proposal=self.raw_sql('alice','SELECT request_activation(%s,%s,%s)',
+                              (credential,'REVIEW-continuity-001',24))[0][0]
+        return self.raw_sql('bob','SELECT approve_activation(%s)',(proposal,))[0][0]
+
+    def test_approval_requires_controller_and_atomic_single_notice(self):
+        intent=self.intent()
+        self.assertEqual([('PENDING_REVIEW',)],self.raw_sql('backup','SELECT state FROM credentials'))
+        self.assertEqual([(0,)],self.raw_sql('backup','SELECT count(*) FROM notice_outbox'))
+        with ThreadPoolExecutor(6) as pool:
+            results=list(pool.map(lambda _:self.controller.complete(intent),range(12)))
+        self.assertEqual(1,sum(result['changed'] for result in results))
+        expected=hashlib.sha256(('activation:v1:'+self.ident).encode()).hexdigest()
+        self.assertEqual([(expected,'ACTIVATED_V1','PENDING')],
+                         self.raw_sql('backup','SELECT event,kind,status FROM notice_outbox'))
+        self.assertEqual([('test_bob',)],self.raw_sql('backup','SELECT approved_by FROM activation_proposals'))
+        self.assertEqual([('test_continuity',)],self.raw_sql('backup','SELECT completed_by FROM approval_intents'))
+        self.assertEqual({'completed':True,'changed':False},self.controller.complete(intent))
+
+    def test_outage_unknown_and_revoked_authority_never_activate(self):
+        from revocation import RevocationUnavailable
+        intent=self.intent()
+        original=self.synthetic.items.pop(('ledger',self.ident))
+        with self.assertRaises(ValueError):self.controller.complete(intent)
+        self.synthetic.items[('ledger',self.ident)]=original
+        self.synthetic.outage=True
+        with self.assertRaises(RevocationUnavailable):self.controller.complete(intent)
+        self.synthetic.outage=False
+        self.controller.revoke(self.ident)
+        with self.assertRaises(ValueError):self.controller.complete(intent)
+        self.assertEqual([('PENDING_REVIEW',)],self.raw_sql('backup','SELECT state FROM credentials'))
+        self.assertEqual([(0,)],self.raw_sql('backup','SELECT count(*) FROM notice_outbox'))
+
+    def test_notice_insert_failure_rolls_back_activation_and_decision(self):
+        intent=self.intent()
+        with self.psycopg.connect(DSN) as owner:
+            owner.execute("ALTER TABLE openid.notice_outbox ADD CONSTRAINT synthetic_reject CHECK(false) NOT VALID")
+        try:
+            with self.assertRaises(self.psycopg.Error):self.controller.complete(intent)
+            self.assertEqual([('PENDING_REVIEW',)],self.raw_sql('backup','SELECT state FROM credentials'))
+            self.assertEqual([(None,None)],self.raw_sql('backup','SELECT approved_by,approved_at FROM activation_proposals'))
+            self.assertEqual([(0,)],self.raw_sql('backup','SELECT count(*) FROM notice_outbox'))
+        finally:
+            with self.psycopg.connect(DSN) as owner:
+                owner.execute('ALTER TABLE openid.notice_outbox DROP CONSTRAINT synthetic_reject')
+        self.assertTrue(self.controller.complete(intent)['changed'])
+
+    def test_external_replacement_revocation_survives_final_rollback(self):
+        self.activate()
+        other=self.enroller.enroll(self.keys[1]['publicKey'],document())['id']
+        intent=self.intent(other)
+        self.assertEqual({'completed':False,'changed':False},self.controller.advance(intent))
+        self.assertEqual('REVOKED',self.synthetic.authority.request('status',self.ident))
+        # Change the evidence AFTER the permanent remote step. The decision
+        # cannot commit, and the old key must remain unusable despite local ACTIVE.
+        self.registry_binding(other)
+        with self.assertRaises(self.psycopg.Error):self.controller.complete(intent)
+        self.assertEqual('REVOKED',self.b.execute(self.signed())['state'])
+        self.assertEqual([('PENDING_REVIEW',)],self.raw_sql('backup','SELECT state FROM credentials WHERE id=%s',(other,)))
+        self.assertEqual([(1,)],self.raw_sql('backup','SELECT count(*) FROM notice_outbox'))
+
+    def test_holder_revocation_survives_local_rollback_without_nested_row_deadlock(self):
+        self.activate()
+        with self.assertRaisesRegex(RuntimeError,'synthetic rollback'):
+            with self.a.transaction() as db:
+                self.a._revoke(db,self.ident)
+                raise RuntimeError('synthetic rollback')
+        self.assertEqual([('ACTIVE',)],self.raw_sql('backup','SELECT state FROM credentials'))
+        self.assertEqual('REVOKED',self.b.execute(self.signed())['state'])
+        self.assertEqual([(self.ident,)],self.raw_sql('backup','SELECT credential FROM external_revocations'))
+
+    def test_expiry_during_remote_revoke_preserves_the_committed_global_receipt(self):
+        self.activate()
+        other=self.enroller.enroll(self.keys[1]['publicKey'],document())['id']
+        intent=self.intent(other)
+        def expire(operation,credential):
+            if operation=='revoke':
+                with self.psycopg.connect(DSN) as owner:
+                    owner.execute('UPDATE openid.approval_intents SET expires=0 WHERE id=%s',(intent,))
+        self.synthetic.hook=expire
+        try:
+            with self.assertRaises(self.psycopg.Error):self.controller.advance(intent)
+        finally:self.synthetic.hook=None
+        self.assertEqual([(self.ident,)],self.raw_sql('backup','SELECT credential FROM external_revocations'))
+        self.assertEqual([(0,)],self.raw_sql('backup','SELECT count(*) FROM intent_revocations'))
+        self.assertEqual('REVOKED',self.b.execute(self.signed())['state'])
+
+    def test_generic_retention_preserves_intent_history_without_foreign_key_failure(self):
+        intent=self.intent()
+        old=int(time.time())-1900*86400
+        with self.psycopg.connect(DSN) as owner:
+            owner.execute('UPDATE openid.activation_proposals SET created=%s,expires=%s',(old,old+60))
+            owner.execute('SET LOCAL ROLE openid_owner')
+            owner.execute('UPDATE openid.credentials SET created=%s',(old,))
+        self.raw_sql('maintenance','SELECT purge_expired(7,1827,100)')
+        self.assertEqual([(intent,)],self.raw_sql('backup','SELECT id FROM approval_intents'))
+        self.assertEqual([(1,)],self.raw_sql('backup','SELECT count(*) FROM activation_proposals'))
+
+    def test_restore_drill_cancels_intents_and_notices_without_external_side_effects(self):
+        from cluster_recovery import backup
+        from test_erasure_helpers import postgres_restore
+        self.activate()
+        other=self.enroller.enroll(self.keys[1]['publicKey'],document())['id']
+        self.intent(other)
+        destination=self.root/('continuity-drill-'+secrets.token_hex(8))
+        backup(self.dsns['backup'],destination,local_test=True)
+        before=list(self.synthetic.calls)
+        target=self.restore_target()
+        postgres_restore(DSN,destination,target,self.a.vault,local_test=True)
+        self.assertEqual(before,self.synthetic.calls)
+        self.assertEqual('ENABLED',self.synthetic.authority.request('status',self.ident))
+        with self.psycopg.connect(self.restored_database(target)) as restored:
+            self.assertEqual([('CANCELLED',)],restored.execute('SELECT status FROM openid.notice_outbox').fetchall())
+            self.assertEqual([(0,)],restored.execute('SELECT expires FROM openid.approval_intents WHERE completed_at IS NULL').fetchall())
+            self.assertEqual(0,restored.execute("SELECT count(*) FROM openid.credentials WHERE state!='REVOKED'").fetchone()[0])
+
+    def test_cross_passport_grouping_is_an_explicit_remaining_dependency(self):
+        self.activate()
+        other=self.enroller.enroll(self.keys[1]['publicKey'],document(documentNumber='TEST00002'))['id']
+        self.controller.complete(self.intent(other))
+        # No cross-document person matching is claimed by these fixtures.
+        self.assertEqual([(2,)],self.raw_sql('backup','SELECT count(*) FROM persons'))
+        self.assertEqual(['ACTIVE','ACTIVE'],sorted(row[0] for row in self.raw_sql('backup','SELECT state FROM credentials')))
+
+    def test_locally_active_key_never_falls_back_without_current_authority(self):
+        from postgres import RegistryUnavailable
+        from revocation import RevocationUnavailable
+        self.activate()
+        self.a.revocation=None
+        with self.assertRaises(RegistryUnavailable):self.a.execute(self.signed())
+        self.a.revocation=self.controller
+        self.synthetic.outage=True
+        try:
+            with self.assertRaises(RevocationUnavailable):self.a.execute(self.signed())
+        finally:self.synthetic.outage=False
+        self.assertEqual('ACTIVE',self.b.execute(self.signed())['state'])
+
+    def test_changed_contact_expired_intent_and_changed_key_set_fail_closed(self):
+        intent=self.intent()
+        with self.a.transaction() as db:
+            original=dict(db.execute('SELECT * FROM notice_contacts').fetchone())
+        with self.psycopg.connect(DSN) as owner:
+            owner.execute("UPDATE openid.notice_contacts SET contact_version='SYNTHETIC_CHANGED_CONTACT'")
+        with self.assertRaises(self.psycopg.Error):self.controller.complete(intent)
+        with self.psycopg.connect(DSN) as owner:
+            owner.execute('UPDATE openid.notice_contacts SET contact_version=%s',(original['contact_version'],))
+        # A key added after the controller's snapshot cannot escape revocation.
+        with self.psycopg.connect(self.dsns['continuity']) as controller:
+            snapshot=controller.execute('SELECT openid.activation_snapshot(%s)',(intent,)).fetchone()[0]
+        self.enroller.enroll(self.keys[1]['publicKey'],document())
+        with self.assertRaisesRegex(self.psycopg.Error,'snapshot changed'):
+            self.raw_sql('continuity','SELECT complete_activation(%s,%s,%s)',
+                         (intent,self.controller.reference,snapshot['previous']))
+        with self.psycopg.connect(DSN) as owner:
+            owner.execute('UPDATE openid.approval_intents SET expires=0')
+        with self.assertRaises(self.psycopg.Error):self.controller.complete(intent)
+        self.assertEqual([(0,)],self.raw_sql('backup','SELECT count(*) FROM notice_outbox'))
+
+    def test_direct_local_revocation_or_confirmation_cannot_bypass_controller(self):
+        for role,query,args in (
+            ('wallet',"UPDATE credentials SET state='REVOKED' WHERE id=%s",(self.ident,)),
+            ('revoker','SELECT revoke_credential(%s)',(self.ident,)),
+            ('revoker','SELECT revoke_all_after_restore()',()),
+            ('wallet','SELECT confirm_external_revocation(%s,%s)',(self.ident,self.controller.reference))):
+            with self.subTest(role=role,query=query),self.assertRaises(self.psycopg.Error):
+                self.raw_sql(role,query,args)
+        self.assertEqual([('PENDING_REVIEW',)],self.raw_sql('backup','SELECT state FROM credentials'))
+
+    def test_controller_and_service_cannot_provision_contact_or_create_operator_decisions(self):
+        for role in ('continuity','wallet','enroller','registry','contact','backup'):
+            with self.subTest(role=role),self.assertRaises(self.psycopg.Error):
+                self.raw_sql(role,'SELECT request_activation(%s,%s,%s)',(self.ident,'REVIEW-forged-controller',24))
+        for role in self.dsns:
+            if role=='contact':continue
+            with self.subTest(role=role),self.assertRaises(self.psycopg.Error):
+                self.raw_sql(role,'SELECT bind_revocation_contact(%s,%s,%s)',
+                             (self.ident,'SYNTHETIC_CONTACT_VERSION','SYNTHETIC_CONTACT_REVIEW'))
+
+    def test_separate_contact_role_preparation_retries_and_cannot_redirect(self):
+        from continuity_operator import prepare
+        contact=self.store('contact')
+        def run(email='synthetic@example.invalid'):
+            return prepare(contact,self.ident,email,'SYNTHETIC_CONTACT_REVIEW',self.synthetic,'ledger','contacts')
+        self.synthetic.fail=True
+        with self.assertRaises(ValueError):run()
+        self.assertEqual([(0,)],self.raw_sql('backup','SELECT count(*) FROM notice_contacts'))
+        staged=self.raw_sql('backup','SELECT * FROM revocation_codes')
+        self.synthetic.fail=False
+        self.assertTrue(run()['activationRequired']);run()
+        self.assertEqual(staged,self.raw_sql('backup','SELECT * FROM revocation_codes'))
+        with self.assertRaises(ValueError):run('changed@example.invalid')
+        self.controller.revoke(self.ident)
+        with self.assertRaises(ValueError):run()
+
+    def test_pinned_authority_mismatch_rejects_controller_and_wallet(self):
+        from postgres import PostgresWallet,RegistryUnavailable
+        from postgres_continuity import PostgresContinuity
+        from revocation import RevocationAuthority
+        wrong=RevocationAuthority(self.synthetic.invoke,reference=self.controller.reference+'-other')
+        with self.assertRaises(ValueError):PostgresContinuity(self.dsns['continuity'],wrong,local_test=True)
+        with self.assertRaises(RegistryUnavailable):
+            PostgresWallet(self.dsns['wallet'],self.a.origin,self.a.vault,local_test=True,revocation=wrong)
+
     def signed(self, action='snapshot', req=None, key=0, store=None):
         ident=hashlib.sha256(base64.b64decode(self.keys[key]['publicKey'])).hexdigest()
         c=(store or self.a).challenge({'credentialId':ident,'action':action,'requestId':req})
@@ -158,7 +413,7 @@ class ClusterTests(unittest.TestCase):
         proposal=self.activate()
         self.assertEqual('ACTIVE',self.b.execute(self.signed())['state'])
         with self.assertRaises(self.psycopg.Error):self.sql('bob','SELECT approve_activation(%s)',(proposal,))
-        self.assertEqual(3,len(self.sql('auditor','SELECT * FROM operator_events')))
+        self.assertEqual(4,len(self.sql('auditor','SELECT * FROM operator_events')))
 
     def test_registry_evidence_is_required_before_both_operator_decisions(self):
         with self.assertRaises(self.psycopg.Error):
@@ -421,9 +676,7 @@ class ClusterTests(unittest.TestCase):
             self.assertEqual(10,db.execute('SELECT count(*) FROM openid.federation_requests').fetchone()[0])
             with self.assertRaises(self.psycopg.Error):db.execute(migration5,prepare=False)
             db.execute('ROLLBACK')
-            definition="SELECT pg_get_functiondef('openid.purge_expired(integer,integer,integer)'::regprocedure)"
-            with self.psycopg.connect(DSN) as fresh:
-                self.assertEqual(fresh.execute(definition).fetchone(),db.execute(definition).fetchone())
+            # Schema-9 retention is compared only after the entire migration chain.
             self.assertTrue(db.execute("SELECT has_function_privilege('test_maintenance','openid.purge_expired(integer,integer,integer)','EXECUTE')").fetchone()[0])
             self.assertFalse(db.execute("SELECT has_function_privilege('test_wallet','openid.purge_expired(integer,integer,integer)','EXECUTE')").fetchone()[0])
         with self.psycopg.connect(dsn('maintenance')) as maintenance:
@@ -454,7 +707,7 @@ class ClusterTests(unittest.TestCase):
             self.assertEqual(links,db.execute('SELECT credential,person FROM openid.credential_persons ORDER BY credential').fetchall())
             self.assertEqual(0,db.execute('SELECT count(*) FROM openid.erasure_runs').fetchone()[0])
             with self.psycopg.connect(DSN) as fresh:
-                for function in ('guard_credential','guard_consent'):
+                for function in ('guard_consent',):
                     definition="SELECT pg_get_functiondef('openid."+function+"()'::regprocedure)"
                     self.assertEqual(fresh.execute(definition).fetchone(),db.execute(definition).fetchone())
             with self.assertRaises(self.psycopg.Error):db.execute(migration7,prepare=False)
@@ -466,10 +719,14 @@ class ClusterTests(unittest.TestCase):
             self.assertEqual([(8,)],db.execute('SELECT version FROM openid.schema_version').fetchall())
             self.assertEqual(0,db.execute('SELECT count(*) FROM openid.registry_bindings').fetchone()[0])
             self.assertEqual((0,None),db.execute('SELECT expires,registry_reference FROM openid.activation_proposals WHERE id=%s',(old_proposal,)).fetchone())
+            schema8_backup=self.version8_backup(db)
+            migration9=(Path(__file__).parents[1]/'deployment/cluster/migrate-8-to-9.sql').read_text()
+            db.execute(migration9,prepare=False)
+            self.assertEqual([(9,)],db.execute('SELECT version FROM openid.schema_version').fetchall())
             with self.psycopg.connect(DSN) as fresh:
-                for function in ('record_registry_binding(text,text,text,text,text,text,text,bigint,bigint,text)',
+                for function in ('guard_credential()', 'record_registry_binding(text,text,text,text,text,text,text,bigint,bigint,text)',
                                  'request_activation(text,text,integer)', 'approve_activation(text)',
-                                 'revoke_all_after_restore()'):
+                                 'purge_expired(integer,integer,integer)', 'revoke_all_after_restore()'):
                     definition="SELECT pg_get_functiondef('openid."+function+"'::regprocedure)"
                     self.assertEqual(fresh.execute(definition).fetchone(),db.execute(definition).fetchone())
             with self.assertRaises(self.psycopg.Error):db.execute(migration8,prepare=False)
@@ -497,17 +754,22 @@ class ClusterTests(unittest.TestCase):
         self.assertEqual('QUARANTINED',restored_result['state'])
         restored_dsn=self.restored_database(restored_name)
         with self.psycopg.connect(restored_dsn) as db:
-            self.assertEqual([(8,)],db.execute('SELECT version FROM openid.schema_version').fetchall())
+            self.assertEqual([(9,)],db.execute('SELECT version FROM openid.schema_version').fetchall())
             self.assertEqual([(0,)],db.execute('SELECT count(*) FROM openid.registry_bindings').fetchall())
             self.assertEqual((0,None),db.execute('SELECT expires,registry_reference FROM openid.activation_proposals WHERE id=%s',(old_proposal,)).fetchone())
             self.assertEqual(0,db.execute("SELECT count(*) FROM openid.credentials WHERE state!='REVOKED'").fetchone()[0])
+        schema8_target=self.restore_target()
+        self.assertEqual('QUARANTINED',postgres_restore(DSN,schema8_backup,schema8_target,self.a.vault,local_test=True)['state'])
+        with self.psycopg.connect(self.restored_database(schema8_target)) as restored8:
+            self.assertEqual([(9,)],restored8.execute('SELECT version FROM openid.schema_version').fetchall())
+            self.assertEqual([(0,)],restored8.execute('SELECT count(*) FROM openid.approval_intents').fetchall())
         migrated=PostgresWallet(dsn('enroller'),self.a.origin,self.enroller.vault,local_test=True)
         self.addCleanup(migrated.close)
         self.assertEqual(4,migrated.biometric_attempt(document()))
         with migrated.transaction() as db:
             self.assertEqual(self.ident,db.execute('SELECT credential FROM profiles').fetchone()[0])
             self.assertEqual('PENDING_REVIEW',db.execute('SELECT state FROM credentials').fetchone()[0])
-        with self.psycopg.connect(dsn('revoker')) as revoker:revoker.execute('SELECT openid.revoke_all_after_restore()')
+        with self.psycopg.connect(admin_dsn) as owner:owner.execute('SELECT openid.revoke_all_after_restore()')
         from wallet import EnrollmentQuarantine
         for operation in (migrated.enrollment_available,lambda:migrated.biometric_attempt(document()),
                           lambda:migrated.enroll(self.keys[2]['publicKey'],document())):
@@ -1101,7 +1363,13 @@ class ClusterTests(unittest.TestCase):
         allowed={'request_activation(text,text,integer)':{'alice','carol'},'approve_activation(text)':{'bob','carol'},
             'record_profile_person()':set(),
             'record_registry_binding(text,text,text,text,text,text,text,bigint,bigint,text)':{'registry'},
-            'revoke_credential(text)':{'revoker'},'revoke_all_after_restore()':{'revoker'},
+            'revoke_credential(text)':{'revoker','continuity'},'revoke_all_after_restore()':set(),
+            'activation_context(text)':set(),'activation_snapshot(text)':{'continuity'},
+            'complete_activation(text,text,text[])':{'continuity'},
+            'confirm_external_revocation(text,text)':{'continuity'},
+            'confirm_intent_revocation(text,text,text)':{'continuity'},
+            'stage_revocation_contact(text,text,text,text)':{'contact'},
+            'bind_revocation_contact(text,text,text)':{'contact'},
             'purge_expired(integer,integer,integer)':{'maintenance'},
             'retain_consent_evidence(text,boolean,integer)':{'maintenance'},
             'reserve_biometric_attempt(text)':{'enroller'},'security_code_status(text)':{'wallet'},
@@ -1186,7 +1454,8 @@ class ClusterTests(unittest.TestCase):
             for name in ('credentials','profiles','persons','activation_proposals','operator_events','events'):
                 db.execute('CREATE TEMP TABLE '+name+'(id text)')
                 db.execute('GRANT ALL ON pg_temp.'+name+' TO openid_owner')
-            db.execute('SELECT openid.approve_activation(%s)',(proposal,))
+            intent=db.execute('SELECT openid.approve_activation(%s)',(proposal,)).fetchone()[0]
+        self.controller.complete(intent)
         self.assertEqual('ACTIVE',self.b.execute(self.signed())['state'])
 
     def test_no_unverified_profile_or_expired_proposal(self):
@@ -1302,7 +1571,7 @@ class ClusterTests(unittest.TestCase):
 
     def test_restore_revokes_every_key_and_invalidates_pending_approvals(self):
         self.activate(); signed=self.signed()
-        self.sql('revoker','SELECT revoke_all_after_restore()')
+        with self.psycopg.connect(DSN) as owner:owner.execute('SELECT openid.revoke_all_after_restore()')
         with self.assertRaises(ValueError):self.b.execute(signed)
         self.assertEqual('REVOKED',self.b.execute(self.signed())['state'])
 
@@ -1312,7 +1581,7 @@ class ClusterTests(unittest.TestCase):
         with self.psycopg.connect(DSN,autocommit=True) as admin:
             admin.execute(sql.SQL('ALTER DATABASE {} ALLOW_CONNECTIONS true').format(sql.Identifier(name)))
             if grant:
-                admin.execute(sql.SQL('GRANT CONNECT ON DATABASE {} TO test_wallet,test_enroller,test_registry,test_alice,test_bob').format(sql.Identifier(name)))
+                admin.execute(sql.SQL('GRANT CONNECT ON DATABASE {} TO test_wallet,test_enroller,test_registry,test_alice,test_bob,test_contact,test_continuity').format(sql.Identifier(name)))
         return make_conninfo(**(conninfo_to_dict(DSN)|{'dbname':name}))
 
     def restore_target(self):
@@ -1356,7 +1625,10 @@ class ClusterTests(unittest.TestCase):
         # Even reopening the listener does not grant application access.
         with self.assertRaises(self.psycopg.Error):self.psycopg.connect(dsn('wallet'))
         self.restored_database(target,grant=True)
-        restored=PostgresWallet(dsn('wallet'),self.a.origin,self.a.vault,local_test=True)
+        from postgres_continuity import PostgresContinuity
+        restored_controller=PostgresContinuity(dsn('continuity'),self.synthetic.authority,local_test=True)
+        self.addCleanup(restored_controller.close)
+        restored=PostgresWallet(dsn('wallet'),self.a.origin,self.a.vault,local_test=True,revocation=restored_controller)
         self.addCleanup(restored.close)
         with self.assertRaises(ValueError):restored.execute(signed)
         with self.assertRaises(ValueError):restored.consume_result(request['id'],request['secret'])
@@ -1384,7 +1656,9 @@ class ClusterTests(unittest.TestCase):
         self.registry_binding(ident,wallet=registry)
         with self.psycopg.connect(dsn('alice')) as operator:
             fresh=operator.execute('SELECT openid.request_activation(%s,%s,%s)',(ident,'REVIEW-after-restore',24)).fetchone()[0]
-        with self.psycopg.connect(dsn('bob')) as operator:operator.execute('SELECT openid.approve_activation(%s)',(fresh,))
+        with self.psycopg.connect(dsn('bob')) as operator:
+            intent=operator.execute('SELECT openid.approve_activation(%s)',(fresh,)).fetchone()[0]
+        restored_controller.complete(intent)
         self.assertEqual('ACTIVE',restored.execute(self.signed(key=2,store=restored))['state'])
 
         with self.psycopg.connect(admin_dsn) as admin:
@@ -1394,7 +1668,7 @@ class ClusterTests(unittest.TestCase):
 
     def test_restore_hold_cannot_be_reset_or_shadowed_by_a_service(self):
         from wallet import EnrollmentQuarantine
-        self.sql('revoker','SELECT revoke_all_after_restore()')
+        with self.psycopg.connect(DSN) as owner:owner.execute('SELECT openid.revoke_all_after_restore()')
         with self.assertRaises(EnrollmentQuarantine):self.enroller.enrollment_available()
         with self.assertRaises(EnrollmentQuarantine):self.enroller.biometric_attempt(document())
         for role in self.dsns:
@@ -1575,6 +1849,17 @@ with ExitStack() as stack:
         cert,key=directory/'cert.pem',directory/'key.pem'
         subprocess.run(['openssl','req','-x509','-newkey','rsa:2048','-nodes','-days','1','-subj','/CN=localhost',
             '-addext','subjectAltName=DNS:localhost','-keyout',str(key),'-out',str(cert)],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        from ipc_support import LocalService
+        from postgres_continuity import dispatch
+        import threading
+        directory.chmod(0o2710)
+        socket_path=directory/'continuity.sock'
+        endpoint=LocalService(socket_path,os.getgid(),lambda request:dispatch(self.controller,request))
+        thread=threading.Thread(target=endpoint.serve_forever,daemon=True);thread.start()
+        self.addCleanup(endpoint.close)
+        continuity_file=directory/'continuity.json'
+        continuity_file.write_text(json.dumps({'version':1,'socket':str(socket_path),'authority':self.controller.reference}))
+        continuity_file.chmod(0o600)
         context=ssl.create_default_context(cafile=str(cert));processes=[];ports=[];logs=[];container_names={}
         def stop(process):
             if process.pid in container_names:
@@ -1605,7 +1890,7 @@ with ExitStack() as stack:
                 path=directory/name;path.write_text(value);path.chmod(0o600)
             config={'bind':'127.0.0.1','port':ports[-1],'origin':self.a.origin,'workers':2,'role':'wallet',
                 'databaseFile':str(directory/'dsn'),'baoAddress':self.address,'baoTokenFile':str(directory/'wallet-token'),
-                'baoCA':str(cert),'tlsCert':str(cert),'tlsKey':str(key),'pairingFile':str(directory/'pairing'),'metricsFile':str(directory/'metrics')}
+                'continuityFile':str(continuity_file),'baoCA':str(cert),'tlsCert':str(cert),'tlsKey':str(key),'pairingFile':str(directory/'pairing'),'metricsFile':str(directory/'metrics')}
             path=directory/(str(index)+'.json');path.write_text(json.dumps(config))
             log=open(directory/(str(index)+'.log'),'w+');logs.append(log);self.addCleanup(log.close)
             command=[sys.executable,'-c','import json,sys;from cluster_serve import run;run(json.load(open(sys.argv[1])),local_test=True)',str(path)]

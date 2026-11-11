@@ -26,7 +26,8 @@ TABLES = {'profiles', 'security_codes', 'requests', 'federation_requests', 'chal
           'credential_consents', 'enrollment_consents', 'enrollment_policies',
           'notice_contacts', 'notice_outbox', 'revocation_codes', 'profile_evidence',
           'events', 'activation_proposals', 'operator_events'}
-TABLES |= {'registry_bindings', 'registry_evidence', 'test_beta_revocation_codes'}
+TABLES |= {'registry_bindings', 'registry_evidence', 'test_beta_revocation_codes',
+           'approval_intents', 'intent_revocations'}
 
 
 def reference(value):

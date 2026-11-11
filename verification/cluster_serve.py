@@ -15,7 +15,7 @@ from bounded_process import image_worker_environment
 def config_file(path):
     config=json.loads(Path(path).read_text())
     fields={'role','bind','port','origin','workers','databaseFile','baoAddress','baoTokenFile','baoCA',
-        'tlsCert','tlsKey','pairingFile','metricsFile'}
+        'tlsCert','tlsKey','pairingFile','metricsFile','continuityFile'}
     proofing={'team','bundle','developmentAttestation','csca','jar'}
     if config.get('role')=='proofing': fields |= proofing
     optional={'cscaCrl','newRegistrationsEnabled','enrollmentPolicyFile'} if config.get('role')=='proofing' else set()
@@ -38,7 +38,7 @@ def config_file(path):
         if config['workers']!=1: raise ValueError('proofing requires one worker')
         if not re.fullmatch('[A-Z0-9]{10}',config['team']) or not re.fullmatch('[A-Za-z0-9.-]{3,128}',config['bundle']): raise ValueError('Apple identifiers')
         if type(config['developmentAttestation']) is not bool: raise ValueError('attestation environment')
-    for field in set(config) & {'databaseFile','baoTokenFile','baoCA','tlsCert','tlsKey','pairingFile','metricsFile','csca','jar','cscaCrl'}:
+    for field in set(config) & {'databaseFile','baoTokenFile','baoCA','tlsCert','tlsKey','pairingFile','metricsFile','csca','jar','cscaCrl','continuityFile'}:
         if not Path(config[field]).is_absolute() or not Path(config[field]).is_file(): raise ValueError('absolute existing path required')
     private_file(config['tlsKey'])
     context=ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER); context.load_cert_chain(config['tlsCert'],config['tlsKey'])
@@ -51,12 +51,13 @@ def create_app(config, *, local_test=False):
     from crypto_runtime import CryptoRuntime
     from postgres import PostgresWallet
     from transit import TransitVault
+    from postgres_continuity import configured_client
     crypto=CryptoRuntime()
     wallet=None
     try:
         vault=TransitVault(config['baoAddress'],config['baoTokenFile'],config['baoCA'],local_test=local_test)
         wallet=PostgresWallet(private_file(config['databaseFile']).decode().strip(),config['origin'],vault,
-            crypto=crypto.device,local_test=local_test)
+            crypto=crypto.device,local_test=local_test,revocation=configured_client(config['continuityFile']))
         native=None
         if config['role']=='proofing':
             from native import NativeSessions, AppAttest

@@ -3,7 +3,9 @@
 `cluster_serve.py` kör autentisering i flera processer eller instanser mot
 PostgreSQL och OpenBao Transit. Registrering körs separat med en process;
 ett avbrott i en pågående NFC-session kräver att registreringen startas om.
-Det befintliga SQLite-läget finns kvar för en lokal pilot.
+Den gemensamma Compose-profilen använder fortfarande SQLite. Byte till detta
+körläge kräver att även federationsprofil, nyckelgränser, export och driftprov
+kopplas till samma PostgreSQL-register; källkoden ensam gör inte bytet.
 
 Det befintliga CI-jobbet bygger autentiseringsimagen, provar dess integration
 och skannar därefter samtliga Debianpaket med Trivy och kontrollerar aktuell tillämplighet.
@@ -44,14 +46,16 @@ i ägarrollen. Skapa separata LOGIN-konton och tilldela dessa grupproller:
 | `openid_wallet` | Signerade operationer, förfrågningar och spärr |
 | `openid_registry` | Läsa verifierad profil och lagra versionsbundet registerbevis genom en begränsad funktion |
 | `openid_requester` | Föreslå aktivering med beslutsreferens |
-| `openid_approver` | Godkänna en annan inloggnings aktiveringsförslag |
-| `openid_revoker` | Spärra en nyckel eller hela registret efter återläsning |
+| `openid_approver` | Skapa ett fem minuter giltigt intent för en annan inloggnings aktiveringsförslag |
+| `openid_contact` | Förbereda krypterad spärrkod och binda oföränderlig, separat kontrollerad kontakt |
+| `openid_continuity` | Kvittera extern spärr och slutföra ett giltigt operatörsintent |
+| `openid_revoker` | Spärra en nyckel lokalt efter bekräftad extern spärr |
 | `openid_maintenance` | Omkryptera profiler och köra begränsad gallring |
 | `openid_auditor` | Läsa operatörshändelser och aktiveringsförslag |
 | `openid_backup` | Läsa registrets tabeller för backup; ingen skriv- eller dekrypteringsrätt |
 
 Ett förslag gäller en timme och binds till nyckeln, profilversionen och det
-aktuella registerbevisets referens. Både förslag och attest kräver samma
+aktuella registerbevisets referens och en separat kontrollerad kontaktversion. Både förslag och attest kräver samma
 oförändrade, ännu giltiga registerbevis för handlingen. Syntetiska identiteter
 kan inte användas för aktivering. En ny registerkontroll efter förslaget kräver
 ett nytt förslag när det gamla löpt ut. Registerbevis gäller högst ett dygn.
@@ -64,10 +68,10 @@ deras åtkomst måste hanteras separat från den ordinarie operatörsprocessen.
 | Övergång | Villkor och effekt |
 |---|---|
 | Ny → PENDING_REVIEW | Registreringsrollen skriver verifierad profil och ny enhetsnyckel |
-| PENDING_REVIEW → ACTIVE | Två olika operatörsinloggningar, färskt förslag, giltigt pass och oförändrat aktuellt registerbevis |
+| PENDING_REVIEW → ACTIVE | Två olika operatörsinloggningar, färskt intent, giltigt pass/register/kontakt, extern spärrkontroll och atomisk aviseringspost |
 | ACTIVE/PENDING_REVIEW → REVOKED | Spärr; väntande godkännanden annulleras |
 | ACTIVE → EXPIRED | Giltighet kontrolleras vid varje användning |
-| Nyckelbyte | Samma person låses; gamla nycklar spärras i samma transaktion |
+| Nyckelbyte | Samma dokumentgrupp låses; gamla nycklar spärras först externt och därefter lokalt i aktiveringstransaktionen |
 | REVOKED → ACTIVE | Förbjuden; ny registrering och ny nyckel krävs |
 
 Aktivering kräver fortfarande en faktisk granskningsprocess och tillgång
@@ -91,6 +95,7 @@ bao write transit/keys/openid-index type=hmac key_size=32 exportable=false
 bao policy write openid-enroller deployment/cluster/enroller.hcl
 bao policy write openid-wallet deployment/cluster/wallet.hcl
 bao policy write openid-registry deployment/cluster/registry.hcl
+bao policy write openid-contact deployment/cluster/contact.hcl
 bao policy write openid-maintenance deployment/cluster/maintenance.hcl
 bao policy write openid-backup deployment/cluster/backup.hcl
 bao policy write openid-recovery deployment/cluster/recovery.hcl
@@ -226,16 +231,17 @@ Tjänstekontot kan bara läsa kodstatus och anropa begränsade kontroll- och
 bytesfunktioner; det kan inte läsa verifierarna, återställa en låst kod
 eller ändra begärans text, nivå, motpart eller sessionsbindning.
 
-Nya installationer använder `schema.sql`, version 8. Version 1–7 nekas av den
+Nya installationer använder `schema.sql`, version 9. Version 1–8 nekas av den
 nya applikationen. Stoppa applikationer och underhåll, ta och verifiera en
 backup med den tidigare, låsta kodrevisionen och kör `migrate-1-to-2.sql`
-med databasens kontrollerade ägarkonto och fortsätt med `migrate-2-to-3.sql`, `migrate-3-to-4.sql`, `migrate-4-to-5.sql`, `migrate-5-to-6.sql`, `migrate-6-to-7.sql` och `migrate-7-to-8.sql`. Börja vid
+med databasens kontrollerade ägarkonto och fortsätt med `migrate-2-to-3.sql`, `migrate-3-to-4.sql`, `migrate-4-to-5.sql`, `migrate-5-to-6.sql`, `migrate-6-to-7.sql` `migrate-7-to-8.sql` och `migrate-8-to-9.sql`. Börja vid
 databasens befintliga version; hoppa inte över steg. Migreringarna är transaktionella och
 nekar annan startversion. Starta därefter den nya revisionen och verifiera
 readiness, rollgränser och försöksspärren innan trafik öppnas.
 
-Schema-8-backupen omfattar även registerbindningar och förbrukade bevisreferenser.
-En exakt låst schema-7-backup kan återläsas direkt med det nya verktyget;
+Schema-9-backupen omfattar även registerbindningar, operatörsintent, kontakt-
+och aviseringsposter samt externa spärrreferenser. Exakt låsta schema-7- och
+schema-8-backuper kan återläsas direkt med det nya verktyget;
 den får inga fabricerade registerbevis. Äldre backuper återläses med sin tidigare kodrevision i en stängd miljö,
 spärras och migreras innan ny kod får ansluta. Kör därefter
 `revoke_all_after_restore()` innan applikationskonton får tillgång.
@@ -286,7 +292,8 @@ Kontrollsummorna autentiserar inte avsändaren: backupkatalogen måste skyddas
 mot ändring och kopieras till separat krypterad lagring med fastställd retention.
 Detta är en logisk backup av registret, inte PostgreSQL-klustrets roller,
 konfiguration, repliker eller WAL. Spara den matchande kodrevisionen;
-återställning kräver PostgreSQL 18 och exakt samma `schema.sql`.
+återställning kräver PostgreSQL 18 och den granskade schemakoden. Äldre
+schema-7/8-arkiv accepteras endast med sina uttryckligen låsta schemadigester.
 
 Ta därefter en separat OpenBao-snapshot, så att den omfattar alla
 profilnyckelversioner som registerbackupen behöver:
@@ -393,7 +400,7 @@ ersätter funktionen och höjer versionskravet i samma transaktion, utan att
 radera några rader eller ge tjänstekonton nya rättigheter. Fel startversion,
 upprepad körning eller uteblivet lås stoppar den. Gör efterprov innan underhåll
 eller trafik återöppnas. Ny applikation, backupverktyg och individuellt
-ärendeuttag kräver numera schema 8; personlänksmigreringen nedan ska också köras. Äldre backuper återläses med sina ursprungliga
+ärendeuttag kräver numera schema 9; personlänksmigreringen nedan ska också köras. Äldre backuper återläses med sina ursprungliga
 verktyg i stängd miljö och migreras innan aktuell revision används.
 Migreringen återskapar inte tidigare raderad text. Arkivlayouten är fortsatt
 format 4, med faktisk databasversion i manifestet.
@@ -410,7 +417,7 @@ läsa den; inga nya konton eller externt anropbara mutationsfunktioner införs.
 `migrate-5-to-6.sql` låser registret och fyller länkar från befintliga profiler.
 Den gissar inte vilka personer tidigare gallrade eller oavslutade registreringar
 tillhör. Fel startversion, omkörning eller uteblivet lås nekar migreringen.
-Aktuell app, full backup och rättighetsuttag kräver schema 8. Ta/verifiera först
+Aktuell app, full backup och rättighetsuttag kräver schema 9. Ta/verifiera först
 backup med tidigare låst verktyg, stoppa skrivare och kör migreringen som
 kontrollerad ägare; gör efterprov före öppning.
 
@@ -430,7 +437,7 @@ SQLite-adapterns byte av personkoppling vid registerkontrollerat passbyte.
 
 ## Beslutad radering och återställning (schema 7)
 
-Se [radering i rättighetsärende](../../docs/radering-rattighetsarende.md) för planering med läskonto, verkställighet med registerägaren och obligatorisk extern beslutsförteckning vid återställning. `migrate-6-to-7.sql` lägger till atomisk raderingsjournal och spärrar som också gäller nycklar utan kvarvarande registrering. App, full backup och ärendeverktyg kräver nu schema 8. Arkivformatet är 5; äldre journalarkiv förblir läsbara.
+Se [radering i rättighetsärende](../../docs/radering-rattighetsarende.md) för planering med läskonto, verkställighet med registerägaren och obligatorisk extern beslutsförteckning vid återställning. `migrate-6-to-7.sql` lägger till atomisk raderingsjournal och spärrar som också gäller nycklar utan kvarvarande registrering. App, full backup och ärendeverktyg kräver nu schema 9. Arkivformatet är 5; äldre journalarkiv förblir läsbara.
 
 
 ## Registerbevis före tvåpersonersbeslut (schema 8)
@@ -464,9 +471,96 @@ eller den nya förslagsreferensen; använd full backup/rättighetsuttag för des
 Detta är en kodmässig förutsättning för sammanhållen drift. En autentiserad verklig
 registeradapter, dess åtkomstavtal och återkommande uppdateringar återstår. Testerna
 använder en uttrycklig testadapter med reserverade SPAR-exempel och bevisar inte
-pass/registermatchning i verklig drift. PostgreSQL-vägen måste också anslutas till
-fristående spärr, avisering, federationsprofil och tillåtna motparter innan det
-gemensamma driftpaketet byts. Byte av pass/personlänk och nationellt attribututlämnande
+pass/registermatchning i verklig drift. Kopplingen till fristående spärr och atomisk avisering beskrivs nedan.
+Den gemensamma federationsprofilen, tillåtna motparter och det slutliga driftpaketet
+måste fortfarande kopplas till samma PostgreSQL-väg innan driftpaketet byts. Byte av pass/personlänk och nationellt attribututlämnande
 är separata kontroller. Drifts-, databas- och nyckeladministrationens mandat samt
 faktiska oberoende personer ingår i den organisatoriska bedömningen; två olika
 login är inte ett färdigt bevis för Diggs K3.4.
+
+
+## Fristående spärr och atomisk avisering (schema 9)
+
+`migrate-8-to-9.sql` körs med stoppade skrivare efter verifierad schema-8-backup.
+Gamla väntande förslag upphör; tidigare genomförda beslut behålls. En behörig
+administratör binder `continuity_config` till den nya utfärdarens faktiska
+Lambda-ARN. Ingen standard-ARN eller gammal pilotförteckning används.
+Kontrollen startar inte om klientens/kontrollerns ARN avviker från databasens.
+
+`postgres_continuity.py` körs som egen process med egen databaslogin i
+`openid_continuity` och AWS-identitet som bara får anropa den bundna
+spärrfunktionen. Den får inte skriva ENABLED-poster, skapa operatörsbeslut,
+läsa profiler eller ändra kontakter. Använd befintlig
+[fristående authority och leveranskedja](../continuity/README.md) med ett nytt
+namnrum och `TestBeta=false`. En färsk förteckning har ingen pilotfrist;
+en gammal kampanjmarkör får aldrig återanvändas eller tas bort för att
+förlänga en tidigare pilot.
+
+Den privata kontrollkonfigurationen innehåller exakt `databaseFile`,
+`continuityConfig`, `socket` och numerisk `socketGroup`.
+`continuityConfig` använder det befintliga privata AWS-formatet med version 1,
+region eu-north-1 och fullständig backendFunction-ARN. Socketens katalog ska
+ägas av processen, ha rätt grupp och läge 2710; socketen får läge 0660.
+Endast behöriga klienter får tillträde. Klienternas privata `continuityFile`
+innehåller version 1, absolut `socket` och samma `authority`-ARN.
+API och federation har varken AWS-anropsrätt eller kontrollerns databaslogin.
+
+Kontaktoperatören använder en egen login i `openid_contact`, en separat
+Transit-token enligt `contact.hcl` och separat IAM-rätt för villkorad,
+atomisk initialisering av kontakt och spärrpost. Kommandot
+`continuity_operator.py --postgres-config /private/contact.json` använder
+fält för databaseFile, origin, baoAddress, baoTokenFile, baoCA och continuityFile.
+Övriga argument är samma som i kontinuitetsinstruktionen; mottagaren läses
+från standard input. En förlorad kvittens får inte skriva över en spärr eller
+byta mottagare. Den separata kontaktpolicyn har i nuläget kryptografisk tillgång
+till profilnyckeln och kräver samma skydd som övriga granskningskonton.
+
+Ordinarie beslut följer denna ordning:
+
+1. Kontakt och extern ENABLED-post förbereds efter separat kontaktkontroll.
+2. Första operatören kör `cluster_operator.py --database-file /private/requester request CREDENTIAL REFERENCE`.
+3. En annan operatör kör `cluster_operator.py --database-file /private/approver approve PROPOSAL`
+   och får ett fem minuter giltigt intent. Registreringen är fortfarande väntande.
+4. Behörig klient kör `cluster_operator.py --continuity-file /private/controller-client.json complete INTENT`.
+   Varje steg spärrar högst en gammal nyckel externt utan databaslås och
+   sparar kvittens för samma intent. Om svaret tappas återupptas samma intent.
+5. En kort sluttransaktion låser dokumentgruppen och dess nycklar, kräver
+   exakt samma nyckelmängd samt färska, oförändrade pass-/register-/kontaktbevis.
+   Aktivering, faktiskt operatörsbeslut och aviseringspost skrivs atomiskt.
+
+Aviserings-ID är SHA-256 av `activation:v1:` följt av registreringens ID.
+`notice_ipc` kan lämna den opersonliga transportposten till befintlig köexport.
+En transportkvittens bevisar kömottagning; den bevisar inte inkorgsleverans.
+Gamla referenser blir inte nya aktiveringar vid ett omförsök.
+
+Operatörsspärr kräver både `--continuity-file` och spärrkontots
+`--database-file`. Innehavarens spärr går genom samma controller.
+Extern spärr består även om det efterföljande databassteget misslyckas.
+Avsaknad av aktuell status, okänd nyckel och nätfel får aldrig ge lokalt
+ACTIVE som autentiseringsbeslut. Databaskvittenser är kontrollerns intyg om
+det utförda steget; den är en betrodd komponent, inte ett oberoende
+kryptografiskt bevis på AWS-tjänstens riktighet.
+
+Återläsning är en separat, helt lokal karantänfas. Den gör inga externa
+masspärrar, annullerar väntande intent och oskickade aviseringsposter och
+lämnar databasen stängd. Kvittenser i en backup är historik. Ett faktiskt
+återgångsbeslut kräver separat kontroll mot aktuell authority, operativ spärr
+av berörda nycklar och verifierat driftpaket före återöppning.
+Ett vanligt återläsningsprov får aldrig utföra den globala åtgärden.
+Endast kontrollerad ägare får köra `revoke_all_after_restore()`.
+
+Personkopplingen är ännu baserad på samma verifierade dokumentbindning.
+Ett nytt pass är inte automatiskt samma persongrupp i PostgreSQL; granskad
+koppling och spärr över passbyte återstår. Detta, verklig registeråtkomst,
+aviseringsleverans, HSM, faktisk tvåpersonersorganisation och
+produktionsrelease är separata beroenden. Samma container innehåller den
+redan låsta AWS SDK-grafen från `deployment/aws/requirements.lock`, dess
+licenser och SBOM; inga paketversioner ändras. Tillämplighetsbedömningen
+måste förnyas för den nya källrevisionen.
+
+
+Generell journalgallring hoppar över förslag med kopplat intent. Deras
+sammanhängande historik, intentkvittenser och aviseringsposter hanteras genom
+ett uttryckligt livscykel-/kontaktbeslut i rättighetsverktyget. Externa
+permanenta spärrreferenser bevaras som skyddade säkerhetsreferenser;
+motivering och slutlig bevarandetid kräver separat verksamhetsbeslut.
