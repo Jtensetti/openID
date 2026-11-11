@@ -38,6 +38,7 @@ COPY verification/subject_access.py verification/postgres_subject_access.py ./
 COPY verification/erasure_policy.py verification/subject_erasure.py verification/recovery_binding.py ./
 COPY verification/ingress_client.py verification/ipc_support.py ./
 COPY verification/enrollment_policy.py verification/acceptance_journal.py verification/consent_retention.py ./
+COPY verification/registry_binding.py ./
 COPY verification/image_input.py ./
 COPY verification/bounded_process.py verification/profile_worker.py verification/worker_confinement.py ./
 COPY deployment/cluster/schema.sql /app/deployment/cluster/schema.sql

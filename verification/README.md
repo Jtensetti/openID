@@ -652,6 +652,6 @@ spärras med befintlig `wallet_cli.py revoke`; den gamla nyckeln återaktiveras 
 Syntetiska prov använder interna test-ID:n och lämnar aldrig ut personnummer.
 Se [operatörsflöde, adapterkontrakt och begränsningar](../docs/registerbindning.md).
 
-Nyregistrering kräver en privat `enrollmentPolicyFile`; se [information, versionsbundna val och återkallelse](../docs/registreringsinformation.md). Standardläget kräver separat aktivering; [TestFlight-läget](../docs/testflight-beta.md) aktiverar automatiskt efter godkända kontroller. PostgreSQL kräver schema 7. [Gallring av registreringskvitton](../docs/gallring-samtycken.md) kräver separat beslutad policy.
+Nyregistrering kräver en privat `enrollmentPolicyFile`; se [information, versionsbundna val och återkallelse](../docs/registreringsinformation.md). Standardläget kräver separat aktivering; [TestFlight-läget](../docs/testflight-beta.md) aktiverar automatiskt efter godkända kontroller. PostgreSQL kräver schema 8. [Gallring av registreringskvitton](../docs/gallring-samtycken.md) kräver separat beslutad policy.
 
 Beslutad radering och aktuell beslutsförteckning vid återställning beskrivs i [radering i rättighetsärende](../docs/radering-rattighetsarende.md). Skyddsreferenser och externa kopior kräver separat prövning.

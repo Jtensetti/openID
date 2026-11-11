@@ -1,4 +1,4 @@
-"""Operator-side SQLite registry binding. No registry provider or HTTP endpoint is bundled.
+"""Registry evidence bound to the credential, passport profile and trusted source.
 
 A lookup adapter must authenticate its registry, resolve the person and verify the
 passport/registry match. A successful Python return value is not that evidence.
@@ -42,12 +42,20 @@ class RegistryBindings:
     MAX_AGE = 86400
 
     def __init__(self, wallet, *, source, lookup=None, allow_synthetic=False):
-        if type(wallet) is not Wallet:
-            raise ValueError('registry binding requires SQLite pilot backend')
+        self.postgres = type(wallet) is not Wallet
+        if self.postgres:
+            if type(wallet).__module__ != 'postgres':
+                raise ValueError('registry binding requires a supported wallet backend')
+            from postgres import PostgresWallet
+            if type(wallet) is not PostgresWallet:
+                raise ValueError('registry binding requires a supported wallet backend')
         if not isinstance(source, str) or not re.fullmatch('[a-z][a-z0-9-]{2,63}', source):
             raise ValueError('registry source required')
         self.wallet, self.source, self.lookup = wallet, source, lookup
         self.allow_synthetic = allow_synthetic is True
+        if self.postgres:
+            wallet.health()
+            return
         with wallet.transaction() as db:
             db.execute('''CREATE TABLE IF NOT EXISTS registry_bindings (
                 credential TEXT PRIMARY KEY REFERENCES credentials(id),
@@ -59,14 +67,23 @@ class RegistryBindings:
                 replacement TEXT UNIQUE NOT NULL REFERENCES credentials(id))''')
 
     def _profile(self, db, credential):
-        self.wallet.credential(db, credential)
+        if self.postgres:
+            row = db.execute('SELECT id FROM credentials WHERE id=?', (credential,)).fetchone()
+            if row is None:
+                raise ValueError('credential unavailable')
+        else:
+            self.wallet.credential(db, credential)
         p = db.execute('SELECT * FROM profiles WHERE credential=?', (credential,)).fetchone()
         if p is None: raise ValueError('passport proof required')
         return p
 
     def _document_reference(self, db, profile):
-        row = db.execute('SELECT document_tag FROM profile_documents WHERE credential=?',
-                         (profile['credential'],)).fetchone()
+        if self.postgres:
+            row = db.execute('SELECT document_tag FROM persons WHERE id=?',
+                             (profile['person'],)).fetchone()
+        else:
+            row = db.execute('SELECT document_tag FROM profile_documents WHERE credential=?',
+                             (profile['credential'],)).fetchone()
         if row is None: raise ValueError('document binding unavailable')
         return row['document_tag']
 
@@ -153,13 +170,21 @@ class RegistryBindings:
                 if (old['person_tag'] != tag or prior['source'] != self.source or
                         prior['kind'] != result.kind or prior['value'] != result.value):
                     raise ValueError('registry identity conflict')
-            try:
-                db.execute('INSERT INTO registry_evidence VALUES(?,?)', (proof, credential))
-            except sqlite3.IntegrityError:
-                raise ValueError('registry evidence already used') from None
-            db.execute('''INSERT INTO registry_bindings VALUES(?,?,?) ON CONFLICT(credential)
-                          DO UPDATE SET sealed=excluded.sealed''', (credential, tag, self._seal(p, data)))
-            self.wallet.event(db, credential, 'REGISTRY_CHECKED')
+            sealed = self._seal(p, data)
+            if self.postgres:
+                db.execute('SELECT record_registry_binding(?,?,?,?,?,?,?,?,?,?)',
+                    (credential, tag, sealed, self.source, result.kind, query.profile_version,
+                     query.document_reference, result.checked_at, result.valid_until, proof))
+            else:
+                try:
+                    db.execute('INSERT INTO registry_evidence VALUES(?,?)', (proof, credential))
+                except sqlite3.IntegrityError:
+                    raise ValueError('registry evidence already used') from None
+                db.execute('''INSERT INTO registry_bindings VALUES(?,?,?) ON CONFLICT(credential)
+                              DO UPDATE SET sealed=excluded.sealed''', (credential, tag, sealed))
+                self.wallet.event(db, credential, 'REGISTRY_CHECKED')
+        if self.postgres:
+            return {'state': 'BOUND', 'backend': 'postgresql'}
         return {'state': 'BOUND', 'scope': 'PRIVATE_PILOT'}
 
     def _binding(self, db, credential):
@@ -187,6 +212,8 @@ class RegistryBindings:
                     'checkedAt': data['checkedAt']}
 
     def activate_replacement(self, previous, replacement, decision, hours=24):
+        if self.postgres:
+            raise ValueError('PostgreSQL replacement requires separate operator approval')
         if identifier(previous) == identifier(replacement): raise ValueError('new key required')
         with self.wallet.transaction() as db:
             old, old_data, old_tag = self._binding(db, previous)

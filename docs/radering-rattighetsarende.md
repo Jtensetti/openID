@@ -2,7 +2,7 @@
 
 `subject_erasure.py` verkställer ett uttryckligt beslut för valda registreringsnycklar.
 Förhandsvisning, radering, journal och spärr av samma nycklar stöds för SQLite och
-PostgreSQL schema 7. Verktyget avgör varken identitet, rättslig grund eller undantag.
+PostgreSQL schema 8. Verktyget avgör varken identitet, rättslig grund eller undantag.
 Det har ingen webbendpoint och kontaktar inga deltagare, motparter eller molntjänster.
 
 Handläggaren måste pröva begäran, söka relaterade registreringar och bedöma
@@ -154,7 +154,7 @@ behöver separat verifierad migrering i isolering före återställningsförsök
 
 Full backup omfattar journal och nyckelspärrar. Begränsad arkivexport använder
 format 5. Applicera även aktuell `archive-access.sql` separat som kontrollerad
-ägare om arkivläsaren används; schema 7 ger inte automatiskt denna roll läsrätt
+ägare om arkivläsaren används; schema 8 ger inte automatiskt denna roll läsrätt
 till de nya journalfälten. Äldre arkivformat 1–4 är fortsatt läsbara. Arkivets hashkontroll
 ersätter inte den separata aktuella beslutsförteckningen.
 

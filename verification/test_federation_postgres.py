@@ -25,7 +25,7 @@ class FederationPostgres:
             self.dsns = {}
             with psycopg.connect(self.admin_dsn, autocommit=True) as admin:
                 admin.execute((Path(__file__).parents[1] / 'deployment/cluster/schema.sql').read_text(), prepare=False)
-                for user, role in {'enroller': 'enroller', 'wallet': 'wallet', 'requester': 'requester', 'approver': 'approver'}.items():
+                for user, role in {'enroller': 'enroller', 'wallet': 'wallet', 'registry': 'registry', 'requester': 'requester', 'approver': 'approver'}.items():
                     name, password = 'federation_' + user, secrets.token_urlsafe(32)
                     admin.execute(sql.SQL('CREATE ROLE {} LOGIN PASSWORD {}').format(sql.Identifier(name), sql.Literal(password)))
                     admin.execute(sql.SQL('GRANT {} TO {}').format(sql.Identifier('openid_' + role), sql.Identifier(name)))
@@ -37,12 +37,21 @@ class FederationPostgres:
                 return result
             self.enroller = wallet('enroller')
             self.wallet = wallet('wallet')
+            self.registry = wallet('registry')
             self.bridge_wallet = wallet('wallet')
         except BaseException:
             self.resources.close()
             raise
 
     def activate(self, credential):
+        from registry_binding import RegistryBindings, RegistryResult
+        from test_identity import TEST_PERSON_NUMBER
+        def lookup(query):
+            now = int(self.registry.clock())
+            return RegistryResult(query.nonce, query.credential, query.profile_version,
+                query.document_reference, 'PROOF-'+query.nonce, now, now+3600,
+                'MATCH', False, 'personnummer', TEST_PERSON_NUMBER)
+        RegistryBindings(self.registry, source='fixture-registry', lookup=lookup).bind(credential)
         with psycopg.connect(self.dsns['requester']) as operator:
             proposal = operator.execute('SELECT openid.request_activation(%s,%s,%s)',
                                         (credential, 'TEST-federation-001', 24)).fetchone()[0]
