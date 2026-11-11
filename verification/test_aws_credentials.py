@@ -94,6 +94,14 @@ class CredentialTests(unittest.TestCase):
             self.assertEqual('iam-role',credentials.method)
             self.assertEqual(response['access_key'],credentials.get_frozen_credentials().access_key)
 
+    def test_actual_sts_transport_rejects_before_parser_and_preserves_sdk_results(self):
+        from runtime_evidence import check_sts_transport
+        evidence = check_sts_transport()
+        self.assertEqual('query', evidence['protocol'])
+        self.assertEqual(['GetCallerIdentity', 'AssumeRole'], evidence['operations'])
+        self.assertEqual(20, evidence['rejectedBeforeParser'])
+        self.assertEqual(rotation.STS_XML_LIMIT, evidence['parserBodyLimit'])
+
     def test_atomic_delivery_preserves_rejected_paths(self):
         value = session()
         with patch('aws_credential_rotate.output_directory'):
