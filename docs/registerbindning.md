@@ -1,10 +1,10 @@
-# Registerbindning och ersättning i SQLite-piloten
+# Registerbindning och ersättning
 
 Implementationen i `verification/registry_binding.py` förbereder ID-02 och
-ID-08–10. Den är inte ansluten till ett personregister och ändrar inte
-pilotens tillitsnivå. Ingen registeradapter, ny HTTP-route eller automatisk
-aktivering ingår. PostgreSQL-lägets befintliga flerpersonsprocess ändras inte;
-den nya tjänsten avvisar det backendvalet tills motsvarande implementation finns.
+ID-08–10 för både SQLite och PostgreSQL. Den är inte ansluten till ett verkligt
+personregister. En betrodd registeradapter, rätt till produktionsåtkomst och
+återkommande uppdateringar återstår. Ingen ny HTTP-route eller automatisk
+aktivering införs av registerbindningen.
 
 ## Förutsättningar för en registeradapter
 
@@ -46,10 +46,24 @@ kontrolltider, profilversion och dokumentreferens lagras krypterat med separat
 autentiserad kontext från passprofilen. Händelseloggen innehåller endast fasta
 händelsetyper och interna nyckelreferenser.
 
-## Tillstånd och behörigheter
+## PostgreSQL i den gemensamma driftkandidaten
 
-Tabellen gäller det separata operatörsflödet för registerbindning. Den
-[automatiska TestFlight-betan](testflight-beta.md) utför ingen registerkontroll
+`RegistryBindings` accepterar `PostgresWallet`, som kräver schema 9.
+Registerbevis skrivs genom `record_registry_binding` med separat databaslogin
+i `openid_registry` och en egen Transit-token. Rollen kan inte aktivera,
+föreslå eller attestera en nyckel. Förslag, attest och slutförande följer den
+[gemensamma PostgreSQL-kedjan](../deployment/cluster/README.md), som kopplas till
+övriga tjänster genom [driftprofilen](../deployment/production/README.md).
+
+`activate_replacement` avvisar PostgreSQL. Det registerstödda passbytet nedan
+gäller SQLite; granskad personkoppling och spärr över passbyte i PostgreSQL
+återstår. Nationella identitetsattribut är ännu inte kopplade till
+SAML-/OIDC-utlämning.
+
+## Äldre SQLite-körväg: tillstånd och behörigheter
+
+Tabellen och operatörskommandot nedan gäller SQLite-körvägen. Det äldre
+[automatiska TestFlight-läget](testflight-beta.md) utför ingen registerkontroll
 eller registerstödd passförnyelse. Telefonbyte med samma pass kräver ny
 registrering och aktivering enligt valt testläge; gamla nycklar återaktiveras inte.
 
@@ -79,10 +93,11 @@ SQLite-operatören har fortfarande tillgång till både databas och nyckelfil.
 Detta ger inte verklig personseparation eller skydd mot en illvillig
 systemadministratör. Stulna och borttappade telefoner kräver en dokumenterad
 operatörskontroll innan administrativ spärr/ersättning; ingen e-postbaserad
-återställning införs. Den publika betan har nu en [separat spärrkanal](avisering-och-sparr.md);
-privata ID:n är inte automatiskt migrerade och sammanhängande fysiska prov återstår.
+återställning införs. Den separata spärrkanalens utformning beskrivs i
+[avisering och spärr](avisering-och-sparr.md). Denna äldre körväg styrker ingen
+installerad drift eller fysisk acceptans.
 
-## Operatörsflöde
+## Operatörsflöde för den äldre SQLite-körvägen
 
 1. Spärra den förlorade telefonens credential genom befintlig `revoke`.
 2. Låt innehavaren genomföra ny pass-/kameraregistrering med en ny nyckel.
@@ -102,6 +117,8 @@ en separat policy för motpart, ändamål och användarens information/godkänna
 
 ## Prov och kvarstående begränsningar
 
+PostgreSQL-kedjans prov och begränsningar finns i
+[klusterinstruktionen](../deployment/cluster/README.md). SQLite-proven i
 `test_registry_binding` använder interna `TEST-...`-identiteter och en uttrycklig
 testadapter. Syntetiska bindningar måste aktiveras separat i testkoden och kan
 aldrig lämna ut nationella identitetsattribut eller godkännas genom operatörens
@@ -118,5 +135,7 @@ inte återskapas ur backupen; nya registerkontroller och operativ avstämning
 krävs före ny utgivning.
 
 Verklig registeranslutning, rättslig grund, skyddade uppgifter, oberoende
-säkerhetsprov, fysisk telefonprovning och motsvarande PostgreSQL-stöd återstår.
+säkerhetsprov och fysisk telefonprovning återstår för den valda driften.
+Registerstödd passersättning i PostgreSQL återstår separat från det befintliga
+stödet för registerbevis.
 Varken tillitsnivå eller formell kravstatus höjs av denna implementation.
