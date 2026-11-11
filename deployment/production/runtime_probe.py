@@ -211,8 +211,14 @@ class Runtime:
                 assert set(actual)=={mount['target'] for mount in allowed['volumes']},'unexpected synthetic mount'
             if 'environment' in allowed:
                 assert service['environment']==original['environment']|allowed['environment'],'base environment changed by fixture'
-            for field in ('extra_hosts','entrypoint'):
-                if field in allowed:assert service[field]==allowed[field],'synthetic routing override changed'
+            if 'extra_hosts' in allowed:
+                actual=service['extra_hosts']
+                if isinstance(actual,list):
+                    pairs=[entry.split('=',1) for entry in actual]
+                    assert len({pair[0] for pair in pairs})==len(pairs),'duplicate synthetic host override'
+                    actual=dict(pairs)
+                assert actual==allowed['extra_hosts'],'synthetic DNS override changed'
+            if 'entrypoint' in allowed:assert service['entrypoint']==allowed['entrypoint'],'synthetic Java trust override changed'
         self.phase('initialize_real_postgres_and_sealed_openbao')
         password=secrets.token_urlsafe(32)
         password_file=self.file('bootstrap-password',password,999,999)

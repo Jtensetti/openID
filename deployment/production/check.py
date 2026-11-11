@@ -59,9 +59,11 @@ def check_compose(config, image_id, directory):
         mounts = service.get('volumes', [])
         require(len(mounts) == len(expected) and {m.get('target') for m in mounts} == set(expected), 'unexpected or missing mount')
         for mount in mounts:
+            binding = mount.get('bind')
             require(mount.get('type') == 'bind' and
                     (mount.get('source'), mount.get('read_only', False)) == expected[mount['target']]
-                    and mount.get('bind') == {'create_host_path': False}, 'mount boundary changed')
+                    and isinstance(binding, dict) and set(binding) <= {'create_host_path'}
+                    and binding.get('create_host_path', False) is False, 'mount boundary changed')
         env = dict(ENVIRONMENTS[name])
         if name == 'notice-exporter':
             queue = service.get('environment', {}).get('OPENID_NOTICE_QUEUE_URL', '')

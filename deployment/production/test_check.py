@@ -82,6 +82,9 @@ class ComposeTests(unittest.TestCase):
         self.data=copy.deepcopy(self.original)
         self.data['services']['idp']['volumes'].append({'type':'bind','source':'/tmp/a','target':'/app/verification','read_only':True})
         with self.assertRaises(ValueError):self.check()
+        self.data=copy.deepcopy(self.original)
+        self.data['services']['postgres']['volumes'][0]['bind']['create_host_path']=True
+        with self.assertRaises(ValueError):self.check()
     def test_missing_process_provider_environment_keys_or_imds_override_rejected(self):
         for role,key,value in [('continuity','OPENID_AWS_SESSION_FILE',None),('notice-exporter','AWS_ACCESS_KEY_ID','synthetic'),
                                ('verifier','AWS_EC2_METADATA_DISABLED','false'),('credential-rotator','AWS_CONTAINER_CREDENTIALS_FULL_URI','http://example.invalid')]:

@@ -36,8 +36,10 @@ def verify(value):
         if any(record.get(k) != v for k, v in {'family': 'inet', 'table': TABLE, 'chain': 'output'}.items()):
             raise ValueError('metadata filter chain mismatch')
         expr = [e for e in record['expr'] if 'counter' not in e]
-        if len(expr) != 3 or expr[-1] != {'reject': {'type': 'icmpx', 'expr': 'admin-prohibited'}}:
-            raise ValueError('metadata rejection required')
+        # --numeric may emit Linux NFT_REJECT_ICMPX_ADMIN_PROHIBITED (3).
+        verdicts = [{'reject': {'type': 'icmpx', 'expr': code}} for code in ('admin-prohibited', 3)]
+        if len(expr) != 3 or expr[-1] not in verdicts:
+            raise ValueError('metadata rejection required: '+json.dumps(expr, sort_keys=True))
         uid = {'match': {'op': '!=', 'left': {'meta': {'key': 'skuid'}}, 'right': 0}}
         if expr[1] != uid: raise ValueError('all non-root processes must be isolated')
         for protocol, address in ADDRESSES.items():
