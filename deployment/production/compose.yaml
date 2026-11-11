@@ -518,6 +518,7 @@ services:
     entrypoint:
     - python
     - /app/verification/notice_exporter.py
+    command: []
     environment:
       AWS_EC2_METADATA_DISABLED: 'true'
       AWS_SHARED_CREDENTIALS_FILE: /dev/null

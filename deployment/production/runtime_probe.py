@@ -32,11 +32,23 @@ from contract import VENDORS, IDENTITIES
 import check
 
 
+class CommandFailure(RuntimeError):
+    def __init__(self,args,result):
+        tool=Path(args[0]).name
+        self.detail={'tool':tool,'exitCode':result.returncode}
+        # Only infrastructure/startup commands. Never include exec output,
+        # command arguments, AWS responses, profiles or credential files.
+        if tool in ('ip','nft') or (tool=='docker' and args[1] in ('compose','run','pull','image')) or (
+                tool.startswith('python') and len(args)>1 and Path(args[1]).name in ('metadata_guard.py','check.py')):
+            self.detail['startupError']=result.stderr.decode(errors='replace')[-4000:]
+        super().__init__('synthetic command failed: '+tool)
+
+
 def command(args, **options):
     result = subprocess.run(args, capture_output=True, timeout=options.pop('timeout', 120), **options)
     if result.returncode:
         # Commands may contain generated fixture passwords. Never echo them.
-        raise RuntimeError('Synthetic runtime command failed: '+Path(args[0]).name)
+        raise CommandFailure(args,result)
     return result.stdout.decode()
 
 
@@ -392,6 +404,8 @@ class Runtime:
             memory,cpu=LIMITS[name]
             assert host['Memory']==host['MemorySwap']==memory*1024*1024,'memory or swap differs'
             assert host['NanoCpus']==int(cpu*1_000_000_000),'CPU boundary changed'
+            ulimits={value['Name']:(value['Soft'],value['Hard']) for value in host['Ulimits']}
+            assert ulimits=={'core':(0,0),'nofile':(1024,1024)},'running core dump or file descriptor limits changed'
             status=Path('/proc')/str(info['State']['Pid'])/'status'
             fields=dict(line.split(':',1) for line in status.read_text().splitlines() if ':' in line)
             assert int(fields['Uid'].split()[1])==uid and int(fields['Gid'].split()[1])==gid,'host identity remapping unsupported'
@@ -512,6 +526,7 @@ def main():
         runtime=Runtime(args.image,report);report=runtime.run();return_code=0
     except Exception as error:
         report['status']='FAILED';report['failureType']=type(error).__name__;return_code=1
+        if isinstance(error,CommandFailure):report['failedCommand']=error.detail
         if isinstance(error,AssertionError):report['assertion']=str(error)
         if runtime is not None:
             runtime.diagnostics()

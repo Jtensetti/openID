@@ -65,8 +65,10 @@ def main():
                 subprocess.run(['nft', '-f', '-'], input=rules(exists), check=True, capture_output=True, text=True, timeout=5)
             check()
         print('Host metadata isolation verified.'); return 0
-    except Exception:
-        print('Host metadata isolation unavailable; do not start Docker.', file=sys.stderr); return 2
+    except Exception as error:
+        # nftables rules contain only fixed addresses, UIDs and verdicts.
+        # Keep their parsing/startup reason visible without any app config.
+        print('Host metadata isolation unavailable; do not start Docker. '+str(error), file=sys.stderr); return 2
 
 
 if __name__ == '__main__':

@@ -21,6 +21,12 @@ def example(name):
     return json.loads((ROOT / name).read_text())
 
 
+def byte_limit(value, expected):
+    # Compose emits byte limits as decimal strings in newer config JSON.
+    return ((type(value) is int and value == expected) or
+            (isinstance(value, str) and re.fullmatch(r'[0-9]+', value) is not None and int(value) == expected))
+
+
 def check_compose(config, image_id, directory):
     require(re.fullmatch(r'sha256:[a-f0-9]{64}', image_id), 'full imported application image required')
     root = Path(directory)
@@ -39,12 +45,15 @@ def check_compose(config, image_id, directory):
                                                 'use_api_socket', 'extra_hosts', 'env_file', 'post_start', 'pre_stop')),
                 'unreviewed runtime capability or override')
         memory, cpu = LIMITS[name]
-        require(service.get('mem_limit') == memory * 1024 * 1024 and service.get('memswap_limit') == memory * 1024 * 1024
+        require(byte_limit(service.get('mem_limit'), memory * 1024 * 1024) and byte_limit(service.get('memswap_limit'), memory * 1024 * 1024)
                 and float(service.get('cpus', 0)) == cpu and service.get('pids_limit') == 128
-                and service.get('tmpfs') == ['/tmp:size=128m,mode=1777'], 'resource or swap boundary changed')
-        require(service.get('ulimits') == {'core': {'soft': 0, 'hard': 0}, 'nofile': {'soft': 1024, 'hard': 1024}},
+                and service.get('tmpfs') == ['/tmp:size=128m,mode=1777'], 'resource or swap boundary changed for '+name)
+        limits = service.get('ulimits', {})
+        core = limits.get('core', {})
+        require(set(limits) == {'core', 'nofile'} and limits['nofile'] == {'soft': 1024, 'hard': 1024}
+                and set(core) <= {'soft', 'hard'} and core.get('soft', 0) == core.get('hard', 0) == 0,
                 'core dumps or file descriptor limit changed')
-        require(service.get('entrypoint') == ENTRYPOINTS[name] and service.get('command', []) == COMMANDS[name],
+        require(service.get('entrypoint') == ENTRYPOINTS[name] and (service.get('command') or []) == COMMANDS[name],
                 'explicit runtime command required')
         expected = {target: (str(root / source), ro) for target, (source, ro) in MOUNTS[name].items()}
         mounts = service.get('volumes', [])

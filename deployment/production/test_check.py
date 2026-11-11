@@ -9,7 +9,7 @@ import check
 from contract import VENDORS
 ROOT=Path(__file__).resolve().parent
 IMAGE='sha256:'+'a'*64
-DIRECTORY='/tmp/tjipp-config-test'
+DIRECTORY=str(Path('/tmp/tjipp-config-test').resolve())
 
 def values():
     return {key:check.example(file) for key,file in {
