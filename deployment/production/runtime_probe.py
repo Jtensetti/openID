@@ -426,7 +426,9 @@ class Runtime:
             assert info['Image']==(VENDORS[name]['id'] if name in VENDORS else self.image),'running image differs'
             host=info['HostConfig']
             assert host['NetworkMode']=='host' and host['ReadonlyRootfs'] is True,'runtime boundary changed'
-            assert host['CapDrop']==['ALL'] and (host['CapAdd'] or [])==(['CHOWN'] if name=='credential-rotator' else []),'capability boundary changed'
+            dropped={value.removeprefix('CAP_') for value in (host['CapDrop'] or [])}
+            added={value.removeprefix('CAP_') for value in (host['CapAdd'] or [])}
+            assert dropped=={'ALL'} and added==({'CHOWN'} if name=='credential-rotator' else set()),'capability boundary changed for '+name+': '+repr((sorted(dropped),sorted(added)))
             assert 'no-new-privileges:true' in host['SecurityOpt'],'privilege escalation protection missing'
             memory,cpu=LIMITS[name]
             assert host['Memory']==host['MemorySwap']==memory*1024*1024,'memory or swap differs'
@@ -438,7 +440,9 @@ class Runtime:
             assert int(fields['Uid'].split()[1])==uid and int(fields['Gid'].split()[1])==gid,'host identity remapping unsupported'
             observed_groups=set(map(int,fields['Groups'].split()));allowed_groups={gid,*map(int,GROUPS.get(name,[]))}
             assert set(map(int,GROUPS.get(name,[])))<=observed_groups<=allowed_groups,'unexpected supplementary group'
-            assert int(fields['NoNewPrivs'])==1 and int(fields['CapEff'],16)==(1 if name=='credential-rotator' else 0),'effective process privilege differs'
+            expected_cap=1 if name=='credential-rotator' else 0
+            assert int(fields['NoNewPrivs'])==1 and all(int(fields[field],16)==expected_cap for field in ('CapEff','CapPrm','CapBnd')),'effective/permitted/bounding process privilege differs for '+name
+            assert int(fields['CapInh'],16)==int(fields['CapAmb'],16)==0,'inherited/ambient capability differs for '+name
             expected=MOUNTS[name]
             for mount in info['Mounts']:
                 if mount['Destination'] in expected:
@@ -519,13 +523,20 @@ class Runtime:
         self.phase('sealed_key_service_restart_and_external_revocation')
         self.dc('restart','openbao')
         self.wait(lambda:self.bao('sys/seal-status',method='GET')['sealed'] is True,'sealed key-service restart')
-        assert self.web(client,'https://sp.example.test/me')[0]!=200,'sealed key service left a live session'
+        # Use a new signed operation: the previous SAML cookie may already
+        # have been invalidated by the separate authority-outage check.
+        status,challenge=self.api('/wallet/challenge',{'credentialId':credential,'action':'snapshot','requestId':None})
+        assert status==200,'fresh device challenge unavailable during key-service outage'
+        signed={'challengeId':challenge['id'],'signature':crypt(op='sign',key=key['privateKey'],payload=challenge['signingInput'])}
+        assert self.api('/wallet/execute',signed)[0]==503,'sealed key service allowed fresh profile access'
         # A remote security action bypasses the principal database entirely.
         # Keep local ACTIVE so the last checks specifically prove the external
         # decision survives, rather than a local state change hiding a failure.
         self.model.synthetic.authority.revoke(credential)
         for share in self.unseal_keys:self.bao('sys/unseal',{'key':share})
         self.wait(lambda:self.bao('sys/seal-status',method='GET')['sealed'] is False,'key-service unseal')
+        self.wait(lambda:all(json.loads(command(['docker','inspect',self.container(name)]))[0]['State'].get('Health',{}).get('Status')=='healthy'
+                            for name in ('bridge','wallet')),'usable restored Transit service')
         assert self.approval(key,credential,'snapshot')['state']=='REVOKED','fresh device state ignored external revocation'
         assert self.web(client,'https://sp.example.test/me')[0]!=200,'external revocation lost across key-service outage'
         assert self.web(oidc,'https://sp.example.test/oidc/me')[0]!=200,'OIDC session survived external revocation'
