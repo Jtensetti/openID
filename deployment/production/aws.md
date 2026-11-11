@@ -7,7 +7,7 @@ och rotenheten `/dev/sda1` före användning. Spara AMI-ID, zon och revision
 tillsammans med CloudFormations förändringsplan.
 
 Mallen väljer en `m7i-flex.large` med 8 GiB som utgångspunkt för kapacitetsprov.
-`c7i-flex.large` med 4 GiB kan provas för lägre resursbehov.
+Den samlade profilens deklarerade minnesgränser ryms inte på en 4 GiB-värd.
 Krypterad gp3 lagrar 20 GiB på systemdisken
 och 30 GiB på datadisken. En ny fast IPv4-adress ger utgående HTTPS till
 Session Manager, Ubuntu och driftens externa beroenden. Det separata
@@ -21,10 +21,22 @@ operatörens behörighet till den aktuella instansen. Kontrollera att agenten
 instansrollen använder IMDSv2 och Systems Manager-policyn. Parameter Store
 läsning är uttryckligen nekad. När båda resurserna från den nya
 [spärrstacken](../continuity/README.md) finns, ange dess `BackendFunction`
-och könamnet från `NoticeQueueArn`. Då tillkommer exakt `lambda:InvokeFunction`
-för den funktionen och `sqs:SendMessage` för den kön i samma konto och region.
-Processerna delar värdens instansroll. Värdens administratör kan nå
-värdens filer och processer, vilket ingår i modellen för driftbehörighet.
+och könamnet från `NoticeQueueArn`. Då skapas två avgränsade klientroller:
+`ContinuityClientRole` får endast `lambda:InvokeFunction` för den funktionen;
+`NoticeClientRole` får endast `sqs:SendMessage` för den kön. Instansrollen
+får endast anta dessa två roller, med fasta sessionsnamn och högst en timme.
+Den behåller Systems Manager för värdadministration men får inga direkta
+verksamhetsrättigheter eller provisionerings-/mutationsrättigheter.
+
+Den enda appprocess som kan läsa instansrollen är den avgränsade rootrotatorn.
+Den använder IMDSv2, verifierar källrollen och skriver atomiskt två separata
+kortlivade sessioner med läge 0600 till respektive mottagar-UID. Övriga
+containrar är icke-root och värdens nftables-filter nekar deras åtkomst till
+båda metadataadresserna. Klienterna använder enbart sin credential-process;
+de återfaller inte till miljönycklar, profiler eller IMDS. Se
+[driftprofilen](README.md) för de exakta filgränserna. Verkligt AWS-IAM och
+rotation på värden måste provas efter införd förändringsplan.
+Värdens rootadministratör kan fortfarande nå värdens filer och processer.
 
 ## Förändringsplan
 
@@ -53,9 +65,9 @@ adresser separat fram till avveckling.
    SSM-status. Använd Canonicals signerade arkiv över HTTPS i
    `/etc/apt/sources.list.d/ubuntu.sources`. Behåll arkivens nyckelring.
    Läs in systemuppdateringar och installera Ubuntu-paketen `docker.io`, `docker-compose-v2`, `nginx`
-   och `certbot`. Anteckna exakta installerade versioner. Maska
+   `nftables` och `certbot`. Anteckna exakta installerade versioner. Maska
    `docker.service` och `docker.socket` före installationen så att Docker
-   börjar starta först med volymkontrollen på plats.
+   börjar starta först med volym- och metadataisoleringen på plats.
 2. Matcha `DataVolumeId` mot serienumret i `lsblk -o NAME,SERIAL,FSTYPE,SIZE,MOUNTPOINTS`.
    Första provisionering av en ny, tom volym använder ext4 på hela enheten.
    Verifiera enhet och befintliga signaturer före formatering. En bevarad
@@ -73,10 +85,25 @@ adresser separat fram till avveckling.
    skrivande processer, kontrollera att Docker nekar start med fel volym-ID.
    Återställ korrekt värde och kontrollera omstart med monterad datavolym.
    Monteringskravet gäller även containrar som Docker återstartar automatiskt.
-4. Förbered nya privata filer enligt driftprofilen. Kontrollera den separata
-   spärrstacken och behörigheterna. Importera leveranspaketet och jämför dess
-   verifierade image-ID med den deklarerade konfigurationen innan de sex
-   processerna startas. Anslut DNS och certifikat när ingångarna är redo.
+4. Installera den granskade källrevisionen rootägd och inte skrivbar av
+   appkonton under `/opt/tjipp/current`. Installera
+   [tjipp-metadata.service](tjipp-metadata.service) i `/etc/systemd/system/`
+   och [docker-metadata.conf](docker-metadata.conf) som
+   `/etc/systemd/system/docker.service.d/41-tjipp-metadata.conf`.
+   Kontrollera att ingen swap finns; avaktivera den beständigt före OpenBao.
+   Läs om systemd och kör metadataenheten samt `check.py host` som root.
+   Docker kräver enheten och gör även en ny filterkontroll vid varje start.
+   Prova med tjänsterna stoppade att saknat/förändrat filter nekar Dockerstart;
+   återinstallera och verifiera båda adressfamiljerna med tjänsternas UID:n.
+   Ändra inte andra brandväggstabeller. Root och värdadministration är betrodda;
+   en senare administrativ brandväggsändring kräver ny kontroll.
+5. Förbered nya privata filer enligt driftprofilen. Kontrollera den separata
+   spärrstacken och behörigheterna. Spara `HostRoleArn`,
+   `ContinuityClientRoleArn` och `NoticeClientRoleArn` i rotatorns privata
+   konfiguration. Importera det kompletta godkända leveranspaketet och jämför
+   samtliga tre verifierade image-ID:n med konfigurationen före tjänstestart.
+   Slutför och prova OpenBao-tokenförnyelse, unseal-beredskap och samordnad
+   återställning innan miljön lämnas obevakad. Anslut DNS och certifikat när ingångarna är redo.
    Prova certifikatförnyelse, stängd registrering och verifierad spärr vid
    nedstängning av huvudkedjan. Spara resultaten för samma version.
 

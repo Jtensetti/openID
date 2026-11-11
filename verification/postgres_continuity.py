@@ -94,6 +94,11 @@ class PostgresContinuity:
 
 
 def dispatch(controller, payload):
+    if payload == {'operation': 'health'}:
+        with controller.pool.connection() as db:
+            if db.execute('SELECT authority FROM openid.continuity_config WHERE id=1').fetchone() != (controller.reference,):
+                raise ValueError('continuity authority mismatch')
+        return {'state': 'READY'}
     if set(payload) == {'operation', 'credential'} and payload['operation'] in {'status', 'revoke'}:
         state = controller.request(payload['operation'], payload['credential'])
         return {'credential': payload['credential'], 'state': state}

@@ -59,7 +59,7 @@ jobs:
       - name: Prepare locked PostgreSQL and key-service runtime checks
         run: |
           python3.12 -m venv verification/.venv
-          verification/.venv/bin/pip install --require-hashes --only-binary=:all: -r verification/cluster-requirements.lock -r verification/runtime-requirements.lock -r verification/rp-requirements.lock
+          verification/.venv/bin/pip install --require-hashes --only-binary=:all: -r verification/cluster-requirements.lock -r verification/runtime-requirements.lock -r verification/rp-requirements.lock -r deployment/aws/requirements.lock
           sed -n '/^numpy==/p; /^opencv-python-headless==/p' verification/requirements.lock > "$RUNNER_TEMP/image-requirements.lock"
           verification/.venv/bin/pip install --require-hashes --only-binary=:all: -r "$RUNNER_TEMP/image-requirements.lock"
           curl --fail --location --retry 3 'https://github.com/openbao/openbao/releases/download/v2.7.1/openbao_2.7.1_linux_amd64.tar.gz' --output "$RUNNER_TEMP/bao.tar.gz"
@@ -89,6 +89,23 @@ jobs:
             test_cluster.ClusterTests.test_bridge_command_sandbox_profile_binds_audiences_and_restarts \
             test_cluster.ClusterTests.test_bridge_command_partial_start_failure_releases_federation_socket \
             test_cluster.ClusterTests.test_four_tls_workers_share_state_and_survive_instance_loss
+      - name: Test packaged short-lived AWS credential boundaries without AWS calls
+        run: |
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --pids-limit 64 --memory 256m --cpus 1 \
+            --tmpfs /tmp:size=32m,mode=1777 -e PYTHONPATH=/tests:/app/verification \
+            -v "$PWD/verification/test_aws_credentials.py:/tests/test_aws_credentials.py:ro" \
+            --entrypoint python openid-pilot:ci -m unittest -v test_aws_credentials
+      - name: Run the complete canonical PostgreSQL and non-dev OpenBao profile
+        run: |
+          sudo apt-get update -qq
+          sudo systemctl stop nginx.service || true
+          sudo systemctl mask --runtime nginx.service
+          sudo apt-get install --no-install-recommends --yes nftables nginx
+          sudo env PATH="$PATH" GITHUB_ACTIONS=true verification/.venv/bin/python \
+            deployment/production/runtime_probe.py \
+            --image "$(docker image inspect openid-pilot:ci --format '{{.Id}}')" \
+            --output "$RUNNER_TEMP/canonical-runtime.json"
       - name: Start the packaged bridge with empty synthetic storage
         run: |
           docker run --rm --network none --read-only --cap-drop ALL \
@@ -285,6 +302,7 @@ jobs:
             ${{ runner.temp }}/runtime-versions.txt
             ${{ runner.temp }}/runtime-components.json
             ${{ runner.temp }}/sqlite-transition.json
+            ${{ runner.temp }}/canonical-runtime.json
             ${{ runner.temp }}/python-runtime-evidence
             ${{ runner.temp }}/debian-runtime-evidence
             ${{ runner.temp }}/temurin-upstream-sbom.cdx.json

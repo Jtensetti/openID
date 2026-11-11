@@ -1,0 +1,6 @@
+{
+  "databaseFile": "/srv/openid/service/database",
+  "continuityConfig": "/srv/openid/service/authority.json",
+  "socket": "/srv/openid/continuity-ipc/continuity.sock",
+  "socketGroup": 20004
+}

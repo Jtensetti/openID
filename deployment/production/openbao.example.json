@@ -1,0 +1,23 @@
+{
+  "ui": false,
+  "api_addr": "https://127.0.0.1:18210",
+  "cluster_addr": "https://127.0.0.1:18211",
+  "disable_mlock": true,
+  "storage": {
+    "raft": {
+      "path": "/srv/openbao/data",
+      "node_id": "tjipp-1"
+    }
+  },
+  "listener": [
+    {
+      "tcp": {
+        "address": "127.0.0.1:18210",
+        "cluster_address": "127.0.0.1:18211",
+        "tls_cert_file": "/srv/openbao/config/tls.pem",
+        "tls_key_file": "/srv/openbao/config/tls.key",
+        "tls_min_version": "tls12"
+      }
+    }
+  ]
+}

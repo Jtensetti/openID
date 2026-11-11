@@ -1,0 +1,17 @@
+{
+  "role": "wallet",
+  "bind": "127.0.0.1",
+  "port": 8768,
+  "trustedProxy": "127.0.0.1",
+  "origin": "https://api.example.org",
+  "workers": 2,
+  "databaseFile": "/srv/openid/service/database",
+  "baoAddress": "https://127.0.0.1:18210",
+  "baoTokenFile": "/srv/openid/service/bao.token",
+  "baoCA": "/srv/openid/service/bao-ca.pem",
+  "tlsCert": "/srv/openid/service/server.pem",
+  "tlsKey": "/srv/openid/service/server.key",
+  "pairingFile": "/srv/openid/service/pairing",
+  "metricsFile": "/srv/openid/service/metrics",
+  "continuityFile": "/srv/openid/service/continuity.json"
+}

@@ -14,7 +14,7 @@ import threading
 
 
 class RuntimeFixture:
-    def __init__(self, root):
+    def __init__(self, root, *, api_host=None):
         self.root = root.resolve()
         self.idp = self.root / 'idp-keys'
         self.sp = self.root / 'sp-keys'
@@ -51,7 +51,7 @@ class RuntimeFixture:
         self.origins.chmod(0o644)
         self.federation.chmod(0o644)
         self.run(['openssl', 'req', '-x509', '-newkey', 'rsa:3072', '-nodes', '-days', '1', '-subj', '/CN=idp.example.test',
-                  '-addext', 'subjectAltName=DNS:idp.example.test,DNS:sp.example.test',
+                  '-addext', 'subjectAltName=DNS:idp.example.test,DNS:sp.example.test'+('' if api_host is None else ',DNS:'+api_host),
                   '-keyout', str(self.root / 'ingress.key'), '-out', str(self.root / 'ingress.crt')])
         self.trust_password = secrets.token_urlsafe(32)
         self.run(['keytool', '-importcert', '-noprompt', '-alias', 'ingress', '-file', str(self.root / 'ingress.crt'),

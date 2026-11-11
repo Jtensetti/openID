@@ -31,6 +31,7 @@ COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=node /usr/local/LICENSE /usr/share/doc/nodejs/LICENSE
 WORKDIR /app/verification
 COPY verification/http_transport.py verification/aws_client.py ./
+COPY verification/aws_credential_process.py verification/aws_credential_rotate.py ./
 COPY verification/cluster-requirements.lock verification/runtime-requirements.lock verification/rp-requirements.lock ./
 COPY deployment/aws/requirements.lock /app/aws-requirements.lock
 COPY deployment/build/python-wheels.lock.json /usr/share/doc/openid-python/python-wheels.lock.json

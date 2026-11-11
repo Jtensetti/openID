@@ -15,19 +15,24 @@ from test_continuity_support import REFERENCE,SyntheticContinuity
 
 
 class FederationPostgres:
-    def __init__(self, directory, origin):
+    def __init__(self, directory, origin, *, external_bao=None):
         self.resources = ExitStack()
         try:
             self.admin_dsn = os.environ['OPENID_TEST_POSTGRES']
-            cluster = RaftCluster(Path(directory) / 'raft')
-            self.resources.callback(cluster.close)
-            node = cluster.start()
-            token, _ = cluster.initialize(node)
-            tokens = cluster.provision(node, token)
+            if external_bao is None:
+                cluster = RaftCluster(Path(directory) / 'raft')
+                self.resources.callback(cluster.close)
+                node = cluster.start()
+                token, _ = cluster.initialize(node)
+                tokens = cluster.provision(node, token)
+                certificate = str(cluster.cert)
+            else:
+                node = {'address': external_bao['address']}
+                tokens, certificate = external_bao['tokens'], external_bao['ca']
             self.dsns = {}
             with psycopg.connect(self.admin_dsn, autocommit=True) as admin:
                 admin.execute((Path(__file__).parents[1] / 'deployment/cluster/schema.sql').read_text(), prepare=False)
-                for user, role in {'enroller': 'enroller', 'wallet': 'wallet', 'registry': 'registry', 'requester': 'requester', 'approver': 'approver', 'contact':'contact', 'continuity':'continuity'}.items():
+                for user, role in {'enroller': 'enroller', 'wallet': 'wallet', 'bridge': 'wallet', 'registry': 'registry', 'requester': 'requester', 'approver': 'approver', 'contact':'contact', 'continuity':'continuity'}.items():
                     name, password = 'federation_' + user, secrets.token_urlsafe(32)
                     admin.execute(sql.SQL('CREATE ROLE {} LOGIN PASSWORD {}').format(sql.Identifier(name), sql.Literal(password)))
                     admin.execute(sql.SQL('GRANT {} TO {}').format(sql.Identifier('openid_' + role), sql.Identifier(name)))
@@ -37,7 +42,7 @@ class FederationPostgres:
             self.controller=PostgresContinuity(self.dsns['continuity'],self.synthetic.authority)
             self.resources.callback(self.controller.close)
             def wallet(role):
-                vault = TransitVault(node['address'], tokens[role], str(cluster.cert))
+                vault = TransitVault(node['address'], tokens[role], certificate)
                 result = PostgresWallet(self.dsns[role], origin, vault,revocation=self.controller)
                 self.resources.callback(result.close)
                 return result

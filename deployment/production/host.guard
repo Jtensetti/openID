@@ -3,7 +3,7 @@ let launch = Resources.HostLaunch.Properties.LaunchTemplateData
 
 rule bounded_host_cost {
   Parameters.InstanceType.Default == 'm7i-flex.large'
-  Parameters.InstanceType.AllowedValues.* IN ['c7i-flex.large', 'm7i-flex.large']
+  Parameters.InstanceType.AllowedValues == ['m7i-flex.large']
   %launch.CreditSpecification !exists
   %launch.Monitoring !exists
   %launch.InstanceMarketOptions !exists
@@ -43,7 +43,20 @@ rule scoped_runtime_permissions {
   Resources.RuntimePermissions.Condition == 'HasContinuity'
   Resources.RuntimePermissions.Properties.PolicyDocument.Statement.* {
     Effect == 'Allow'
-    Action IN ['lambda:InvokeFunction', 'sqs:SendMessage']
+    Action == 'sts:AssumeRole'
+    Resource.*.'Fn::GetAtt' exists
+  }
+  Resources.ContinuityClientRole.Condition == 'HasContinuity'
+  Resources.NoticeClientRole.Condition == 'HasContinuity'
+  Resources.ContinuityClientRole.Properties.Policies.*.PolicyDocument.Statement.* {
+    Effect == 'Allow'
+    Action == 'lambda:InvokeFunction'
+    Resource.'Fn::Sub' exists
+    Resource.'Fn::Sub' != /\*/
+  }
+  Resources.NoticeClientRole.Properties.Policies.*.PolicyDocument.Statement.* {
+    Effect == 'Allow'
+    Action == 'sqs:SendMessage'
     Resource.'Fn::Sub' exists
     Resource.'Fn::Sub' != /\*/
   }

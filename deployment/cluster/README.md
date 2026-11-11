@@ -3,9 +3,10 @@
 `cluster_serve.py` kör autentisering i flera processer eller instanser mot
 PostgreSQL och OpenBao Transit. Registrering körs separat med en process;
 ett avbrott i en pågående NFC-session kräver att registreringen startas om.
-Den gemensamma Compose-profilen använder fortfarande SQLite. Byte till detta
-körläge kräver att även federationsprofil, nyckelgränser, export och driftprov
-kopplas till samma PostgreSQL-register; källkoden ensam gör inte bytet.
+Den [gemensamma Compose-kandidaten](../production/README.md) kopplar detta
+register till federation, nyckeltjänst, separat spärrkontroll och avisering.
+Den är under verifiering och inte driftsatt. Källkoden ensam gör inte bytet;
+äldre kommandons standardläge för SQLite finns kvar.
 
 Det befintliga CI-jobbet bygger autentiseringsimagen, provar dess integration
 och skannar därefter samtliga Debianpaket med Trivy och kontrollerar aktuell tillämplighet.
@@ -154,7 +155,8 @@ Bakom den lokala nginx-ingressen väljs `trustedProxy: "127.0.0.1"` tillsammans
 med samma uttryckliga `bind`. Då kräver API:t att nginx ersätter
 `X-OpenID-Client-IP` med anslutningens adress. Direktläget nekar det huvudet.
 Flerprocessprovet omfattar båda lägena, inklusive saknat eller otillåtet huvud.
-Nginx-routning och den slutliga kompositionen behöver fortfarande provas ihop.
+Den samlade profilens separata CI-prov kör nginx-routning och komposition ihop;
+ett godkänt faktiskt utfall måste knytas till samma revision före release.
 Readiness-proben ansluter till den privata lyssnaren; bakom lokal ingress
 kontrollerar den TLS-namnet `localhost` och behåller API:ts publika Host.
 
@@ -172,8 +174,11 @@ hashlåsta PostgreSQL-hjulen och registermodulerna. Den kan därför köra
 explicit konfiguration. Dess befintliga standardkommando för SQLite behålls;
 en installation byter inte register genom att bara importera imagen.
 CI kör bryggans tre kommandoprov och flerprocessprovet även med denna
-appimage. Det verifierar paketeringen och API-gränserna, inte en färdig
-PG/OpenBao-/Java-komposition eller faktiska tjänstebehörigheter.
+appimage. De fyra proven verifierar paketeringen och API-gränserna.
+Den samlade driftprofilens egna körprov använder även separata faktiska
+tjänste-UID:n, PostgreSQL-/OpenBao-images och kortlivade AWS-sessioner mot en
+lokal syntetisk ersättning. Det ersätter inte prov på verklig värd eller
+verifiering av AWS-IAM och varaktig nyckeltjänståtkomst.
 
 Prova den versionsbundna TLS-proben lokalt med:
 

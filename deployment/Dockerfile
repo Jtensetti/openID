@@ -81,6 +81,7 @@ COPY --from=node-build /usr/local/bin/node /usr/local/bin/node
 COPY --from=node-build /usr/local/LICENSE /usr/share/doc/nodejs/LICENSE
 WORKDIR /app/verification
 COPY verification/http_transport.py verification/aws_client.py ./
+COPY verification/aws_credential_process.py verification/aws_credential_rotate.py ./
 COPY verification/requirements.lock verification/rp-requirements.lock verification/runtime-requirements.lock verification/cluster-requirements.lock ./
 COPY deployment/aws/requirements.lock /app/aws-requirements.lock
 COPY deployment/build/python-wheels.lock.json /usr/share/doc/openid-python/python-wheels.lock.json
@@ -102,6 +103,7 @@ COPY verification/crypto_runtime.py verification/serve.py verification/runtime.p
 COPY verification/postgres.py verification/postgres_continuity.py verification/transit.py verification/cluster_serve.py verification/cluster_bridge.py verification/cluster_operator.py verification/cluster_recovery.py verification/postgres_subject_access.py verification/maintenance.py verification/monitor.py ./
 COPY deployment/cluster/schema.sql /app/deployment/cluster/schema.sql
 COPY deployment/cluster/probe.py ./cluster_probe.py
+COPY deployment/production/probe.py /app/deployment/production/probe.py
 COPY verification/crypto-worker.mjs verification/attest.mjs verification/device-signature.mjs verification/profile-crypto.mjs ./
 COPY verification/revocation.py verification/notices.py verification/notice_exporter.py verification/continuity_operator.py ./
 COPY verification/federation.py verification/federation_parties.py verification/federation_config.py deployment/saml_bridge.py ./

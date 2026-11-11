@@ -12,7 +12,7 @@ Parameters:
   InstanceType:
     Type: String
     Default: m7i-flex.large
-    AllowedValues: [c7i-flex.large, m7i-flex.large]
+    AllowedValues: [m7i-flex.large]
   PublicIngress:
     Type: String
     Default: 'false'
@@ -155,11 +155,58 @@ Resources:
         Version: '2012-10-17'
         Statement:
           - Effect: Allow
-            Action: lambda:InvokeFunction
-            Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${RevocationFunctionName}
+            Action: sts:AssumeRole
+            Resource:
+              - !GetAtt ContinuityClientRole.Arn
+              - !GetAtt NoticeClientRole.Arn
+
+  ContinuityClientRole:
+    Type: AWS::IAM::Role
+    Condition: HasContinuity
+    Properties:
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
           - Effect: Allow
-            Action: sqs:SendMessage
-            Resource: !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:${NoticeQueueName}
+            Principal:
+              AWS: !GetAtt HostRole.Arn
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                sts:RoleSessionName: tjipp-continuity
+      Policies:
+        - PolicyName: InvokeOnlyConfiguredAuthority
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${RevocationFunctionName}
+
+  NoticeClientRole:
+    Type: AWS::IAM::Role
+    Condition: HasContinuity
+    Properties:
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !GetAtt HostRole.Arn
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                sts:RoleSessionName: tjipp-notices
+      Policies:
+        - PolicyName: SendOnlyConfiguredNoticeQueue
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: sqs:SendMessage
+                Resource: !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:${NoticeQueueName}
 
   HostProfile:
     Type: AWS::IAM::InstanceProfile
@@ -253,5 +300,13 @@ Outputs:
     Description: Allocation ID for the address managed by this stack.
     Value: !GetAtt Address.AllocationId
   HostRoleArn:
-    Description: Host role to verify against the configured function and queue.
+    Description: Source role for the dedicated credential rotator.
     Value: !GetAtt HostRole.Arn
+  ContinuityClientRoleArn:
+    Condition: HasContinuity
+    Description: Temporary client role for only the configured authority.
+    Value: !GetAtt ContinuityClientRole.Arn
+  NoticeClientRoleArn:
+    Condition: HasContinuity
+    Description: Temporary client role for only the configured notice queue.
+    Value: !GetAtt NoticeClientRole.Arn

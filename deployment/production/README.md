@@ -1,180 +1,199 @@
 # Sammanhängande driftplattform
 
-Den här profilen samlar appens befintliga serverkedja i ett Compose-projekt,
-`tjipp`. Den är under införande och håller nyregistrering stängd. Den använder
-explicita tjänstenycklar i stället för labbinitiering. Det är en teknisk
-driftdefinition, inte ett godkännande att utfärda e-legitimationer.
+Den här profilen är den enda kandidaten för Tjipps samlade drift. Den ersätter
+den tidigare SQLite-/socket-vault-kompositionen med PostgreSQL och OpenBao
+Transit. Nyregistrering är stängd. Profilen är under verifiering och har inget
+tillstånd att utfärda e-legitimationer.
 
-`federation.json` väljer uttryckligen den egna kontotjänsten (`private`) eller
-dessutom Sweden Connects SAML-sandbox (`sweden-connect-sandbox`). Samma fil
-monteras skrivskyddad i IdP, kontotjänst och registerbrygga. Inget läge ger
-en tillitsnivå eller öppnar registrering. Det äldre `phone-sandbox-idp`-läget
-ska inte användas som reservväg med driftens nycklar.
+Samma version ska kunna granskas och senare importeras utan ombygge. Kod,
+lokalt prov, CI-resultat, installerade image-ID:n och formellt driftbeslut är
+skilda bevis. Röd leveransgrind stoppar driftsättning.
 
-## Ingående delar
+## Tjänster och gränser
 
-| Process | Beständig åtkomst | Gränssnitt |
+| Tjänst | Identitet | Åtkomst |
 | --- | --- | --- |
-| `verifier` | Register och verifieringskonfiguration | App-API på TLS/loopback 8767, privat profilnyckelsocket, separat spärrtjänst |
-| `vault` | Endast profilnyckel | Avgränsad Unix-socket; lämnar inte ut rånyckeln |
-| `bridge` | Register och konfiguration | Separata Unix-socketar för federation och avisering; samma spärrtjänst som API:t |
-| `idp` | Egna TLS-, signerings- och krypteringsnycklar, publikt SP-certifikat, separat metadatatillstånd | SAML/OIDC på TLS/loopback 9443; federationens socket |
-| `sp` | Egna TLS-/SP-nycklar och publika IdP-certifikat | Kontotjänst, protokoll- och underskriftsprov på TLS/loopback 9444 |
-| `notice-exporter` | Ingen register- eller nyckelmontering | Aviseringssocket och en uttryckligt vald SQS-kö |
+| postgres | 999:999 | Egen data och TLS/SCRAM-konfiguration; loopback 15432 |
+| openbao | 10008:20008 | Egen Raft-data, maskad revisionslogg och TLS; loopback 18210/18211 |
+| credential-rotator | 0:0, endast CHOWN | Instansroll till STS; två separata kortlivade sessioner; inga register-, profilnyckel- eller IPC-monteringar |
+| verifier | 10001:20010, grupp 20004 | PG-utfärdanderoll, begränsad Transit-token och spärrsocket; stängt insamlings-API 8767 |
+| wallet | 10006:20011, grupp 20004 | PG-plånboksroll, egen Transit-token och spärrsocket; appens autentiserings-API 8768 |
+| bridge | 10009:20001, grupper 20003/20004 | Egen PG-inloggning/Transit-token; federations- och aviseringssocketar |
+| continuity | 10007:20004 | PG-kontrollroll; endast den externa spärrfunktionen via egen AWS-session |
+| idp | 10002:20001 | Egna TLS-/signerings-/krypteringsnycklar, separat metadatatillstånd; loopback 9443 |
+| sp | 10003:20001 | Egna TLS-/SP-nycklar; loopback 9444 |
+| notice-exporter | 10004:20003 | Endast opaka köhändelser via socket och egen SQS-session; inget register eller profilnyckel |
 
-Värden kör nginx enligt `nginx.conf.in`. `ingress.py` hämtar tre skilda
-HTTPS-värdnamn ur konfigurationen. Ingressen kontrollerar varje bakomliggande
-TLS-certifikat och döljer interna administrations-/hälsorutter.
+[compose.yaml](compose.yaml) är kördefinitionen. [contract.py](contract.py)
+samlar kontrollerade identiteter, monteringar, kommandon och resursgränser.
+Alla tre importerade image-ID:n måste vara fullständiga SHA-256-ID:n och
+`pull_policy: never` gäller. Gemensam appimage används av åtta tjänster;
+PostgreSQL 18.6 och OpenBao 2.7.1 har egna digestbundna källor. Ett komplett
+leveranspaket och OS-bedömning för samtliga tre images återstår innan release;
+den befintliga en-image-importören är inte ett sådant paket.
 
-De externa beroendena ingår i driftgränsen: separat spärr-API och privat
-spärrfunktion, aktuellt DynamoDB-register, SQS/felkö, aviseringsleverans samt
-operativ kontaktbindning. [Spärrtjänstens mall och instruktion](../continuity/README.md)
-beskriver dem. Använd ett nytt, separat namn-/behörighetsutrymme med
-`TestBeta=false`. Återanvänd inte ett avvecklat pilotregister. Saknad
-spärrkonfiguration får inte ersättas med lokal status.
+Varje tjänst har skrivskyddad rot, borttagna Linux-förmågor, skydd mot
+privilegieförhöjning, begränsade resurser och avstängda minnesdumpar.
+Endast rotationsprocessen behåller CHOWN för filöverlämning. Inga kodöverlägg,
+delade datakataloger eller miljövariabler med permanenta AWS-nycklar ingår.
 
-## Värd och säkerhetsgräns
+## Värd, ingress och externa beroenden
 
-Profilen kräver en ensam Linux x86_64-värd med Docker Compose, Landlock ABI 3
-och seccomp. API och Java-tjänster binds till loopback. Endast ingressens
-HTTPS och avsedd administration får nås utifrån. En 8 GiB-värd är utgångspunkt
-för kapacitetsprov; verkliga mätningar avgör dimensioneringen.
+Profilen kräver en Linux x86_64-värd med Docker Compose, nftables,
+Landlock ABI 3 och seccomp. Alla containrar använder värdens nät.
+Nginx enligt [nginx.conf.in](nginx.conf.in) är den publika ingången:
+tre olika HTTPS-värdnamn och verifierad TLS till varje bakomliggande tjänst.
+Appens `/native/` går till verifieraren och `/wallet/` till plånboken.
+Endast ingressens HTTPS och avsedd administration öppnas externt.
+Nginx normaliserar appens klientadresshuvud.
 
-[AWS-värden](aws.md) beskriver nät, instansroll, diskar och startkontroll för
-den permanenta miljön i Stockholm. Samma mall kan granskas som en
-CloudFormation-förändringsplan före exekvering.
+[AWS-instruktionen](aws.md) beskriver Stockholm-värden, diskar, IAM och
+startskydd. Instansrollen får anta exakt två klientroller. Endast continuity
+får anropa den valda spärrfunktionen; endast notice-exporter får skicka till
+den valda kön. SDK:n använder enbart respektive paketerade credential-process,
+läser en ägarskyddad fil och förnyar den kortlivade sessionen före utgång.
+Filbyte sker atomiskt i separata kataloger. Rotatorn läser endast IMDSv2.
 
-Det finns ingen autoskalning eller kampanjstyrd avstängning. Register och
-pågående NFC-sessioner stöder inte flera parallella verifierarrepliker.
-En värd är en gemensam felpunkt. Backup, återställning, övervakning,
-incidentberedskap och beslutad tillgänglighet måste införas och provas;
-Compose skapar inte dessa kontroller.
+Värdens [metadatafilter](metadata_guard.py) blockerar både
+`169.254.169.254` och `fd00:ec2::254` för samtliga UID utom root.
+[tjipp-metadata.service](tjipp-metadata.service) installerar filtret innan
+Docker. [docker-metadata.conf](docker-metadata.conf) kräver enheten och
+kontrollerar filtret på nytt vid varje Dockerstart. Värdens rootadministration
+och rotator är betrodda. Filseparation och databasroller ersätter inte
+oberoende mänsklig kontroll eller HSM.
 
-Varje process har egen identitet och begränsade monteringar. Värdadministratören
-kontrollerar fortfarande hela maskinen. SQLite-operatören kan fortfarande
-fatta aktiveringsbeslut. Filsystemseparationen ger varken HSM-skydd eller
-oberoende mänsklig motkontroll. Molnbehörigheter och nyckelförvaltning kräver
-separat införd och verifierad kontroll.
+Separat spärr-API, privat spärrfunktion, DynamoDB-ledger, SQS/felkö,
+kontaktbindning och faktisk aviseringsleverans ingår i driftgränsen.
+[Spärrstacken](../continuity/README.md) ska ha ett nytt namn-/behörighetsutrymme
+med `TestBeta=false`. Återanvänd inte de avvecklade pilotregistren.
+Saknad spärrtjänst får inte ersättas med lokal ACTIVE-status.
 
-## Privat konfiguration
+Den deklarerade summan av tjänsternas minnesgränser är 5248 MiB.
+Värdkontrollen kräver ytterligare minst 1024 MiB för värden samt ingen swap.
+En 8 GiB-värd är utgångspunkt; ett godkänt kapacitetsprov på verklig värd
+återstår. Gränserna är inte en genomströmnings- eller tillgänglighetsgaranti.
+En värd och en Raft-nod innebär gemensamma felpunkter. Autoskalning ingår inte;
+NFC-/proofingprocessen har avsiktligt en arbetare.
 
-Allt nedan ligger utanför repot i `$TJIPP_DIRECTORY`. Lägg aldrig privata
-filer i ett byggarkiv, en PR eller ett publikt testresultat.
+## Privat konfiguration och nycklar
 
-| Sökväg | Ägare/grupp | Läge |
-| --- | --- | --- |
-| `data`, `secrets` | 10001:20002 | 0700; privata filer 0600 |
-| `runtime.json`, `continuity.json` | 10001:20002 | 0600 |
-| `origins.json`, `federation.json` | Administratör | Läsbar för tjänsterna; skrivbar endast av administratör |
-| `vault/private` | 10005:20002 | 0700; `wallet.identity-key` 0600 |
-| `vault/socket` | 10005:20002 | 2710 |
-| `ipc/federation` | 10001:20001 | 2710 |
-| `ipc/notice` | 10001:20003 | 2710 |
-| `federation-idp` | 10002:20001 | 0700; alla filer 0600 |
-| `federation-sp` | 10003:20001 | 0700; alla filer 0600 |
-| `federation-state` | 10002:20001 | 0700; separat från nyckelkatalogerna |
+All privat konfiguration ligger utanför repot i `$TJIPP_DIRECTORY`.
+`check.py settings` kontrollerar den exakta filuppsättningen, ägare, grupper,
+lägen, fasta sökvägar och sammanhängande inställningar. Symboliska länkar,
+delade roller, öppnad registrering och gamla beta-flaggor avvisas.
 
-Utgå från `runtime.example.json`, `continuity.example.json` och
-`federation.example.json`; ersätt
-exempelvärdena med den verkliga miljön. `origins.json` innehåller endast
-`idp` och `sp`, se [formatet](../pilot-origins.example.json).
-`secrets` innehåller API:ts TLS-certifikat/-nyckel, privat kopplingskod,
-kontrollerat CSCA-paket och aktuell CSCA-spärrlista. Tillitsankare ska komma
-från en kontrollerad källa, aldrig från en inskickad passhandling.
+| Sökväg | Ägare och läge |
+| --- | --- |
+| services/{verifier,wallet,bridge,continuity,credential-rotator} | Respektive tjänsts UID:GID; katalog 0700, privata filer 0600 |
+| postgres/config, postgres/data | 999:999, 0700; konfigurationsfiler 0600 |
+| openbao/config, openbao/data, openbao/audit | 10008:20008, 0700; konfigurationsfiler 0600 |
+| ipc/continuity | 10007:20004, 2710 |
+| ipc/federation, ipc/notice | 10009:20001 respektive 10009:20003, 2710 |
+| aws/continuity, aws/notices | root:20004 respektive root:20003, 2710 |
+| aws/*/session.json | Mottagarens UID:GID, 0600; endast kortlivad STS-session |
+| federation-idp, federation-sp | 10002:20001 respektive 10003:20001, 0700; filer 0600 |
+| federation-state | 10002:20001, 0700; endast metadatatillstånd |
+| origins.json, federation.json, public/{idp,sp}.pem | root:root, 0644 |
 
-Nyregistrering, publik registrering och utvecklings-App Attest är uttryckligen
-avstängda. Posekontrollen ska vara `enforce`. Kopierade novemberflaggor och
-`testBeta` godtas inte av profilkontrollen.
+Tjänsternas exakta filnamn finns i `PRIVATE_FILES` i
+[kontraktet](contract.py). Utgå från respektive `*.example.json`.
+Databasens anslutningsfil innehåller tjänstens egen inloggning och
+`sslmode=verify-full`. Schema och operatorinloggningar provisioneras separat
+enligt [PG-instruktionen](../cluster/README.md); tjänsterna skapar dem inte.
+Verifierare och plånbok behöver **samma appkopplingskod**, med var sin skyddad
+filkopia. Metrics-hemligheter är separata. TLS-nycklar återanvänds inte.
 
-### Federationens nycklar
+OpenBao startas med TLS och beständig Raft, aldrig `-dev`. Initiering,
+unseal, audit, Transit-nycklar och avgränsade tjänstetokens provisioneras
+separat under beslutad nyckelhantering. Starten initierar eller låser inte
+upp tjänsten och återfaller inte till rånyckelfil eller root-token.
+Minneslåsning är avstängd för Raft; värdens swap måste därför vara avstängd.
 
-Provisionering ska ske separat med dokumenterat ägarskap och beslutad
-nyckelhantering. `runtime-idp` och `runtime-sp` genererar inga ersättningsnycklar.
-Saknade filer stoppar starten; de faller aldrig tillbaka till `phone-init`.
+**Obevakad drift är ännu inte verifierad.** Inför och prova förnyelse av
+OpenBao-tokens med ägarskyddat filbyte, utgång/återinloggning, planerad
+unseal-beredskap, maskad loggrotation, nyckelceremoni och samordnad
+PG-/Raft-återställning. De entimmes-tokens som genereras i det syntetiska
+CI-provet är ingen varaktig driftlösning. Rotatorn för AWS-sessioner löser
+en annan åtkomstkedja. Behöriga verkliga personer och mandat återstår.
+
+### Federation
+
+`federation.json` väljer `private` eller `sweden-connect-sandbox` och monteras
+skrivskyddad i IdP, SP och bridge. Inget läge intygar en tillitsnivå.
 
 | Katalog | Exakt filuppsättning |
 | --- | --- |
-| `federation-idp` | `tls.p12`, `tls.password`, `idp.p12`, `idp.password`, `encryption.p12`, `encryption.password`, `sp.crt`, `subject-secret` |
-| `federation-sp` | `tls.p12`, `tls.password`, `sp.p12`, `sp.password`, `idp.crt`, `idp-encryption.crt` |
+| federation-idp | tls.p12, tls.password, idp.p12, idp.password, encryption.p12, encryption.password, sp.crt, subject-secret |
+| federation-sp | tls.p12, tls.password, sp.p12, sp.password, idp.crt, idp-encryption.crt |
 
-Varje PKCS#12-fil får innehålla exakt en privat nyckel, med alias `tls`,
-`idp`, `encryption` respektive `sp`. Lösenordsfiler och `subject-secret` innehåller ett
-separat slumpvärde om 43–128 URL-säkra tecken. Bevara `subject-secret` över
-omstarter. Certifikat ska vara giltiga RSA-certifikat om minst 3072 bitar;
-interna TLS-certifikat måste täcka `localhost` och `127.0.0.1`.
-TLS, IdP-signering, IdP-kryptering och SP måste ha olika nycklar. De två
-tjänsterna ska även ha var sitt interna TLS-par. Motpartens fil innehåller endast dess
-publika certifikat. Extra filer, labbmarkörer, delade rättigheter och
-symboliska länkar avvisas.
+PKCS#12 innehåller exakt en privat nyckel med alias `tls`, `idp`,
+`encryption` respektive `sp`. Separata lösenordsfiler och `subject-secret`
+innehåller 43–128 slumpmässiga URL-säkra tecken. Bevara `subject-secret` över
+omstart. Giltiga RSA-certifikat om minst 3072 bitar krävs; interna
+TLS-certifikat täcker localhost och 127.0.0.1. TLS, IdP-signering,
+IdP-kryptering och SP har olika nycklar. Saknade filer stoppar starten.
 
-Till nginx exporteras endast respektive interna TLS-certifikat som
-`/etc/nginx/tjipp-api-tls.crt`, `tjipp-idp-tls.crt` och `tjipp-sp-tls.crt`.
-De är skilda från federationens signeringscertifikat. Publik HTTPS använder
-certifikatkedja och nyckel under `/etc/letsencrypt/live/tjipp/`.
+Till nginx exporteras endast interna TLS-certifikat:
+`/etc/nginx/tjipp-api-tls.crt`, `tjipp-wallet-tls.crt`,
+`tjipp-idp-tls.crt` och `tjipp-sp-tls.crt`. Publik HTTPS har separat kedja
+och nyckel under `/etc/letsencrypt/live/tjipp/`.
 
-Den här credentialadaptern är filbaserad. HSM-stöd, nyckelceremoni,
-nyckelrotation och verklig flerpersonkontroll är inte verifierade genom den.
-Kontotjänstens dokumentunderskrift använder fortfarande test-CA och nycklar
-i processminnet; [begränsningarna](../../docs/pdf-underskrift.md) gäller även här.
-Autentiseringskontexten förblir privat pilotstatus och intygar ingen LoA 1–4.
+Sandboxprofilen hämtar den fasta signerade SAML-SP-feeden från
+`https://md.sandbox.swedenconnect.se/metadata/mdx/role/sp.xml` och verifierar
+den med certifikatet i jar-filen, SHA-256
+`86b5306355636b184de4b0e29c7c417429ece79164fb4680acf0b5f28b1cc0ea`.
+Endast testsp1, testsp2 och test-signservice1 under
+`https://testclient.sandbox.swedenconnect.se/` tillåts utöver egen SP.
+Begäran och appgodkännande binds till exakt mottagare. SP2 får inget
+personnummer. Foto, passnummer och interna register-ID:n lämnas inte ut.
+Faktiskt externt anslutningsprov återstår. Sweden Connects OIDC-federation
+ingår inte här; egen SP:s befintliga OIDC-flöde behålls.
 
-### Sweden Connects testfederation
+Nyckeladaptern för federation är filbaserad. Kontotjänstens
+dokumentunderskrift använder test-CA i processminnet; begränsningarna i
+[PDF-instruktionen](../../docs/pdf-underskrift.md) gäller även här.
+Detta ger ingen kvalificerad underskrift eller verifierad LoA 1–4.
 
-Sandboxprofilen hämtar endast den fasta signerade SAML-SP-feeden från
-`https://md.sandbox.swedenconnect.se/metadata/mdx/role/sp.xml`. Dess
-signatur kontrolleras med det versionsbundna certifikatet i jar-filen,
-SHA-256 `86b5306355636b184de4b0e29c7c417429ece79164fb4680acf0b5f28b1cc0ea`.
-HTTPS-värdnamnskontroll behålls. Hämtad metadata och egna genererade
-metadatafiler skrivs i `federation-state`, aldrig bland privata nycklar.
+## Granskad start
 
-Endast de tre fasta mottagarna `testsp1`, `testsp2` och `test-signservice1`
-under `https://testclient.sandbox.swedenconnect.se/` tillåts utöver den egna
-kontotjänsten. Både Java-adaptern och registerbryggan binder begäran och
-appens godkännande till den exakta mottagaren. SP2 får inget personnummer;
-övriga får ett endast när det finns autentiserat i passprofilen. Foto,
-passnummer och interna register-ID:n lämnas inte i dessa federationssvar.
-Ett externt anslutningsprov mot faktiska testklienter återstår efter
-leveransgrinden. Sweden Connects OIDC-federation ingår inte i denna profil;
-den egna kontotjänstens befintliga OIDC-flöde behålls.
-
-## Kandidat, start och kontroll
-
-1. Bygg och verifiera hela revisionen enligt [leveransinstruktionen](../build/README.md).
-   Importera samma godkända imagepaket utan ombygge. Bevara Git-revision,
-   byggkörning, manifestets verifierade SHA-256 och image-ID tillsammans med
-   den aktuella driftkonfigurationen. Även denna profil omfattas av hela
-   `assurance-gate`; en röd grind får inte hoppas över.
-2. Provisionera nya privata filer och externa beroenden. Verifiera
-   filrättigheter, behörigheter, certifikat, DNS, TLS-förnyelse och åtkomst.
-3. Kontrollera inställningar, renderad Compose och nginx före start:
+1. Slutför leveransgrinden, bedöm samtliga images och bevara källrevision,
+   CI-körning, manifesthash, image-ID:n och godkänd konfiguration. Importera
+   samma kompletta granskade leverans utan ombygge. Säkerhetskritisk release
+   kräver oberoende granskning och behörigt mänskligt beslut.
+2. Provisionera privata filer, PG-roller, OpenBao och externa beroenden.
+   Inför värdens volym- och metadataenheter före Dockerstart enligt
+   [värdinstruktionen](aws.md). Prova startfel och återhämtning.
+3. Kontrollera faktiska filer, värden, Compose och ingress:
 
 ```sh
 export TJIPP_DIRECTORY=/srv/tjipp
-export TJIPP_IMAGE_ID=sha256:REPLACE_WITH_VERIFIED_IMAGE_ID
+export TJIPP_IMAGE_ID=sha256:REPLACE_WITH_VERIFIED_APP_IMAGE_ID
+export TJIPP_POSTGRES_IMAGE_ID=sha256:REPLACE_WITH_VERIFIED_POSTGRES_IMAGE_ID
+export TJIPP_OPENBAO_IMAGE_ID=sha256:REPLACE_WITH_VERIFIED_OPENBAO_IMAGE_ID
 export TJIPP_NOTICE_QUEUE_URL=https://sqs.eu-north-1.amazonaws.com/ACCOUNT/QUEUE
-python3 deployment/production/check.py settings --directory "$TJIPP_DIRECTORY"
+sudo python3 deployment/production/check.py host
+sudo python3 deployment/production/check.py settings --directory "$TJIPP_DIRECTORY"
 docker compose -f deployment/production/compose.yaml config --format json |
   python3 deployment/production/check.py compose --image-id "$TJIPP_IMAGE_ID" --directory "$TJIPP_DIRECTORY"
-python3 deployment/production/ingress.py --directory "$TJIPP_DIRECTORY" > /privat/tjipp-nginx.conf
+sudo python3 deployment/production/ingress.py --directory "$TJIPP_DIRECTORY" > /privat/tjipp-nginx.conf
 ```
 
-Installera granskad ingresskonfiguration och verifiera den med `nginx -t`.
-Ingressens statiska startsida ligger i `/var/www/tjipp`; ACME-katalogen är
-`/var/www/tjipp-acme`. Säkerställ certifikatförnyelse innan miljön lämnas obevakad.
-
-Efter beslutat påslag för den avgränsade granskningen:
+Installera granskad nginxkonfiguration, kör `nginx -t` och prova
+certifikatförnyelse. Vid beslutat påslag startas först PG/OpenBao;
+behöriga personer låser upp OpenBao. Därefter:
 
 ```sh
-docker compose -f deployment/production/compose.yaml up -d
+docker compose -f deployment/production/compose.yaml up -d --wait
 docker compose -f deployment/production/compose.yaml ps
 ```
 
-Kontrollera den faktiska imagen i alla sex processer och att interna portar
-är otillgängliga utifrån. Verifiera stängd registrering, API/readiness,
-SAML/OIDC med signerade syntetiska godkännanden och nekade felaktiga svar.
-Prova omstart och oberoende spärr när huvudkedjan är stoppad. Aviseringskvittens
-är inte bevis på leverans. Prova återställning med senare spärrar bevarade.
-En grön hälsokontroll ersätter inte dessa prov eller ett fysiskt telefonprov.
+Kontrollera faktiska image-ID:n, tjänsteidentiteter, rättigheter, blockerad
+metadataåtkomst och stängda interna portar. Kör samma syntetiska
+inloggnings-/underskrifts-/spärrprov genom ingressen. Prova aviseringsleverans
+till en beslutad mottagare; SQS-kvittens bevisar bara kömottagning.
+Prova återställning med senare spärrar bevarade och mät avbrottstid.
+CI ersätter inte fysisk telefon, verklig registeranslutning, kapacitetsprov,
+organisatorisk kontroll, oberoende granskning eller Diggs beslut.
 
 ## Automatiska prov
 
@@ -183,12 +202,21 @@ python3 -m unittest discover -s deployment/production -p 'test_*.py' -v
 python3 deployment/test_beta_nginx.py --configuration deployment/production/nginx.conf.in
 ```
 
-Compose-proven använder Docker Compose för att rendera den faktiska filen;
-de hoppas över om verktyget saknas lokalt och körs obligatoriskt i CI.
-Java-proven verifierar privata nyckelgränser, felaktiga credentialfiler,
-profilval, separat metadatalagring och publik OIDC-nyckelbindning.
-Protokollproven kör de faktiska `runtime-idp`-/`runtime-sp`-kommandona med
-separata genererade tjänstenycklar och syntetiska identiteter. De använder
-en lokal TLS-relä för fasta testvärdnamn och behöver inget externt nät.
-Ingressproven använder genererade certifikat och en syntetisk bakomliggande
-tjänst. De provar varken verklig passkontroll, HSM eller en driftsatt miljö.
+Compose-proven renderar den faktiska filen med Docker och körs obligatoriskt
+i Linux-CI. De hoppas uttryckligen över lokalt när Docker saknas.
+
+[runtime_probe.py](runtime_probe.py) kör endast på en disponibel Linux-runner
+som root med GITHUB_ACTIONS=true. Det tillför tillfälliga lokala IMDS-adresser,
+nftables-regler och syntetiska DNS-/TLS-rötter. **Kör inte på driftvärden eller
+en vanlig utvecklingsdator.** Provet startar samma tio tjänster och den
+renderade nginxkonfigurationen, kontrollerar verkliga UID/GID, monteringar,
+förmågor, minne/swap och metadataisolering för IPv4/IPv6. AWS ersätts av en
+lokal TLS-/SigV4-fixtur med endast synligt syntetiska sessioner; inga
+AWS-kontoanrop görs. Operator- och identitetsuppgifter är syntetiska.
+
+Rapporten anger faktiskt utfall för stängd registrering, separat API,
+kontrollerad aktivering, transaktionell avisering, SAML/OIDC,
+SignMessage/SAD/test-CA-PAdES, tjänsteomstart, förseglad OpenBao och extern
+spärr utan lokal ACTIVE-reservväg. Ett grönt resultat gäller denna
+komponentkedja och dessa felprov, inte leveransgrind, långvarig drift,
+AWS-IAM i det verkliga kontot eller godkännande.

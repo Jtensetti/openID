@@ -60,6 +60,7 @@ with tempfile.TemporaryDirectory(prefix='openid-ingress-') as temporary:
         def do_POST(self):
             data = self.rfile.read(int(self.headers.get('Content-Length', '0')))
             body = json.dumps({'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest(),
+                               'backend': self.server.fixture_role,
                                'authorizationPresent': 'Authorization' in self.headers,
                                'clientAddresses': self.headers.get_all('X-OpenID-Client-IP'),
                                'forwardedPresent': 'Forwarded' in self.headers or 'X-Forwarded-For' in self.headers}).encode()
@@ -80,13 +81,19 @@ with tempfile.TemporaryDirectory(prefix='openid-ingress-') as temporary:
             self.end_headers()
             self.wfile.write(body)
 
+    config = arguments.configuration.read_text()
+    separate_wallet = '127.0.0.1:8768' in config
     upstream = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Upstream)
+    upstream.fixture_role = 'proofing' if separate_wallet else 'shared'
     tls = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     tls.load_cert_chain(cert, key)
     upstream.socket = tls.wrap_socket(upstream.socket, server_side=True)
     threading.Thread(target=upstream.serve_forever, daemon=True).start()
+    wallet = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Upstream)
+    wallet.fixture_role = 'wallet'
+    wallet.socket = tls.wrap_socket(wallet.socket, server_side=True)
+    threading.Thread(target=wallet.serve_forever, daemon=True).start()
     public_port, http_port = port(), port()
-    config = arguments.configuration.read_text()
     for name, host in {'API': 'api.openid.tensetti.io', 'IDP': 'idp.openid.tensetti.io', 'SP': 'openid.tensetti.io'}.items():
         config = config.replace(f'@{name}_HOST@', host)
     for old, new in {
@@ -96,7 +103,7 @@ with tempfile.TemporaryDirectory(prefix='openid-ingress-') as temporary:
         '/etc/letsencrypt/live/openid-beta/privkey.pem': str(key),
         '/etc/nginx/openid-saml.crt': str(cert), '/etc/nginx/openid-api.crt': str(cert),
         '/etc/nginx/tjipp-idp-tls.crt': str(cert), '/etc/nginx/tjipp-sp-tls.crt': str(cert),
-        '/etc/nginx/tjipp-api-tls.crt': str(cert),
+        '/etc/nginx/tjipp-api-tls.crt': str(cert), '/etc/nginx/tjipp-wallet-tls.crt': str(cert),
         '/etc/letsencrypt/live/tjipp/fullchain.pem': str(cert),
         '/etc/letsencrypt/live/tjipp/privkey.pem': str(key),
         '/etc/nginx/openid-beta.htpasswd': str(root / 'users'),
@@ -107,6 +114,7 @@ with tempfile.TemporaryDirectory(prefix='openid-ingress-') as temporary:
         '127.0.0.1:9444': '127.0.0.1:' + str(upstream.server_port),
         '127.0.0.1:9443': '127.0.0.1:' + str(upstream.server_port),
         '127.0.0.1:8767': '127.0.0.1:' + str(upstream.server_port),
+        '127.0.0.1:8768': '127.0.0.1:' + str(wallet.server_port),
     }.items():
         config = config.replace(old, new)
     configuration = root / 'nginx.conf'
@@ -184,7 +192,8 @@ with tempfile.TemporaryDirectory(prefix='openid-ingress-') as temporary:
         assert request('/oidc/token', body=b'grant_type=authorization_code', host='idp.openid.tensetti.io')[0] == 200
         assert request('/wallet', host='api.openid.tensetti.io')[0] == 404
         assert request('/wallet/challenge', host='api.openid.tensetti.io')[0] == 403
-        assert request('/wallet/challenge', body=b'{}', host='api.openid.tensetti.io')[0] == 200
+        status, _, raw = request('/wallet/challenge', body=b'{}', host='api.openid.tensetti.io')
+        assert status == 200 and json.loads(raw)['backend'] == ('wallet' if separate_wallet else 'shared')
         for route in ('notice','consent','withdraw'):
             assert request('/native/'+route,authenticated=False,body=b'{}',host='api.openid.tensetti.io')[0] == 200
             assert request('/native/'+route+'/extra',authenticated=False,body=b'{}',host='api.openid.tensetti.io')[0] == 404
@@ -198,6 +207,7 @@ with tempfile.TemporaryDirectory(prefix='openid-ingress-') as temporary:
                                     host='api.openid.tensetti.io',extra_headers=spoof)
             assert status == 200, status
             response=json.loads(raw)
+            assert response['backend'] == ('proofing' if separate_wallet else 'shared')
             assert response['clientAddresses'] == ['127.0.0.1'], response
             assert response['forwardedPresent'] is False
         # Model an unavailable temp-file area: allowed SAML requests must fit in memory.
@@ -220,8 +230,10 @@ with tempfile.TemporaryDirectory(prefix='openid-ingress-') as temporary:
             'publicFlowsWithoutBetaPassword': True, 'credentialsStripped': True, 'unexpectedRoutesDenied': True,
             'hstsAllResponses': True, 'duplicateUpstreamHstsRemoved': True, 'hstsHosts': 3,
             'ingressClientAddressOverwritten': True, 'spoofedClientAddressCases': 5,
+            'separateWalletBackendVerified': separate_wallet,
             'nginx': subprocess.run([NGINX, '-v'], capture_output=True, text=True, check=True).stderr.strip()}))
     finally:
         process.terminate()
         process.communicate(timeout=10)
         upstream.shutdown()
+        wallet.shutdown()

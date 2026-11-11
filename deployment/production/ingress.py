@@ -29,5 +29,5 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--directory', type=Path, required=True)
     args = parser.parse_args()
-    print(render(json.loads((args.directory / 'runtime.json').read_text()),
+    print(render(json.loads((args.directory / 'services/verifier/runtime.json').read_text()),
                  json.loads((args.directory / 'origins.json').read_text())), end='')
