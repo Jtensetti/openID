@@ -29,8 +29,10 @@ SCHEMA8_TABLES = LEGACY_TABLES[:4] + ('registry_evidence', 'registry_bindings') 
 SCHEMA8_HASH = '811acc673f50aff3a4ecfc500839d6f421ce1d28095e9c98c608cac7d730947b'
 SCHEMA8_PROPOSAL_COLUMNS = ('id','credential','profile_version','requester','decision','hours',
                            'created','expires','approved_by','approved_at','registry_reference')
-TABLES = SCHEMA8_TABLES + ('continuity_config', 'external_revocations', 'notice_contacts',
+SCHEMA9_TABLES = SCHEMA8_TABLES + ('continuity_config', 'external_revocations', 'notice_contacts',
                           'revocation_codes', 'notice_outbox', 'approval_intents', 'intent_revocations')
+SCHEMA9_HASH = '3574d84009c4b69779042f2a7afeebb38806d69288d50d3f383be24718431008'
+TABLES = SCHEMA9_TABLES + ('registry_checks',)
 # Exact reviewed schema 7, retained as fixtures/schema-v7.sql. Older archives
 # have ten proposal columns and no registry proof. Never infer missing evidence.
 LEGACY_SCHEMA = '9ec480fd6f05b3d164675930ba1a5aea415c520d61ad6f2731e22653a7951fd3'
@@ -91,7 +93,7 @@ def backup(dsn, destination, *, local_test=False, max_bytes=MAX_BYTES):
     try:
         with psycopg.connect(**options(dsn, local_test)) as db:
             db.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
-            if db.info.server_version // 10000 != 18 or db.execute('SELECT version FROM openid.schema_version').fetchall() != [(9,)]:
+            if db.info.server_version // 10000 != 18 or db.execute('SELECT version FROM openid.schema_version').fetchall() != [(10,)]:
                 raise ValueError('unsupported register version')
             for table in TABLES:
                 digest = hashlib.sha256()
@@ -135,9 +137,10 @@ def read_backup(source, stack, deadline, max_bytes):
     if (set(manifest) != {'format', 'schema', 'postgresMajor', 'tables'}
             or type(manifest['format']) is not int or manifest['format'] != 1
             or type(manifest['postgresMajor']) is not int or manifest['postgresMajor'] != 18
-            or manifest['schema'] not in (hashlib.sha256(SCHEMA.read_bytes()).hexdigest(), LEGACY_SCHEMA, SCHEMA8_HASH)):
+            or manifest['schema'] not in (hashlib.sha256(SCHEMA.read_bytes()).hexdigest(), LEGACY_SCHEMA, SCHEMA8_HASH, SCHEMA9_HASH)):
         raise ValueError('backup version or tables')
-    tables = {LEGACY_SCHEMA: LEGACY_TABLES, SCHEMA8_HASH: SCHEMA8_TABLES}.get(manifest['schema'], TABLES)
+    tables = {LEGACY_SCHEMA: LEGACY_TABLES, SCHEMA8_HASH: SCHEMA8_TABLES,
+              SCHEMA9_HASH: SCHEMA9_TABLES}.get(manifest['schema'], TABLES)
     if type(manifest['tables']) is not dict or set(manifest['tables']) != set(tables):
         raise ValueError('backup version or tables')
     streams = {}

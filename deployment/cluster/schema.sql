@@ -19,8 +19,8 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 SET ROLE openid_owner;
 SET search_path=openid,pg_catalog;
 ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
-CREATE TABLE schema_version(version integer PRIMARY KEY CHECK(version=9));
-INSERT INTO schema_version VALUES(9);
+CREATE TABLE schema_version(version integer PRIMARY KEY CHECK(version=10));
+INSERT INTO schema_version VALUES(10);
 CREATE TABLE credentials (
  id text PRIMARY KEY CHECK(id ~ '^[a-f0-9]{64}$'), public_key text UNIQUE NOT NULL,
  state text NOT NULL CHECK(state IN ('PENDING_REVIEW','ACTIVE','REVOKED')), created bigint NOT NULL,
@@ -45,6 +45,12 @@ CREATE TABLE registry_bindings (
  checked_at bigint NOT NULL CHECK(checked_at>=0),
  valid_until bigint NOT NULL CHECK(valid_until>checked_at AND valid_until<=checked_at+86400),
  evidence_reference text NOT NULL);
+-- A durable, single-use generation committed before a pending issuance lookup.
+CREATE TABLE registry_checks (
+ credential text PRIMARY KEY REFERENCES profiles(credential) ON DELETE CASCADE,
+ nonce text NOT NULL CHECK(nonce ~ '^[a-f0-9]{64}$'),
+ profile_version text NOT NULL, document_reference text NOT NULL,
+ started_at bigint NOT NULL CHECK(started_at>=0));
 -- Keep the minimum registration/person link after profile-content retention.
 -- It remains personal data; this is not a decision about its retention period.
 CREATE TABLE credential_persons (
@@ -267,12 +273,40 @@ BEGIN
 END $$;
 CREATE TRIGGER credential_guard BEFORE INSERT OR UPDATE ON credentials FOR EACH ROW EXECUTE FUNCTION guard_credential();
 
+CREATE FUNCTION invalidate_registry_binding(target text,expected_profile text,
+ expected_document text,expected_evidence text) RETURNS text
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $$
+DECLARE c credentials; p profiles; previous registry_bindings; actual_document text;
+ generation text; now_epoch bigint;
+BEGIN
+ SELECT * INTO c FROM credentials WHERE id=target FOR UPDATE;
+ SELECT * INTO p FROM profiles WHERE credential=target;
+ SELECT document_tag INTO actual_document FROM persons WHERE id=p.person;
+ SELECT * INTO previous FROM registry_bindings WHERE credential=target FOR UPDATE;
+ IF c.id IS NULL OR c.state!='PENDING_REVIEW' OR p.credential IS NULL
+  OR expected_profile IS NULL OR p.version IS DISTINCT FROM expected_profile
+  OR expected_document IS NULL OR actual_document IS DISTINCT FROM expected_document
+  OR previous.evidence_reference IS DISTINCT FROM expected_evidence
+ THEN RAISE EXCEPTION 'registry profile or evidence changed'; END IF;
+ now_epoch:=floor(extract(epoch FROM clock_timestamp()))::bigint;
+ generation:=replace(gen_random_uuid()::text||gen_random_uuid()::text,'-','');
+ -- Keep identity and consumed references; expire only the issuance proof.
+ UPDATE registry_bindings SET checked_at=0,valid_until=1 WHERE credential=target;
+ INSERT INTO registry_checks VALUES(target,generation,p.version,actual_document,now_epoch)
+  ON CONFLICT(credential) DO UPDATE SET nonce=excluded.nonce,
+   profile_version=excluded.profile_version,document_reference=excluded.document_reference,
+   started_at=excluded.started_at;
+ INSERT INTO events(credential,kind,time) VALUES(target,'REGISTRY_CHECK_STARTED',now_epoch);
+ INSERT INTO operator_events(actor,kind,credential) VALUES(session_user,'REGISTRY_CHECK_STARTED',target);
+ RETURN generation;
+END $$;
+
 CREATE FUNCTION record_registry_binding(
  target text, person_reference text, sealed_binding text, registry_source text,
  identity_kind text, profile_revision text, document_reference text,
- checked_epoch bigint, until_epoch bigint, evidence_reference text) RETURNS void
+ checked_epoch bigint, until_epoch bigint, evidence_reference text,check_nonce text) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $$
-DECLARE c credentials; p profiles; previous registry_bindings; actual_document text;
+DECLARE c credentials; p profiles; previous registry_bindings; actual_document text; attempt registry_checks;
  inserted_reference text; now_epoch bigint:=extract(epoch FROM clock_timestamp())::bigint;
 BEGIN
  IF checked_epoch IS NULL OR until_epoch IS NULL OR checked_epoch<0
@@ -288,10 +322,18 @@ BEGIN
  SELECT * INTO p FROM profiles WHERE credential=target;
  SELECT document_tag INTO actual_document FROM persons WHERE id=p.person;
  IF checked_epoch>now_epoch OR until_epoch<=now_epoch
-  OR c.id IS NULL OR c.state NOT IN ('PENDING_REVIEW','ACTIVE')
+  OR c.id IS NULL OR c.state!='PENDING_REVIEW'
   OR p.credential IS NULL OR p.version IS DISTINCT FROM profile_revision
   OR actual_document IS DISTINCT FROM document_reference
  THEN RAISE EXCEPTION 'registry profile changed'; END IF;
+ SELECT * INTO attempt FROM registry_checks WHERE credential=target FOR UPDATE;
+ IF check_nonce IS NULL OR check_nonce !~ '^[a-f0-9]{64}$'
+  OR attempt.credential IS NULL OR attempt.nonce IS DISTINCT FROM check_nonce
+  OR attempt.profile_version IS DISTINCT FROM profile_revision
+  OR attempt.document_reference IS DISTINCT FROM document_reference
+  OR checked_epoch<attempt.started_at
+  OR now_epoch<attempt.started_at OR now_epoch>=attempt.started_at+300
+ THEN RAISE EXCEPTION 'current registry check required'; END IF;
  SELECT * INTO previous FROM registry_bindings WHERE credential=target FOR UPDATE;
  IF previous.credential IS NOT NULL AND
   (previous.person_tag!=person_reference OR previous.source!=registry_source OR previous.identity_kind!=identity_kind)
@@ -307,6 +349,7 @@ BEGIN
   sealed=excluded.sealed,profile_version=excluded.profile_version,
   document_reference=excluded.document_reference,checked_at=excluded.checked_at,
   valid_until=excluded.valid_until,evidence_reference=excluded.evidence_reference;
+ DELETE FROM registry_checks WHERE credential=target;
  INSERT INTO events(credential,kind,time) VALUES(target,'REGISTRY_CHECKED',now_epoch);
  INSERT INTO operator_events(actor,kind,credential) VALUES(session_user,'REGISTRY_CHECKED',target);
 END $$;
@@ -332,7 +375,8 @@ BEGIN
  SELECT * INTO contact FROM notice_contacts WHERE credential=target;
  IF contact.credential IS NULL THEN RAISE EXCEPTION 'separately verified contact required'; END IF;
  IF NOT EXISTS(SELECT 1 FROM continuity_config WHERE id=1) THEN RAISE EXCEPTION 'continuity authority required'; END IF;
- IF EXISTS(SELECT 1 FROM activation_proposals WHERE credential=target AND expires>now_epoch AND approved_at IS NULL) THEN
+ IF EXISTS(SELECT 1 FROM activation_proposals WHERE credential=target AND expires>now_epoch
+  AND approved_at IS NULL AND registry_reference=binding.evidence_reference) THEN
   RAISE EXCEPTION 'proposal already pending'; END IF;
  proposal:=replace(gen_random_uuid()::text||gen_random_uuid()::text,'-','');
  INSERT INTO activation_proposals VALUES(proposal,target,p.version,session_user,reference,validity,now_epoch,now_epoch+3600,NULL,NULL,binding.evidence_reference,contact.contact_version);
@@ -520,7 +564,7 @@ END $$;
 CREATE FUNCTION revoke_all_after_restore() RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $$
 BEGIN
- LOCK TABLE credentials,requests,federation_requests,challenges,registry_bindings IN ACCESS EXCLUSIVE MODE;
+ LOCK TABLE credentials,requests,federation_requests,challenges,registry_bindings,registry_checks IN ACCESS EXCLUSIVE MODE;
  INSERT INTO enrollment_quarantine VALUES(1,floor(extract(epoch FROM clock_timestamp()))::bigint+86400)
   ON CONFLICT(id) DO UPDATE SET until_epoch=greatest(enrollment_quarantine.until_epoch,excluded.until_epoch);
  UPDATE credentials SET state='REVOKED';
@@ -528,6 +572,7 @@ BEGIN
  UPDATE federation_requests SET state='CANCELLED' WHERE state IN ('PENDING','APPROVED');
  DELETE FROM challenges;
  -- Restored lookups are historical; keep consumed references to prevent replay.
+ DELETE FROM registry_checks;
  DELETE FROM registry_bindings;
  UPDATE activation_proposals SET expires=0 WHERE approved_at IS NULL;
  UPDATE approval_intents SET expires=0 WHERE completed_at IS NULL;
@@ -595,7 +640,9 @@ GRANT USAGE ON SCHEMA openid TO openid_registry;
 GRANT SELECT ON schema_version,credentials,profiles,persons,registry_bindings TO openid_registry;
 GRANT SELECT ON registry_bindings TO openid_wallet,openid_requester,openid_approver,openid_auditor,openid_backup;
 GRANT SELECT ON registry_evidence TO openid_auditor,openid_backup;
-GRANT EXECUTE ON FUNCTION record_registry_binding(text,text,text,text,text,text,text,bigint,bigint,text) TO openid_registry;
+GRANT SELECT ON registry_checks TO openid_auditor,openid_backup;
+GRANT EXECUTE ON FUNCTION invalidate_registry_binding(text,text,text,text),
+ record_registry_binding(text,text,text,text,text,text,text,bigint,bigint,text,text) TO openid_registry;
 GRANT SELECT ON operator_events TO openid_auditor;
 GRANT SELECT ON activation_proposals TO openid_requester,openid_approver,openid_auditor;
 GRANT EXECUTE ON FUNCTION request_activation(text,text,integer) TO openid_requester;

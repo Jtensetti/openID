@@ -18,18 +18,18 @@ from sqlite_retention import database_identity
 
 MAX_BYTES = 8 * 1024 * 1024
 DEADLINE = 30
-ERASE = {'profiles': ('registry_bindings', 'profiles'), 'securityCodes': ('security_codes',),
+ERASE = {'profiles': ('registry_checks', 'registry_bindings', 'profiles'), 'securityCodes': ('security_codes',),
          'authentication': ('requests', 'challenges'), 'signatures': (),
          'consents': ('credential_consents', 'enrollment_consents', 'enrollment_policies'),
          'contacts': ('revocation_codes', 'test_beta_revocation_codes', 'notice_outbox', 'notice_contacts'),
          'lifecycle': ('events', 'intent_revocations', 'approval_intents', 'activation_proposals', 'operator_events', 'profile_evidence', 'registry_evidence')}
-ORDER = ('registry_bindings', 'profiles', 'security_codes', 'requests', 'challenges', 'federation_requests',
+ORDER = ('registry_checks', 'registry_bindings', 'profiles', 'security_codes', 'requests', 'challenges', 'federation_requests',
          'credential_consents', 'enrollment_consents', 'enrollment_policies',
          'revocation_codes', 'test_beta_revocation_codes', 'notice_outbox', 'notice_contacts', 'events',
          'intent_revocations', 'approval_intents', 'activation_proposals', 'operator_events', 'profile_evidence', 'registry_evidence')
 KEYS = {'enrollment_policies': 'digest', 'notice_outbox': 'event',
         'registry_evidence': 'reference',
-        **{t: 'credential' for t in ('registry_bindings', 'profiles', 'security_codes', 'credential_consents',
+        **{t: 'credential' for t in ('registry_checks', 'registry_bindings', 'profiles', 'security_codes', 'credential_consents',
             'notice_contacts', 'revocation_codes', 'test_beta_revocation_codes', 'profile_evidence')},
         **{t: 'id' for t in ('requests', 'challenges', 'federation_requests',
             'enrollment_consents', 'events', 'approval_intents', 'activation_proposals', 'operator_events')}}
@@ -134,7 +134,7 @@ def scope(ctx, config, *, replay=False):
                   'credential_consents', 'notice_contacts', 'notice_outbox', 'revocation_codes', 'test_beta_revocation_codes'):
         ctx.get(table, 'credential', ids)
     for table in ('test_beta_policy', 'test_beta_deadline'): ctx.get(table)
-    for table in ('registry_bindings', 'registry_evidence'): ctx.get(table, 'credential', ids)
+    for table in ('registry_bindings', 'registry_evidence', 'registry_checks'): ctx.get(table, 'credential', ids)
     receipts = {r['id']: r['subject'] for r in consents}
     for row in ctx.select('credential_consents', 'receipt', set(receipts)):
         if row['credential'] != receipts[row['receipt']]: raise ValueError('foreign consent binding')

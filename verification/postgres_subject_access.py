@@ -34,12 +34,14 @@ COLUMNS.update({
     'activation_proposals': 'id credential profile_version requester decision hours created expires approved_by approved_at registry_reference contact_version',
     'registry_bindings': 'credential person_tag sealed source identity_kind profile_version document_reference checked_at valid_until evidence_reference',
     'registry_evidence': 'reference credential',
+    'registry_checks': 'credential nonce profile_version document_reference started_at',
     'operator_events': 'id actor kind credential proposal time',
     'maintenance_runs': 'id completed_at removed',
     'biometric_attempts': 'document_tag times',
 })
 EXCLUDED = {k: v for k, v in SQLITE_EXCLUDED.items() if k in COLUMNS}
 EXCLUDED['challenges'] = ['payload']
+EXCLUDED['registry_checks'] = ['nonce']
 
 
 def schema(db, *, reader=True):
@@ -58,8 +60,8 @@ def schema(db, *, reader=True):
         actual.setdefault(table, set()).add(column)
     if len(found) == 256 or actual != {t: set(c.split()) for t, c in COLUMNS.items()}:
         raise ValueError('unmapped or incomplete register columns')
-    if db.execute('SELECT version FROM openid.schema_version').fetchall() != [(9,)]:
-        raise ValueError('case extraction requires schema 9')
+    if db.execute('SELECT version FROM openid.schema_version').fetchall() != [(10,)]:
+        raise ValueError('case extraction requires schema 10')
     if not reader: return
     roles = db.execute("""SELECT rolsuper,rolcreatedb,rolcreaterole,rolreplication,rolbypassrls,
         has_schema_privilege(current_user,'openid','CREATE')
@@ -129,7 +131,7 @@ def collect(db, case, vault, end):
     get('pairwise_subjects', 'person', people)
     get('biometric_attempts', 'document_tag', {r['document_tag'] for r in persons})
     for table in ('requests', 'federation_requests', 'events', 'challenges', 'security_codes',
-                  'activation_proposals', 'operator_events', 'credential_consents', 'registry_bindings', 'registry_evidence',
+                  'activation_proposals', 'operator_events', 'credential_consents', 'registry_bindings', 'registry_evidence', 'registry_checks',
                   'approval_intents', 'intent_revocations', 'external_revocations', 'notice_contacts', 'notice_outbox', 'revocation_codes'):
         get(table, 'credential', ids)
     get('enrollment_policies', 'digest', {r['policy_digest'] for r in consents})
@@ -159,7 +161,7 @@ def export_case(dsn, destination, case, revision, *, vault, local_test=False, ma
         data, unlinked = collect(db, case, vault, end)
         if time.monotonic() >= end: raise TimeoutError('case deadline')
     return write_output(destination, {'format': 1, 'backend': 'postgresql',
-        'case': case, 'sourceRevision': revision, 'databaseSchema': 9,
+        'case': case, 'sourceRevision': revision, 'databaseSchema': 10,
         'readAt': read_at.astimezone(timezone.utc).isoformat(), 'status': 'HANDLER_REVIEW_REQUIRED',
         'records': data, 'credentialsWithoutRetainedPersonLink': unlinked,
         'securityFieldsForSeparateReview': EXCLUDED,

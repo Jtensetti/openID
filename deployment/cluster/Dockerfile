@@ -51,6 +51,7 @@ COPY verification/ingress_client.py verification/ipc_support.py ./
 COPY verification/enrollment_policy.py verification/acceptance_journal.py verification/consent_retention.py ./
 COPY verification/federation_config.py verification/registry_binding.py verification/postgres_continuity.py verification/revocation.py verification/notices.py verification/notice_ipc.py verification/continuity_operator.py ./
 COPY verification/image_input.py ./
+COPY verification/spar_provider.py ./
 COPY verification/bounded_process.py verification/profile_worker.py verification/worker_confinement.py ./
 COPY deployment/cluster/schema.sql /app/deployment/cluster/schema.sql
 COPY deployment/build/remove_build_pip.py /tmp/remove_build_pip.py

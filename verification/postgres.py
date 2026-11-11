@@ -97,7 +97,7 @@ class PostgresWallet(Wallet):
 
     def health(self):
         with self.transaction() as db:
-            if db.execute('SELECT version FROM schema_version').fetchone()[0] != 9:
+            if db.execute('SELECT version FROM schema_version').fetchone()[0] != 10:
                 raise RegistryUnavailable('schema unavailable')
             if self.revocation is not None:
                 pin = db.execute('SELECT authority FROM continuity_config WHERE id=1').fetchone()

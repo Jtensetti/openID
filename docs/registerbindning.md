@@ -1,8 +1,9 @@
 # Registerbindning och ersättning
 
 Implementationen i `verification/registry_binding.py` förbereder ID-02 och
-ID-08–10 för både SQLite och PostgreSQL. Den är inte ansluten till ett verkligt
-personregister. En betrodd registeradapter, rätt till produktionsåtkomst och
+ID-08–10 för både SQLite och PostgreSQL. Den är inte ansluten till ett
+personregister i produktion. SPAR:s kundtestgränssnitt beskrivs nedan.
+En betrodd produktionsadapter, rätt till produktionsåtkomst och
 återkommande uppdateringar återstår. Ingen ny HTTP-route eller automatisk
 aktivering införs av registerbindningen.
 
@@ -46,14 +47,66 @@ kontrolltider, profilversion och dokumentreferens lagras krypterat med separat
 autentiserad kontext från passprofilen. Händelseloggen innehåller endast fasta
 händelsetyper och interna nyckelreferenser.
 
+## SPAR:s kundtestgränssnitt
+
+`verification/spar_provider.py` innehåller klientcertifikatautentiserad
+SOAP-transport för Personsök 2023.1 och tolkning av svar. Klienten är låst
+till SPAR:s testvärd, det publicerade Bolag A-certifikatets fingeravtryck,
+testkontot och sju publicerade testnummer. Det finns inget val av
+produktionsvärd eller fri personsökning. Omdirigeringar, obekräftad TLS,
+för stora svar, XML-entitetsdeklarationer och okända kritiska fält avvisas.
+Testcertifikat och nycklar ska hållas utanför repot i ägarens privata filer.
+
+Klienten ger en `SparObservation`, inte ett `RegistryResult`. Den kan därför
+inte matas direkt till `RegistryBindings` som utfärdandebevis. Observationen
+omfattar endast identitet, aktuellt namn/födelsedatum, källreferens och
+kontrollutfall; adresser och andra ovidkommande svarsfält förs inte vidare.
+Skydd, avregistrering, hänvisningar och otillräcklig samordningsnummerstatus
+kräver separat hantering. Ett passerat preliminärt vilandedatum behandlas
+som en osäkerhet, inte som ett styrkt besked om slutlig vilandeförklaring.
+
+Exakt jämförelse mot signerade passfält kan utföras med
+`observation.matches_passport_fields(query.passport_fields)`. Den verifierar
+inte passet och gissar inte personnummer, sekel, namnförkortning eller
+translitterering. Publicerade testpersoners siffernamn avvisas av den riktiga
+passparsern; positiva syntetiska matchningsprov är inte verklig passbindning.
+
+Kör de deterministiska parser- och transportproven från `verification`:
+
+```sh
+python3 -m unittest -v test_spar_provider
+```
+
+Proven använder publicerade fiktiva svar och ersätter nättransporten. De
+täcker inte en aktuell extern anslutning, produktionsbehörighet eller den
+sammanhängande utgivningskedjan. Klienten och parsern ingår i de befintliga
+app-/registerimages men är inte en öppnad utgivningstjänst.
+
+Källor: [SPAR:s API](https://www.statenspersonadressregister.se/master/start/teknisk-info/personsoek/),
+[kundtestmiljö](https://www.statenspersonadressregister.se/master/start/teknisk-info/kundtestmiljoen/)
+och [publicerade testcertifikat](https://eid.expisoft.se/expitrust-test-certifikat/).
+
 ## PostgreSQL i den gemensamma driftkandidaten
 
-`RegistryBindings` accepterar `PostgresWallet`, som kräver schema 9.
+`RegistryBindings` accepterar `PostgresWallet`, som kräver schema 10.
+Före en kontroll för `PENDING_REVIEW` sparar `invalidate_registry_binding`
+en ny engångsgeneration och låter tidigare utgivningsbevis löpa ut. Aktuell
+profil, dokumentreferens och tidigare bevisreferens måste stämma. Detta
+committas före dekryptering och registeranrop, så avbrott lämnar utgivningen
+blockerad. Identitetsbindning och förbrukade bevisreferenser bevaras.
+
 Registerbevis skrivs genom `record_registry_binding` med separat databaslogin
-i `openid_registry` och en egen Transit-token. Rollen kan inte aktivera,
+i `openid_registry` och en egen Transit-token. Endast samma senaste generation
+får konsumeras inom 300 sekunder; ett äldre positivt svar kan inte vinna över
+en nyare kontroll. Ett nytt bevis kräver nya operatörsbeslut. Rollen kan inte aktivera,
 föreslå eller attestera en nyckel. Förslag, attest och slutförande följer den
 [gemensamma PostgreSQL-kedjan](../deployment/cluster/README.md), som kopplas till
 övriga tjänster genom [driftprofilen](../deployment/production/README.md).
+
+Denna kontrollväg nekar redan aktiva nycklar. Den inför varken automatisk
+spärr vid transportfel eller den separata rutinen för löpande kontroll av
+aktiva innehavare. Återställning kasserar pågående kontrollgenerationer och
+registerbindningar. Källan `spar-kundtest` får inte lämna nationella attribut.
 
 `activate_replacement` avvisar PostgreSQL. Det registerstödda passbytet nedan
 gäller SQLite; granskad personkoppling och spärr över passbyte i PostgreSQL

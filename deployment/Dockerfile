@@ -101,6 +101,7 @@ COPY deployment/aws/licenses /app/licenses/aws
 COPY deployment/aws/THIRD_PARTY.md deployment/aws/sbom.cdx.json /app/licenses/aws/
 COPY verification/crypto_runtime.py verification/serve.py verification/runtime.py verification/biometric_worker.py verification/native.py verification/chip.py verification/server.py verification/wallet.py verification/wallet_cli.py verification/registry_binding.py verification/identity.py verification/recovery.py verification/relying_party.py ./
 COPY verification/postgres.py verification/postgres_continuity.py verification/transit.py verification/cluster_serve.py verification/cluster_bridge.py verification/cluster_operator.py verification/cluster_recovery.py verification/postgres_subject_access.py verification/maintenance.py verification/monitor.py ./
+COPY verification/spar_provider.py ./
 COPY deployment/cluster/schema.sql /app/deployment/cluster/schema.sql
 COPY deployment/cluster/probe.py ./cluster_probe.py
 COPY deployment/production/probe.py /app/deployment/production/probe.py

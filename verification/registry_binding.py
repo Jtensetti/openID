@@ -131,16 +131,26 @@ class RegistryBindings:
 
     def bind(self, credential):
         identifier(credential)
-        if self.lookup is None: raise ValueError('registry provider unavailable')
+        if not self.postgres and self.lookup is None:
+            raise ValueError('registry provider unavailable')
         with self.wallet.transaction() as db:
             p = self._profile(db, credential)
-            profile = self.wallet.vault.crypt('open', credential, p['person'], json.loads(p['sealed']))
-            fields = tuple((k, profile[k]) for k in ('givenNames', 'familyName', 'birthDateMrz',
-                           'issuingState', 'nationality', 'documentExpires'))
-            if profile.get('passportPersonalNumber') is not None:
-                fields += (('passportPersonalNumber', profile['passportPersonalNumber']),)
-            query = RegistryQuery(secrets.token_hex(32), credential, p['version'],
-                                  self._document_reference(db, p), fields)
+            document_reference = self._document_reference(db, p)
+            nonce = secrets.token_hex(32)
+            if self.postgres:
+                old = db.execute('SELECT evidence_reference FROM registry_bindings WHERE credential=?',
+                                 (credential,)).fetchone()
+                nonce = db.execute('SELECT invalidate_registry_binding(?,?,?,?)',
+                    (credential, p['version'], document_reference,
+                     old['evidence_reference'] if old is not None else None)).fetchone()[0]
+        # Commit invalidation before any provider/Vault failure. No automatic retry.
+        profile = self.wallet.vault.crypt('open', credential, p['person'], json.loads(p['sealed']))
+        fields = tuple((k, profile[k]) for k in ('givenNames', 'familyName', 'birthDateMrz',
+                       'issuingState', 'nationality', 'documentExpires'))
+        if profile.get('passportPersonalNumber') is not None:
+            fields += (('passportPersonalNumber', profile['passportPersonalNumber']),)
+        query = RegistryQuery(nonce, credential, p['version'], document_reference, fields)
+        if self.lookup is None: raise ValueError('registry provider unavailable')
         try:
             result = self.lookup(query)
         except Exception:
@@ -172,9 +182,9 @@ class RegistryBindings:
                     raise ValueError('registry identity conflict')
             sealed = self._seal(p, data)
             if self.postgres:
-                db.execute('SELECT record_registry_binding(?,?,?,?,?,?,?,?,?,?)',
+                db.execute('SELECT record_registry_binding(?,?,?,?,?,?,?,?,?,?,?)',
                     (credential, tag, sealed, self.source, result.kind, query.profile_version,
-                     query.document_reference, result.checked_at, result.valid_until, proof))
+                     query.document_reference, result.checked_at, result.valid_until, proof, query.nonce))
             else:
                 try:
                     db.execute('INSERT INTO registry_evidence VALUES(?,?)', (proof, credential))
@@ -192,6 +202,11 @@ class RegistryBindings:
         row = db.execute('SELECT * FROM registry_bindings WHERE credential=?', (credential,)).fetchone()
         if row is None: raise ValueError('registry binding required')
         data = self._open(p, row['sealed'])
+        if self.postgres and (row['source'], row['identity_kind'], row['profile_version'],
+                row['document_reference'], row['checked_at'], row['valid_until']) != (
+                data['source'], data['kind'], data['profileVersion'],
+                data['documentReference'], data['checkedAt'], data['validUntil']):
+            raise ValueError('registry evidence invalidated')
         self._validate_identity(data['kind'], data['value'])
         profile = self.wallet.vault.crypt('open', credential, p['person'], json.loads(p['sealed']))
         self._match_passport_number(profile, data['kind'], data['value'])
@@ -207,7 +222,8 @@ class RegistryBindings:
         with self.wallet.transaction() as db:
             self.wallet.verified_profile(db, credential)
             _, data, _ = self._binding(db, credential)
-            if data['kind'] == 'synthetic': raise ValueError('synthetic national attributes forbidden')
+            if data['kind'] == 'synthetic' or data['source'] == 'spar-kundtest':
+                raise ValueError('synthetic national attributes forbidden')
             return {'kind': data['kind'], 'value': data['value'], 'source': data['source'],
                     'checkedAt': data['checkedAt']}
 

@@ -286,17 +286,17 @@ Tjänstekontot kan bara läsa kodstatus och anropa begränsade kontroll- och
 bytesfunktioner; det kan inte läsa verifierarna, återställa en låst kod
 eller ändra begärans text, nivå, motpart eller sessionsbindning.
 
-Nya installationer använder `schema.sql`, version 9. Version 1–8 nekas av den
+Nya installationer använder `schema.sql`, version 10. Version 1–9 nekas av den
 nya applikationen. Stoppa applikationer och underhåll, ta och verifiera en
 backup med den tidigare, låsta kodrevisionen och kör `migrate-1-to-2.sql`
-med databasens kontrollerade ägarkonto och fortsätt med `migrate-2-to-3.sql`, `migrate-3-to-4.sql`, `migrate-4-to-5.sql`, `migrate-5-to-6.sql`, `migrate-6-to-7.sql` `migrate-7-to-8.sql` och `migrate-8-to-9.sql`. Börja vid
+med databasens kontrollerade ägarkonto och fortsätt med `migrate-2-to-3.sql`, `migrate-3-to-4.sql`, `migrate-4-to-5.sql`, `migrate-5-to-6.sql`, `migrate-6-to-7.sql` `migrate-7-to-8.sql`, `migrate-8-to-9.sql` och `migrate-9-to-10.sql`. Börja vid
 databasens befintliga version; hoppa inte över steg. Migreringarna är transaktionella och
 nekar annan startversion. Starta därefter den nya revisionen och verifiera
 readiness, rollgränser och försöksspärren innan trafik öppnas.
 
-Schema-9-backupen omfattar även registerbindningar, operatörsintent, kontakt-
-och aviseringsposter samt externa spärrreferenser. Exakt låsta schema-7- och
-schema-8-backuper kan återläsas direkt med det nya verktyget;
+Schema-10-backupen omfattar även kontrollgenerationer och registerbindningar, operatörsintent, kontakt-
+och aviseringsposter samt externa spärrreferenser. Exakt låsta schema-7-, schema-8- och
+schema-9-backuper kan återläsas direkt med det nya verktyget;
 den får inga fabricerade registerbevis. Äldre backuper återläses med sin tidigare kodrevision i en stängd miljö,
 spärras och migreras innan ny kod får ansluta. Kör därefter
 `revoke_all_after_restore()` innan applikationskonton får tillgång.
@@ -455,7 +455,7 @@ ersätter funktionen och höjer versionskravet i samma transaktion, utan att
 radera några rader eller ge tjänstekonton nya rättigheter. Fel startversion,
 upprepad körning eller uteblivet lås stoppar den. Gör efterprov innan underhåll
 eller trafik återöppnas. Ny applikation, backupverktyg och individuellt
-ärendeuttag kräver numera schema 9; personlänksmigreringen nedan ska också köras. Äldre backuper återläses med sina ursprungliga
+ärendeuttag kräver numera schema 10; personlänksmigreringen nedan ska också köras. Äldre backuper återläses med sina ursprungliga
 verktyg i stängd miljö och migreras innan aktuell revision används.
 Migreringen återskapar inte tidigare raderad text. Arkivlayouten är fortsatt
 format 4, med faktisk databasversion i manifestet.
@@ -472,7 +472,7 @@ läsa den; inga nya konton eller externt anropbara mutationsfunktioner införs.
 `migrate-5-to-6.sql` låser registret och fyller länkar från befintliga profiler.
 Den gissar inte vilka personer tidigare gallrade eller oavslutade registreringar
 tillhör. Fel startversion, omkörning eller uteblivet lås nekar migreringen.
-Aktuell app, full backup och rättighetsuttag kräver schema 9. Ta/verifiera först
+Aktuell app, full backup och rättighetsuttag kräver schema 10. Ta/verifiera först
 backup med tidigare låst verktyg, stoppa skrivare och kör migreringen som
 kontrollerad ägare; gör efterprov före öppning.
 
@@ -492,7 +492,7 @@ SQLite-adapterns byte av personkoppling vid registerkontrollerat passbyte.
 
 ## Beslutad radering och återställning (schema 7)
 
-Se [radering i rättighetsärende](../../docs/radering-rattighetsarende.md) för planering med läskonto, verkställighet med registerägaren och obligatorisk extern beslutsförteckning vid återställning. `migrate-6-to-7.sql` lägger till atomisk raderingsjournal och spärrar som också gäller nycklar utan kvarvarande registrering. App, full backup och ärendeverktyg kräver nu schema 9. Arkivformatet är 5; äldre journalarkiv förblir läsbara.
+Se [radering i rättighetsärende](../../docs/radering-rattighetsarende.md) för planering med läskonto, verkställighet med registerägaren och obligatorisk extern beslutsförteckning vid återställning. `migrate-6-to-7.sql` lägger till atomisk raderingsjournal och spärrar som också gäller nycklar utan kvarvarande registrering. App, full backup och ärendeverktyg kräver nu schema 10. Arkivformatet är 5; äldre journalarkiv förblir läsbara.
 
 
 ## Registerbevis före tvåpersonersbeslut (schema 8)
@@ -619,3 +619,25 @@ sammanhängande historik, intentkvittenser och aviseringsposter hanteras genom
 ett uttryckligt livscykel-/kontaktbeslut i rättighetsverktyget. Externa
 permanenta spärrreferenser bevaras som skyddade säkerhetsreferenser;
 motivering och slutlig bevarandetid kräver separat verksamhetsbeslut.
+
+
+## Registeromkontroll före nytt beslut (schema 10)
+
+Kör `migrate-9-to-10.sql` med stoppade tjänster efter verifierad full backup
+från den låsta schema-9-revisionen. Migreringen har begränsad lås- och körtid.
+Gamla bevis för väntande utgivning samt ofullbordade förslag och intent löper
+ut. Aktiva nycklar behålls. Den gamla tioparameterfunktionen för registerbevis
+tas bort; använd aktuell app och aktuella operatörsverktyg tillsammans.
+
+Registerprocessen sparar beständig invalidation och en ny engångsgeneration
+före varje anrop. Endast senaste generation får skriva nytt bevis inom
+300 sekunder. Förslag, attest och slutförande prövar bevisreferens och
+giltighet igen. Ett avbrutet eller misslyckat anrop lämnar det äldre
+utgivningsbeviset obrukbart; ett nytt positivt svar kräver nya beslut.
+Ingen automatisk spärr av redan aktiva ID:n införs av detta flöde.
+Se [registerbindningen](../../docs/registerbindning.md).
+
+Full backup innehåller `registry_checks`. Återställning tar bort både dessa
+generationer och registerbindningar innan tjänster får åtkomst. Förbrukade
+bevisreferenser bevaras. Produktionsåtkomst och nationell attribututlämning
+tillkommer inte genom korrigeringen.
