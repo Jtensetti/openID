@@ -59,21 +59,25 @@ jobs:
           npm test
       - name: Install pinned browser test tooling
         run: npm ci --ignore-scripts
-      - name: Use the official Ubuntu archive for browser dependencies
+      - name: Use the official Finnish Ubuntu mirror for browser dependencies
         run: |
           sudo python3 - <<'PY'
           from pathlib import Path
           source = Path('/etc/apt/sources.list.d/ubuntu.sources')
           original = source.read_text()
-          updated = original.replace('mirror+file:/etc/apt/apt-mirrors.txt',
-                                     'https://archive.ubuntu.com/ubuntu')
-          for scheme in ('http', 'https'):
-              updated = updated.replace(f'{scheme}://azure.archive.ubuntu.com/ubuntu',
-                                        'https://archive.ubuntu.com/ubuntu')
+          # Ubuntu's documented Finnish country mirror; preserve Signed-By.
+          # https://documentation.ubuntu.com/project/how-ubuntu-is-made/concepts/package-archive/
+          mirror = 'https://mirrors.nic.funet.fi/ubuntu'
+          updated = original.replace('mirror+file:/etc/apt/apt-mirrors.txt', mirror)
+          updated = updated.replace('mirror+file:/etc/apt/apt-mirrors-security.txt', mirror)
+          for host in ('azure.archive.ubuntu.com', 'archive.ubuntu.com', 'security.ubuntu.com'):
+              for scheme in ('http', 'https'):
+                  updated = updated.replace(f'{scheme}://{host}/ubuntu', mirror)
           if updated != original:
               source.write_text(updated)
-          print('Ubuntu source URI checked; suites, components and signing key unchanged.')
+          print('Ubuntu mirror selected; suites, components and signing key unchanged.')
           PY
+          sudo apt-get update --error-on=any
       - name: Install Chromium for the pinned Playwright version
         run: npx --no-install playwright install --with-deps chromium --only-shell
       - name: Browser SAML, WebAuthn USB/platform, PWA and revocation
