@@ -93,8 +93,8 @@ bao secrets enable transit
 bao write transit/keys/openid-profile type=aes256-gcm96 derived=true exportable=false
 bao write transit/keys/openid-profile/config auto_rotate_period=720h
 bao write transit/keys/openid-index type=hmac key_size=32 exportable=false
-bao policy write openid-enroller deployment/cluster/enroller.hcl
-bao policy write openid-wallet deployment/cluster/wallet.hcl
+bao policy write enroller deployment/cluster/enroller.hcl
+bao policy write wallet deployment/cluster/wallet.hcl
 bao policy write openid-registry deployment/cluster/registry.hcl
 bao policy write openid-contact deployment/cluster/contact.hcl
 bao policy write openid-maintenance deployment/cluster/maintenance.hcl
@@ -102,10 +102,16 @@ bao policy write openid-backup deployment/cluster/backup.hcl
 bao policy write openid-recovery deployment/cluster/recovery.hcl
 ```
 
-Utfärda en separat kortlivad token för varje tjänst med dess policy och utan
-`default`-policy. Tokenfiler läses på nytt vid varje anrop och kan ersättas
-atomiskt av en behörig agent. Förnyelse och leverans av dessa autentiserings-
-uppgifter måste konfigureras i den valda driftsmiljön.
+För de långlivade API-/bryggprocesserna utfärdas en separat periodisk orphan-
+token per tjänst, utan `default`-policy, med exakt `enroller` eller `wallet`
+och högst en timmes period. Bryggan får en egen token med `wallet`-policy;
+den delar inte plånbokens tokenfil. Klienterna förnyar endast den egna
+token och nekar nyckeloperationer vid misslyckad förnyelse. Efter utgång eller
+återkallelse behövs en ny behörigt utfärdad token som levereras med atomiskt
+0600-filbyte och rätt tjänsteägare. Se [den samlade driftinstruktionen](../production/README.md#privat-konfiguration-och-nycklar)
+för livscykel, begränsningar och faktisk testomfattning. Övriga kortlivade
+operatörskommandon använder sin särskilt avgränsade policy; de startar ingen
+bakgrundsförnyelse och får inte lämnas som obevakad drift.
 
 Profilnyckeln roteras var 30:e dag. Omkrypteringen använder Transit `rewrap`;
 underhållskontot saknar dekrypteringsrätt. Nyckelmaterial lämnar inte OpenBao.

@@ -252,10 +252,16 @@ class Runtime:
         tokens={}
         for role in ('enroller','wallet','bridge','registry','contact'):
             policy='wallet' if role=='bridge' else role
-            self.bao('sys/policies/acl/'+role,{'policy':(ROOT/'deployment/cluster'/(policy+'.hcl')).read_text()})
-            response=self.bao('auth/token/create',{'policies':[role],'no_default_policy':True,'no_parent':True,'ttl':'1h'})
+            self.bao('sys/policies/acl/'+policy,{'policy':(ROOT/'deployment/cluster'/(policy+'.hcl')).read_text()})
+            response=self.bao('auth/token/create',{'policies':[policy],'no_default_policy':True,'no_parent':True,'period':'1h'})
             token_file=self.file('fixture-'+role+'.token',response['auth']['client_token'],0,0)
             tokens[role]=token_file
+        self.wrong_role_token=tokens['enroller'].read_bytes()
+        self.replacement_wallet_token=self.bao('auth/token/create',{'policies':['wallet'],'no_default_policy':True,
+            'no_parent':True,'period':'1h'})['auth']['client_token']
+        self.expired_wallet_token=self.bao('auth/token/create',{'policies':['wallet'],'no_default_policy':True,
+            'no_parent':True,'period':'1s'})['auth']['client_token']
+        self.expired_wallet_issued=time.monotonic()
         bootstrap=secrets.token_urlsafe(32)
         with psycopg.connect(self.admin,autocommit=True) as db:
             from psycopg import sql
@@ -393,13 +399,13 @@ class Runtime:
         except urllib.error.HTTPError as error:response=error
         return response.status,response.read(),response.url
 
-    def approval(self,key,credential,action,request_id=None):
+    def approval(self,key,credential,action,request_id=None,*,expected_status=200):
         from test_wallet import crypt
         status,challenge=self.api('/wallet/challenge',{'credentialId':credential,'action':action,'requestId':request_id})
         if status!=200:raise ValueError('synthetic approval challenge denied')
         signed={'challengeId':challenge['id'],'signature':crypt(op='sign',key=key['privateKey'],payload=challenge['signingInput'])}
         status,result=self.api('/wallet/execute',signed)
-        if status!=200:raise ValueError('synthetic signed action denied')
+        if status!=expected_status:raise ValueError('synthetic signed action returned unexpected status')
         return result
 
     def begin(self,path='/login'):
@@ -509,6 +515,34 @@ class Runtime:
         with signed.open(url+'/signed.pdf',timeout=15) as response:pdf=response.read()
         assert pdf.startswith(b'%PDF-') and b'/ETSI.CAdES.detached' in pdf and b'/ByteRange' in pdf,'signed PDF missing'
         report['checks'].append('actual_separate_sign_message_sad_and_test_ca_pades')
+        self.phase('scoped_periodic_tokens_and_atomic_replacement')
+        target=self.root/'services/wallet/bao.token'
+        def replace_token(value):
+            stage=self.file('services/wallet/bao.token.new',value,10006,20011)
+            os.replace(stage,target)
+        for value in (self.wrong_role_token,self.expired_wallet_token):
+            # The short unused token must have expired before it is installed.
+            delay=self.expired_wallet_issued+2-time.monotonic()
+            if delay>0:time.sleep(delay)
+            replace_token(value)
+            self.approval(key,credential,'snapshot',expected_status=503)
+        replace_token(self.replacement_wallet_token)
+        assert self.approval(key,credential,'snapshot')['state']=='ACTIVE','scoped replacement did not recover the same running service'
+        renewed={'enroller':set(),'wallet':set()}
+        for path in (self.root/'openbao/audit').iterdir():
+            assert path.is_file() and path.stat().st_size<=16*1024*1024,'bounded audit file required'
+            for line in path.read_text().splitlines():
+                event=json.loads(line)
+                if event.get('type')!='response' or event.get('error') or event.get('request',{}).get('path')!='auth/token/renew-self':continue
+                auth=event.get('auth',{});policies=auth.get('policies',[])
+                if len(policies)==1 and policies[0] in renewed:
+                    assert auth.get('accessor'),'masked token accessor unavailable'
+                    renewed[policies[0]].add(auth['accessor'])
+        assert len(renewed['enroller'])>=1 and len(renewed['wallet'])>=2,'separate service self-renewals not established'
+        report['tokenLease']={'periodicSelfRenewal':True,'maximumPeriodSeconds':3600,'wrongRoleDenied':True,
+            'expiredTokenDenied':True,'atomicReplacementWithoutRestart':True,'distinctRenewedTokensByPolicy':{k:len(v) for k,v in renewed.items()},
+            'operatorOrRootCredentialsAvailableToServices':False,'scope':'Generated role tokens; bootstrap root revoked before runtime; no live key ceremony or actual personnel mandates.'}
+        report['checks'].append('scoped_periodic_self_renewal_and_atomic_replacement_reject_wrong_role_and_expiry')
         self.phase('authority_outage_and_service_restart')
         self.aws.authority.outage=True
         try:assert self.web(client,'https://sp.example.test/me')[0]!=200,'authority outage fell back to local ACTIVE'

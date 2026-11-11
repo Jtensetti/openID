@@ -87,6 +87,8 @@ jobs:
           .venv/bin/python test_cluster.py -v
           .venv/bin/python -m unittest test_operations test_http_transport -v
           .venv/bin/python -m unittest test_key_recovery -v
+          test -x "$OPENID_TEST_BAO"
+          .venv/bin/python -m unittest test_transit_lease -v
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:

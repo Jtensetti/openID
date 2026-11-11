@@ -92,6 +92,8 @@ def run(config):
         crypto = CryptoRuntime()
         resources.callback(crypto.close)
         vault = TransitVault(config['baoAddress'], config['baoTokenFile'], config['baoCA'])
+        vault.start_renewal('wallet')
+        resources.callback(vault.close)
         wallet = PostgresWallet(private_file(config['databaseFile']).decode().strip(), config['origin'], vault,
             crypto=crypto.device, revocation=configured_client(config['continuityFile']))
         resources.callback(wallet.close)

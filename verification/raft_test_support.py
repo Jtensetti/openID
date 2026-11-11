@@ -94,7 +94,7 @@ class RaftCluster:
         for role in ('enroller', 'wallet', 'registry', 'contact', 'maintenance', 'backup', 'recovery'):
             policy = (Path(__file__).parents[1] / 'deployment/cluster' / (role + '.hcl')).read_text()
             self.call(node, 'sys/policies/acl/' + role, {'policy': policy}, token)
-            issued = self.call(node, 'auth/token/create', {'policies': [role], 'no_default_policy': True, 'ttl': '1h'}, token)
+            issued = self.call(node, 'auth/token/create', {'policies': [role], 'no_default_policy': True, 'no_parent': True, 'period': '1h'}, token)
             path = self.root / (role + '-' + secrets.token_hex(8) + '.token')
             path.write_text(issued['auth']['client_token'])
             path.chmod(0o600)

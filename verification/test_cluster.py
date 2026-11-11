@@ -60,7 +60,7 @@ class ClusterTests(unittest.TestCase):
         for role in ('enroller','wallet','registry','contact','maintenance'):
             policy=(Path(__file__).parents[1]/'deployment/cluster'/(role+'.hcl')).read_text()
             cls.bao_request('sys/policies/acl/'+role, {'policy':policy})
-            response=cls.bao_request('auth/token/create', {'policies':[role], 'no_default_policy':True, 'ttl':'1h'})
+            response=cls.bao_request('auth/token/create', {'policies':[role], 'no_default_policy':True, 'no_parent':True, 'period':'1h'})
             path=cls.root/(role+'.token'); path.write_text(response['auth']['client_token']); path.chmod(0o600)
             cls.token_files[role]=path
         cls.dsns={}

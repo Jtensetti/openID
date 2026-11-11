@@ -56,9 +56,10 @@ def create_app(config, *, local_test=False):
     from transit import TransitVault
     from postgres_continuity import configured_client
     crypto=CryptoRuntime()
-    wallet=None
+    wallet=vault=None
     try:
         vault=TransitVault(config['baoAddress'],config['baoTokenFile'],config['baoCA'],local_test=local_test)
+        vault.start_renewal('enroller' if config['role']=='proofing' else 'wallet')
         wallet=PostgresWallet(private_file(config['databaseFile']).decode().strip(),config['origin'],vault,
             crypto=crypto.device,local_test=local_test,revocation=configured_client(config['continuityFile']))
         native=None
@@ -77,10 +78,12 @@ def create_app(config, *, local_test=False):
             trusted_proxy=config.get('trustedProxy'),
             new_registrations_enabled=config.get('newRegistrationsEnabled', False))
         app.crypto=crypto
+        app.key_service=vault
         return app
     except BaseException:
         crypto.close()
         if wallet is not None: wallet.close()
+        if vault is not None: vault.close()
         raise
 
 

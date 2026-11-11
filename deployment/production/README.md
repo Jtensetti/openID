@@ -113,12 +113,37 @@ OpenBao använder inte mlock; värdens swap ska vara avstängd och tjänstens
 minnes- och swapgräns ska vara lika. Den gamla inställningen
 `disable_mlock` används inte. Se [OpenBaos driftanvisning](https://openbao.org/docs/install/).
 
-**Obevakad drift är ännu inte verifierad.** Inför och prova förnyelse av
-OpenBao-tokens med ägarskyddat filbyte, utgång/återinloggning, planerad
-unseal-beredskap, maskad loggrotation, nyckelceremoni och samordnad
-PG-/Raft-återställning. De entimmes-tokens som genereras i det syntetiska
-CI-provet är ingen varaktig driftlösning. Rotatorn för AWS-sessioner löser
-en annan åtkomstkedja. Behöriga verkliga personer och mandat återstår.
+Verifierare, plånbok och brygga förnyar sin egen periodiska tjänstetoken även
+utan användartrafik. Varje worker startar förnyelsen efter att den har
+skapats; ingen förnyelsetråd ärvs från Gunicorns huvudprocess. Token ska vara
+orphan, förnybar, utan `default`-/identitetspolicy, med exakt `enroller`
+respektive `wallet` och en period om högst en timme. Bryggan och plånboken
+har samma avgränsade Transit-policy men **olika tokens och privata filer**.
+Förnyelsen ger endast `lookup-self`/`renew-self`, inte rätt att skapa eller
+hantera andra tokens. Den använder verifierad TLS och går halva perioden
+före nästa förnyelse; misslyckad förnyelse stoppar nyckeloperationer även om
+den gamla token ännu inte har löpt ut.
+För samma felande token ökas återförsöksfördröjningen från en sekund till
+högst 30 sekunder, även vid inkommande trafik. Ett annat värde efter ett
+behörigt filbyte kan prövas omedelbart utan att invänta denna fördröjning.
+
+Tokenfilens ägare/läge och eventuellt filbyte kontrolleras även efter att
+en lease har hämtats. En behörig operatör kan leverera en ny token genom
+ett atomiskt filbyte i samma privata katalog, med befintlig UID:GID och
+0600. Ett giltigt byte tas upp utan tjänsteomstart. En utgången eller
+återkallad token kan inte återupplivas av klienten; en ny rollbegränsad token
+måste utfärdas under beslutad nyckelhantering. Starten skapar inga tokens,
+hämtar ingen root-behörighet och gör ingen automatisk unseal.
+
+[OpenBaos tokenmodell](https://openbao.org/docs/concepts/tokens/) och
+[self-renew-API](https://openbao.org/docs/api/auth/token/#renew-a-token-self)
+beskriver förnyelse och återkallelse. `test_transit_lease.py` provar faktisk
+TLS/Raft, tomgång över ursprunglig utgång, nekad förnyelse, återkallelse,
+fel roll och atomiskt byte. Kompositionsprovet kontrollerar även den
+paketerade tjänsten och dess maskade audit. Detta ersätter inte verklig
+unseal-beredskap, maskad loggrotation, nyckelceremoni, bemanning eller
+samordnad PG-/Raft-återställning. Rotatorn för AWS-sessioner är en separat
+åtkomstkedja. Obevakad produktionsdrift är fortfarande inte godkänd.
 
 ### Federation
 
