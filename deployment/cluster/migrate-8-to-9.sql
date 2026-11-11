@@ -126,49 +126,49 @@ END $$;
 DROP FUNCTION approve_activation(text);
 CREATE FUNCTION approve_activation(proposal_id text) RETURNS text
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $$
-DECLARE proposal activation_proposals; p profiles; binding registry_bindings; intent text;
+DECLARE v_proposal activation_proposals; p profiles; binding registry_bindings; intent text;
  now_epoch bigint;
 BEGIN
- SELECT * INTO proposal FROM activation_proposals WHERE id=proposal_id FOR UPDATE;
+ SELECT * INTO v_proposal FROM activation_proposals WHERE id=proposal_id FOR UPDATE;
  now_epoch:=floor(extract(epoch FROM clock_timestamp()))::bigint;
- IF proposal.id IS NULL OR proposal.requester=session_user OR proposal.approved_at IS NOT NULL
-  OR proposal.expires<=now_epoch OR EXISTS(SELECT 1 FROM approval_intents WHERE proposal=proposal_id) THEN
+ IF v_proposal.id IS NULL OR v_proposal.requester=session_user OR v_proposal.approved_at IS NOT NULL
+  OR v_proposal.expires<=now_epoch OR EXISTS(SELECT 1 FROM approval_intents i WHERE i.proposal=proposal_id) THEN
   RAISE EXCEPTION 'independent unused approval required'; END IF;
- PERFORM 1 FROM credentials WHERE id=proposal.credential AND state='PENDING_REVIEW' FOR UPDATE;
+ PERFORM 1 FROM credentials WHERE id=v_proposal.credential AND state='PENDING_REVIEW' FOR UPDATE;
  IF NOT FOUND THEN RAISE EXCEPTION 'new proofing required'; END IF;
- SELECT * INTO p FROM profiles WHERE credential=proposal.credential;
- SELECT * INTO binding FROM registry_bindings WHERE credential=proposal.credential FOR UPDATE;
+ SELECT * INTO p FROM profiles WHERE credential=v_proposal.credential;
+ SELECT * INTO binding FROM registry_bindings WHERE credential=v_proposal.credential FOR UPDATE;
  now_epoch:=floor(extract(epoch FROM clock_timestamp()))::bigint;
- IF p.credential IS NULL OR p.version!=proposal.profile_version OR p.document_expires<=now_epoch THEN
+ IF p.credential IS NULL OR p.version!=v_proposal.profile_version OR p.document_expires<=now_epoch THEN
   RAISE EXCEPTION 'profile unavailable'; END IF;
  IF binding.credential IS NULL OR binding.identity_kind='synthetic'
-  OR binding.evidence_reference IS DISTINCT FROM proposal.registry_reference
+  OR binding.evidence_reference IS DISTINCT FROM v_proposal.registry_reference
   OR binding.profile_version!=p.version
   OR binding.document_reference IS DISTINCT FROM (SELECT document_tag FROM persons WHERE id=p.person)
   OR binding.checked_at>now_epoch OR binding.valid_until<=now_epoch
  THEN RAISE EXCEPTION 'fresh unchanged registry evidence required'; END IF;
- IF proposal.contact_version IS DISTINCT FROM
-  (SELECT contact_version FROM notice_contacts WHERE credential=proposal.credential) THEN
+ IF v_proposal.contact_version IS DISTINCT FROM
+  (SELECT contact_version FROM notice_contacts WHERE credential=v_proposal.credential) THEN
   RAISE EXCEPTION 'unchanged verified contact required'; END IF;
- IF proposal.expires<=now_epoch THEN RAISE EXCEPTION 'approval expired'; END IF;
+ IF v_proposal.expires<=now_epoch THEN RAISE EXCEPTION 'approval expired'; END IF;
  intent:=replace(gen_random_uuid()::text||gen_random_uuid()::text,'-','');
  UPDATE activation_proposals SET expires=least(expires,now_epoch+300) WHERE id=proposal_id;
- INSERT INTO approval_intents VALUES(intent,proposal_id,proposal.credential,session_user,now_epoch,
-  least(proposal.expires,now_epoch+300),NULL,NULL);
+ INSERT INTO approval_intents VALUES(intent,proposal_id,v_proposal.credential,session_user,now_epoch,
+  least(v_proposal.expires,now_epoch+300),NULL,NULL);
  INSERT INTO operator_events(actor,kind,credential,proposal)
-  VALUES(session_user,'ACTIVATION_APPROVED',proposal.credential,proposal_id);
+  VALUES(session_user,'ACTIVATION_APPROVED',v_proposal.credential,proposal_id);
  RETURN intent;
 END $$;
 
 CREATE OR REPLACE FUNCTION activation_context(intent_id text) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $$
-DECLARE item approval_intents; proposal activation_proposals; p profiles; c credentials;
+DECLARE item approval_intents; v_proposal activation_proposals; p profiles; c credentials;
  binding registry_bindings; now_epoch bigint; previous text[];
 BEGIN
  SELECT * INTO item FROM approval_intents WHERE id=intent_id FOR UPDATE;
  IF item.id IS NULL THEN RAISE EXCEPTION 'approval intent unavailable'; END IF;
  IF item.completed_at IS NOT NULL THEN RETURN jsonb_build_object('completed',true); END IF;
- SELECT * INTO proposal FROM activation_proposals WHERE id=item.proposal FOR UPDATE;
+ SELECT * INTO v_proposal FROM activation_proposals WHERE id=item.proposal FOR UPDATE;
  SELECT * INTO p FROM profiles WHERE credential=item.credential;
  IF p.credential IS NULL THEN RAISE EXCEPTION 'profile unavailable'; END IF;
  -- The present person grouping is a document binding, not yet a cross-passport identity link.
@@ -179,18 +179,18 @@ BEGIN
  SELECT * INTO p FROM profiles WHERE credential=item.credential;
  SELECT * INTO binding FROM registry_bindings WHERE credential=item.credential FOR UPDATE;
  now_epoch:=floor(extract(epoch FROM clock_timestamp()))::bigint;
- IF item.expires<=now_epoch OR proposal.expires<=now_epoch OR proposal.approved_at IS NOT NULL
-  OR item.approver=proposal.requester OR item.credential IS DISTINCT FROM proposal.credential
-  OR p.credential IS NULL OR p.version IS DISTINCT FROM proposal.profile_version
+ IF item.expires<=now_epoch OR v_proposal.expires<=now_epoch OR v_proposal.approved_at IS NOT NULL
+  OR item.approver=v_proposal.requester OR item.credential IS DISTINCT FROM v_proposal.credential
+  OR p.credential IS NULL OR p.version IS DISTINCT FROM v_proposal.profile_version
   OR p.document_expires<=now_epoch THEN RAISE EXCEPTION 'approval or profile expired'; END IF;
  IF c.state!='PENDING_REVIEW' OR c.created<now_epoch-86400 THEN RAISE EXCEPTION 'new proofing required'; END IF;
  IF binding.credential IS NULL OR binding.identity_kind='synthetic'
-  OR binding.evidence_reference IS DISTINCT FROM proposal.registry_reference
+  OR binding.evidence_reference IS DISTINCT FROM v_proposal.registry_reference
   OR binding.profile_version IS DISTINCT FROM p.version
   OR binding.document_reference IS DISTINCT FROM (SELECT document_tag FROM persons WHERE id=p.person)
   OR binding.checked_at>now_epoch OR binding.valid_until<=now_epoch
  THEN RAISE EXCEPTION 'fresh unchanged registry evidence required'; END IF;
- IF proposal.contact_version IS DISTINCT FROM
+ IF v_proposal.contact_version IS DISTINCT FROM
   (SELECT contact_version FROM notice_contacts WHERE credential=c.id) THEN
   RAISE EXCEPTION 'unchanged verified contact required'; END IF;
  SELECT coalesce(array_agg(credential ORDER BY credential),'{}'::text[]) INTO previous
@@ -217,7 +217,7 @@ END $$;
 
 CREATE OR REPLACE FUNCTION complete_activation(intent_id text,source text,previous text[]) RETURNS boolean
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,openid,pg_temp AS $$
-DECLARE context jsonb; item approval_intents; proposal activation_proposals; old_id text; now_epoch bigint;
+DECLARE context jsonb; item approval_intents; v_proposal activation_proposals; old_id text; now_epoch bigint;
 BEGIN
  context:=activation_context(intent_id);
  IF (context->>'completed')::boolean THEN RETURN false; END IF;
@@ -229,20 +229,20 @@ BEGIN
    (SELECT 1 FROM intent_revocations e WHERE e.intent=intent_id AND e.credential=key AND e.authority=source))
  THEN RAISE EXCEPTION 'independent revocation not confirmed'; END IF;
  SELECT * INTO item FROM approval_intents WHERE id=intent_id;
- SELECT * INTO proposal FROM activation_proposals WHERE id=item.proposal;
+ SELECT * INTO v_proposal FROM activation_proposals WHERE id=item.proposal;
  FOR old_id IN SELECT unnest(previous) LOOP PERFORM revoke_credential(old_id); END LOOP;
  now_epoch:=floor(extract(epoch FROM clock_timestamp()))::bigint;
- IF item.expires<=now_epoch OR proposal.expires<=now_epoch THEN RAISE EXCEPTION 'approval expired'; END IF;
+ IF item.expires<=now_epoch OR v_proposal.expires<=now_epoch THEN RAISE EXCEPTION 'approval expired'; END IF;
  UPDATE credentials SET state='ACTIVE',
-  expires=least(now_epoch+proposal.hours*3600,(SELECT document_expires FROM profiles WHERE credential=item.credential)),
-  decision=proposal.decision WHERE id=item.credential;
+  expires=least(now_epoch+v_proposal.hours*3600,(SELECT document_expires FROM profiles WHERE credential=item.credential)),
+  decision=v_proposal.decision WHERE id=item.credential;
  INSERT INTO notice_outbox(event,credential,contact_version,kind,created) VALUES
   (encode(sha256(convert_to('activation:v1:'||item.credential,'UTF8')),'hex'),
-   item.credential,proposal.contact_version,'ACTIVATED_V1',now_epoch);
- UPDATE activation_proposals SET approved_by=item.approver,approved_at=now_epoch WHERE id=proposal.id;
+   item.credential,v_proposal.contact_version,'ACTIVATED_V1',now_epoch);
+ UPDATE activation_proposals SET approved_by=item.approver,approved_at=now_epoch WHERE id=v_proposal.id;
  UPDATE approval_intents SET completed_by=session_user,completed_at=now_epoch WHERE id=intent_id;
  INSERT INTO events(credential,kind,time) VALUES(item.credential,'ACTIVATED',now_epoch);
- INSERT INTO operator_events(actor,kind,credential,proposal) VALUES(session_user,'ACTIVATED',item.credential,proposal.id);
+ INSERT INTO operator_events(actor,kind,credential,proposal) VALUES(session_user,'ACTIVATED',item.credential,v_proposal.id);
  RETURN true;
 END $$;
 
