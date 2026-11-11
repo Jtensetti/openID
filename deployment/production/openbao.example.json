@@ -2,6 +2,20 @@
   "ui": false,
   "api_addr": "https://127.0.0.1:18210",
   "cluster_addr": "https://127.0.0.1:18211",
+  "audit": [
+    {
+      "file": {
+        "tjipp": {
+          "description": "Masked audit records for the closed-issuance runtime",
+          "options": {
+            "file_path": "/srv/openbao/audit/audit.log",
+            "log_raw": "false",
+            "mode": "0600"
+          }
+        }
+      }
+    }
+  ],
   "storage": {
     "raft": {
       "path": "/srv/openbao/data",

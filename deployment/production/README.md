@@ -103,8 +103,10 @@ enligt [PG-instruktionen](../cluster/README.md); tjänsterna skapar dem inte.
 Verifierare och plånbok behöver **samma appkopplingskod**, med var sin skyddad
 filkopia. Metrics-hemligheter är separata. TLS-nycklar återanvänds inte.
 
-OpenBao startas med TLS och beständig Raft, aldrig `-dev`. Initiering,
-unseal, audit, Transit-nycklar och avgränsade tjänstetokens provisioneras
+OpenBao startas med TLS och beständig Raft, aldrig `-dev`. Maskad audit till
+den privata loggkatalogen deklareras i den skrivskyddade konfigurationen;
+den slås inte på genom ett API-anrop. Initiering,
+unseal, Transit-nycklar och avgränsade tjänstetokens provisioneras
 separat under beslutad nyckelhantering. Starten initierar eller låser inte
 upp tjänsten och återfaller inte till rånyckelfil eller root-token.
 OpenBao använder inte mlock; värdens swap ska vara avstängd och tjänstens

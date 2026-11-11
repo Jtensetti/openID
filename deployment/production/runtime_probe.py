@@ -243,7 +243,8 @@ class Runtime:
         init=self.bao('sys/init',{'secret_shares':3,'secret_threshold':2});self.unseal_keys=init['keys'][:2];self.bao_root=init['root_token']
         for key in self.unseal_keys:self.bao('sys/unseal',{'key':key})
         self.wait(lambda:self.bao('sys/leader',method='GET').get('is_self') is True,'active Raft leader')
-        self.bao('sys/audit/file',{'type':'file','options':{'file_path':'/srv/openbao/audit/audit.log','log_raw':'false'}})
+        audits=self.bao('sys/audit',method='GET');audits=audits.get('data',audits)
+        assert set(audits)=={'tjipp/'} and audits['tjipp/']['type']=='file' and audits['tjipp/']['options']['log_raw']=='false','masked declarative audit unavailable'
         self.bao('sys/mounts/transit',{'type':'transit'})
         self.bao('transit/keys/openid-profile',{'type':'aes256-gcm96','derived':True,'exportable':False})
         self.bao('transit/keys/openid-profile/config',{'auto_rotate_period':'720h'})
@@ -319,6 +320,7 @@ class Runtime:
         for wallet in (self.model.wallet,self.model.enroller,self.model.registry,self.model.contact,self.model.bridge_wallet):wallet.revocation=self.controller
 
     def bao(self,path,data=None,method=None):
+        self.report['keyServiceStep']=path
         headers={'Content-Type':'application/json'}
         if self.bao_root:headers['X-Vault-Token']=self.bao_root
         request=urllib.request.Request('https://127.0.0.1:18210/v1/'+path,data=None if data is None else json.dumps(data).encode(),
@@ -326,7 +328,18 @@ class Runtime:
         opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),urllib.request.HTTPSHandler(context=self.bao_context))
         # Fresh Raft initialization waits for the first leader election. Do
         # not retry an ambiguous init: its shares may already have been issued.
-        with opener.open(request,timeout=30 if path=='sys/init' else 5) as response:raw=response.read()
+        try:
+            with opener.open(request,timeout=30 if path=='sys/init' else 5) as response:raw=response.read()
+        except urllib.error.HTTPError as error:
+            detail={'path':path,'status':error.code}
+            # Only this fixture's fixed administrative API paths are called;
+            # retain its errors array, never request/response token fields.
+            try:
+                value=json.loads(error.read(4096))
+                detail['errors']=[text[:256] for text in value.get('errors',[]) if isinstance(text,str)][:3]
+            except Exception:pass
+            self.report['keyServiceError']=detail
+            raise
         return json.loads(raw) if raw else {}
 
     def start_ingress(self):
@@ -500,6 +513,7 @@ class Runtime:
         self.dc('restart','bridge','wallet','continuity')
         self.wait(lambda:all(json.loads(command(['docker','inspect',self.container(name)]))[0]['State'].get('Health',{}).get('Status')=='healthy'
                             for name in ('bridge','wallet','continuity')),'shared restart')
+        assert self.approval(key,credential,'snapshot')['state']=='ACTIVE','same device/profile failed after shared restart'
         assert len(self.aws.messages)==1,'notice replayed with a new event'
         report['checks'].append('same_configuration_data_and_keys_after_service_restart')
         self.phase('sealed_key_service_restart_and_external_revocation')
@@ -512,6 +526,7 @@ class Runtime:
         self.model.synthetic.authority.revoke(credential)
         for share in self.unseal_keys:self.bao('sys/unseal',{'key':share})
         self.wait(lambda:self.bao('sys/seal-status',method='GET')['sealed'] is False,'key-service unseal')
+        assert self.approval(key,credential,'snapshot')['state']=='REVOKED','fresh device state ignored external revocation'
         assert self.web(client,'https://sp.example.test/me')[0]!=200,'external revocation lost across key-service outage'
         assert self.web(oidc,'https://sp.example.test/oidc/me')[0]!=200,'OIDC session survived external revocation'
         with self.model.wallet.transaction() as db:assert db.execute('SELECT state FROM credentials WHERE id=?',(credential,)).fetchone()[0]=='ACTIVE','fixture did not isolate external revocation'

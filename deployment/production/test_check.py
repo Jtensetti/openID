@@ -51,11 +51,12 @@ class SettingsTests(unittest.TestCase):
             with self.subTest(change=change),self.assertRaises(ValueError):check.check_values(data)
 
     def test_dev_bao_unencrypted_listener_or_profile_ambiguity_rejected(self):
-        for change in ['listener','storage','profile']:
+        for change in ['listener','storage','profile','raw_audit']:
             data=values()
             if change=='listener':data['openbao']['listener'][0]['tcp']['tls_disable']=True
             elif change=='storage':data['openbao']['storage']={'inmem':{}}
-            else:data['federation']['profile']='phone-init'
+            elif change=='profile':data['federation']['profile']='phone-init'
+            else:data['openbao']['audit'][0]['file']['tjipp']['options']['log_raw']='true'
             with self.subTest(change=change),self.assertRaises(ValueError):check.check_values(data)
 
 class ComposeTests(unittest.TestCase):
