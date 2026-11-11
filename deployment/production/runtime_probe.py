@@ -324,7 +324,9 @@ class Runtime:
         request=urllib.request.Request('https://127.0.0.1:18210/v1/'+path,data=None if data is None else json.dumps(data).encode(),
                                       headers=headers,method=method)
         opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),urllib.request.HTTPSHandler(context=self.bao_context))
-        with opener.open(request,timeout=5) as response:raw=response.read()
+        # Fresh Raft initialization waits for the first leader election. Do
+        # not retry an ambiguous init: its shares may already have been issued.
+        with opener.open(request,timeout=30 if path=='sys/init' else 5) as response:raw=response.read()
         return json.loads(raw) if raw else {}
 
     def start_ingress(self):
