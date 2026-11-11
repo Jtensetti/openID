@@ -2056,6 +2056,7 @@ with ExitStack() as stack:
             config={'bind':'127.0.0.1','port':ports[-1],'origin':self.a.origin,'workers':2,'role':'wallet',
                 'databaseFile':str(directory/'dsn'),'baoAddress':self.address,'baoTokenFile':str(directory/'wallet-token'),
                 'continuityFile':str(continuity_file),'baoCA':str(cert),'tlsCert':str(cert),'tlsKey':str(key),'pairingFile':str(directory/'pairing'),'metricsFile':str(directory/'metrics')}
+            if index==0:config['trustedProxy']='127.0.0.1'
             path=directory/(str(index)+'.json');path.write_text(json.dumps(config))
             log=open(directory/(str(index)+'.log'),'w+');logs.append(log);self.addCleanup(log.close)
             command=[sys.executable,'-c','import json,sys;from cluster_serve import run;run(json.load(open(sys.argv[1])),local_test=True)',str(path)]
@@ -2074,7 +2075,8 @@ with ExitStack() as stack:
         def request(index,path,body=None,extra=None):
             c=http.client.HTTPSConnection('localhost',ports[index],context=context,timeout=10)
             try:
-                c.request('POST' if body is not None else 'GET',path,json.dumps(body) if body is not None else None,headers|(extra or {}))
+                proxy={'X-OpenID-Client-IP':'192.0.2.10'} if index==0 else {}
+                c.request('POST' if body is not None else 'GET',path,json.dumps(body) if body is not None else None,headers|proxy|(extra or {}))
                 r=c.getresponse();return r.status,json.loads(r.read())
             finally:c.close()
         for index in range(2):
@@ -2089,7 +2091,10 @@ with ExitStack() as stack:
         self.assertEqual(404,request(0,'/native/start',{})[0])
         self.assertEqual(403,request(0,'/metrics')[0])
         self.assertEqual(200,request(0,'/metrics',extra={'Authorization':'Bearer '+'y'*43})[0])
-        code,c=request(0,'/wallet/challenge',{'credentialId':self.ident,'action':'snapshot','requestId':None});self.assertEqual(200,code)
+        challenge={'credentialId':self.ident,'action':'snapshot','requestId':None}
+        self.assertEqual(403,request(0,'/wallet/challenge',challenge,{'X-OpenID-Client-IP':''})[0])
+        self.assertEqual(403,request(1,'/wallet/challenge',challenge,{'X-OpenID-Client-IP':'192.0.2.10'})[0])
+        code,c=request(0,'/wallet/challenge',challenge);self.assertEqual(200,code)
         signed={'challengeId':c['id'],'signature':crypt(op='sign',key=self.keys[0]['privateKey'],payload=c['signingInput'])}
         stop(processes[0])
         self.assertEqual(200,request(1,'/wallet/execute',signed)[0])

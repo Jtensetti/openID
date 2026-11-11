@@ -150,8 +150,13 @@ poolanslutningar per instans. Båda instanserna använder samma `origin` och
 databas men kan lyssna på olika interna portar. Balansera `/wallet/*` mellan
 dem; skicka `/native/*` till en separat registreringsinstans. Behåll Host och
 Origin, verifiera TLS även till backend och skicka inga Forwarded-headers.
-Proxykonfigurationen måste provas i den valda driftplattformen; den ingår
-inte i flerprocessprovet, som ansluter direkt till respektive TLS-instans.
+Bakom den lokala nginx-ingressen väljs `trustedProxy: "127.0.0.1"` tillsammans
+med samma uttryckliga `bind`. Då kräver API:t att nginx ersätter
+`X-OpenID-Client-IP` med anslutningens adress. Direktläget nekar det huvudet.
+Flerprocessprovet omfattar båda lägena, inklusive saknat eller otillåtet huvud.
+Nginx-routning och den slutliga kompositionen behöver fortfarande provas ihop.
+Readiness-proben ansluter till den privata lyssnaren; bakom lokal ingress
+kontrollerar den TLS-namnet `localhost` och behåller API:ts publika Host.
 
 Registreringsinstansen använder `role: proofing`, `workers: 1`, enroller-
 konton samt fälten `team`, `bundle`, `developmentAttestation`, `csca` och `jar`.
@@ -161,6 +166,20 @@ registrering. Fältet tillåts bara för `proofing`; autentiseringsinstanserna
 behöver ingen passverifiering. Se [spärrkontrollen](../../verification/README.md#spärrade-dokumentsignerare).
 Den behöver verifierarens fulla modell-/Java-installation. Den mindre
 containern ovan innehåller endast autentisering och driftverktyg.
+Den gemensamma [appimagen](../Dockerfile) innehåller också de oförändrade,
+hashlåsta PostgreSQL-hjulen och registermodulerna. Den kan därför köra
+`cluster_serve.py` för proofing eller wallet samt `cluster_bridge.py` med
+explicit konfiguration. Dess befintliga standardkommando för SQLite behålls;
+en installation byter inte register genom att bara importera imagen.
+CI kör bryggans tre kommandoprov och flerprocessprovet även med denna
+appimage. Det verifierar paketeringen och API-gränserna, inte en färdig
+PG/OpenBao-/Java-komposition eller faktiska tjänstebehörigheter.
+
+Prova den versionsbundna TLS-proben lokalt med:
+
+```sh
+python3 -m unittest discover -s deployment/cluster -p test_probe.py -v
+```
 
 SQLite-registret migreras inte automatiskt. Börja med ett separat register
 och nyregistrering; kopiera inte SQLite-rader med lokala profilnycklar in i

@@ -19,7 +19,8 @@ class ClusterRevocationConfigTests(unittest.TestCase):
             path=root/'config.json'
             # Only TLS parsing is replaced here; this is a configuration boundary test.
             with patch('cluster_serve.ssl.SSLContext'):
-                for extra in ({},{'cscaCrl':str(secret)},{'newRegistrationsEnabled':False}):
+                for extra in ({},{'cscaCrl':str(secret)},{'newRegistrationsEnabled':False},
+                              {'trustedProxy':'127.0.0.1'}):
                     path.write_text(json.dumps(config|extra))
                     self.assertEqual(config|extra,config_file(path))
                 path.write_text(json.dumps(config|{'newRegistrationsEnabled':True}))
@@ -44,6 +45,12 @@ class ClusterRevocationConfigTests(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError,'absolute existing path'):config_file(path)
                 wallet={key:value for key,value in config.items()
                     if key not in ('team','bundle','developmentAttestation','csca','jar')}
+                for role in (config,wallet|{'role':'wallet'}):
+                    path.write_text(json.dumps(role|{'trustedProxy':'127.0.0.1'}))
+                    self.assertEqual(role|{'trustedProxy':'127.0.0.1'},config_file(path))
+                    for proxy in ('10.0.0.1','::1','127.0.0.0/8',True):
+                        path.write_text(json.dumps(role|{'trustedProxy':proxy}))
+                        with self.assertRaisesRegex(ValueError,'trustedProxy'):config_file(path)
                 path.write_text(json.dumps(wallet|{'role':'wallet','cscaCrl':str(secret)}))
                 with self.assertRaisesRegex(ValueError,'configuration fields'):config_file(path)
 
