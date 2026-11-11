@@ -1536,6 +1536,164 @@ class ClusterTests(unittest.TestCase):
         self.sql('revoker','SELECT revoke_credential(%s)',(self.ident,))
         self.assertFalse(call('check',**check)['ok'])
 
+    def bridge_runtime(self, profile='private', *, container=False, start=True):
+        """Real command, PG/SCRAM/TLS and Transit; independent authority is synthetic."""
+        from raft_test_support import RaftCluster
+        from transit import TransitVault
+        from ipc_support import LocalService, request
+        from postgres_continuity import dispatch
+        from psycopg.conninfo import conninfo_to_dict,make_conninfo
+        import threading
+        cls=type(self)
+        if not hasattr(cls,'bridge_raft'):
+            cls.bridge_raft=RaftCluster(cls.root/'bridge-raft')
+            cls.addClassCleanup(cls.bridge_raft.close)
+            cls.bridge_node=cls.bridge_raft.start()
+            token,_=cls.bridge_raft.initialize(cls.bridge_node)
+            cls.bridge_tokens=cls.bridge_raft.provision(cls.bridge_node,token)
+        for wallet,role in ((self.enroller,'enroller'),(self.a,'wallet'),(self.b,'wallet'),(self.registry_store,'registry')):
+            wallet.vault=TransitVault(cls.bridge_node['address'],cls.bridge_tokens[role],str(cls.bridge_raft.cert))
+        # This disposable test gets profiles bound to the TLS Transit service.
+        with self.psycopg.connect(DSN) as owner:
+            owner.execute('TRUNCATE openid.credentials,openid.persons RESTART IDENTITY CASCADE')
+        self.ident=self.enroller.enroll(self.keys[0]['publicKey'],document())['id']
+        directory=Path(tempfile.mkdtemp(prefix='bridge-',dir=self.root))
+        for name in ('federation','notice','controller'):
+            (directory/name).mkdir(mode=0o2710);(directory/name).chmod(0o2710)
+        controller_socket=directory/'controller'/'authority.sock'
+        endpoint=LocalService(controller_socket,os.getgid(),lambda data:dispatch(self.controller,data))
+        thread=threading.Thread(target=endpoint.serve_forever,daemon=True);thread.start()
+        self.addCleanup(endpoint.close)
+        options=conninfo_to_dict(self.dsns['wallet'])
+        self.assertEqual('verify-full',options.get('sslmode'))
+        ca=directory/'postgres-ca.pem';ca.write_bytes(Path(options['sslrootcert']).read_bytes())
+        options['sslrootcert']=str(ca)
+        secrets_files={'database':make_conninfo(**options),'token':cls.bridge_tokens['wallet'].read_text(),
+            'continuity.json':json.dumps({'version':1,'socket':str(controller_socket),'authority':self.controller.reference})}
+        for name,value in secrets_files.items():
+            path=directory/name;path.write_text(value);path.chmod(0o600)
+        (directory/'bao-ca.pem').write_bytes(cls.bridge_raft.cert.read_bytes())
+        (directory/'profile.json').write_text(json.dumps({'version':1,'profile':profile}))
+        (directory/'origins.json').write_text(json.dumps({'idp':'https://idp.example.test','sp':'https://sp.example.test'}))
+        config={'databaseFile':str(directory/'database'),'baoAddress':cls.bridge_node['address'],
+            'baoTokenFile':str(directory/'token'),'baoCA':str(directory/'bao-ca.pem'),'origin':self.a.origin,
+            'socket':str(directory/'federation'/'federation.sock'),'federationGroup':os.getgid(),
+            'noticeSocket':str(directory/'notice'/'notice.sock'),'noticeGroup':os.getgid(),
+            'continuityFile':str(directory/'continuity.json'),'federationFile':str(directory/'profile.json'),
+            'originsFile':str(directory/'origins.json')}
+        path=directory/'bridge.json';path.write_text(json.dumps(config));path.chmod(0o600)
+        image=os.environ.get('OPENID_TEST_CONTAINER') if container else None
+        def call(operation,audience='https://sp.example.test/sp',**data):
+            return request(config['socket'],{'operation':operation,'audience':audience,**data})
+        logs=[]
+        def spawn(*, expect_ready=True):
+            log=open(directory/('process-'+str(len(logs))+'.log'),'w+');logs.append(log);self.addCleanup(log.close)
+            command=[sys.executable,str(Path(__file__).with_name('cluster_bridge.py')),'--config',str(path)]
+            name=None
+            if image:
+                name='openid-bridge-'+secrets.token_hex(8)
+                command=['docker','run','--name',name,'--network','host','--read-only','--cap-drop','ALL',
+                    '--security-opt','no-new-privileges','--pids-limit','128','--memory','256m','--cpus','1',
+                    '--user',str(os.getuid())+':'+str(os.getgid()),'--tmpfs','/tmp:size=32m,mode=1777',
+                    '-v',str(directory)+':'+str(directory)+':ro',
+                    '-v',str(directory/'federation')+':'+str(directory/'federation'),
+                    '-v',str(directory/'notice')+':'+str(directory/'notice'),
+                    '--entrypoint','python',image,'cluster_bridge.py','--config',str(path)]
+                self.addCleanup(lambda n=name:subprocess.run(['docker','rm','--force',n],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL))
+            process=subprocess.Popen(command,stdout=log,stderr=log)
+            def stop():
+                if process.poll() is None:
+                    if name:subprocess.run(['docker','stop','--time','20',name],check=True,stdout=subprocess.DEVNULL)
+                    else:process.terminate()
+                    self.assertEqual(0,process.wait(timeout=25))
+            self.addCleanup(stop)
+            if expect_ready:
+                for _ in range(150):
+                    if process.poll() is not None:
+                        log.seek(0);self.fail('Bridge startup failed: '+log.read())
+                    try:
+                        if call('health')=={'state':'READY'}:break
+                    except (OSError,ValueError):pass
+                    time.sleep(.1)
+                else:self.fail('Bridge did not become ready')
+            return process,stop
+        result={'config':config,'call':call,'spawn':spawn,'directory':directory,'logs':logs}
+        if start:result['process'],result['stop']=spawn()
+        return result
+
+    def test_bridge_command_private_profile_signing_notices_and_external_revocation(self):
+        from ipc_support import request
+        from notice_exporter import deliver_once
+        from unittest.mock import Mock
+        runtime=self.bridge_runtime(container=True);call=runtime['call'];self.activate()
+        notice=runtime['config']['noticeSocket']
+        message=request(notice,{'operation':'next'})
+        self.assertEqual({'event','contactVersion','kind','created'},set(message))
+        queue=Mock();queue.send_message.side_effect=OSError('synthetic queue outage')
+        with self.assertRaises(OSError):deliver_once(notice,queue,'https://queue.example.invalid')
+        first=queue.send_message.call_args.kwargs['MessageBody']
+        queue.send_message.side_effect=None;queue.send_message.return_value={'MessageId':'SYNTHETIC_QUEUE_RECEIPT'}
+        self.assertTrue(deliver_once(notice,queue,'https://queue.example.invalid'))
+        self.assertEqual(first,queue.send_message.call_args.kwargs['MessageBody'])
+        self.assertFalse(deliver_once(notice,queue,'https://queue.example.invalid'))
+        with self.assertRaises(ValueError):request(notice,{'operation':'get-profile','credential':self.ident})
+        for wrong in ('https://testclient.sandbox.swedenconnect.se/testsp1','https://unknown.example.test/sp'):
+            with self.assertRaises(ValueError):call('start',audience=wrong,binding='_unknown_recipient')
+        pending=call('start',binding='_bridge_login')
+        args={'id':pending['id'],'secret':pending['secret'],'binding':'_bridge_login'}
+        self.a.execute(self.signed('approve',pending['id']))
+        result=call('consume',**args);self.assertEqual('ALICE SYNTHETIC',result['identity']['displayName'])
+        with self.assertRaises(ValueError):call('consume',**args)
+        self.a.execute(self.signed('set-pin')|{'newPin':'482917'})
+        pending=call('start',binding='_bridge_signing',signMessage='SYNTHETIC exact signing text',verification='pin')
+        with self.assertRaises(ValueError):self.a.challenge({'credentialId':self.ident,'action':'approve','requestId':pending['id']})
+        self.a.execute(self.signed('sign',pending['id'])|{'pin':'482917'})
+        signed=call('consume',id=pending['id'],secret=pending['secret'],binding='_bridge_signing')
+        self.assertEqual(hashlib.sha256(b'SYNTHETIC exact signing text').hexdigest(),signed['signMessageSha256'])
+        self.assertEqual('pin',signed['verification'])
+        pending=call('start',binding='_before_external_revoke');self.a.execute(self.signed('approve',pending['id']))
+        args={'id':pending['id'],'secret':pending['secret'],'binding':'_before_external_revoke'}
+        self.synthetic.outage=True
+        try:
+            with self.assertRaises(ValueError):call('consume',**args)
+        finally:self.synthetic.outage=False
+        # Only the independent authority changes; the local row is still ACTIVE.
+        self.synthetic.authority.revoke(self.ident)
+        self.assertEqual([('ACTIVE',)],self.raw_sql('backup','SELECT state FROM credentials'))
+        with self.assertRaises(ValueError):call('consume',**args)
+        with self.assertRaises(ValueError):call('check',credentialId=self.ident,subject=result['subject'],version=result['version'])
+        runtime['stop']()
+        for log in runtime['logs']:
+            log.seek(0);text=log.read()
+            for private in (self.ident,'ALICE','482917',self.bridge_tokens['wallet'].read_text()):self.assertNotIn(private,text)
+
+    def test_bridge_command_sandbox_profile_binds_audiences_and_restarts(self):
+        from federation_parties import SANDBOX_PARTIES
+        from ipc_support import request
+        runtime=self.bridge_runtime('sweden-connect-sandbox');call=runtime['call'];self.activate()
+        sp,signer=list(SANDBOX_PARTIES)[0],list(SANDBOX_PARTIES)[-1]
+        pending=call('start',audience=sp,binding='_sandbox_login');self.a.execute(self.signed('approve',pending['id']))
+        args={'id':pending['id'],'secret':pending['secret'],'binding':'_sandbox_login'}
+        with self.assertRaises(ValueError):call('consume',audience=signer,**args)
+        result=call('consume',audience=sp,**args)
+        self.assertEqual({'givenName':'ALICE','surname':'SYNTHETIC'},result['sandboxIdentity'])
+        pending=call('start',audience=signer,binding='_sandbox_sign',signMessage='SYNTHETIC sandbox text')
+        self.a.execute(self.signed('sign',pending['id']))
+        self.assertIn('signMessageSha256',call('consume',audience=signer,id=pending['id'],secret=pending['secret'],binding='_sandbox_sign'))
+        with self.assertRaises(ValueError):call('start',audience='https://unknown.example.test/sp',binding='_unknown')
+        notice=runtime['config']['noticeSocket'];before=request(notice,{'operation':'next'})
+        runtime['stop']();process,stop=runtime['spawn']()
+        self.assertEqual(before,request(notice,{'operation':'next'}))
+        self.assertEqual({'state':'READY'},call('health',audience=sp));stop()
+
+    def test_bridge_command_partial_start_failure_releases_federation_socket(self):
+        runtime=self.bridge_runtime(start=False)
+        notice=Path(runtime['config']['noticeSocket']);notice.write_text('existing owner file')
+        process,_=runtime['spawn'](expect_ready=False)
+        self.assertEqual(2,process.wait(timeout=15))
+        self.assertEqual('existing owner file',notice.read_text())
+        self.assertFalse(Path(runtime['config']['socket']).exists())
+
     def test_parallel_proposals_have_single_winner(self):
         self.registry_binding()
         def attempt(_):

@@ -1,0 +1,14 @@
+{
+  "databaseFile": "/srv/openid/secrets/bridge-database",
+  "baoAddress": "https://bao.internal:8200",
+  "baoTokenFile": "/srv/openid/secrets/bridge-token",
+  "baoCA": "/srv/openid/secrets/bao-ca.pem",
+  "origin": "https://api.example.org",
+  "continuityFile": "/srv/openid/secrets/continuity-client.json",
+  "originsFile": "/srv/openid/origins.json",
+  "federationFile": "/srv/openid/federation.json",
+  "socket": "/srv/openid/federation-ipc/federation.sock",
+  "federationGroup": 20001,
+  "noticeSocket": "/srv/openid/notice-ipc/notice.sock",
+  "noticeGroup": 20003
+}

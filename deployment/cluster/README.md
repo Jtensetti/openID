@@ -169,21 +169,45 @@ SAML-bryggan kan däremot anslutas till det delade registret enligt nedan.
 
 ## SAML-brygga
 
-Kör `cluster_bridge.py --config /srv/openid/federation.json` bredvid den
-befintliga Java-IdP:n/SP:n. Konfigurationen innehåller samma fyra anslutningsfält
-som `maintenance.example.json`, men med ett separat wallet-konto och dess
-Transit-policy, samt `origin`, `socket` och exakt `audience`. Socketen ska
-ligga i en privat katalog med läge 0700. Ange dess absoluta sökväg i den
-befintliga SAML-startkonfigurationen enligt verifierarens README.
+Kör `cluster_bridge.py --config /srv/openid/bridge.json` med
+[bridge.example.json](bridge.example.json) som mall. Använd en separat
+wallet-login och Transit-token, samma PostgreSQL-register som API:t och
+samma skyddade `origins.json` och `federation.json` som Java-processerna.
+Bryggan härleder lokal audience som `sp + "/sp"`; ingen separat audience
+eller gammal miljövariabel får styra mottagaren. Profilen läses med den
+gemensamma läsaren och lägger endast till den befintliga fasta Sandbox-listan.
+Profilvalet ger ingen godkänd tillitsnivå.
 
-Bryggan återanvänder `FederationServer` och Sweden Connect-flödet. Flera
-IdP-instanser kan ha var sin lokal brygga mot samma register. CI provar
-socketprotokollet med PostgreSQL, QR, godkännande i en annan instans,
-mottagar-/sessionsbindning, engångskonsumtion och spärr. Samma helkedjeprov
-med Java-IdP, Java-SP och Chromium körs mot både SQLite och PostgreSQL.
-PostgreSQL-varianten använder verifierad TLS till databasen och OpenBao,
-separata tjänstekonton samt aktivering av två operatörskonton. Extern federation
-och redundant IdP-/SP-sessionhantering är inte verifierade.
+Konfigurationen kräver `databaseFile`, `baoAddress`, `baoTokenFile`,
+`baoCA`, `origin`, `continuityFile`, `originsFile`, `federationFile`,
+`socket`, `federationGroup`, `noticeSocket` och `noticeGroup`.
+Den privata konfigurationsfilen har läge 0600. Anslutningen och dess
+authority-referens är samma bindning som i
+[kontinuitetskedjan](#fristående-spärr-och-atomisk-avisering-schema-9).
+
+Federations- och aviseringssocket har separata ägarkontrollerade kataloger
+med läge 2710, angiven grupp och sockets med läge 0660. Kontrollera båda
+katalogerna före rensning. Bara en övergiven socket som ägs av processen får
+tas bort; aktiv tjänst, annan ägare, vanlig fil och symlänk nekas. Om
+aviseringens start misslyckas stängs den nyss startade federationsbryggan.
+De slutliga serviceidentiteterna/grupperna fastställs och provas i
+driftkompositionen.
+
+Samma wallet betjänar login, underskriftsgodkännande och den begränsade
+aviseringsytan `next/ack/fail`. Köexportören får ingen profil, aktivering,
+spärrfunktion eller databasanslutning. Ett fel efter kömottagning kan ge samma
+event igen; den oberoende leveransen måste deduplicera event-ID.
+Operatörsbeslut, spärr och kontaktförberedelse behåller sina separata roller.
+
+CI startar det faktiska bryggkommandot med PostgreSQL/SCRAM/TLS, verklig
+Transit-kryptografi och syntetisk fristående authority. Proven omfattar
+båda profilerna, fasta mottagare, login och underskrift, aviseringsfel och
+kvittens, återstart, fel vid delvis start samt extern spärr/avbrott efter
+godkännande men före konsumtion. Den byggda registerimagen används också.
+Java-/Chromium-provet verifierar samma PG-kärna över TLS genom sin
+separata fixturbrygga. Hela den slutliga Java/API/PG-kompositionen,
+externa federationsklienter och faktisk kö-/inkorgsleverans behöver
+fortfarande provas tillsammans före driftbytet.
 
 ## Operatörer
 
@@ -192,7 +216,8 @@ Kör respektive kommando med den berörda personens egen anslutningsfil:
 ```sh
 python cluster_operator.py --database-file /private/requester-db request CREDENTIAL_ID REVIEW_REFERENCE
 python cluster_operator.py --database-file /private/approver-db approve PROPOSAL_ID
-python cluster_operator.py --database-file /private/revoker-db revoke CREDENTIAL_ID
+python cluster_operator.py --continuity-file /private/controller-client.json complete INTENT_ID
+python cluster_operator.py --database-file /private/revoker-db --continuity-file /private/controller-client.json revoke CREDENTIAL_ID
 ```
 
 Spara beslutsreferenser utan namn eller personnummer. Det finns inget

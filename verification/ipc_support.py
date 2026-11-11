@@ -65,12 +65,17 @@ def _remove_stale(path):
             raise ValueError("IPC endpoint already active")
 
 
+def prepare_socket(path, group):
+    """Validate ownership before probing/removing an abandoned socket."""
+    _verify_parent(path, group)
+    _remove_stale(path)
+
+
 class LocalService(socketserver.UnixStreamServer):
     """One bounded JSON request per connection; socket group is explicit."""
 
     def __init__(self, path, group, dispatch):
-        _verify_parent(path, group)
-        _remove_stale(path)
+        prepare_socket(path, group)
         self.dispatch = dispatch
         self.path = str(path)
         owner = self
