@@ -1030,13 +1030,20 @@ class ClusterTests(unittest.TestCase):
         self.assertEqual('SYNTHETIC AGREEMENT',data['federation_requests'][0]['sign_message'])
         self.assertEqual(1,len(data['biometric_attempts']))
         second=next(ident for ident in case['credentials'] if ident!=self.ident)
-        self.assertCountEqual([(self.ident,'REGISTRY_CHECKED'),(self.ident,'ACTIVATION_REQUESTED'),(second,'REVOKED'),(self.ident,'ACTIVATED')],
+        self.assertCountEqual([(self.ident,'REGISTRY_CHECKED'),(self.ident,'ACTIVATION_REQUESTED'),
+                               (self.ident,'ACTIVATION_APPROVED'),(second,'REVOKED'),(self.ident,'ACTIVATED')],
             [(r['credential'],r['kind']) for r in data['operator_events']])
         self.assertTrue(all(r['time'].endswith('+00:00') for r in data['operator_events']))
         self.assertTrue(data['enrollment_consents'][0]['recordedAcceptance']['biometricsAccepted'])
         self.assertEqual([receipt],data['consent_retention_runs'][0]['protectedReceipts'])
         self.assertEqual('HANDLER_REVIEW_REQUIRED',value['status'])
-        self.assertEqual(8,value['databaseSchema'])
+        self.assertEqual(9,value['databaseSchema'])
+        self.assertEqual('test_bob',data['approval_intents'][0]['approver'])
+        self.assertEqual('test_continuity',data['approval_intents'][0]['completed_by'])
+        self.assertEqual(1,len(data['notice_outbox']))
+        self.assertEqual(1,len(data['intent_revocations']))
+        self.assertEqual(1,len(data['external_revocations']))
+        self.assertNotIn('sealed',data['revocation_codes'][0])
         for forbidden in ('BOB PRIVATE',other,other_receipt,'SECRET_', 'synthetic-assertion-already-checked-by-native'):
             self.assertNotIn(forbidden,raw.decode())
         self.assertNotIn('payload',data['challenges'][0])
