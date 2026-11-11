@@ -42,6 +42,7 @@ i ägarrollen. Skapa separata LOGIN-konton och tilldela dessa grupproller:
 |---|---|
 | `openid_enroller` | Registrera nyckel och krypterad profil i väntan på granskning |
 | `openid_wallet` | Signerade operationer, förfrågningar och spärr |
+| `openid_registry` | Läsa verifierad profil och lagra versionsbundet registerbevis genom en begränsad funktion |
 | `openid_requester` | Föreslå aktivering med beslutsreferens |
 | `openid_approver` | Godkänna en annan inloggnings aktiveringsförslag |
 | `openid_revoker` | Spärra en nyckel eller hela registret efter återläsning |
@@ -49,7 +50,11 @@ i ägarrollen. Skapa separata LOGIN-konton och tilldela dessa grupproller:
 | `openid_auditor` | Läsa operatörshändelser och aktiveringsförslag |
 | `openid_backup` | Läsa registrets tabeller för backup; ingen skriv- eller dekrypteringsrätt |
 
-Ett förslag gäller en timme och binds till nyckeln och profilversionen.
+Ett förslag gäller en timme och binds till nyckeln, profilversionen och det
+aktuella registerbevisets referens. Både förslag och attest kräver samma
+oförändrade, ännu giltiga registerbevis för handlingen. Syntetiska identiteter
+kan inte användas för aktivering. En ny registerkontroll efter förslaget kräver
+ett nytt förslag när det gamla löpt ut. Registerbevis gäller högst ett dygn.
 Aktivering kräver en registrering som är högst ett dygn gammal och en ännu
 giltig handling. Giltigheten är fortsatt begränsad till högst 72 timmar.
 Samma databaslogin kan aldrig attestera sitt eget förslag, även om kontot
@@ -59,7 +64,7 @@ deras åtkomst måste hanteras separat från den ordinarie operatörsprocessen.
 | Övergång | Villkor och effekt |
 |---|---|
 | Ny → PENDING_REVIEW | Registreringsrollen skriver verifierad profil och ny enhetsnyckel |
-| PENDING_REVIEW → ACTIVE | Två olika operatörsinloggningar, färskt förslag och giltigt pass |
+| PENDING_REVIEW → ACTIVE | Två olika operatörsinloggningar, färskt förslag, giltigt pass och oförändrat aktuellt registerbevis |
 | ACTIVE/PENDING_REVIEW → REVOKED | Spärr; väntande godkännanden annulleras |
 | ACTIVE → EXPIRED | Giltighet kontrolleras vid varje användning |
 | Nyckelbyte | Samma person låses; gamla nycklar spärras i samma transaktion |
@@ -85,6 +90,7 @@ bao write transit/keys/openid-profile/config auto_rotate_period=720h
 bao write transit/keys/openid-index type=hmac key_size=32 exportable=false
 bao policy write openid-enroller deployment/cluster/enroller.hcl
 bao policy write openid-wallet deployment/cluster/wallet.hcl
+bao policy write openid-registry deployment/cluster/registry.hcl
 bao policy write openid-maintenance deployment/cluster/maintenance.hcl
 bao policy write openid-backup deployment/cluster/backup.hcl
 bao policy write openid-recovery deployment/cluster/recovery.hcl
@@ -220,16 +226,17 @@ Tjänstekontot kan bara läsa kodstatus och anropa begränsade kontroll- och
 bytesfunktioner; det kan inte läsa verifierarna, återställa en låst kod
 eller ändra begärans text, nivå, motpart eller sessionsbindning.
 
-Nya installationer använder `schema.sql`, version 7. Version 1–6 nekas av den
+Nya installationer använder `schema.sql`, version 8. Version 1–7 nekas av den
 nya applikationen. Stoppa applikationer och underhåll, ta och verifiera en
 backup med den tidigare, låsta kodrevisionen och kör `migrate-1-to-2.sql`
-med databasens kontrollerade ägarkonto och fortsätt med `migrate-2-to-3.sql`, `migrate-3-to-4.sql`, `migrate-4-to-5.sql`, `migrate-5-to-6.sql` och `migrate-6-to-7.sql`. Börja vid
+med databasens kontrollerade ägarkonto och fortsätt med `migrate-2-to-3.sql`, `migrate-3-to-4.sql`, `migrate-4-to-5.sql`, `migrate-5-to-6.sql`, `migrate-6-to-7.sql` och `migrate-7-to-8.sql`. Börja vid
 databasens befintliga version; hoppa inte över steg. Migreringarna är transaktionella och
 nekar annan startversion. Starta därefter den nya revisionen och verifiera
 readiness, rollgränser och försöksspärren innan trafik öppnas.
 
-Den nya backupen omfattar även biometribudgeten och registreringsspärren.
-Äldre backuper återläses med sin tidigare kodrevision i en stängd miljö,
+Schema-8-backupen omfattar även registerbindningar och förbrukade bevisreferenser.
+En exakt låst schema-7-backup kan återläsas direkt med det nya verktyget;
+den får inga fabricerade registerbevis. Äldre backuper återläses med sin tidigare kodrevision i en stängd miljö,
 spärras och migreras innan ny kod får ansluta. Kör därefter
 `revoke_all_after_restore()` innan applikationskonton får tillgång.
 
@@ -386,7 +393,7 @@ ersätter funktionen och höjer versionskravet i samma transaktion, utan att
 radera några rader eller ge tjänstekonton nya rättigheter. Fel startversion,
 upprepad körning eller uteblivet lås stoppar den. Gör efterprov innan underhåll
 eller trafik återöppnas. Ny applikation, backupverktyg och individuellt
-ärendeuttag kräver numera schema 7; personlänksmigreringen nedan ska också köras. Äldre backuper återläses med sina ursprungliga
+ärendeuttag kräver numera schema 8; personlänksmigreringen nedan ska också köras. Äldre backuper återläses med sina ursprungliga
 verktyg i stängd miljö och migreras innan aktuell revision används.
 Migreringen återskapar inte tidigare raderad text. Arkivlayouten är fortsatt
 format 4, med faktisk databasversion i manifestet.
@@ -403,7 +410,7 @@ läsa den; inga nya konton eller externt anropbara mutationsfunktioner införs.
 `migrate-5-to-6.sql` låser registret och fyller länkar från befintliga profiler.
 Den gissar inte vilka personer tidigare gallrade eller oavslutade registreringar
 tillhör. Fel startversion, omkörning eller uteblivet lås nekar migreringen.
-Aktuell app, full backup och rättighetsuttag kräver schema 7. Ta/verifiera först
+Aktuell app, full backup och rättighetsuttag kräver schema 8. Ta/verifiera först
 backup med tidigare låst verktyg, stoppa skrivare och kör migreringen som
 kontrollerad ägare; gör efterprov före öppning.
 
@@ -423,4 +430,43 @@ SQLite-adapterns byte av personkoppling vid registerkontrollerat passbyte.
 
 ## Beslutad radering och återställning (schema 7)
 
-Se [radering i rättighetsärende](../../docs/radering-rattighetsarende.md) för planering med läskonto, verkställighet med registerägaren och obligatorisk extern beslutsförteckning vid återställning. `migrate-6-to-7.sql` lägger till atomisk raderingsjournal och spärrar som också gäller nycklar utan kvarvarande registrering. App, full backup och ärendeverktyg kräver nu schema 7. Arkivformatet är 5; äldre journalarkiv förblir läsbara.
+Se [radering i rättighetsärende](../../docs/radering-rattighetsarende.md) för planering med läskonto, verkställighet med registerägaren och obligatorisk extern beslutsförteckning vid återställning. `migrate-6-to-7.sql` lägger till atomisk raderingsjournal och spärrar som också gäller nycklar utan kvarvarande registrering. App, full backup och ärendeverktyg kräver nu schema 8. Arkivformatet är 5; äldre journalarkiv förblir läsbara.
+
+
+## Registerbevis före tvåpersonersbeslut (schema 8)
+
+`migrate-7-to-8.sql` körs med stoppade skrivare efter verifierad backup med
+schema-7-kodens låsta revision. Den nya backup-CLI:n säkerhetskopierar schema 8;
+den ska inte användas mot databasen före uppgraderingen. Migreringen bevarar
+profiler och historik, skapar tomma registertabeller och låter gamla väntande
+aktiveringsförslag löpa ut. Den gör ingen registerkontroll i efterhand.
+
+`RegistryBindings` använder samma frågor, svar, kryptering och identitetskontroller
+som tidigare. PostgreSQL skriver beviset genom `record_registry_binding` med en
+separat databaslogin i `openid_registry` och en egen Transit-token enligt
+`registry.hcl`. Rollen kan inte aktivera, föreslå, attestera eller skriva direkt
+i registertabellerna. Förbrukade källreferenser är unika i registret. Kontrollens
+referens, källkod, typ, profilversion, handling och tid binds till förslaget och
+kontrolleras igen vid attest, även efter väntan på databaslås. Själva identiteten
+lagras krypterad. En ändrad person/källa/typ nekas; nationella attribut är fortfarande
+frikopplade från SAML/OIDC-utlämning.
+
+Full backup tar med registerbindningar och bevisreferenser. Återläsning spärrar
+alla gamla nycklar, annullerar väntande beslut och tar bort aktiveringsdugliga
+registerbindningar. Förbrukade referenser behålls tills en separat behörig
+raderingsåtgärd beslutas. En exakt låst schema-7-backup kan återläsas till schema 8
+utan fabricerad registerhistorik. Personuppgiftsutdrag och beslutade raderingar
+omfattar de nya tabellerna. Bindningar följer profilens gallring; bevisjournalens
+gallring kan beslutas separat, för redan spärrade nycklar. Journalarkivet i format 5
+behåller sitt begränsade innehåll och innehåller inte det fulla registerbeviset
+eller den nya förslagsreferensen; använd full backup/rättighetsuttag för dessa.
+
+Detta är en kodmässig förutsättning för sammanhållen drift. En autentiserad verklig
+registeradapter, dess åtkomstavtal och återkommande uppdateringar återstår. Testerna
+använder en uttrycklig testadapter med reserverade SPAR-exempel och bevisar inte
+pass/registermatchning i verklig drift. PostgreSQL-vägen måste också anslutas till
+fristående spärr, avisering, federationsprofil och tillåtna motparter innan det
+gemensamma driftpaketet byts. Byte av pass/personlänk och nationellt attribututlämnande
+är separata kontroller. Drifts-, databas- och nyckeladministrationens mandat samt
+faktiska oberoende personer ingår i den organisatoriska bedömningen; två olika
+login är inte ett färdigt bevis för Diggs K3.4.

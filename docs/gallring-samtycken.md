@@ -74,7 +74,7 @@ journalen, men inte läsa samtyckesbevis eller radera tabeller direkt.
 ## Införande och återstående gränser
 
 SQLite behöver aktuell applikationsschema med journalen. PostgreSQL kräver
-schema 7; journalen införs med `migrate-3-to-4.sql` och därefter krävs
+schema 8; journalen införs med `migrate-3-to-4.sql` och därefter krävs
 `migrate-4-to-5.sql`, `migrate-5-to-6.sql` och `migrate-6-to-7.sql`. Migreringarna körs av kontrollerad ägare med stoppade
 skrivare och verifierad backup från tidigare låst revision. Journalen ingår
 i backup och [aktuellt arkivformat 5](arkivexport.md). Äldre arkiv förblir läsbara.

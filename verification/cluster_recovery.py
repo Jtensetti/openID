@@ -20,11 +20,17 @@ from transit import TransitVault
 
 
 SCHEMA = Path(__file__).parents[1] / 'deployment/cluster/schema.sql'
-TABLES = ('credentials', 'persons', 'credential_persons', 'profiles', 'requests', 'federation_requests',
+LEGACY_TABLES = ('credentials', 'persons', 'credential_persons', 'profiles', 'requests', 'federation_requests',
           'events', 'challenges', 'pairwise_subjects', 'activation_proposals',
           'operator_events', 'maintenance_runs', 'biometric_attempts', 'security_codes', 'enrollment_quarantine',
           'enrollment_policies', 'enrollment_consents', 'credential_consents', 'consent_retention_runs',
           'erasure_runs', 'erasure_subjects')
+TABLES = LEGACY_TABLES[:4] + ('registry_evidence', 'registry_bindings') + LEGACY_TABLES[4:]
+# Exact reviewed schema 7, retained as fixtures/schema-v7.sql. Older archives
+# have ten proposal columns and no registry proof. Never infer missing evidence.
+LEGACY_SCHEMA = '9ec480fd6f05b3d164675930ba1a5aea415c520d61ad6f2731e22653a7951fd3'
+LEGACY_PROPOSAL_COLUMNS = ('id', 'credential', 'profile_version', 'requester', 'decision',
+                           'hours', 'created', 'expires', 'approved_by', 'approved_at')
 MAX_BYTES = 10 * 1024 ** 3
 DEADLINE = 1800
 
@@ -80,7 +86,7 @@ def backup(dsn, destination, *, local_test=False, max_bytes=MAX_BYTES):
     try:
         with psycopg.connect(**options(dsn, local_test)) as db:
             db.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
-            if db.info.server_version // 10000 != 18 or db.execute('SELECT version FROM openid.schema_version').fetchall() != [(7,)]:
+            if db.info.server_version // 10000 != 18 or db.execute('SELECT version FROM openid.schema_version').fetchall() != [(8,)]:
                 raise ValueError('unsupported register version')
             for table in TABLES:
                 digest = hashlib.sha256()
@@ -124,12 +130,14 @@ def read_backup(source, stack, deadline, max_bytes):
     if (set(manifest) != {'format', 'schema', 'postgresMajor', 'tables'}
             or type(manifest['format']) is not int or manifest['format'] != 1
             or type(manifest['postgresMajor']) is not int or manifest['postgresMajor'] != 18
-            or manifest['schema'] != hashlib.sha256(SCHEMA.read_bytes()).hexdigest()
-            or set(manifest['tables']) != set(TABLES)):
+            or manifest['schema'] not in (hashlib.sha256(SCHEMA.read_bytes()).hexdigest(), LEGACY_SCHEMA)):
+        raise ValueError('backup version or tables')
+    tables = LEGACY_TABLES if manifest['schema'] == LEGACY_SCHEMA else TABLES
+    if type(manifest['tables']) is not dict or set(manifest['tables']) != set(tables):
         raise ValueError('backup version or tables')
     streams = {}
     total = 0
-    for table in TABLES:
+    for table in tables:
         info = manifest['tables'][table]
         if (set(info) != {'rows', 'bytes', 'sha256'} or type(info['rows']) is not int or info['rows'] < 0
                 or type(info['bytes']) is not int or info['bytes'] < 19
@@ -177,12 +185,15 @@ def restore(admin_dsn, source, target, vault, *, local_test=False, max_bytes=MAX
                 db.execute(SCHEMA.read_text(), prepare=False)
                 # Schema installation commits itself; data and revocation share the next transaction.
                 db.execute('ALTER TABLE openid.credentials DISABLE TRIGGER credential_guard')
-                for table in TABLES:
+                for table in streams:
                     stream = streams[table]
                     digest = hashlib.sha256()
                     size = 0
                     with db.cursor() as cursor:
-                        with cursor.copy(sql.SQL('COPY openid.{} FROM STDIN (FORMAT BINARY)').format(sql.Identifier(table))) as copy:
+                        columns = (sql.SQL(' ({})').format(sql.SQL(',').join(map(sql.Identifier, LEGACY_PROPOSAL_COLUMNS)))
+                                   if manifest['schema'] == LEGACY_SCHEMA and table == 'activation_proposals' else sql.SQL(''))
+                        query = sql.SQL('COPY openid.{}{} FROM STDIN (FORMAT BINARY)').format(sql.Identifier(table), columns)
+                        with cursor.copy(query) as copy:
                             for chunk in iter(lambda: stream.read(1024 * 1024), b''):
                                 check_deadline(deadline)
                                 size += len(chunk)
