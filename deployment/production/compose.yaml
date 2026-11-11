@@ -1,0 +1,557 @@
+# Canonical closed-issuance Tjipp runtime. Import all three verified images before use.
+name: tjipp
+x-runtime: &runtime
+  pull_policy: never
+  platform: linux/amd64
+  network_mode: host
+  read_only: true
+  cap_drop:
+  - ALL
+  security_opt:
+  - no-new-privileges:true
+  init: true
+  restart: unless-stopped
+  pids_limit: 128
+  ulimits:
+    core:
+      soft: 0
+      hard: 0
+    nofile:
+      soft: 1024
+      hard: 1024
+  tmpfs:
+  - /tmp:size=128m,mode=1777
+  logging:
+    driver: json-file
+    options:
+      max-size: 5m
+      max-file: '2'
+  image: ${TJIPP_IMAGE_ID:?Set verified image ID}
+x-readiness: &readiness
+  interval: 5s
+  timeout: 4s
+  retries: 12
+  start_period: 10s
+services:
+  postgres:
+    <<: *runtime
+    image: ${TJIPP_POSTGRES_IMAGE_ID:?Set verified image ID}
+    user: 999:999
+    mem_limit: 805306368
+    memswap_limit: 805306368
+    cpus: 1
+    entrypoint:
+    - postgres
+    environment: {}
+    volumes:
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/postgres/config
+      target: /srv/postgresql/config
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/postgres/data
+      target: /srv/postgresql/data
+      read_only: false
+      bind:
+        create_host_path: false
+    command:
+    - -D
+    - /srv/postgresql/data
+    - -c
+    - config_file=/srv/postgresql/config/postgresql.conf
+    healthcheck:
+      <<: *readiness
+      test:
+      - CMD
+      - pg_isready
+      - -h
+      - 127.0.0.1
+      - -p
+      - '15432'
+      - -d
+      - postgres
+  openbao:
+    <<: *runtime
+    image: ${TJIPP_OPENBAO_IMAGE_ID:?Set verified image ID}
+    user: 10008:20008
+    mem_limit: 402653184
+    memswap_limit: 402653184
+    cpus: 0.5
+    entrypoint:
+    - bao
+    environment:
+      BAO_ENABLE_FILE_PERMISSIONS_CHECK: 'true'
+      USER: tjipp-openbao
+      HOME: /tmp
+    volumes:
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/openbao/config
+      target: /srv/openbao/config
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/openbao/data
+      target: /srv/openbao/data
+      read_only: false
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/openbao/audit
+      target: /srv/openbao/audit
+      read_only: false
+      bind:
+        create_host_path: false
+    command:
+    - server
+    - -config=/srv/openbao/config/openbao.json
+    healthcheck:
+      <<: *readiness
+      test:
+      - CMD
+      - bao
+      - status
+      - -address=https://127.0.0.1:18210
+      - -ca-cert=/srv/openbao/config/tls.pem
+  credential-rotator:
+    <<: *runtime
+    user: 0:0
+    mem_limit: 134217728
+    memswap_limit: 134217728
+    cpus: 0.25
+    entrypoint:
+    - python
+    - /app/verification/aws_credential_rotate.py
+    environment:
+      AWS_EC2_METADATA_DISABLED: 'false'
+      AWS_SHARED_CREDENTIALS_FILE: /dev/null
+      AWS_CONFIG_FILE: /dev/null
+      BOTO_CONFIG: /dev/null
+      AWS_EC2_METADATA_V1_DISABLED: 'true'
+    volumes:
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/services/credential-rotator
+      target: /srv/openid/service
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/aws/continuity
+      target: /srv/openid/credentials/continuity
+      read_only: false
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/aws/notices
+      target: /srv/openid/credentials/notices
+      read_only: false
+      bind:
+        create_host_path: false
+    command:
+    - --config
+    - /srv/openid/service/runtime.json
+    cap_add:
+    - CHOWN
+    healthcheck:
+      <<: *readiness
+      test:
+      - CMD
+      - python
+      - /app/verification/aws_credential_rotate.py
+      - --check
+  verifier:
+    <<: *runtime
+    user: 10001:20010
+    mem_limit: 2147483648
+    memswap_limit: 2147483648
+    cpus: 2
+    entrypoint:
+    - python
+    - /app/verification/cluster_serve.py
+    environment:
+      AWS_EC2_METADATA_DISABLED: 'true'
+      AWS_SHARED_CREDENTIALS_FILE: /dev/null
+      AWS_CONFIG_FILE: /dev/null
+      BOTO_CONFIG: /dev/null
+    volumes:
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/services/verifier
+      target: /srv/openid/service
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/ipc/continuity
+      target: /srv/openid/continuity-ipc
+      read_only: true
+      bind:
+        create_host_path: false
+    command:
+    - --config
+    - /srv/openid/service/runtime.json
+    group_add:
+    - '20004'
+    stop_grace_period: 70s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      openbao:
+        condition: service_healthy
+      continuity:
+        condition: service_healthy
+    healthcheck:
+      <<: *readiness
+      test:
+      - CMD
+      - python
+      - /app/verification/cluster_probe.py
+      - /srv/openid/service/runtime.json
+      start_period: 90s
+  wallet:
+    <<: *runtime
+    user: 10006:20011
+    mem_limit: 402653184
+    memswap_limit: 402653184
+    cpus: 1
+    entrypoint:
+    - python
+    - /app/verification/cluster_serve.py
+    environment:
+      AWS_EC2_METADATA_DISABLED: 'true'
+      AWS_SHARED_CREDENTIALS_FILE: /dev/null
+      AWS_CONFIG_FILE: /dev/null
+      BOTO_CONFIG: /dev/null
+    volumes:
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/services/wallet
+      target: /srv/openid/service
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/ipc/continuity
+      target: /srv/openid/continuity-ipc
+      read_only: true
+      bind:
+        create_host_path: false
+    command:
+    - --config
+    - /srv/openid/service/runtime.json
+    group_add:
+    - '20004'
+    stop_grace_period: 70s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      openbao:
+        condition: service_healthy
+      continuity:
+        condition: service_healthy
+    healthcheck:
+      <<: *readiness
+      test:
+      - CMD
+      - python
+      - /app/verification/cluster_probe.py
+      - /srv/openid/service/runtime.json
+  bridge:
+    <<: *runtime
+    user: 10009:20001
+    mem_limit: 268435456
+    memswap_limit: 268435456
+    cpus: 0.5
+    entrypoint:
+    - python
+    - /app/verification/cluster_bridge.py
+    environment:
+      AWS_EC2_METADATA_DISABLED: 'true'
+      AWS_SHARED_CREDENTIALS_FILE: /dev/null
+      AWS_CONFIG_FILE: /dev/null
+      BOTO_CONFIG: /dev/null
+    volumes:
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/services/bridge
+      target: /srv/openid/service
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/ipc/continuity
+      target: /srv/openid/continuity-ipc
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/origins.json
+      target: /srv/openid/origins.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/federation.json
+      target: /srv/openid/federation.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/ipc/federation
+      target: /srv/openid/federation-ipc
+      read_only: false
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/ipc/notice
+      target: /srv/openid/notice-ipc
+      read_only: false
+      bind:
+        create_host_path: false
+    command:
+    - --config
+    - /srv/openid/service/runtime.json
+    group_add:
+    - '20003'
+    - '20004'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      openbao:
+        condition: service_healthy
+      continuity:
+        condition: service_healthy
+    healthcheck:
+      <<: *readiness
+      test:
+      - CMD
+      - python
+      - /app/deployment/production/probe.py
+      - bridge
+  continuity:
+    <<: *runtime
+    user: 10007:20004
+    mem_limit: 134217728
+    memswap_limit: 134217728
+    cpus: 0.5
+    entrypoint:
+    - python
+    - /app/verification/postgres_continuity.py
+    environment:
+      AWS_EC2_METADATA_DISABLED: 'true'
+      AWS_SHARED_CREDENTIALS_FILE: /dev/null
+      AWS_CONFIG_FILE: /dev/null
+      BOTO_CONFIG: /dev/null
+      OPENID_AWS_SESSION_FILE: /srv/openid/aws/session.json
+    volumes:
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/services/continuity
+      target: /srv/openid/service
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/aws/continuity
+      target: /srv/openid/aws
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/ipc/continuity
+      target: /srv/openid/continuity-ipc
+      read_only: false
+      bind:
+        create_host_path: false
+    command:
+    - --config
+    - /srv/openid/service/runtime.json
+    depends_on:
+      postgres:
+        condition: service_healthy
+      credential-rotator:
+        condition: service_healthy
+    healthcheck:
+      <<: *readiness
+      test:
+      - CMD
+      - python
+      - /app/deployment/production/probe.py
+      - continuity
+  idp:
+    <<: *runtime
+    user: 10002:20001
+    mem_limit: 671088640
+    memswap_limit: 671088640
+    cpus: 1
+    entrypoint:
+    - java
+    - -Xmx384m
+    - -jar
+    - /app/prototype/target/isolated-eid-lab.jar
+    environment:
+      AWS_EC2_METADATA_DISABLED: 'true'
+      AWS_SHARED_CREDENTIALS_FILE: /dev/null
+      AWS_CONFIG_FILE: /dev/null
+      BOTO_CONFIG: /dev/null
+    volumes:
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/federation-idp
+      target: /srv/openid/federation
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/ipc/federation
+      target: /srv/openid/federation-ipc
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/origins.json
+      target: /srv/openid/origins.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/federation.json
+      target: /srv/openid/federation.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/federation-state
+      target: /srv/openid/federation-state
+      read_only: false
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/public/idp.pem
+      target: /srv/openid/health-ca.pem
+      read_only: true
+      bind:
+        create_host_path: false
+    command:
+    - runtime-idp
+    - /srv/openid/federation
+    - /srv/openid/federation-ipc/federation.sock
+    - /srv/openid/origins.json
+    - /srv/openid/federation.json
+    - /srv/openid/federation-state
+    depends_on:
+      bridge:
+        condition: service_healthy
+    healthcheck:
+      <<: *readiness
+      test:
+      - CMD
+      - python
+      - /app/deployment/production/probe.py
+      - idp
+  sp:
+    <<: *runtime
+    user: 10003:20001
+    mem_limit: 402653184
+    memswap_limit: 402653184
+    cpus: 0.5
+    entrypoint:
+    - java
+    - -Xmx192m
+    - -jar
+    - /app/prototype/target/isolated-eid-lab.jar
+    environment:
+      AWS_EC2_METADATA_DISABLED: 'true'
+      AWS_SHARED_CREDENTIALS_FILE: /dev/null
+      AWS_CONFIG_FILE: /dev/null
+      BOTO_CONFIG: /dev/null
+    volumes:
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/federation-sp
+      target: /srv/openid/federation
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/ipc/federation
+      target: /srv/openid/federation-ipc
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/origins.json
+      target: /srv/openid/origins.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/federation.json
+      target: /srv/openid/federation.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/public/sp.pem
+      target: /srv/openid/health-ca.pem
+      read_only: true
+      bind:
+        create_host_path: false
+    command:
+    - runtime-sp
+    - /srv/openid/federation
+    - /srv/openid/federation-ipc/federation.sock
+    - /srv/openid/origins.json
+    - /srv/openid/federation.json
+    depends_on:
+      bridge:
+        condition: service_healthy
+      idp:
+        condition: service_healthy
+    healthcheck:
+      <<: *readiness
+      test:
+      - CMD
+      - python
+      - /app/deployment/production/probe.py
+      - sp
+  notice-exporter:
+    <<: *runtime
+    user: 10004:20003
+    mem_limit: 134217728
+    memswap_limit: 134217728
+    cpus: 0.25
+    entrypoint:
+    - python
+    - /app/verification/notice_exporter.py
+    command: []
+    environment:
+      AWS_EC2_METADATA_DISABLED: 'true'
+      AWS_SHARED_CREDENTIALS_FILE: /dev/null
+      AWS_CONFIG_FILE: /dev/null
+      BOTO_CONFIG: /dev/null
+      OPENID_AWS_SESSION_FILE: /srv/openid/aws/session.json
+      OPENID_NOTICE_SOCKET: /srv/openid/notice-ipc/notice.sock
+      OPENID_NOTICE_QUEUE_URL: ${TJIPP_NOTICE_QUEUE_URL:?Set TJIPP_NOTICE_QUEUE_URL}
+    volumes:
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/ipc/notice
+      target: /srv/openid/notice-ipc
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/aws/notices
+      target: /srv/openid/aws
+      read_only: true
+      bind:
+        create_host_path: false
+    stop_grace_period: 70s
+    depends_on:
+      bridge:
+        condition: service_healthy
+      credential-rotator:
+        condition: service_healthy
+    healthcheck:
+      <<: *readiness
+      test:
+      - CMD
+      - python
+      - /app/deployment/production/probe.py
+      - notice-exporter

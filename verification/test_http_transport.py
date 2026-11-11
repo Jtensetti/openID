@@ -83,6 +83,21 @@ class TransportTests(unittest.TestCase):
             with self.subTest(url=value), self.assertRaises(ValueError):
                 TransitVault(value, '/unused-token')
 
+    def test_transit_rejects_unknown_reference_domains_before_network_access(self):
+        from transit import TransitVault
+        vault=TransitVault('https://localhost','/unused-token')
+        cases=(('registry-person-v1:fixture-registry:personnummer','195704133106\n'),
+               ('registry-person-v1:fixture-registry:personnummer','19570413310'),
+               ('registry-person-v1:fixture-registry:synthetic','REAL-PERSON'),
+               ('registry-evidence-v1:fixture-registry','short'),
+               ('registry-person-v1:fixture-registry:other','195704133106'),
+               ('registry-evidence-v1:fixture-registry','a'*129),
+               ('unknown-domain','195704133106'),(None,'value'),('domain',None))
+        with patch.object(vault,'request') as request:
+            for domain,value in cases:
+                with self.subTest(domain=domain),self.assertRaises(ValueError):vault.reference(domain,value)
+            request.assert_not_called()
+
 
 if __name__ == '__main__':
     unittest.main()

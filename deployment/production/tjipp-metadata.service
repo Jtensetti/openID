@@ -1,0 +1,11 @@
+[Unit]
+Description=Tjipp isolation from instance credentials
+Before=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/tjipp/current/deployment/production/metadata_guard.py install
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

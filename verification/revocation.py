@@ -15,8 +15,9 @@ class RevocationUnavailable(ValueError):
 
 
 class RevocationAuthority:
-    def __init__(self, invoke):
+    def __init__(self, invoke, *, reference=None):
         self.invoke = invoke
+        self.reference = reference
 
     def request(self, operation, credential):
         if not isinstance(credential, str) or not re.fullmatch('[a-f0-9]{64}', credential):
@@ -65,7 +66,7 @@ def lambda_authority(client, function_name):
         if len(raw) > 4096:
             raise ValueError('authority response size')
         return json.loads(raw)
-    return RevocationAuthority(invoke)
+    return RevocationAuthority(invoke, reference=function_name)
 
 
 def configured_wallet(database, origin, *, config_path=None, client_factory=None):
@@ -78,6 +79,12 @@ opening an already migrated database through a legacy unconfigured command.
     config_path = config_path or os.environ.get('OPENID_CONTINUITY_CONFIG')
     if not config_path:
         return Wallet(database, origin)
+    authority, config = configured_authority(config_path, client_factory=client_factory)
+    return Wallet(database, origin, revocation=authority, notifications=True, test_beta=config.get('testBeta', False))
+
+
+def configured_authority(config_path, *, client_factory=None):
+    """Load the same private, pinned AWS authority for either registry backend."""
     path = Path(config_path)
     if not path.is_absolute(): raise ValueError('absolute continuity configuration required')
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
@@ -103,4 +110,4 @@ opening an already migrated database through a legacy unconfigured command.
         def client_factory():
             return runtime_client('lambda', read_timeout=10)
     authority = lambda_authority(client_factory(), config['backendFunction'])
-    return Wallet(database, origin, revocation=authority, notifications=True, test_beta=config.get('testBeta', False))
+    return authority, config

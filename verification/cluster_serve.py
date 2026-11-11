@@ -8,6 +8,7 @@ import re
 import ssl
 import sys
 from runtime import Runtime, validate_origin
+from ingress_client import proxy_config
 from serve import private_file, bounded_worker, close_worker, reject_duplicate_headers, score_frames, proofing_commands
 from bounded_process import image_worker_environment
 
@@ -15,10 +16,11 @@ from bounded_process import image_worker_environment
 def config_file(path):
     config=json.loads(Path(path).read_text())
     fields={'role','bind','port','origin','workers','databaseFile','baoAddress','baoTokenFile','baoCA',
-        'tlsCert','tlsKey','pairingFile','metricsFile'}
+        'tlsCert','tlsKey','pairingFile','metricsFile','continuityFile'}
     proofing={'team','bundle','developmentAttestation','csca','jar'}
     if config.get('role')=='proofing': fields |= proofing
-    optional={'cscaCrl','newRegistrationsEnabled','enrollmentPolicyFile'} if config.get('role')=='proofing' else set()
+    optional={'trustedProxy'}
+    if config.get('role')=='proofing': optional |= {'cscaCrl','newRegistrationsEnabled','enrollmentPolicyFile'}
     if not fields <= set(config) or set(config)-fields-optional or config['role'] not in ('wallet','proofing'): raise ValueError('configuration fields')
     if type(config.get('newRegistrationsEnabled', False)) is not bool: raise ValueError('new registration flag')
     if config.get('newRegistrationsEnabled', False) and 'enrollmentPolicyFile' not in config:
@@ -30,6 +32,7 @@ def config_file(path):
             from enrollment_policy import read_policy
             read_policy(config['enrollmentPolicyFile'])
     validate_origin(config['origin'])
+    proxy_config(config.get('trustedProxy'),config['bind'])
     address=ipaddress.ip_address(config['bind'])
     if address.is_unspecified or address.is_multicast or not address.is_private: raise ValueError('explicit private bind required')
     if type(config['port']) is not int or not 1024<=config['port']<=65535: raise ValueError('port')
@@ -38,7 +41,7 @@ def config_file(path):
         if config['workers']!=1: raise ValueError('proofing requires one worker')
         if not re.fullmatch('[A-Z0-9]{10}',config['team']) or not re.fullmatch('[A-Za-z0-9.-]{3,128}',config['bundle']): raise ValueError('Apple identifiers')
         if type(config['developmentAttestation']) is not bool: raise ValueError('attestation environment')
-    for field in set(config) & {'databaseFile','baoTokenFile','baoCA','tlsCert','tlsKey','pairingFile','metricsFile','csca','jar','cscaCrl'}:
+    for field in set(config) & {'databaseFile','baoTokenFile','baoCA','tlsCert','tlsKey','pairingFile','metricsFile','csca','jar','cscaCrl','continuityFile'}:
         if not Path(config[field]).is_absolute() or not Path(config[field]).is_file(): raise ValueError('absolute existing path required')
     private_file(config['tlsKey'])
     context=ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER); context.load_cert_chain(config['tlsCert'],config['tlsKey'])
@@ -51,12 +54,14 @@ def create_app(config, *, local_test=False):
     from crypto_runtime import CryptoRuntime
     from postgres import PostgresWallet
     from transit import TransitVault
+    from postgres_continuity import configured_client
     crypto=CryptoRuntime()
-    wallet=None
+    wallet=vault=None
     try:
         vault=TransitVault(config['baoAddress'],config['baoTokenFile'],config['baoCA'],local_test=local_test)
+        vault.start_renewal('enroller' if config['role']=='proofing' else 'wallet')
         wallet=PostgresWallet(private_file(config['databaseFile']).decode().strip(),config['origin'],vault,
-            crypto=crypto.device,local_test=local_test)
+            crypto=crypto.device,local_test=local_test,revocation=configured_client(config['continuityFile']))
         native=None
         if config['role']=='proofing':
             from native import NativeSessions, AppAttest
@@ -70,12 +75,15 @@ def create_app(config, *, local_test=False):
                 chip_factory=lambda data:ChipProcess(chip_command,data),biometrics=score_frames,enrollment_policy=policy)
         app=Runtime(native,wallet,config['origin'],private_file(config['pairingFile']).decode().strip(),
             metrics_token=private_file(config['metricsFile']).decode().strip(),role=config['role'],
+            trusted_proxy=config.get('trustedProxy'),
             new_registrations_enabled=config.get('newRegistrationsEnabled', False))
         app.crypto=crypto
+        app.key_service=vault
         return app
     except BaseException:
         crypto.close()
         if wallet is not None: wallet.close()
+        if vault is not None: vault.close()
         raise
 
 

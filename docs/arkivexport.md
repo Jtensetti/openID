@@ -137,3 +137,5 @@ och [SQLite](https://www.sqlite.org/isolation.html).
 ## Radering i rättighetsärende
 
 Arkivformat 5 lägger till `erasure_runs` och `erasure_subjects` för aktuell SQLite och PostgreSQL schema 7. Beslutets kanoniska innehåll binds till journal-ID och valideras vid export och offlinekontroll. Båda tabellerna krävs. Format 4 hör fortsatt till tidigare schema 4–6. Ett journalarkiv ersätter inte aktuell extern beslutsförteckning för återställning. Se [körning, avgränsningar och återställning](radering-rattighetsarende.md).
+
+PostgreSQL schema 8 använder fortsatt format 5. Det begränsade journalarkivet tar inte med krypterade registerbindningar, förbrukade registerbevisreferenser eller `activation_proposals.registry_reference`. Full backup och personuppgiftsutdrag omfattar dessa; ett journalarkiv ensamt kan inte återskapa registerkontrollen bakom en attest.

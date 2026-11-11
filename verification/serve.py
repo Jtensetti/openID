@@ -247,6 +247,7 @@ def close_worker(server, worker):
     if app is not None:
         if app.native is not None: app.native.close()
         if hasattr(app.wallet, 'close'): app.wallet.close()
+        if hasattr(app, 'key_service'): app.key_service.close()
         if hasattr(app, 'crypto'): app.crypto.close()
 
 

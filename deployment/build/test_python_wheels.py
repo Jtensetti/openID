@@ -17,12 +17,14 @@ ROOT = Path(__file__).resolve().parents[2]
 DOCKERFILES = {'pilot': 'deployment/Dockerfile', 'registry': 'deployment/cluster/Dockerfile'}
 REQUIREMENTS = {
     'pilot': {'requirements.lock': 'verification/requirements.lock',
+              'cluster-requirements.lock': 'verification/cluster-requirements.lock',
               'rp-requirements.lock': 'verification/rp-requirements.lock',
               'runtime-requirements.lock': 'verification/runtime-requirements.lock',
               '/app/aws-requirements.lock': 'deployment/aws/requirements.lock'},
     'registry': {'cluster-requirements.lock': 'verification/cluster-requirements.lock',
                  'rp-requirements.lock': 'verification/rp-requirements.lock',
-                 'runtime-requirements.lock': 'verification/runtime-requirements.lock'},
+                 'runtime-requirements.lock': 'verification/runtime-requirements.lock',
+                 '/app/aws-requirements.lock': 'deployment/aws/requirements.lock'},
 }
 
 

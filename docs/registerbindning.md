@@ -1,10 +1,11 @@
-# Registerbindning och ersättning i SQLite-piloten
+# Registerbindning och ersättning
 
 Implementationen i `verification/registry_binding.py` förbereder ID-02 och
-ID-08–10. Den är inte ansluten till ett personregister och ändrar inte
-pilotens tillitsnivå. Ingen registeradapter, ny HTTP-route eller automatisk
-aktivering ingår. PostgreSQL-lägets befintliga flerpersonsprocess ändras inte;
-den nya tjänsten avvisar det backendvalet tills motsvarande implementation finns.
+ID-08–10 för både SQLite och PostgreSQL. Den är inte ansluten till ett
+personregister i produktion. SPAR:s kundtestgränssnitt beskrivs nedan.
+En betrodd produktionsadapter, rätt till produktionsåtkomst och
+återkommande uppdateringar återstår. Ingen ny HTTP-route eller automatisk
+aktivering införs av registerbindningen.
 
 ## Förutsättningar för en registeradapter
 
@@ -46,10 +47,76 @@ kontrolltider, profilversion och dokumentreferens lagras krypterat med separat
 autentiserad kontext från passprofilen. Händelseloggen innehåller endast fasta
 händelsetyper och interna nyckelreferenser.
 
-## Tillstånd och behörigheter
+## SPAR:s kundtestgränssnitt
 
-Tabellen gäller det separata operatörsflödet för registerbindning. Den
-[automatiska TestFlight-betan](testflight-beta.md) utför ingen registerkontroll
+`verification/spar_provider.py` innehåller klientcertifikatautentiserad
+SOAP-transport för Personsök 2023.1 och tolkning av svar. Klienten är låst
+till SPAR:s testvärd, det publicerade Bolag A-certifikatets fingeravtryck,
+testkontot och sju publicerade testnummer. Det finns inget val av
+produktionsvärd eller fri personsökning. Omdirigeringar, obekräftad TLS,
+för stora svar, XML-entitetsdeklarationer och okända kritiska fält avvisas.
+Testcertifikat och nycklar ska hållas utanför repot i ägarens privata filer.
+
+Klienten ger en `SparObservation`, inte ett `RegistryResult`. Den kan därför
+inte matas direkt till `RegistryBindings` som utfärdandebevis. Observationen
+omfattar endast identitet, aktuellt namn/födelsedatum, källreferens och
+kontrollutfall; adresser och andra ovidkommande svarsfält förs inte vidare.
+Skydd, avregistrering, hänvisningar och otillräcklig samordningsnummerstatus
+kräver separat hantering. Ett passerat preliminärt vilandedatum behandlas
+som en osäkerhet, inte som ett styrkt besked om slutlig vilandeförklaring.
+
+Exakt jämförelse mot signerade passfält kan utföras med
+`observation.matches_passport_fields(query.passport_fields)`. Den verifierar
+inte passet och gissar inte personnummer, sekel, namnförkortning eller
+translitterering. Publicerade testpersoners siffernamn avvisas av den riktiga
+passparsern; positiva syntetiska matchningsprov är inte verklig passbindning.
+
+Kör de deterministiska parser- och transportproven från `verification`:
+
+```sh
+python3 -m unittest -v test_spar_provider
+```
+
+Proven använder publicerade fiktiva svar och ersätter nättransporten. De
+täcker inte en aktuell extern anslutning, produktionsbehörighet eller den
+sammanhängande utgivningskedjan. Klienten och parsern ingår i de befintliga
+app-/registerimages men är inte en öppnad utgivningstjänst.
+
+Källor: [SPAR:s API](https://www.statenspersonadressregister.se/master/start/teknisk-info/personsoek/),
+[kundtestmiljö](https://www.statenspersonadressregister.se/master/start/teknisk-info/kundtestmiljoen/)
+och [publicerade testcertifikat](https://eid.expisoft.se/expitrust-test-certifikat/).
+
+## PostgreSQL i den gemensamma driftkandidaten
+
+`RegistryBindings` accepterar `PostgresWallet`, som kräver schema 10.
+Före en kontroll för `PENDING_REVIEW` sparar `invalidate_registry_binding`
+en ny engångsgeneration och låter tidigare utgivningsbevis löpa ut. Aktuell
+profil, dokumentreferens och tidigare bevisreferens måste stämma. Detta
+committas före dekryptering och registeranrop, så avbrott lämnar utgivningen
+blockerad. Identitetsbindning och förbrukade bevisreferenser bevaras.
+
+Registerbevis skrivs genom `record_registry_binding` med separat databaslogin
+i `openid_registry` och en egen Transit-token. Endast samma senaste generation
+får konsumeras inom 300 sekunder; ett äldre positivt svar kan inte vinna över
+en nyare kontroll. Ett nytt bevis kräver nya operatörsbeslut. Rollen kan inte aktivera,
+föreslå eller attestera en nyckel. Förslag, attest och slutförande följer den
+[gemensamma PostgreSQL-kedjan](../deployment/cluster/README.md), som kopplas till
+övriga tjänster genom [driftprofilen](../deployment/production/README.md).
+
+Denna kontrollväg nekar redan aktiva nycklar. Den inför varken automatisk
+spärr vid transportfel eller den separata rutinen för löpande kontroll av
+aktiva innehavare. Återställning kasserar pågående kontrollgenerationer och
+registerbindningar. Källan `spar-kundtest` får inte lämna nationella attribut.
+
+`activate_replacement` avvisar PostgreSQL. Det registerstödda passbytet nedan
+gäller SQLite; granskad personkoppling och spärr över passbyte i PostgreSQL
+återstår. Nationella identitetsattribut är ännu inte kopplade till
+SAML-/OIDC-utlämning.
+
+## Äldre SQLite-körväg: tillstånd och behörigheter
+
+Tabellen och operatörskommandot nedan gäller SQLite-körvägen. Det äldre
+[automatiska TestFlight-läget](testflight-beta.md) utför ingen registerkontroll
 eller registerstödd passförnyelse. Telefonbyte med samma pass kräver ny
 registrering och aktivering enligt valt testläge; gamla nycklar återaktiveras inte.
 
@@ -79,10 +146,11 @@ SQLite-operatören har fortfarande tillgång till både databas och nyckelfil.
 Detta ger inte verklig personseparation eller skydd mot en illvillig
 systemadministratör. Stulna och borttappade telefoner kräver en dokumenterad
 operatörskontroll innan administrativ spärr/ersättning; ingen e-postbaserad
-återställning införs. Den publika betan har nu en [separat spärrkanal](avisering-och-sparr.md);
-privata ID:n är inte automatiskt migrerade och sammanhängande fysiska prov återstår.
+återställning införs. Den separata spärrkanalens utformning beskrivs i
+[avisering och spärr](avisering-och-sparr.md). Denna äldre körväg styrker ingen
+installerad drift eller fysisk acceptans.
 
-## Operatörsflöde
+## Operatörsflöde för den äldre SQLite-körvägen
 
 1. Spärra den förlorade telefonens credential genom befintlig `revoke`.
 2. Låt innehavaren genomföra ny pass-/kameraregistrering med en ny nyckel.
@@ -102,6 +170,8 @@ en separat policy för motpart, ändamål och användarens information/godkänna
 
 ## Prov och kvarstående begränsningar
 
+PostgreSQL-kedjans prov och begränsningar finns i
+[klusterinstruktionen](../deployment/cluster/README.md). SQLite-proven i
 `test_registry_binding` använder interna `TEST-...`-identiteter och en uttrycklig
 testadapter. Syntetiska bindningar måste aktiveras separat i testkoden och kan
 aldrig lämna ut nationella identitetsattribut eller godkännas genom operatörens
@@ -118,5 +188,7 @@ inte återskapas ur backupen; nya registerkontroller och operativ avstämning
 krävs före ny utgivning.
 
 Verklig registeranslutning, rättslig grund, skyddade uppgifter, oberoende
-säkerhetsprov, fysisk telefonprovning och motsvarande PostgreSQL-stöd återstår.
+säkerhetsprov och fysisk telefonprovning återstår för den valda driften.
+Registerstödd passersättning i PostgreSQL återstår separat från det befintliga
+stödet för registerbevis.
 Varken tillitsnivå eller formell kravstatus höjs av denna implementation.

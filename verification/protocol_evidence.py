@@ -11,10 +11,14 @@ import time
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--output", required=True, type=Path)
 args = parser.parse_args()
-report = {"schema": "openid-protocol-evidence-v1", "scope": "synthetic private pilot integration",
+report = {"schema": "openid-protocol-evidence-v1", "scope": "synthetic closed-issuance runtime integration",
           "formalApproval": False, "officialConformanceSuite": False, "suites": []}
 jar = Path("/app/prototype/target/isolated-eid-lab.jar")
 report["jarSha256"] = hashlib.sha256(jar.read_bytes()).hexdigest()
+report["entrypoints"] = ["runtime-idp", "runtime-sp"]
+report["federationProfile"] = "private"
+report["testSourceSha256"] = {name: hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest()
+                            for name in ("runtime_test_fixture.py", "saml-negative-test.py", "oidc-negative-test.py")}
 args.output.parent.mkdir(parents=True, exist_ok=True)
 failed = False
 for name, expected_groups in [("saml", 7), ("oidc", 11)]:

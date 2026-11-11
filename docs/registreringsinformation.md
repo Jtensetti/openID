@@ -93,7 +93,7 @@ operativsystemets kopior; dessa kräver separat driftkontroll.
 ## Databas och återställning
 
 SQLite lägger till samtyckestabeller och gallringsjournal utan att fabricera kvitton för äldre ID:n.
-PostgreSQL använder schema 7; uppgradering sker med `migrate-2-to-3.sql`,
+PostgreSQL använder schema 8; uppgradering sker med `migrate-2-to-3.sql`,
 `migrate-3-to-4.sql`, `migrate-4-to-5.sql`, `migrate-5-to-6.sql` och `migrate-6-to-7.sql`; ägarkontrollerad
 migrering krävs innan den nya applikationen startas. Enroller får infoga
 kvittot men inte skriva om dess text eller bevis. PostgreSQL låser samma

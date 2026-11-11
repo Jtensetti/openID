@@ -58,8 +58,9 @@ jobs:
             --user "$(id -u):$(id -g)" --tmpfs /tmp:size=32m,mode=1777 \
             -e PYTHONPATH=/tests:/app/verification \
             -v "$PWD/verification/test_cluster_revocation.py:/tests/test_cluster_revocation.py:ro" \
+            -v "$PWD/verification/test_cluster_bridge.py:/tests/test_cluster_bridge.py:ro" \
             -v "$PWD/verification/test_enrollment_policy.py:/tests/test_enrollment_policy.py:ro" \
-            --entrypoint python openid-wallet:ci -m unittest -v test_cluster_revocation
+            --entrypoint python openid-wallet:ci -m unittest -v test_cluster_revocation test_cluster_bridge
           docker run --rm --read-only --cap-drop ALL --entrypoint python openid-wallet:ci cluster_recovery.py --help
           docker run --rm --read-only --cap-drop ALL --entrypoint python openid-wallet:ci subject_erasure.py --help
           docker run --rm --read-only --cap-drop ALL --entrypoint python openid-wallet:ci audit_archive.py --help
@@ -86,6 +87,8 @@ jobs:
           .venv/bin/python test_cluster.py -v
           .venv/bin/python -m unittest test_operations test_http_transport -v
           .venv/bin/python -m unittest test_key_recovery -v
+          test -x "$OPENID_TEST_BAO"
+          .venv/bin/python -m unittest test_transit_lease -v
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:

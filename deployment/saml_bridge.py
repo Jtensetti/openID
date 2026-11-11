@@ -7,9 +7,11 @@ import socket
 import stat
 import threading
 from federation import FederationServer
+from federation_config import sandbox_enabled
 from notice_ipc import serve as serve_notices
 from revocation import configured_wallet
 
+sandbox = sandbox_enabled()
 path = Path(os.environ.get('OPENID_FEDERATION_SOCKET', '/srv/openid/data/federation.sock'))
 if path.exists() or path.is_symlink():
     info = path.lstat()
@@ -30,7 +32,7 @@ audience = json.loads(Path(origins_file).read_text())['sp'] + '/sp' if origins_f
 group = int(os.environ['OPENID_FEDERATION_GROUP']) if os.environ.get('OPENID_FEDERATION_GROUP') else None
 bridge = FederationServer(path, configured_wallet('/srv/openid/data/wallet.sqlite', 'local-saml-bridge'),
                           audience=audience, shared_group=group,
-                          sandbox=os.environ.get('OPENID_SWEDEN_CONNECT_SANDBOX') == 'true')
+                          sandbox=sandbox)
 notice = None
 worker = None
 try:

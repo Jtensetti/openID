@@ -14,7 +14,8 @@
         "verification/requirements.lock",
         "verification/rp-requirements.lock",
         "verification/runtime-requirements.lock",
-        "deployment/aws/requirements.lock"
+        "deployment/aws/requirements.lock",
+        "verification/cluster-requirements.lock"
       ],
       "packages": [
         "boto3",
@@ -29,6 +30,9 @@
         "networkx",
         "numpy",
         "opencv-python-headless",
+        "psycopg",
+        "psycopg-binary",
+        "psycopg-pool",
         "python-dateutil",
         "qrcode",
         "s3transfer",
@@ -44,15 +48,23 @@
       "requirements": [
         "verification/cluster-requirements.lock",
         "verification/rp-requirements.lock",
-        "verification/runtime-requirements.lock"
+        "verification/runtime-requirements.lock",
+        "deployment/aws/requirements.lock"
       ],
       "packages": [
+        "boto3",
+        "botocore",
         "gunicorn",
+        "jmespath",
         "psycopg",
         "psycopg-binary",
         "psycopg-pool",
+        "python-dateutil",
         "qrcode",
-        "typing-extensions"
+        "s3transfer",
+        "six",
+        "typing-extensions",
+        "urllib3"
       ]
     }
   },

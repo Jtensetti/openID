@@ -12,6 +12,11 @@ PDF:en har ett [synligt underskriftskvitto](../docs/pdf-underskrift.md) som
 omfattas av den digitala signaturen. Kvittots utseende ersätter inte validering
 av filen och certifikatkedjan; test-CA:n är fortsatt ej betrodd.
 
+Den samlade driftprofilen använder i stället `runtime-idp` och `runtime-sp`
+med rollseparerade nycklar, fast profilval och separat metadatalagring.
+Se [driftinstruktionen](../deployment/production/README.md). Labbkommandona
+nedan är till för disponibla syntetiska prov.
+
 ## Kör webbklienten
 
 Kräver JDK 21, Linux/POSIX, portar 8443/8444 och en WebAuthn-webbläsare.

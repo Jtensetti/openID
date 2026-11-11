@@ -1,5 +1,12 @@
 # Download exact reviewed artifacts with BuildKit; pip never downloads them.
 FROM scratch AS python-wheels
+ADD --checksum=sha256:6667a0c21d48dc125dbba88444bc8a601ce881a99341a0e6169f9333898e620d https://files.pythonhosted.org/packages/be/bc/40dffae3238ef8d3415393132751fe2c88e8663ef84a31f0950e439ed2d5/boto3-1.43.115-py3-none-any.whl /wheels/boto3-1.43.115-py3-none-any.whl
+ADD --checksum=sha256:9ceda640c868bc15f5399129e8cfdef8cbb4b350e8a99547c9b5f477cfb9619a https://files.pythonhosted.org/packages/77/2d/4b6b6f5704d1ec9b412c1dd9700bda0c315619dbac4a21418180a81a2780/botocore-1.43.115-py3-none-any.whl /wheels/botocore-1.43.115-py3-none-any.whl
+ADD --checksum=sha256:a5663118de4908c91729bea0acadca56526eb2698e83de10cd116ae0f4e97c64 https://files.pythonhosted.org/packages/14/2f/967ba146e6d58cf6a652da73885f52fc68001525b4197effc174321d70b4/jmespath-1.1.0-py3-none-any.whl /wheels/jmespath-1.1.0-py3-none-any.whl
+ADD --checksum=sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427 https://files.pythonhosted.org/packages/ec/57/56b9bcc3c9c6a792fcbaf139543cee77261f3651ca9da0c93f5c1221264b/python_dateutil-2.9.0.post0-py2.py3-none-any.whl /wheels/python_dateutil-2.9.0.post0-py2.py3-none-any.whl
+ADD --checksum=sha256:24eb7535804306355e31c952a90022bf5b2f9d760f9a11062c7493a217c08553 https://files.pythonhosted.org/packages/e2/a4/88f9e10498759121060b8050a1554753dfc04df39bbbcc7aad9ecc8d9440/s3transfer-0.19.3-py3-none-any.whl /wheels/s3transfer-0.19.3-py3-none-any.whl
+ADD --checksum=sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274 https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl /wheels/six-1.17.0-py2.py3-none-any.whl
+ADD --checksum=sha256:0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3 https://files.pythonhosted.org/packages/92/9d/c4e665119135114480843e7ab388fa94d8480650450e6f8e26b70d323a4c/urllib3-2.8.0-py3-none-any.whl /wheels/urllib3-2.8.0-py3-none-any.whl
 ADD --checksum=sha256:bd249d0b3f7972f7432f0a6b6ff3b3ee2d129f70cd1ff6c09a9dd9e29a2b88e3 https://files.pythonhosted.org/packages/fe/85/7522a52e5e2f42faf1a129113ab63e548c42e103e9af395b7bfe65e403e2/gunicorn-26.2.0-py3-none-any.whl /wheels/gunicorn-26.2.0-py3-none-any.whl
 ADD --checksum=sha256:a1db9f7148b06a28606767efaca51fa6f9398c5c0a3810519be69d7000bdb631 https://files.pythonhosted.org/packages/4e/de/748bd7609c71cae5d737f0ba9192f19329f70180ecda8fff3cac02c5abe3/psycopg-3.3.6-py3-none-any.whl /wheels/psycopg-3.3.6-py3-none-any.whl
 ADD --checksum=sha256:1679a1cb93fbe5a6d1fd58d82cbddcc6fcb8c61446ba7cae6eb2a7b19bc585de https://files.pythonhosted.org/packages/0a/42/948bb3d2617795093512613fd96ba380e922992c7908fbc073858147d196/psycopg_binary-3.3.6-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl /wheels/psycopg_binary-3.3.6-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
@@ -24,13 +31,17 @@ COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=node /usr/local/LICENSE /usr/share/doc/nodejs/LICENSE
 WORKDIR /app/verification
 COPY verification/http_transport.py verification/aws_client.py ./
+COPY verification/aws_credential_process.py verification/aws_credential_rotate.py ./
 COPY verification/cluster-requirements.lock verification/runtime-requirements.lock verification/rp-requirements.lock ./
+COPY deployment/aws/requirements.lock /app/aws-requirements.lock
 COPY deployment/build/python-wheels.lock.json /usr/share/doc/openid-python/python-wheels.lock.json
-RUN --network=none --mount=type=bind,from=python-wheels,source=/wheels,target=/wheels ["python", "-m", "pip", "--isolated", "--disable-pip-version-check", "install", "--no-index", "--find-links=/wheels", "--no-cache-dir", "--require-hashes", "--only-binary=:all:", "--report=/usr/share/doc/openid-python/wheel-installation.json", "-r", "cluster-requirements.lock", "-r", "runtime-requirements.lock", "-r", "rp-requirements.lock"]
+RUN --network=none --mount=type=bind,from=python-wheels,source=/wheels,target=/wheels ["python", "-m", "pip", "--isolated", "--disable-pip-version-check", "install", "--no-index", "--find-links=/wheels", "--no-cache-dir", "--require-hashes", "--only-binary=:all:", "--report=/usr/share/doc/openid-python/wheel-installation.json", "-r", "cluster-requirements.lock", "-r", "runtime-requirements.lock", "-r", "rp-requirements.lock", "-r", "/app/aws-requirements.lock"]
 RUN --network=none ["python", "-c", "from pathlib import Path; Path('/usr/share/doc/openid-python/wheel-profile.txt').write_text('registry\\n')"]
 COPY verification/cluster_bridge.py verification/federation.py verification/federation_parties.py verification/cluster_serve.py verification/cluster_operator.py verification/postgres.py verification/transit.py verification/maintenance.py verification/monitor.py verification/runtime.py verification/biometric_worker.py verification/serve.py verification/native.py verification/wallet.py verification/identity.py verification/crypto_runtime.py ./
 COPY verification/crypto-worker.mjs verification/device-signature.mjs verification/profile-crypto.mjs ./
 COPY verification/licenses /app/licenses
+COPY deployment/aws/licenses /app/licenses/aws
+COPY deployment/aws/THIRD_PARTY.md deployment/aws/sbom.cdx.json /app/licenses/aws/
 COPY verification/THIRD_PARTY.md /app/licenses/components.md
 COPY deployment/cluster/probe.py ./probe.py
 COPY verification/cluster_recovery.py verification/audit_archive.py verification/sqlite_retention.py ./
@@ -38,7 +49,9 @@ COPY verification/subject_access.py verification/postgres_subject_access.py ./
 COPY verification/erasure_policy.py verification/subject_erasure.py verification/recovery_binding.py ./
 COPY verification/ingress_client.py verification/ipc_support.py ./
 COPY verification/enrollment_policy.py verification/acceptance_journal.py verification/consent_retention.py ./
+COPY verification/federation_config.py verification/registry_binding.py verification/postgres_continuity.py verification/revocation.py verification/notices.py verification/notice_ipc.py verification/continuity_operator.py ./
 COPY verification/image_input.py ./
+COPY verification/spar_provider.py ./
 COPY verification/bounded_process.py verification/profile_worker.py verification/worker_confinement.py ./
 COPY deployment/cluster/schema.sql /app/deployment/cluster/schema.sql
 COPY deployment/build/remove_build_pip.py /tmp/remove_build_pip.py

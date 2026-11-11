@@ -13,6 +13,7 @@ Testantal från äldre revisioner används inte som bevis för den aktuella.
 | Åldersverifiering | [Avgränsad verifierarintegration](aldersverifiering.md#tester). Python och Node; verifierare och plånbok ersätts av testdubblar i integrationsproven. |
 | iPhone | [Bygge och simulatorprov](../ios/README.md#bygg-och-testa). macOS och Xcode. |
 | Pilotcontainer | [Drift- och kapacitetsprov](../deployment/README.md#drift-och-kapacitet) samt [export/import av image](../deployment/build/README.md). |
+| Sammanhängande driftprofil | [Konfiguration, nyckelgränser och ingress](../deployment/production/README.md#automatiska-prov). Syntetiska prov; inte verifierad produktionsdrift. |
 | PostgreSQL och OpenBao | [Registertester](../deployment/cluster/README.md#tester). Isolerade syntetiska register. |
 | Nginx | `python3 deployment/test_beta_nginx.py`. Linux och nginx; egna temporära kataloger, ingen ändring av systemtjänsten. |
 | AWS-mallar | [Kompatibilitetsprov](../deployment/aws/README.md), [arkiv](../deployment/archive/README.md) och [backup/loggning](../deployment/security/README.md). Lokala mallprov skapar inga AWS-resurser. |
@@ -45,12 +46,13 @@ byggen och behålls i källträdet; gamla fristående testresultat gör det inte
 | Certifikatspärr | Signerade CRL:er, spärrad DSC, utgång, återgång och atomiska filbyten. Utgång under registrering ska stoppa aktivering. | Operativ källa, aktualitet och återställning i drift. |
 | Biometri | Modellinferens, huvudordning, parallax, försöksbudget, fel och samtidighet. | Kalibrerad felacceptans/felavvisning, presentationer, injektion och fysisk kamerakedja. |
 | iPhone | Nyckelflöde, nätverksgräns, avbrott, registreringsåterhämtning, kameraguide och UI-fixturer. | Secure Enclave, App Attest, NFC, Face ID och fysisk användbarhet. |
-| Livscykel | Aktivering enligt valt läge, utgång, spärr, engångsbruk och nyckelbyte. | Aktuell serverkonfiguration och sammanhängande telefonprov. |
+| Livscykel | Aktivering enligt valt läge, kortlivade PG-intent, atomisk avisering, utgång, fristående spärr, rollback, engångsbruk och byte inom samma dokumentgrupp. | Aktuell serverkonfiguration och sammanhängande telefonprov. |
 | Registreringsval | Exakt text, separata val, signerade kvitton, återkallelse och utgång under automatisk aktivering. | Beslutad information, faktisk app-/serverkombination och deltagarnas tidigare registreringar. |
 | Datahantering | Avgränsade personutdrag, hemliga fält uteslutna, beslutsbunden radering och återspelning vid restore, även i TestFlight-registret. | Riktiga ärenden, lagringstider, externa kopior och operativ återläsning. |
 | Bildarbetare | Formatgränser, resursbudget, pipe-/tidsgränser och Linux fil-/systemanropsisolering. | Faktisk värdkärna och oberoende angreppsprov. |
 | Betans processer | Nyckel-/aviseringssocket, nekade operationer, avbrott utan reservnyckel och leveranskontroll av UID/grupper/monteringar. | Faktiskt ägarskap och innehåll i värdens kataloger samt administrativ rollseparation. |
 | SAML/OIDC | Signatur, mottagare, state, nonce, PKCE, klientintyg, tider, återspelning, nekande och spärr. | Extern OIDC-verifiering och produktionsanslutning; [SAML-sandbox](../integrations/README.md#status) har separat testunderlag. |
+| Federationens driftprofil | Gemensamt profilval, avvisad konfigurationsöverstyrning, separat krypteringsnyckel, offentlig motpartsnyckel och skrivgräns för metadata. SAML-/OIDC-protokollproven använder runtimekommandona med separata syntetiska nycklar. | Aktuell extern metadataregistrering, signerad feed i drift och verkligt prov mot externa testklienter. |
 | Åldersintegration | Sajt-/sessionsbindning, engångsresultat, samtidighet, avbrott och HTTP-/browsergränser med testdubblar. | Verklig mdoc-/ZKP-verifiering, utfärdartillit, native-utgivning/presentation och kryptografisk olänkbarhet. |
 | Webb/nginx | Stora SAML-svar, skydd mot för stora POST, HSTS, klient-IP och synliga slutlägen vid OIDC-återgång. | Den installerade ingressen och fysisk webbläsare/app. |
 | PDF | Signerade bytes, synligt kvitto, förändrat innehåll och separat OpenSSL-validering. | Betrodd certifikatkedja, tid och långtidsvalidering. |

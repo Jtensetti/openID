@@ -11,5 +11,6 @@
   "tlsCert": "/srv/openid/secrets/api.pem",
   "tlsKey": "/srv/openid/secrets/api.key",
   "pairingFile": "/srv/openid/secrets/pairing",
-  "metricsFile": "/srv/openid/secrets/metrics"
+  "metricsFile": "/srv/openid/secrets/metrics",
+  "continuityFile": "/srv/openid/secrets/continuity-client.json"
 }

@@ -59,21 +59,25 @@ jobs:
           npm test
       - name: Install pinned browser test tooling
         run: npm ci --ignore-scripts
-      - name: Use the official Ubuntu archive for browser dependencies
+      - name: Use the official Finnish Ubuntu mirror for browser dependencies
         run: |
           sudo python3 - <<'PY'
           from pathlib import Path
           source = Path('/etc/apt/sources.list.d/ubuntu.sources')
           original = source.read_text()
-          updated = original.replace('mirror+file:/etc/apt/apt-mirrors.txt',
-                                     'https://archive.ubuntu.com/ubuntu')
-          for scheme in ('http', 'https'):
-              updated = updated.replace(f'{scheme}://azure.archive.ubuntu.com/ubuntu',
-                                        'https://archive.ubuntu.com/ubuntu')
+          # Ubuntu's documented Finnish country mirror; preserve Signed-By.
+          # https://documentation.ubuntu.com/project/how-ubuntu-is-made/concepts/package-archive/
+          mirror = 'https://mirrors.nic.funet.fi/ubuntu'
+          updated = original.replace('mirror+file:/etc/apt/apt-mirrors.txt', mirror)
+          updated = updated.replace('mirror+file:/etc/apt/apt-mirrors-security.txt', mirror)
+          for host in ('azure.archive.ubuntu.com', 'archive.ubuntu.com', 'security.ubuntu.com'):
+              for scheme in ('http', 'https'):
+                  updated = updated.replace(f'{scheme}://{host}/ubuntu', mirror)
           if updated != original:
               source.write_text(updated)
-          print('Ubuntu source URI checked; suites, components and signing key unchanged.')
+          print('Ubuntu mirror selected; suites, components and signing key unchanged.')
           PY
+          sudo apt-get update --error-on=any
       - name: Install Chromium for the pinned Playwright version
         run: npx --no-install playwright install --with-deps chromium --only-shell
       - name: Browser SAML, WebAuthn USB/platform, PWA and revocation
@@ -98,7 +102,8 @@ jobs:
           export PROOFING_PYTHON="$PWD/.venv/bin/python"
           .venv/bin/python -m unittest -v test_verification test_image_input test_biometric_diagnostics test_native test_native_retention test_chip test_wallet test_relying_party test_identity test_federation_concurrency test_identity_key test_registry_binding test_runtime test_recovery_operations test_recovery_binding test_crypto_runtime test_revocation test_notices test_continuity_config test_continuity_operator test_pose test_security_code test_biometric_budget test_passport_revocation test_cluster_revocation
           .venv/bin/python -m unittest -v test_audit_archive
-          .venv/bin/python -m unittest -v test_sandbox_federation test_runtime_isolation
+          .venv/bin/python -m unittest -v test_spar_provider
+          .venv/bin/python -m unittest -v test_federation_config test_sandbox_federation test_runtime_isolation
           .venv/bin/python -m unittest -v test_http_transport
           .venv/bin/python -m unittest -v test_age_gateway test_age_http test_age_backend test_age_eligibility test_age_dc_backend test_age_issuance
           .venv/bin/python -m unittest -v test_enrollment_policy test_acceptance_journal test_enrollment_consent

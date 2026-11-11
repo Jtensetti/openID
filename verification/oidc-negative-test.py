@@ -5,6 +5,8 @@ import json, re, ssl, subprocess, tempfile, time, base64
 from pathlib import Path
 import urllib.error, urllib.parse, urllib.request
 from federation import FederationServer
+from federation_config import read_profile
+from runtime_test_fixture import RuntimeFixture
 from test_identity import document
 from test_wallet import crypt
 from wallet import Wallet
@@ -18,15 +20,10 @@ class Forms(HTMLParser):
  def handle_endtag(self,tag):
   if tag=='form': self.current=None
 with tempfile.TemporaryDirectory() as tmp:
- root=Path(tmp); keys=root/'keys'; jar='/app/prototype/target/isolated-eid-lab.jar'
- subprocess.run(['java','-jar',jar,'phone-init',str(keys)],check=True,stdout=subprocess.DEVNULL)
- subprocess.run(['openssl','req','-x509','-newkey','rsa:2048','-nodes','-days','1','-subj','/CN=idp.example.test','-addext','subjectAltName=DNS:idp.example.test,DNS:sp.example.test','-keyout',str(root/'ingress.key'),'-out',str(root/'ingress.crt')],check=True,capture_output=True)
- subprocess.run(['keytool','-importcert','-noprompt','-alias','ingress','-file',str(root/'ingress.crt'),'-keystore',str(root/'trust.p12'),'-storepass','test-only-changeit'],check=True,capture_output=True)
- origins=root/'origins.json'; origins.write_text(json.dumps({'idp':'https://idp.example.test','sp':'https://sp.example.test'}))
- tls=ssl.create_default_context(cafile=str(keys/'tls.crt'))
+ root=Path(tmp); jar='/app/prototype/target/isolated-eid-lab.jar'
+ fixture=RuntimeFixture(root)
  token_mutation=None;token_request_mutation=None
- subprocess.run(['openssl','pkcs12','-in',str(keys/'idp.p12'),'-passin','pass:test-only-changeit','-nodes','-nocerts','-out',str(root/'idp.pem')],check=True,capture_output=True)
- subprocess.run(['openssl','pkcs12','-in',str(keys/'sp.p12'),'-passin','pass:test-only-changeit','-nodes','-nocerts','-out',str(root/'sp.pem')],check=True,capture_output=True)
+ fixture.private_pem('idp');fixture.private_pem('sp')
  used_assertion=None;used_code=None;used_verifier=None
  def b64(data):return base64.urlsafe_b64encode(data).rstrip(b'=').decode()
  class Proxy(http.server.BaseHTTPRequestHandler):
@@ -37,7 +34,7 @@ with tempfile.TemporaryDirectory() as tmp:
    global used_assertion,used_code,used_verifier
    host=self.headers.get('Host'); port={'idp.example.test':9443,'sp.example.test':9444}.get(host)
    if port is None:self.send_error(400);return
-   c=http.client.HTTPSConnection('127.0.0.1',port,context=tls,timeout=20)
+   c=http.client.HTTPSConnection('127.0.0.1',port,context=fixture.upstream_tls[host],timeout=20)
    body=self.rfile.read(int(self.headers.get('Content-Length','0')))
    if self.path=='/oidc/token' and token_request_mutation:
     fields=urllib.parse.parse_qs(body.decode())
@@ -78,18 +75,15 @@ with tempfile.TemporaryDirectory() as tmp:
     self.send_header('Content-Length',str(len(data)));self.end_headers();self.wfile.write(data)
    except ConnectionRefusedError:self.send_error(503)
    finally:c.close()
- ingress=http.server.ThreadingHTTPServer(('127.0.0.1',443),Proxy)
- ingress_tls=ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER);ingress_tls.load_cert_chain(root/'ingress.crt',root/'ingress.key')
- ingress.socket=ingress_tls.wrap_socket(ingress.socket,server_side=True)
- threading.Thread(target=ingress.serve_forever,daemon=True).start()
+ ingress=fixture.ingress(Proxy)
  offset=0
  wallet=Wallet(root/'wallet.sqlite','https://localhost:8765',clock=lambda:time.time()+offset)
- bridge=FederationServer(root/'bridge.sock',wallet,audience='https://sp.example.test/sp')
+ bridge=FederationServer(root/'bridge.sock',wallet,audience='https://sp.example.test/sp',sandbox=read_profile(fixture.federation))
  children=[];log=open(root/'service.log','w+')
  try:
-  for mode in ('phone-idp','phone-sp'):
-   children.append(subprocess.Popen(['java','-Xmx256m','-Djavax.net.ssl.trustStore='+str(root/'trust.p12'),'-Djavax.net.ssl.trustStorePassword=test-only-changeit','-jar',jar,mode,str(keys),str(bridge.path),str(origins)],stdout=log,stderr=log))
-  public_tls=ssl.create_default_context(cafile=str(root/'ingress.crt'))
+  for role in ('idp','sp'):
+   children.append(subprocess.Popen(fixture.command(role,jar,bridge.path),stdout=log,stderr=log))
+  public_tls=fixture.public_tls
   capture_callback=False;captured_callback=None;capture_authorize=False;captured_authorize=None
   class Redirect(urllib.request.HTTPRedirectHandler):
    def redirect_request(self,req,fp,code,msg,headers,newurl):
@@ -186,4 +180,4 @@ with tempfile.TemporaryDirectory() as tmp:
   for c in children:
    try:c.wait(timeout=10)
    except subprocess.TimeoutExpired:c.kill();c.wait()
-  bridge.close();ingress.shutdown();log.close()
+  bridge.close();ingress.shutdown();ingress.server_close();log.close()

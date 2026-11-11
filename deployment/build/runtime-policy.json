@@ -1,8 +1,8 @@
 {
   "format": 1,
-  "reviewed": "2026-11-06",
+  "reviewed": "2026-11-10",
   "reviewBefore": "2026-11-30",
-  "sourceSHA256": "6ab7e19798b789eda5f1bf084b837c8506eabfb3c156209282ba60ed2154cd9c",
+  "sourceSHA256": "5a329bbde5cdb85d5c6cdc410dd542d2e9c8cddb86e94d8037ca33916aeaf402",
   "scope": "The two Linux/amd64 application images built from the locked Docker Official Python image. Not a distribution-wide VEX, host assessment, or risk acceptance.",
   "removedPackages": [
     "apt",
@@ -2294,19 +2294,6 @@
       ]
     },
     {
-      "id": "CVE-2026-115506",
-      "package": "expat",
-      "version": "2.9.0",
-      "status": "not_affected",
-      "checks": [
-        "python_xml_not_exposed"
-      ],
-      "reason": "No attacker-supplied XML reaches Expat: public handlers accept bounded JSON, and the three fixed AWS runtime clients use JSON protocols. S3/STS operator tooling is outside these images. Native image codecs and fixed local models are separate parsers.",
-      "references": [
-        "https://www.cve.org/CVERecord?id=CVE-2026-115506"
-      ]
-    },
-    {
       "id": "CVE-2026-118370",
       "package": "expat",
       "version": "2.9.0",
@@ -2766,7 +2753,7 @@
     "CGA-56x7-w5g7-cp2r": "3e495e91b549d34a23c72ad81d6ba92bf903c810ae9175855ee53c71ead4c10e",
     "CGA-w27g-mvvc-9237": "58a0579171dd884d99e7df2ccadb1dd042fa243a38b5f3e17ed11997bebb9a66",
     "CGA-mv79-84p3-2cjx": "e97d1f74a9e4340cf9b81ba3f94fac9835fead62a3d063225f9b7d8d95063c57",
-    "CGA-p69v-pp9m-4999": "93fe312e51f066a3522c7d6141396ae94ffeac6f325e29417e8e567efb7259cc"
+    "CGA-p69v-pp9m-4999": "85d7bdefe72e2817723f4052fc9f66bebce9899d8fd1136baed3812845071fbf"
   },
   "cnaSHA256": {
     "CVE-2019-1010022": "3f53b4b1fafa0c4750765deafadf427498cb63f7a7d948181b79feb66863d0d3",
@@ -2825,5 +2812,42 @@
       ],
       "check": "postgres_scram_only"
     }
+  },
+  "sourceReview": {
+    "baselineRevision": "dd08cb09abf028e018ce959c7eb0641c7d37d41d",
+    "baselineSourceSHA256": "6ab7e19798b789eda5f1bf084b837c8506eabfb3c156209282ba60ed2154cd9c",
+    "candidateRevision": "2ae993dcdc94a0af0a70deb4ef57b5ab9e960a59",
+    "scope": "Application source changes covered by the two Docker COPY sets since the previous exact source fingerprint. Policy excluded from its own fingerprint.",
+    "changedFiles": [
+      "deployment/Dockerfile",
+      "deployment/saml_bridge.py",
+      "prototype/src/main/java/lab/Lab.java",
+      "prototype/src/main/java/lab/Metadata.java",
+      "prototype/src/main/java/lab/PilotOidc.java",
+      "prototype/src/main/java/lab/PilotOidcClient.java",
+      "prototype/src/main/java/lab/RelyingParty.java",
+      "prototype/src/main/java/lab/RuntimeFederation.java",
+      "prototype/src/main/java/lab/RuntimeKeys.java",
+      "prototype/src/main/java/lab/ServiceKeys.java",
+      "prototype/src/main/java/lab/SwedenConnectSandbox.java",
+      "prototype/src/main/java/lab/TestConsole.java",
+      "prototype/src/main/java/lab/TestKeys.java",
+      "verification/federation_config.py"
+    ],
+    "assessment": [
+      "Docker adds only federation_config.py, using Python standard-library JSON and fixed-size protected configuration files. Base images, native libraries, package locks, runtime hardening and removed payload sets are unchanged.",
+      "The bridge maps the shared protected configuration only to the existing sandbox boolean. No new SQL, XML parser, native image/video input, subprocess or Base64 decoder is introduced in the shipped Python surface. Existing exact requester allowlists and consent binding remain in both languages.",
+      "Java runtime files load operator-provisioned PKCS12 stores and pinned public X.509 peers with existing JCA/Sweden Connect APIs. Role checks expose no private issuer material to the SP; metadata state is separate from the read-only credentials. New command paths do not forward public protocol input to Python native sinks.",
+      "SAML adds the existing fixed HTTPS signed SP feed and packaged signature anchor to the runtime profile. It retains HTTPS hostname checks, scoped algorithms and exact requester controls. No arbitrary network URL or new upstream dependency is configured.",
+      "The public OIDC JWK is derived from the pinned public RSA certificate with the library-compatible thumbprint identifier. Existing JWS, nonce, PKCE, client-assertion and revocation checks remain. No assertion assurance level is raised.",
+      "No advisory disposition, native-call boundary, required evidence check, feed digest or review expiry is relaxed. Fresh image evidence and current scanner/advisory inputs must still satisfy every existing rule."
+    ],
+    "limits": [
+      "This source-impact review is AI-assisted preparation, not independent release attestation, proof of deployment or a claim of general vulnerability absence.",
+      "Native imports, image hashes and guards must be re-collected inside each exact final image; missing, changed or new advisory evidence remains blocking.",
+      "The private synthetic runtime protocol suite does not verify the live Sandbox feed or external clients, HSM protection, organizational separation or identity assurance.",
+      "The prior exact-image scanner also reports CVE-2026-115456 and five OpenSSL advisory IDs without matching disposition rules. This source binding does not close them; fresh image assessment must retain each as under investigation.",
+      "The later candidate ships the STS credential rotator using the locked SDK's Query/XML protocol. The prior no-XML-exposure rule for CVE-2026-115506 is withdrawn. STS response handling and the other XML/transport assumptions require reassessment before updating the source binding; they have not been revalidated by this withdrawal."
+    ]
   }
 }

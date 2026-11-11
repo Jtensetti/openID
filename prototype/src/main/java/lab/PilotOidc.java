@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 /** Pinned private-beta client and keys. No dynamic clients or external metadata fetching. */
 final class PilotOidc {
-  static void configure(Map<String,Object> p, TestKeys keys, String issuer, String sp) throws Exception {
+  static void configure(Map<String,Object> p, ServiceKeys keys, String issuer, String sp) throws Exception {
     var key = new RSAKey.Builder((RSAPublicKey)keys.certificate("sp").getPublicKey()).keyID("pilot-sp").keyUse(KeyUse.SIGNATURE).build();
     var metadata = new LinkedHashMap<String,Object>();
     metadata.put("client_name", "openID kontotjänst");

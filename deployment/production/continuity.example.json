@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "region": "eu-north-1",
+  "backendFunction": "arn:aws:lambda:eu-north-1:000000000000:function:REPLACE_WITH_DEPLOYED_AUTHORITY"
+}

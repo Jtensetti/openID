@@ -39,6 +39,9 @@ class SwedenConnectSandboxTest {
     assertThrows(IllegalArgumentException.class, () -> SwedenConnectSandbox.initialize(directory));
     Files.write(directory.resolve("sandbox-saml-metadata-signing.crt"), Files.readAllBytes(directory.resolve("tls.crt")));
     assertThrows(IllegalStateException.class, () -> SwedenConnectSandbox.validate(keys));
+    Files.delete(directory.resolve("encryption.p12"));
+    assertNotNull(keys.encryptionCertificate());
+    assertTrue(Metadata.idp(keys, "https://localhost:8443").contains("<md:KeyDescriptor use=\"encryption\">"));
   }
 
   @Test void externalRequestersRequireExplicitSandboxMode() {

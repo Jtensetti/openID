@@ -90,6 +90,6 @@ def export_once(wallet, send):
             db.execute("""UPDATE notice_outbox SET attempts=attempts+1
                           WHERE event=? AND status='PENDING' AND attempts<5""", (event['event'],))
         else:
-            db.execute("""UPDATE notice_outbox SET attempts=min(attempts+1,5),status='QUEUED',accepted_reference=?
+            db.execute("""UPDATE notice_outbox SET attempts=CASE WHEN attempts<5 THEN attempts+1 ELSE 5 END,status='QUEUED',accepted_reference=?
                           WHERE event=? AND status='PENDING'""", (receipt,event['event']))
     return True
