@@ -768,7 +768,7 @@ class ClusterTests(unittest.TestCase):
         self.assertEqual('SYNTHETIC AGREEMENT',data['federation_requests'][0]['sign_message'])
         self.assertEqual(1,len(data['biometric_attempts']))
         second=next(ident for ident in case['credentials'] if ident!=self.ident)
-        self.assertCountEqual([(self.ident,'ACTIVATION_REQUESTED'),(second,'REVOKED'),(self.ident,'ACTIVATED')],
+        self.assertCountEqual([(self.ident,'REGISTRY_CHECKED'),(self.ident,'ACTIVATION_REQUESTED'),(second,'REVOKED'),(self.ident,'ACTIVATED')],
             [(r['credential'],r['kind']) for r in data['operator_events']])
         self.assertTrue(all(r['time'].endswith('+00:00') for r in data['operator_events']))
         self.assertTrue(data['enrollment_consents'][0]['recordedAcceptance']['biometricsAccepted'])
