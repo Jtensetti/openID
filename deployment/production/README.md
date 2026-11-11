@@ -226,6 +226,39 @@ organisatorisk kontroll, oberoende granskning eller Diggs beslut.
 
 ## Automatiska prov
 
+### Inventering av alla tre bilder
+
+`delivery_inventory.py` binder app, PostgreSQL och OpenBao till samma
+kompletta kanoniska runtimeprov, källrevision och källträd. Det kräver den
+låsta leverantörskällan och bildens uppmätta linux/amd64-ID i Docker,
+läser OS-identitet och installerade dpkg-/APK-paket samt kör binärernas
+versionskommandon utan nät, driftvolymer eller extra kapabiliteter.
+Källbindningen bygger på Docker-daemonens upplösning av den låsta referensen;
+den är ingen oberoende attestering av registret eller en komplett SBOM.
+
+```sh
+python3 deployment/production/delivery_inventory.py \
+  --image "$TJIPP_IMAGE_ID" --runtime "$RUNNER_TEMP/canonical-runtime.json" \
+  --os-audit "$RUNNER_TEMP/image-os-audit" \
+  --output "$RUNNER_TEMP/three-image-inventory.json"
+```
+
+Rapporten skiljer `inventoryComplete` från `releaseReady`. Appens befintliga
+OS-verifierare återanvänds endast för appen. PostgreSQL och OpenBao har ännu
+inga egna införda bedömningsprofiler; deras status är `missing`, aldrig
+`not_applicable` eller ett ärvt godkännande. Saknad, ofullständig, underkänd
+och avvisad appbedömning redovisas separat. Inventeringen kan lyckas samtidigt
+som `releaseStatus` är `BLOCKED`; `--require-release-ready` nekar då med
+felkod 2. Ofullständig inventering ger felkod 1 även utan denna flagga.
+
+CI behåller inventeringen även när appens OS-bedömning underkänns.
+Detta verktyg exporterar eller importerar inga bilder. Full bedömning av
+alla tre, versionsbundet export-/importpaket och verifierad återläsning
+återstår före leverans. Den äldre `image_bundle.py` hanterar en enda
+appbild och utgör inte ett komplett paket för denna driftprofil.
+
+### Konfiguration och runtime
+
 ```sh
 python3 -m unittest discover -s deployment/production -p 'test_*.py' -v
 python3 deployment/test_beta_nginx.py --configuration deployment/production/nginx.conf.in

@@ -288,6 +288,14 @@ jobs:
           python3 .github/scripts/audit_image_os.py \
             --image "$(cat "$RUNNER_TEMP/image-id.txt")" \
             --output "$RUNNER_TEMP/image-os-audit"
+      - name: Inventory the three canonical images without inheriting application approval
+        if: always()
+        run: |
+          python3 deployment/production/delivery_inventory.py \
+            --image "$(cat "$RUNNER_TEMP/image-id.txt")" \
+            --runtime "$RUNNER_TEMP/canonical-runtime.json" \
+            --os-audit "$RUNNER_TEMP/image-os-audit" \
+            --output "$RUNNER_TEMP/three-image-inventory.json"
       - name: Save image package inventory
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -303,6 +311,7 @@ jobs:
             ${{ runner.temp }}/runtime-components.json
             ${{ runner.temp }}/sqlite-transition.json
             ${{ runner.temp }}/canonical-runtime.json
+            ${{ runner.temp }}/three-image-inventory.json
             ${{ runner.temp }}/python-runtime-evidence
             ${{ runner.temp }}/debian-runtime-evidence
             ${{ runner.temp }}/temurin-upstream-sbom.cdx.json
