@@ -219,6 +219,8 @@ class RegistryBindings:
 
     def identity_attributes(self, credential):
         # Not wired into SAML/OIDC. Disclosure needs a separate attribute/consent policy.
+        if self.source == 'spar-kundtest':
+            raise ValueError('synthetic national attributes forbidden')
         with self.wallet.transaction() as db:
             self.wallet.verified_profile(db, credential)
             _, data, _ = self._binding(db, credential)
