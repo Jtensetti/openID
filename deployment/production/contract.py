@@ -40,7 +40,7 @@ ENVIRONMENTS['credential-rotator'].update(AWS_EC2_METADATA_DISABLED='false', AWS
 for name in ('continuity', 'notice-exporter'):
     ENVIRONMENTS[name]['OPENID_AWS_SESSION_FILE'] = '/srv/openid/aws/session.json'
 ENVIRONMENTS['notice-exporter']['OPENID_NOTICE_SOCKET'] = '/srv/openid/notice-ipc/notice.sock'
-ENVIRONMENTS['openbao'] = {'BAO_ENABLE_FILE_PERMISSIONS_CHECK': 'true'}
+ENVIRONMENTS['openbao'] = {'BAO_ENABLE_FILE_PERMISSIONS_CHECK': 'true', 'USER': 'tjipp-openbao', 'HOME': '/tmp'}
 ENVIRONMENTS['postgres'] = {}
 ENTRYPOINTS = {'postgres': ['postgres'], 'openbao': ['bao']}
 COMMANDS = {'postgres': ['-D', '/srv/postgresql/data', '-c', 'config_file=/srv/postgresql/config/postgresql.conf'],

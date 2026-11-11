@@ -78,6 +78,8 @@ class Runtime:
         if command(['docker','ps','-aq','--filter','label=com.docker.compose.project=tjipp']).strip():
             raise ValueError('refusing an existing Tjipp deployment')
         self.report=report;self.phase('prepare_vendor_images')
+        self.report.update(applicationImage=image,vendorImages={name:value['id'] for name,value in VENDORS.items()},
+                           sourceRevision=command(['git','rev-parse','HEAD'],cwd=ROOT).strip(),checks=[])
         self.resources=ExitStack();self.root=Path(tempfile.mkdtemp(prefix='tjipp-runtime-')).resolve()
         self.root.chmod(0o711)
         self.resources.callback(shutil.rmtree,self.root,ignore_errors=True)
@@ -230,7 +232,7 @@ class Runtime:
                  '--user','999:999','--tmpfs','/tmp:size=32m,mode=1777','-v',str(self.root/'postgres/data')+':/data',
                  '-v',str(password_file)+':/password:ro','--entrypoint','initdb',VENDORS['postgres']['id'],
                  '-D','/data','-U','postgres','--pwfile=/password','--auth=scram-sha-256'])
-        self.dc('up','-d','postgres','openbao');self.children_started=True
+        self.children_started=True;self.dc('up','-d','postgres','openbao')
         self.admin=make_conninfo(host='127.0.0.1',port=15432,dbname='postgres',user='postgres',password=password,
                                 sslmode='verify-full',sslrootcert=str(pg_cert))
         def db_ready():

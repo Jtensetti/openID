@@ -83,6 +83,8 @@ services:
     - bao
     environment:
       BAO_ENABLE_FILE_PERMISSIONS_CHECK: 'true'
+      USER: tjipp-openbao
+      HOME: /tmp
     volumes:
     - type: bind
       source: ${TJIPP_DIRECTORY:?Set TJIPP_DIRECTORY}/openbao/config
