@@ -2294,19 +2294,6 @@
       ]
     },
     {
-      "id": "CVE-2026-115506",
-      "package": "expat",
-      "version": "2.9.0",
-      "status": "not_affected",
-      "checks": [
-        "python_xml_not_exposed"
-      ],
-      "reason": "No attacker-supplied XML reaches Expat: public handlers accept bounded JSON, and the three fixed AWS runtime clients use JSON protocols. S3/STS operator tooling is outside these images. Native image codecs and fixed local models are separate parsers.",
-      "references": [
-        "https://www.cve.org/CVERecord?id=CVE-2026-115506"
-      ]
-    },
-    {
       "id": "CVE-2026-118370",
       "package": "expat",
       "version": "2.9.0",
@@ -2859,7 +2846,8 @@
       "This source-impact review is AI-assisted preparation, not independent release attestation, proof of deployment or a claim of general vulnerability absence.",
       "Native imports, image hashes and guards must be re-collected inside each exact final image; missing, changed or new advisory evidence remains blocking.",
       "The private synthetic runtime protocol suite does not verify the live Sandbox feed or external clients, HSM protection, organizational separation or identity assurance.",
-      "The prior exact-image scanner also reports CVE-2026-115456 and five OpenSSL advisory IDs without matching disposition rules. This source binding does not close them; fresh image assessment must retain each as under investigation."
+      "The prior exact-image scanner also reports CVE-2026-115456 and five OpenSSL advisory IDs without matching disposition rules. This source binding does not close them; fresh image assessment must retain each as under investigation.",
+      "The later candidate ships the STS credential rotator using the locked SDK's Query/XML protocol. The prior no-XML-exposure rule for CVE-2026-115506 is withdrawn. STS response handling and the other XML/transport assumptions require reassessment before updating the source binding; they have not been revalidated by this withdrawal."
     ]
   }
 }

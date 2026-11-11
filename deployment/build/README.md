@@ -199,6 +199,11 @@ Vid kod- eller beroendeändring måste berörda dataflöden omprövas innan
 Import/export räknar om besluten från rådata och kräver policyn från den
 betrodda checkouten. Bedömningar är inte oberoende attestation eller riskacceptans.
 
+STS-förnyaren ingår i appimages och använder den låsta SDK:ns Query/XML-protokoll.
+Den tidigare undantagsbedömningen för CVE-2026-115506 är därför tillbakadragen.
+Före förnyad källbindning behöver STS-svarens dataväg och berörda XML-/transportvillkor
+omprövas. Den befintliga kontrollen av tre JSON-klienter täcker inte denna process.
+
 Skanner och upstream-SBOM verifieras mot [trivy.lock.json](trivy.lock.json).
 Databasen och komponentfeedens index/arkiv får vara högst 24 timmar gamla.
 Ofullständighet och verktygsfel stoppar exporten. `pilot-image-inventory` och
