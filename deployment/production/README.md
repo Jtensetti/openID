@@ -5,6 +5,9 @@ den tidigare SQLite-/socket-vault-kompositionen med PostgreSQL och OpenBao
 Transit. Nyregistrering är stängd som standard. Profilen är under verifiering och har inget
 tillstånd att utfärda e-legitimationer.
 
+Separata [leverantörskandidater](vendor-builds/README.md) kan byggas för att
+åtgärda paketfynd. Deras provresultat ändrar inte profilens låsta bilder.
+
 Samma version ska kunna granskas och senare importeras utan ombygge. Kod,
 lokalt prov, CI-resultat, installerade image-ID:n och formellt driftbeslut är
 skilda bevis. Röd leveransgrind stoppar driftsättning.

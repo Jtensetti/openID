@@ -1,0 +1,31 @@
+name: Patched vendor candidates
+on:
+  pull_request:
+    paths:
+      - deployment/production/vendor-builds/**
+      - .github/workflows/vendor-candidates.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: vendor-candidates-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  candidates:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Build and scan candidates without deployment credentials
+        run: |
+          python3 -m unittest discover -s deployment/production/vendor-builds -p test_prepare_source.py -v
+          python3 deployment/production/vendor-builds/candidates.py --output "$RUNNER_TEMP/vendor-candidates"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: vendor-candidate-evidence
+          path: ${{ runner.temp }}/vendor-candidates/
+          if-no-files-found: error
+          retention-days: 7

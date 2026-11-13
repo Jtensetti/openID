@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "sourceRevision": "9e0a0d3c3504a0a00b45e61355afac5e35c78379",
+  "sourceArchiveSHA256": "66e11aed1b4911c7da20ee93283db7eac08e15a7617bc73fb33d70505c1913d5",
+  "goVersion": "1.27.4",
+  "goLinuxSHA256": "7226736c2339719cda28fbf3a54d71aa63bcefe376e98cef00034268dab24840",
+  "sourceFiles": {
+    "go.mod": {
+      "upstreamSHA256": "0772108dc0425cf85c3d381af93c98c0b4e8098650ba137d142bb60b4a4d5ecb",
+      "modifiedSHA256": "1b9f71485061d7f368406984744ac06e6281f7a4a4dc3a8f598d1077497011dd",
+      "replacement": "openbao.go.mod"
+    },
+    "go.sum": {
+      "upstreamSHA256": "6b2f23c2473959797f3c340928e91aea4a2f8b9fd8beb95befc24afe3b6c4103",
+      "modifiedSHA256": "8de013c274996938fa450153a38b01f2a3de152f332c90fb97f5e2c73f3f3d4d",
+      "replacement": "openbao.go.sum"
+    },
+    "internal/vault/login_mfa.go": {
+      "upstreamSHA256": "d510b4dbccad07249b308cc8483eaaa308f6b0c46bde7318064c56697966c9c3",
+      "modifiedSHA256": "4236f09570ee56f4c737b17e0c69d1d64b0e5871f1f9577ed3f562f7daf6bd92",
+      "replacement": "openbao.login_mfa.go"
+    }
+  }
+}

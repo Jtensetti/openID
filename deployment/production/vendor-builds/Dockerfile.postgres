@@ -1,0 +1,6 @@
+FROM postgres:18.7-alpine3.24@sha256:75dcac3dfb1cd01ca3536910bbc84128759362f8b118bf8c55b38a94f68f3b73
+# The canonical profile runs postgres/initdb as UID 70 and never uses the
+# upstream root entrypoint or its obsolete Go privilege-switching helper.
+RUN --network=none rm /usr/local/bin/gosu && test ! -e /usr/local/bin/gosu
+USER 70:70
+ENTRYPOINT ["postgres"]

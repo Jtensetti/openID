@@ -2,7 +2,7 @@
   "format": 1,
   "reviewed": "2026-11-13",
   "reviewBefore": "2026-11-30",
-  "sourceSHA256": "e52b7dfe6082f39d0857beeec6a6187e60f714b2a893ac03b3ce1c047ebc83b6",
+  "sourceSHA256": "0eac22b47f1833722256c8ff526eac209e724dd556f593c5ccc1a3c4af512025",
   "scope": "The two Linux/amd64 application images built from the locked Docker Official Python image. Not a distribution-wide VEX, host assessment, or risk acceptance.",
   "removedPackages": [
     "apt",
@@ -2779,7 +2779,7 @@
     "CGA-56x7-w5g7-cp2r": "3e495e91b549d34a23c72ad81d6ba92bf903c810ae9175855ee53c71ead4c10e",
     "CGA-w27g-mvvc-9237": "58a0579171dd884d99e7df2ccadb1dd042fa243a38b5f3e17ed11997bebb9a66",
     "CGA-mv79-84p3-2cjx": "e97d1f74a9e4340cf9b81ba3f94fac9835fead62a3d063225f9b7d8d95063c57",
-    "CGA-p69v-pp9m-4999": "13871a0444e38207306d0c1e771fa235ff05879a22d13cb835ff96a7a7738d6e"
+    "CGA-p69v-pp9m-4999": "a399b296885ae1eb63c28640e27e3883c85ba05e3d6794b79f2a1406b5bea07f"
   },
   "cnaSHA256": {
     "CVE-2019-1010022": "3f53b4b1fafa0c4750765deafadf427498cb63f7a7d948181b79feb66863d0d3",
@@ -2799,8 +2799,8 @@
     "CVE-2026-103995": "8619d18631cdf10d3014aa90270604026964a9234485e6a32cf4ef564514e455",
     "CVE-2026-116566": "82730ad12219168166d605385cdea1d9f94bde44d9bd056b4a20d6c44600ca51",
     "CVE-2026-109518": "3f7cda7f4b56d8df51030014ced21b5470db452b96641154ea0295e1543fe61d",
-    "CVE-2026-114690": "149838a1d10c4126028205a531ba2b6963ff21df3362a1568a3d1adb45ffd06e",
-    "CVE-2026-114691": "868d1ee5260b1742d3d54e2e63be3f12dce152dd42f8e7b9d4d84ff9abd09472",
+    "CVE-2026-114690": "3f91ea8f46c0eb7863c3db3b067fce175b60b1bc07555bb2db2821b3eddc5392",
+    "CVE-2026-114691": "5a906491b06ded245efa4aac240ac8377b437cdd9819da2ebbe3045dd285388d",
     "CVE-2026-115455": "a6c212a035baa8ae2748d4a4d13b6530d554a26d06887057bd1108b55effe7a2",
     "CVE-2026-84243": "0d25bf5c7cbe808c050368b93abc1a8d4fd49c9045d51d09f7db9c8ca4085eff",
     "CVE-2026-76844": "6c757788f26aee161879f197d924f1a7c841caf924cf57547cb0895063425a97",
@@ -2888,6 +2888,9 @@
       "AI-assisted source-impact preparation, not independent review, deployment evidence or general vulnerability absence.",
       "All existing native call boundaries, removal requirements, advisory feed hashes and the November 30 review expiry remain enforced. Changed or missing native evidence remains blocking.",
       "Unresolved GCC, glibc and OpenSSL advisories remain under investigation and block packaging. Vendor images use separate assessment and never inherit these rules."
-    ]
+    ],
+    "candidateBase": "c855f2676ddb38453352547cbef5fb86b512266d",
+    "advisoryRefresh": "2026-11-13: CGA-p69v-pp9m-4999 changes Python 3.12 from detection to pending_upstream_fix; the affected upstream version and existing runtime controls remain unchanged. CVE-2026-114690/114691 add Red Hat product/version/reference metadata; descriptions and header-template triggers are unchanged. No new applicability exemption.",
+    "diagnosticOrder": "The exact-image read-only probe is saved before supplemental feed verification; vendorDisputesVerified stays false until that verification succeeds. All existing gates remain required. THIRD_PARTY.md adds attribution for separate vendor candidates; no runtime behavior change."
   }
 }

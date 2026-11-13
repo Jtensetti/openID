@@ -1,0 +1,24 @@
+FROM python:3.12.16-slim-trixie@sha256:8523d6abeb48ceae0b7240d30c5808fc26cb79c1a635bacdf19cf3baecfbec07 AS build
+ADD --checksum=sha256:7226736c2339719cda28fbf3a54d71aa63bcefe376e98cef00034268dab24840 https://go.dev/dl/go1.27.4.linux-amd64.tar.gz /tmp/go.tar.gz
+ADD --checksum=sha256:66e11aed1b4911c7da20ee93283db7eac08e15a7617bc73fb33d70505c1913d5 https://codeload.github.com/openbao/openbao/tar.gz/9e0a0d3c3504a0a00b45e61355afac5e35c78379 /tmp/source.tar.gz
+RUN --network=none mkdir /source && tar -xzf /tmp/go.tar.gz -C /usr/local && tar -xzf /tmp/source.tar.gz -C /source --strip-components=1 && rm /tmp/*.tar.gz
+ENV PATH=/usr/local/go/bin:$PATH CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOTOOLCHAIN=local GOENV=off GOPROXY=https://proxy.golang.org GOSUMDB=sum.golang.org
+WORKDIR /source
+COPY openbao.go.mod openbao.go.sum openbao.login_mfa.go tjipp_mfa_test.go sources.lock.json prepare_source.py /patch/
+RUN --network=none python /patch/prepare_source.py /source /patch
+RUN go mod download && go mod verify
+RUN --network=none go test -p=2 -mod=readonly ./internal/vault -run '^TestTjippOktaUnavailable$' -count=1
+RUN --network=none go build -p=2 -mod=readonly -trimpath -buildvcs=false -tags=openbao -ldflags="-s -w -X github.com/openbao/openbao/v2/internal/version.GitCommit=9e0a0d3c3504a0a00b45e61355afac5e35c78379+TJIPP-DEPENDENCY-UPDATES" -o /out/bao .
+COPY collect_licenses.py /patch/
+RUN --network=none python /patch/collect_licenses.py /out/notices && cp /usr/local/go/LICENSE /out/notices/GO-LICENSE && cp LICENSE /out/notices/OPENBAO-LICENSE && cp go.mod go.sum internal/vault/login_mfa.go /out/notices/ && cp /patch/sources.lock.json /out/notices/
+
+FROM ghcr.io/openbao/openbao:2.7.2@sha256:5046911075e137e154ce49ab051502f4ec7cf367d484ae4a4dce665d9b90561f
+USER root
+# Package-management tools are unused in this immutable non-root profile.
+# Remove them together with their zlib dependency using the package manager,
+# retaining an honest installed-package database for the later full scan.
+RUN --network=none apk del --no-network apk-tools libapk zlib && test ! -e /lib/libz.so.1
+COPY --from=build /out/bao /usr/bin/bao
+COPY --from=build /out/notices /usr/share/doc/tjipp-openbao
+USER 10008:20008
+ENTRYPOINT ["bao"]

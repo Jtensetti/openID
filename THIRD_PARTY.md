@@ -350,3 +350,10 @@ och checksummor är oförändrade. CycloneDX-SBOM och daterad OSV-kontroll
 det är inte bevis för frånvaro av sårbarheter. Nya integrationen är
 begränsad till privat pilot. Produktionsförvaltare och oberoende granskare
 återstår enligt förvaltningsavsnittet ovan.
+# Modifierade leverantörskandidater
+
+Källor, ändringar, licenser och fullständiga bygglås för separata PostgreSQL-
+och OpenBao-kandidater finns i [bygginstruktionen](deployment/production/vendor-builds/README.md).
+De är inte valda driftbilder förrän de bundits till driftprofilens lås och
+hela integrationen har verifierats. OpenBao-källändringarna distribueras under
+MPL-2.0 med originallicens, ändrade filer och upstream-revision.
