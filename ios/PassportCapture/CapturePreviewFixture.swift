@@ -18,6 +18,8 @@ struct RecoveryPreviewFixture: View {
     }
     var body: some View {
         WalletRootView().environmentObject(model)
+            .preferredColorScheme(ProcessInfo.processInfo.arguments.contains("--dark") ? .dark : nil)
+            .environment(\.dynamicTypeSize, ProcessInfo.processInfo.arguments.contains("--largest-text") ? .accessibility5 : .large)
             .safeAreaInset(edge: .top, spacing: 0) {
                 if ProcessInfo.processInfo.arguments.contains("--design-preview") {
                     Text("EXEMPELDATA · INGET VERKLIGT ID").font(.caption2.weight(.semibold))

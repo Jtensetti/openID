@@ -2,6 +2,30 @@ import XCTest
 
 final class WalletUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
+    func testLinkActionStaysAboveKeyboard() {
+        let app = XCUIApplication(); app.launchArguments = ["--design-preview"]; app.launch()
+        app.buttons["Legitimera"].tap()
+        let disclosure = app.buttons["Öppna en länk i stället"]
+        for _ in 0..<5 { if disclosure.isHittable { break }; app.swipeUp() }
+        disclosure.tap()
+        let field = app.textFields["requests.link"]
+        for _ in 0..<5 { if field.isHittable { break }; app.swipeUp() }
+        field.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        let visible = app.buttons.matching(NSPredicate(format: "label == %@", "Öppna begäran")).allElementsBoundByIndex.filter { $0.isHittable }
+        XCTAssertFalse(visible.isEmpty)
+        XCTAssertTrue(visible.contains { $0.frame.maxY <= app.keyboards.firstMatch.frame.minY })
+    }
+    func testDarkAppearanceAndLargestTextHaveReadableHome() {
+        for arguments in [["--dark"], ["--largest-text"]] {
+            let app = XCUIApplication(); app.launchArguments = ["--design-preview"] + arguments; app.launch()
+            XCTAssertTrue(app.staticTexts["home.greeting"].waitForExistence(timeout: 5))
+            XCTAssertLessThanOrEqual(app.staticTexts["home.greeting"].frame.maxX, app.frame.maxX)
+            let image = XCTAttachment(screenshot: app.screenshot())
+            image.name = arguments[0] == "--dark" ? "Tjipp-home-dark" : "Tjipp-home-large-text"
+            image.lifetime = .keepAlways; add(image)
+        }
+    }
     func testSigningCodeKeepsBothActionsAboveKeyboard() {
         let app = XCUIApplication(); app.launchArguments = ["--approval-preview", "--sign", "--pin"]; app.launch()
         XCTAssertEqual(app.staticTexts["approval.heading"].label, "Skriv under med säkerhetskod")
