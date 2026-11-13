@@ -33,9 +33,17 @@ import LocalAuthentication
         if let credential, confirmedRevocationID == credential.id { return .revoked }
         return snapshot?.state
     }
-    var canResumeRegistration: Bool {
-        unlocked && configuration != nil && !busy && !verification.busy
-            && snapshot == nil && confirmedRevocationID == nil
+    var canOfferRegistration: Bool {
+        unlocked && configuration != nil && snapshot == nil && confirmedRevocationID == nil
+    }
+    var canResumeRegistration: Bool { canOfferRegistration && !busy && !verification.busy }
+    var isRefreshingStatus: Bool { busy && activeAction == "snapshot" }
+    func cancelStatusRefresh() {
+        // Only a read may be abandoned. A write may have reached the server already.
+        guard isRefreshingStatus else { return }
+        generation = UUID(); task?.cancel(); activeAction = nil; busy = false
+        pendingLink = nil; focusedRequest = nil
+        statusMessage = "Statuskontrollen avbröts. Ingen ny status har hämtats. Registrering kräver att servern svarar."
     }
     var canForgetCredential: Bool {
         guard unlocked, !busy, !verification.busy, let credential else { return false }
@@ -219,7 +227,7 @@ import LocalAuthentication
                 }
             }
             do {
-                let api = WalletAPI(configuration: configuration)
+                let api = WalletAPI(configuration: configuration, requestTimeout: action == "snapshot" ? 10 : 60)
                 let challenge = try await api.post("/wallet/challenge", body: ["credentialId": credential.id,
                     "action": action, "requestId": (request?.id ?? inspectID) as Any? ?? NSNull()], as: DeviceChallenge.self)
                 let bytes = try challenge.validatedBytes(configuration: configuration, credentialID: credential.id, action: action, request: request, inspectID: inspectID)
@@ -321,6 +329,10 @@ import LocalAuthentication
     }
 
     #if DEBUG && targetEnvironment(simulator)
+    func configureWaitingStatusPreview() {
+        busy = true; activeAction = "snapshot"; statusMessage = nil
+        task = Task { try? await Task.sleep(nanoseconds: 60_000_000_000) }
+    }
     /// Synthetic UI/unit-test state only; never compiled into device builds.
     func configureRecoveryPreview(credential: LocalCredential?, state: CredentialState? = nil,
                                   statusError: Error? = nil, confirmedRevocation: Bool = false,

@@ -14,6 +14,7 @@ struct RecoveryPreviewFixture: View {
             state: state, statusError: state == nil ? URLError(.notConnectedToInternet) : nil,
             confirmedRevocation: arguments.contains("--confirmed-revocation"),
             identity: design ? PassportIdentity(displayName: "ALEX LIND", birthDateMrz: "900516", portraitJpeg: "") : nil)
+        if arguments.contains("--waiting-status") { model.configureWaitingStatusPreview() }
         _model = StateObject(wrappedValue: model)
     }
     var body: some View {

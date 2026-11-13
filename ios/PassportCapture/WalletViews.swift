@@ -79,15 +79,19 @@ struct HomeView: View {
                         Button("Hämta status") { model.refresh() }.buttonStyle(TjippSecondaryButtonStyle()).disabled(model.busy)
                     } else {
                         PrimaryButton(title: "Hämta status", symbol: "arrow.clockwise") { model.refresh() }.disabled(model.busy)
-                        if model.canResumeRegistration {
+                        if model.canOfferRegistration {
                             Button("Fortsätt registreringen") { model.beginRegistration() }.font(.subheadline)
-                                .accessibilityIdentifier("home.resumeRegistration")
+                                .accessibilityIdentifier("home.resumeRegistration").disabled(!model.canResumeRegistration)
                             Text("Om registreringen avbröts kan du fortsätta med samma nyckel. Passet och ansiktskontrollen krävs fortfarande.")
                                 .font(.footnote).foregroundStyle(Palette.muted)
                         }
                     }
                     if let message = model.statusMessage { Text(message).font(.subheadline).foregroundStyle(Palette.muted).accessibilityIdentifier("home.statusMessage") }
                     if model.busy { ProgressView("Hämtar status…").accessibilityIdentifier("home.progress") }
+                    if model.isRefreshingStatus {
+                        Button("Avbryt hämtningen") { model.cancelStatusRefresh() }
+                            .buttonStyle(TjippSecondaryButtonStyle()).accessibilityIdentifier("home.cancelStatus")
+                    }
                 }
                 Button { guide = true } label: {
                     HStack { Text("Så fungerar Tjipp").font(.subheadline.weight(.medium)); Spacer(); Image(systemName: "arrow.up.right") }

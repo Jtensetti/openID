@@ -292,6 +292,7 @@ struct TjippCardBackground: View {
 }
 
 struct AppearanceView: View {
+    @EnvironmentObject private var icons: AppIconController
     @Environment(\.tjippTheme) private var theme
     @AppStorage("tjipp.color") private var color: TjippColor = .hav
     @AppStorage("tjipp.pattern") private var pattern: TjippPattern = .paper
@@ -314,7 +315,7 @@ struct AppearanceView: View {
                     Text("Färg").font(.title3.weight(.semibold))
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 85), spacing: 12)], spacing: 12) {
                         ForEach(TjippColor.allCases) { option in
-                            Button { color = option } label: {
+                            Button { color = option; icons.update(for: option) } label: {
                                 VStack(spacing: 9) {
                                     TjippSymbol(color: option, size: 44)
                                     Text(option.title).font(.subheadline)
@@ -344,6 +345,9 @@ struct AppearanceView: View {
                             .accessibilityIdentifier("appearance.pattern.\(option.rawValue)")
                     }
                 }
+                Text("Appikonen följer \(icons.currentColor.title).")
+                    .font(.footnote).foregroundStyle(Palette.muted).accessibilityIdentifier("appearance.icon-status")
+                if let error = icons.error { Text(error).font(.footnote).foregroundStyle(Palette.error) }
                 Text("Färgen är personlig. ID-status visas alltid med text och symbol.")
                     .font(.footnote).foregroundStyle(Palette.muted)
             }.padding(24)

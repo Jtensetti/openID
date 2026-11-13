@@ -2,6 +2,8 @@ import SwiftUI
 
 @main struct PassportCaptureApp: App {
     @StateObject private var model = WalletModel()
+    @StateObject private var icons = AppIconController()
+    @AppStorage("tjipp.color") private var selectedColor: TjippColor = .hav
     @Environment(\.scenePhase) private var phase
     var body: some Scene {
         WindowGroup {
@@ -25,10 +27,13 @@ import SwiftUI
                 #else
                 WalletRootView()
                 #endif
-            }.environmentObject(model).tjippTheme()
+            }.environmentObject(model).environmentObject(icons).tjippTheme()
+                .onAppear { icons.update(for: selectedColor) }
+                .onChange(of: selectedColor) { icons.update(for: $0) }
                 .onOpenURL { model.open($0) }
                 .onChange(of: phase) { value in
                     if value == .background { model.lock() }
+                    if value == .active { icons.update(for: selectedColor) }
                 }
                 // Cover app-switcher snapshots and interruptions without cancelling an active Face ID/NFC prompt.
                 .overlay {

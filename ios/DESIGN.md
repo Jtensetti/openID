@@ -81,3 +81,15 @@ tangentbordet, att färg/mönster sparas och att hälsningen försvinner vid lå
 övriga förhandsvisningsflaggor finns i `CapturePreviewFixture.swift`.
 Fixturerna är inte kompilerade i enhetsbyggen och öppnar inte riktig kamera,
 NFC eller en registrerad identitet. Fysiska prov behövs för dessa delar.
+
+## Appikon
+
+Appikonen består enbart av originalsymbolen på varm benvit bakgrund.
+`AppIconController` använder iOS ordinarie ikonbyte när färgen ändras och
+synkroniserar ett tidigare färgval när appen öppnas. Hav är huvudikon och
+de sju övriga färgerna är paketerade alternativa ikoner. Inget ID, namn
+eller passfoto används. iOS hanterar systemets bekräftelse vid ikonbyte.
+
+`swift ios/scripts/app-icons.swift` paketerar de befintliga symbolfilerna
+i 1024 × 1024-format. Symbolerna skalas enhetligt utan omritning. Kör
+`python3 ios/scripts/project.py` efter ändring av Xcode-inställningarna.

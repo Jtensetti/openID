@@ -349,3 +349,13 @@ TrueDepth ingår inte i fångstflödet. Kameraguiden använder AVFoundation och 
 API-underlag för automatisk fångst, kontrollerat 2026-10-30:
 [Vision-bildval](https://developer.apple.com/documentation/vision/selecting-a-selfie-based-on-capture-quality),
 [DataScanner och lokal stillbild](https://developer.apple.com/documentation/visionkit/datascannerviewcontroller).
+
+### När statusservern inte svarar
+
+Status och registreringsinformation använder 10 sekunders väntetid per
+nätanrop (15 sekunders total överföringsgräns). Övriga operationer behåller
+60/90 sekunder. **Fortsätt registreringen** är synlig men avstängd medan
+status hämtas. **Avbryt hämtningen** avbryter endast statusläsningen och behåller
+tidigare känd status, nyckel och spärrbevis utan att bekräfta en ny status. Den kan inte avbryta ett
+underskrifts-, godkännande-, kodbytes- eller spärrbeslut. Den ordinarie
+registreringen kräver fortfarande aktuell information, samtycken och server.

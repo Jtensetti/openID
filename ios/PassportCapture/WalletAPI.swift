@@ -2,10 +2,13 @@ import Foundation
 
 final class WalletAPI {
     let configuration: ServerConfiguration
-    private let transport = WalletHTTP()
+    private let transport: WalletHTTP
+    private let requestTimeout: TimeInterval
 
-    init(configuration: ServerConfiguration) {
+    init(configuration: ServerConfiguration, requestTimeout: TimeInterval = 60) {
         self.configuration = configuration
+        self.requestTimeout = requestTimeout
+        self.transport = WalletHTTP(requestTimeout: requestTimeout)
     }
     func post<T: Decodable>(_ path: String, body: [String: Any], as type: T.Type) async throws -> T {
         let data = try await postData(path, body: body)
@@ -19,7 +22,7 @@ final class WalletAPI {
     private func postData(_ path: String, body: [String: Any]) async throws -> Data {
         guard ["/native/notice", "/native/start", "/native/attest", "/native/consent", "/native/withdraw", "/native/chip/start", "/native/chip/step", "/native/cancel", "/native/finish", "/wallet/challenge", "/wallet/execute"].contains(path) else { throw WalletError.rejected }
         var request = URLRequest(url: URL(string: path, relativeTo: configuration.url)!)
-        request.httpMethod = "POST"; request.timeoutInterval = 60
+        request.httpMethod = "POST"; request.timeoutInterval = requestTimeout
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue(configuration.origin, forHTTPHeaderField: "Origin")

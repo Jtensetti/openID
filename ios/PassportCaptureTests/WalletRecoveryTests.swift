@@ -18,6 +18,58 @@ import LocalAuthentication
         return (model, vault)
     }
 
+    func testCancellingStatusReadKeepsTheKeyAndReleasesRegistration() async throws {
+        let (model, vault) = try prepared()
+        model.refresh()
+        XCTAssertTrue(model.isRefreshingStatus)
+        XCTAssertTrue(model.canOfferRegistration)
+        XCTAssertFalse(model.canResumeRegistration)
+        model.cancelStatusRefresh()
+        await Task.yield()
+        XCTAssertFalse(model.busy)
+        XCTAssertTrue(model.canResumeRegistration)
+        XCTAssertNil(model.snapshot)
+        XCTAssertNotNil(model.statusMessage)
+        XCTAssertEqual(model.credential?.id, credential.id)
+        XCTAssertTrue(vault.removed.isEmpty)
+        XCTAssertEqual(vault.created, 0)
+        model.beginRegistration()
+        XCTAssertTrue(model.registrationPresented)
+        XCTAssertFalse(model.verification.termsAccepted)
+        XCTAssertFalse(model.verification.biometricsAccepted)
+    }
+    func testStatusCancellationPreservesKnownCredentialState() throws {
+        for state in [CredentialState.active, .pending, .expired, .revoked] {
+            let (model, vault) = try prepared(state: state)
+            model.refresh(); model.cancelStatusRefresh()
+            XCTAssertEqual(model.credentialState, state)
+            XCTAssertFalse(model.canResumeRegistration)
+            XCTAssertEqual(model.canForgetCredential, state == .revoked)
+            XCTAssertTrue(vault.removed.isEmpty)
+            model.lock()
+        }
+    }
+    func testStatusCancelCannotAbandonSignedDecisionsOrRevocation() throws {
+        let request = WalletRequest(id: String(repeating: "b", count: 64), relyingParty: "Synthetic",
+            purpose: "Test", code: "012345", expiresAt: Date().timeIntervalSince1970 + 120,
+            signMessage: "Synthetic text", verification: nil)
+        let actions: [(WalletModel) -> Void] = [
+            { $0.decide(request, approve: true) }, { $0.decide(request, approve: false) },
+            { $0.revoke() }, { $0.setSecurityCode(current: nil, new: "628401") }
+        ]
+        for action in actions {
+            let (model, vault) = try prepared(state: .active)
+            action(model)
+            XCTAssertTrue(model.busy)
+            XCTAssertFalse(model.isRefreshingStatus)
+            model.cancelStatusRefresh()
+            XCTAssertTrue(model.busy)
+            XCTAssertFalse(model.canResumeRegistration)
+            XCTAssertTrue(vault.removed.isEmpty)
+            model.lock()
+        }
+    }
+
     func testStatusFailureAndRelaunchDoNotTrapAnUnfinishedRegistration() throws {
         let (model, vault) = try prepared()
         XCTAssertNotNil(model.statusMessage)

@@ -46,7 +46,7 @@ import LocalAuthentication
         loadingNotice = true; notice = nil; noticeText = nil; termsAccepted = false; biometricsAccepted = false
         defer { if noticeGeneration == epoch { loadingNotice = false } }
         do {
-            let value = try await WalletAPI(configuration: configuration).post("/native/notice", body: [:], as: EnrollmentNotice.self)
+            let value = try await WalletAPI(configuration: configuration, requestTimeout: 10).post("/native/notice", body: [:], as: EnrollmentNotice.self)
             try Task.checkCancellation()
             let text = try value.text(at: Date())
             guard noticeGeneration == epoch else { return }

@@ -3,6 +3,12 @@ import SwiftUI
 @testable import PassportCapture
 
 final class PaletteTests: XCTestCase {
+    func testAllAlternateIconsArePackagedForTheSystemSwitcher() throws {
+        let icons = try XCTUnwrap(Bundle.main.infoDictionary?["CFBundleIcons"] as? [String: Any])
+        let alternatives = try XCTUnwrap(icons["CFBundleAlternateIcons"] as? [String: Any])
+        XCTAssertEqual(Set(alternatives.keys), Set(TjippColor.allCases.compactMap(\.appIconName)))
+        XCTAssertNotNil(icons["CFBundlePrimaryIcon"])
+    }
     func testEveryThemeHasReadableActionsAndAccentsInBothAppearances() {
         for style in [UIUserInterfaceStyle.light, .dark] {
             let traits = UITraitCollection(userInterfaceStyle: style)
