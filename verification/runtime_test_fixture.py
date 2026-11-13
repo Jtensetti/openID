@@ -6,6 +6,7 @@ The ingress is a test relay, not the deployed nginx or a federation connection.
 import http.client
 import http.server
 import json
+import os
 import secrets
 import shutil
 import ssl
@@ -28,11 +29,11 @@ class RuntimeFixture:
             command = ['keytool', '-genkeypair', '-alias', alias, '-keyalg', 'RSA', '-keysize', '3072',
                        '-sigalg', 'SHA256withRSA', '-validity', '2', '-dname', 'CN=Generated-runtime-protocol-' + name,
                        '-storetype', 'PKCS12', '-keystore', str(self.root / (name + '.p12')),
-                       '-storepass', password, '-keypass', password]
+                       '-storepass:env', 'OPENID_FIXTURE_PASSWORD', '-keypass:env', 'OPENID_FIXTURE_PASSWORD']
             if alias == 'tls': command += ['-ext', 'SAN=DNS:localhost,IP:127.0.0.1', '-ext', 'EKU=serverAuth']
-            self.run(command)
+            self.run(command, password=password)
             self.run(['keytool', '-exportcert', '-rfc', '-alias', alias, '-keystore', str(self.root / (name + '.p12')),
-                      '-storepass', password, '-file', str(self.root / (name + '.crt'))])
+                      '-storepass:env', 'OPENID_FIXTURE_PASSWORD', '-file', str(self.root / (name + '.crt'))], password=password)
         for directory, aliases in ((self.idp, ('idp-tls', 'idp', 'encryption')), (self.sp, ('sp-tls', 'sp'))):
             for name in aliases:
                 alias = 'tls' if name.endswith('-tls') else name
@@ -55,19 +56,24 @@ class RuntimeFixture:
                   '-keyout', str(self.root / 'ingress.key'), '-out', str(self.root / 'ingress.crt')])
         self.trust_password = secrets.token_urlsafe(32)
         self.run(['keytool', '-importcert', '-noprompt', '-alias', 'ingress', '-file', str(self.root / 'ingress.crt'),
-                  '-keystore', str(self.root / 'trust.p12'), '-storetype', 'PKCS12', '-storepass', self.trust_password])
+                  '-keystore', str(self.root / 'trust.p12'), '-storetype', 'PKCS12',
+                  '-storepass:env', 'OPENID_FIXTURE_PASSWORD'], password=self.trust_password)
         self.upstream_tls = {host: ssl.create_default_context(cafile=str(self.root / (role + '-tls.crt')))
                              for host, role in (('idp.example.test', 'idp'), ('sp.example.test', 'sp'))}
         self.public_tls = ssl.create_default_context(cafile=str(self.root / 'ingress.crt'))
 
     @staticmethod
-    def run(command):
+    def run(command, *, password=None):
+        # keytool's launcher consumes any -J argument before parsing keytool
+        # options, including a randomly generated password passed as a value.
+        # Keep the password out of argv and supply it to this child only.
+        env = None if password is None else dict(os.environ, OPENID_FIXTURE_PASSWORD=password)
         try:
-            result = subprocess.run(command, capture_output=True, timeout=60)
+            result = subprocess.run(command, capture_output=True, timeout=60, env=env)
         except subprocess.TimeoutExpired:
             raise RuntimeError('Fixture tool timed out: ' + command[0]) from None
         if result.returncode:
-            raise RuntimeError('Fixture tool failed: ' + command[0])
+            raise RuntimeError('Fixture tool failed: ' + command[0] + ' (exit ' + str(result.returncode) + ')')
 
     def command(self, role, jar, socket):
         command = ['java', '-Xmx256m', '-Djavax.net.ssl.trustStore=' + str(self.root / 'trust.p12'),
