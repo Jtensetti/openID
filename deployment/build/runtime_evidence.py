@@ -27,7 +27,15 @@ ROOT = Path('/usr/share/doc/openid-runtime')
 SYMBOLS = {'posix_memalign','strfmon','strfmon_l','wordexp','regcomp','regexec','glob','glob64','tdelete',
  'ns_printrr','ns_printrrf','fp_nquery','crc32_combine64','crc32_combine_gen64','gzprintf','gzvprintf','gzclearerr',
  'sqlite3changeset_apply','sqlite3changeset_apply_v2','sqlite3changeset_apply_v3',
- 'sqlite3changeset_concat','sqlite3changegroup_add','XML_ParserReset'}
+ 'sqlite3changeset_concat','sqlite3changegroup_add','XML_ParserReset',
+ 'fwscanf','wscanf','swscanf','vfwscanf','vwscanf','vswscanf',
+ '__isoc99_fwscanf','__isoc99_wscanf','__isoc99_swscanf',
+ '__isoc99_vfwscanf','__isoc99_vwscanf','__isoc99_vswscanf',
+ '__isoc23_fwscanf','__isoc23_wscanf','__isoc23_swscanf',
+ '__isoc23_vfwscanf','__isoc23_vwscanf','__isoc23_vswscanf',
+ 'CMS_encrypt','CMS_encrypt_ex','OSSL_QUIC_client_method','OSSL_QUIC_client_thread_method',
+ 'SSL_set1_initial_peer_addr','SSL_set_blocking_mode','SSL_handle_events',
+ 'EVP_CIPHER_fetch','EVP_aes_128_gcm_siv','EVP_aes_256_gcm_siv'}
 
 
 def check_network_transport():
@@ -220,7 +228,7 @@ def elf_imports(path):
                     stop=raw.find(b'\0',start+name,end)
                     if stop<0: raise ValueError('invalid ELF symbol string')
                     symbol=raw[start+name:stop].decode('utf-8')
-                    if symbol in SYMBOLS: imports.add(symbol)
+                    if symbol in SYMBOLS or 'from_chars' in symbol: imports.add(symbol)
             return imports
 
 
@@ -358,7 +366,7 @@ def collect():
                 if found is not None:
                     visited+=1
                     if found: imports[str(path)]=sorted(found)
-                    if found & {'glob','glob64','regcomp','regexec'}:
+                    if found:
                         with path.open('rb') as stream:
                             native_hashes[str(path)]=hashlib.file_digest(stream,'sha256').hexdigest()
     if not visited: raise ValueError('empty native-code coverage')

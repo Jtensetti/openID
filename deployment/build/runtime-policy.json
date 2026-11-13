@@ -1,8 +1,8 @@
 {
   "format": 1,
-  "reviewed": "2026-11-10",
+  "reviewed": "2026-11-13",
   "reviewBefore": "2026-11-30",
-  "sourceSHA256": "5a329bbde5cdb85d5c6cdc410dd542d2e9c8cddb86e94d8037ca33916aeaf402",
+  "sourceSHA256": "e52b7dfe6082f39d0857beeec6a6187e60f714b2a893ac03b3ce1c047ebc83b6",
   "scope": "The two Linux/amd64 application images built from the locked Docker Official Python image. Not a distribution-wide VEX, host assessment, or risk acceptance.",
   "removedPackages": [
     "apt",
@@ -2286,9 +2286,13 @@
       "version": "2.9.0",
       "status": "not_affected",
       "checks": [
-        "python_xml_not_exposed"
+        "python_xml_single_document",
+        "reviewed_source_apis",
+        "aws_sts_query_transport",
+        "aws_sts_before_parse_guard",
+        "aws_sts_api_errors"
       ],
-      "reason": "No XML_ParserReset exposed in the Python service. pyexpat parsers are single-document; ordinary ElementTree creates/frees parsers. Public payloads are JSON; SAML is parsed by Java, not Expat.",
+      "reason": "The shipped pyexpat interface is tested as single-document and exposes no XML_ParserReset. The locked STS Query client uses fresh SDK parsers for successful and error responses; the in-image probe exercises both and subsequent reuse of the client. Direct application XML imports are forbidden. SAML remains in Java. This is a consumer-specific decision, not a claim that XML or the upstream defect is absent.",
       "references": [
         "https://www.cve.org/CVERecord?id=CVE-2026-113351"
       ]
@@ -2299,9 +2303,13 @@
       "version": "2.9.0",
       "status": "not_affected",
       "checks": [
-        "python_xml_not_exposed"
+        "python_xml_single_document",
+        "reviewed_source_apis",
+        "aws_sts_query_transport",
+        "aws_sts_before_parse_guard",
+        "aws_sts_api_errors"
       ],
-      "reason": "No attacker-supplied XML reaches Expat; the greater-than-2^30-attribute trigger also exceeds all service request limits. Java SAML does not use this parser.",
+      "reason": "The reviewed Python XML consumer is the fixed verified-TLS STS Query client. Every success and error body is rejected before SDK XML parsing above 65536 bytes, or with a DTD/entity declaration, NUL, non-UTF-8 bytes or alternate declared encoding. The greater-than-2^30-attributes trigger cannot fit this parser input. Direct application XML imports are forbidden. This does not bound SDK transport buffering or assess other consumers.",
       "references": [
         "https://www.cve.org/CVERecord?id=CVE-2026-118370"
       ]
@@ -2669,6 +2677,24 @@
       "references": [
         "https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/76xxx/CVE-2026-76844.json"
       ]
+    },
+    {
+      "id": "CVE-2026-115506",
+      "package": "expat",
+      "version": "2.9.0",
+      "status": "not_affected",
+      "checks": [
+        "python_xml_single_document",
+        "reviewed_source_apis",
+        "aws_sts_query_transport",
+        "aws_sts_before_parse_guard",
+        "aws_sts_api_errors"
+      ],
+      "reason": "The entity-expansion trigger requires a DTD. The sole reviewed Python XML consumer, the fixed STS Query client, rejects DTD and entity declarations before both SDK success and error parsing. UTF-8-only decoding, NUL and encoding checks prevent alternate-encoding bypass. Direct application XML imports are forbidden; the SPAR customer-test-only adapter is not shipped. Exact-image probes must exercise the locked SDK and all rejection cases. This does not claim that Expat is patched or that SDK transport buffering is bounded.",
+      "references": [
+        "https://www.cve.org/CVERecord?id=CVE-2026-115506",
+        "https://github.com/libexpat/libexpat/pull/1433"
+      ]
     }
   ],
   "componentFeedSHA256": {
@@ -2814,40 +2840,54 @@
     }
   },
   "sourceReview": {
-    "baselineRevision": "dd08cb09abf028e018ce959c7eb0641c7d37d41d",
-    "baselineSourceSHA256": "6ab7e19798b789eda5f1bf084b837c8506eabfb3c156209282ba60ed2154cd9c",
-    "candidateRevision": "2ae993dcdc94a0af0a70deb4ef57b5ab9e960a59",
-    "scope": "Application source changes covered by the two Docker COPY sets since the previous exact source fingerprint. Policy excluded from its own fingerprint.",
+    "baselineRevision": "2ae993dcdc94a0af0a70deb4ef57b5ab9e960a59",
+    "candidateBaseRevision": "2a87798a1394471f005f306083c20e5fb27a61fc",
+    "scope": "OS applicability impact of the Docker COPY/build-source delta; final bytes bound by sourceSHA256. This is not a complete lifecycle, SQL, cryptographic or independent release review.",
     "changedFiles": [
       "deployment/Dockerfile",
-      "deployment/saml_bridge.py",
-      "prototype/src/main/java/lab/Lab.java",
-      "prototype/src/main/java/lab/Metadata.java",
-      "prototype/src/main/java/lab/PilotOidc.java",
-      "prototype/src/main/java/lab/PilotOidcClient.java",
-      "prototype/src/main/java/lab/RelyingParty.java",
-      "prototype/src/main/java/lab/RuntimeFederation.java",
-      "prototype/src/main/java/lab/RuntimeKeys.java",
-      "prototype/src/main/java/lab/ServiceKeys.java",
-      "prototype/src/main/java/lab/SwedenConnectSandbox.java",
-      "prototype/src/main/java/lab/TestConsole.java",
-      "prototype/src/main/java/lab/TestKeys.java",
-      "verification/federation_config.py"
+      "deployment/aws/THIRD_PARTY.md",
+      "deployment/build/python-wheels.lock.json",
+      "deployment/build/runtime-policy.json",
+      "deployment/build/runtime_evidence.py",
+      "deployment/cluster/Dockerfile",
+      "deployment/cluster/probe.py",
+      "deployment/cluster/schema.sql",
+      "deployment/production/probe.py",
+      "verification/audit_archive.py",
+      "verification/aws_client.py",
+      "verification/aws_credential_process.py",
+      "verification/aws_credential_rotate.py",
+      "verification/cluster_bridge.py",
+      "verification/cluster_operator.py",
+      "verification/cluster_recovery.py",
+      "verification/cluster_serve.py",
+      "verification/continuity_operator.py",
+      "verification/erasure_policy.py",
+      "verification/federation_config.py",
+      "verification/ipc_support.py",
+      "verification/notices.py",
+      "verification/postgres.py",
+      "verification/postgres_continuity.py",
+      "verification/postgres_subject_access.py",
+      "verification/registry_binding.py",
+      "verification/revocation.py",
+      "verification/serve.py",
+      "verification/spar_provider.py",
+      "verification/subject_erasure.py",
+      "verification/transit.py"
     ],
     "assessment": [
-      "Docker adds only federation_config.py, using Python standard-library JSON and fixed-size protected configuration files. Base images, native libraries, package locks, runtime hardening and removed payload sets are unchanged.",
-      "The bridge maps the shared protected configuration only to the existing sandbox boolean. No new SQL, XML parser, native image/video input, subprocess or Base64 decoder is introduced in the shipped Python surface. Existing exact requester allowlists and consent binding remain in both languages.",
-      "Java runtime files load operator-provisioned PKCS12 stores and pinned public X.509 peers with existing JCA/Sweden Connect APIs. Role checks expose no private issuer material to the SP; metadata state is separate from the read-only credentials. New command paths do not forward public protocol input to Python native sinks.",
-      "SAML adds the existing fixed HTTPS signed SP feed and packaged signature anchor to the runtime profile. It retains HTTPS hostname checks, scoped algorithms and exact requester controls. No arbitrary network URL or new upstream dependency is configured.",
-      "The public OIDC JWK is derived from the pinned public RSA certificate with the library-compatible thumbprint identifier. Existing JWS, nonce, PKCE, client-assertion and revocation checks remain. No assertion assurance level is raised.",
-      "No advisory disposition, native-call boundary, required evidence check, feed digest or review expiry is relaxed. Fresh image evidence and current scanner/advisory inputs must still satisfy every existing rule."
+      "Reviewed changed Python import and call surfaces plus the credential, transport, readiness, IPC and registry boundaries. Added registry-schema/backup/rights mappings use the existing parameterized SQL and bounded JSON/Transit paths; no new native parser, extension loader, video input or non-strict Base64 entry point is introduced in these changes.",
+      "The common image now includes the already locked Psycopg packages and the registry image the already locked AWS SDK packages. Exact native library hashes and the SCRAM-only/GSS-disabled runtime probe remain mandatory. Wheel/source and license evidence remain independently checked; the source review does not approve these packages generally.",
+      "STS is an explicit XML consumer. Verified the exact locked boto3/botocore 1.43.115 Query parser against 25 synthetic replies: normal identity and role replies, API denial, malformed XML, 20 pre-parser rejections and successful client reuse. No network was allowed. The same probe is required in each exact Linux image. A 64 KiB parser bound is not a transport buffering bound.",
+      "Removed the unused SPAR customer-test-only XML helper from both runtime COPY sets. It has no production importer; its repository tests remain. The runtime source scan still rejects all direct XML/mail imports and checks 18 strict Base64 decoders in the common image and 13 in the registry image.",
+      "Updated the three Expat consumer decisions to require single-document parsing, reviewed application sources and all three STS transport checks. Their primary CNA records identify parser reset, DTD expansion and oversized attribute-count triggers. No claim of XML absence remains in these decisions.",
+      "Expanded exact-image ELF diagnostics for wide scanf, CMS encryption, QUIC, AES-GCM-SIV and C++ from_chars callers. No new disposition for the unresolved GCC, glibc or OpenSSL findings is created by that observation."
     ],
     "limits": [
-      "This source-impact review is AI-assisted preparation, not independent release attestation, proof of deployment or a claim of general vulnerability absence.",
-      "Native imports, image hashes and guards must be re-collected inside each exact final image; missing, changed or new advisory evidence remains blocking.",
-      "The private synthetic runtime protocol suite does not verify the live Sandbox feed or external clients, HSM protection, organizational separation or identity assurance.",
-      "The prior exact-image scanner also reports CVE-2026-115456 and five OpenSSL advisory IDs without matching disposition rules. This source binding does not close them; fresh image assessment must retain each as under investigation.",
-      "The later candidate ships the STS credential rotator using the locked SDK's Query/XML protocol. The prior no-XML-exposure rule for CVE-2026-115506 is withdrawn. STS response handling and the other XML/transport assumptions require reassessment before updating the source binding; they have not been revalidated by this withdrawal."
+      "AI-assisted source-impact preparation, not independent review, deployment evidence or general vulnerability absence.",
+      "All existing native call boundaries, removal requirements, advisory feed hashes and the November 30 review expiry remain enforced. Changed or missing native evidence remains blocking.",
+      "Unresolved GCC, glibc and OpenSSL advisories remain under investigation and block packaging. Vendor images use separate assessment and never inherit these rules."
     ]
   }
 }

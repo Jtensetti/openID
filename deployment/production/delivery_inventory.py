@@ -261,11 +261,12 @@ def collect(runtime_raw, revision, tree, image, audit, runner=command, vendor_au
     blockers = [{'role': i['role'], 'kind': 'inventory'} for i in images if not i['inventoryComplete']]
     blockers += [{'role': i['role'], 'kind': 'assessment', **i['assessment']}
                  for i in images if i['assessment']['state'] != 'passed']
+    ready = complete and not blockers
     return {'schema': SCHEMA, 'createdAt': datetime.now(timezone.utc).isoformat(),
             'sourceRevision': revision, 'sourceTree': tree, 'runtimeEvidenceSha256': digest(runtime_raw),
             'canonicalRuntimeChecks': sorted(CHECKS), 'images': images, 'inventoryComplete': complete,
-            'status': 'INVENTORIED' if complete else 'INCOMPLETE', 'releaseReady': False,
-            'releaseStatus': 'BLOCKED', 'blockers': blockers,
+            'status': 'INVENTORIED' if complete else 'INCOMPLETE', 'releaseReady': ready,
+            'releaseStatus': 'READY_FOR_PACKAGING' if ready else 'BLOCKED', 'blockers': blockers,
             'limits': ['No image export/import or release approval is implemented by this inventory.',
                        'Source binding uses Docker daemon resolution, not independent registry attestation.',
                        'OS package inventory is not a vulnerability assessment or complete language/binary SBOM.',
@@ -294,8 +295,8 @@ def main():
                   'error': 'source checkout or canonical runtime binding could not be verified'}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + '\n')
-    print('Three-image inventory: ' + report['status'] + '; release: BLOCKED')
-    return 2 if args.require_release_ready else (0 if report['inventoryComplete'] else 1)
+    print('Three-image inventory: ' + report['status'] + '; release: ' + report['releaseStatus'])
+    return 2 if args.require_release_ready and not report['releaseReady'] else (0 if report['inventoryComplete'] else 1)
 
 
 if __name__ == '__main__':

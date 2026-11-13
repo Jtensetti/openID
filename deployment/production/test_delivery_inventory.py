@@ -155,6 +155,16 @@ class AssessmentTests(unittest.TestCase):
         self.assertEqual([i['assessment']['state'] for i in report['images'][1:]], ['missing', 'missing'])
         self.assertFalse(report['releaseReady'])
 
+    def test_packaging_requires_three_separately_verified_assessments(self):
+        with tempfile.TemporaryDirectory() as temp, \
+                patch.object(inventory, 'application_assessment', return_value={'state':'passed'}), \
+                patch.object(inventory, 'vendor_assessment', return_value={'state':'passed'}) as vendors:
+            report = inventory.collect(json.dumps(runtime()).encode(), REVISION, TREE, IMAGE, Path(temp), FakeDocker())
+        self.assertEqual(vendors.call_count, 2)
+        self.assertTrue(report['releaseReady'])
+        self.assertEqual(report['releaseStatus'], 'READY_FOR_PACKAGING')
+        self.assertEqual(report['blockers'], [])
+
 
 class CommandTests(unittest.TestCase):
     def test_cli_keeps_inventory_but_denies_release_readiness(self):

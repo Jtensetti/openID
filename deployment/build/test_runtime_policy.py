@@ -118,4 +118,24 @@ class ApplicabilityTests(unittest.TestCase):
         self.assertEqual(self.evaluate(findings=[finding])[0]['status'],'under_investigation')
 
 
+class STSApplicabilityTests(unittest.TestCase):
+    def test_each_expat_decision_requires_all_live_consumer_guards(self):
+        import json
+        value=json.loads(policy.POLICY.read_text())
+        guards={'python_xml_single_document','reviewed_source_apis','aws_sts_query_transport',
+                'aws_sts_before_parse_guard','aws_sts_api_errors'}
+        observed={'format':1,'python':'3.12.16','architecture':'x86_64','elfFiles':1,
+            'strictDecoderCalls':1,'removedPackages':value['removedPackages'],'removedPathCount':1,
+            'sensitiveImports':{},'checks':sorted(guards)}
+        for ident in ('CVE-2026-113351','CVE-2026-115506','CVE-2026-118370'):
+            finding={'id':ident,'package':'expat','version':'2.9.0'}
+            def evaluate(evidence):
+                return policy.decisions(value,evidence,[finding],datetime(2026,11,13,tzinfo=timezone.utc),
+                                        source_sha=value['sourceSHA256'])[0]['status']
+            self.assertEqual(evaluate(observed),'not_affected')
+            for guard in guards:
+                with self.subTest(advisory=ident,missing=guard):
+                    self.assertEqual(evaluate(dict(observed,checks=sorted(guards-{guard}))),'under_investigation')
+
+
 if __name__=='__main__':unittest.main()

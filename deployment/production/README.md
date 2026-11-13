@@ -279,10 +279,33 @@ CI kräver `--require-release-ready` före paketeringen och behåller
 inventeringen även när appens OS-bedömning eller leveransberedskapen
 underkänns. Därmed kan den äldre en-image-paketeringen inte fortsätta
 enbart för att appens bedömning skulle passera.
-Detta verktyg exporterar eller importerar inga bilder. Full bedömning av
-alla tre, versionsbundet export-/importpaket och verifierad återläsning
-återstår före leverans. Den äldre `image_bundle.py` hanterar en enda
-appbild och utgör inte ett komplett paket för denna driftprofil.
+Inventeringen exporterar inga bilder. `release_bundle.py` paketerar appen,
+PostgreSQL och OpenBao först efter passerade separata bedömningar och det
+kompletta runtimeprovet. Appens befintliga importverifiering återanvänds;
+leverantörerna kontrolleras även mot sina rårapporter, paketlistor, lås och
+SBOM:er. Det yttre manifestet binder samtliga filer och tre image-ID:n till
+en revision och ett källträd. `READY_FOR_PACKAGING` är ingen produktionsattest.
+
+CI provar export och återläsning utan ombygge. Main-/manuella körningar
+bevarar `production-image-<revision>` i sju dagar. Hämta manifestets SHA-256
+från den betrodda körningen. Använd en separat skyddad katalog och den
+granskade kodrevisionen:
+
+```sh
+python3 deployment/production/release_bundle.py verify \
+  --directory /privat/tjipp-kandidat --expected-revision FULL_COMMIT_SHA \
+  --expected-manifest-sha256 SHA256_FRAN_GITHUB_KORNINGEN
+python3 deployment/production/release_bundle.py import \
+  --directory /privat/tjipp-kandidat --expected-revision FULL_COMMIT_SHA \
+  --expected-manifest-sha256 SHA256_FRAN_GITHUB_KORNINGEN
+```
+
+Import nekar ofullständiga, ändrade, länkade eller äldre än 24 timmar gamla
+paket innan någon bild laddas. Linux/amd64 och ledigt Dockerutrymme för hela
+paketet krävs. Samtliga laddade ID:n kontrolleras. Ingen tjänst startas,
+ingen konfiguration ändras och inga register eller nycklar återläses.
+En underkänd komponent stoppar hela leveransen; en genomförd import ersätter
+inte den fullständiga CI-körningen, oberoende granskning eller driftbeslut.
 
 ### Konfiguration och runtime
 

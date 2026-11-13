@@ -331,19 +331,29 @@ jobs:
           docker logs openid-pilot || true
           docker logs openid-rp || true
           docker rm --force openid-pilot openid-rp openid-image-surface openid-image-surface-root || true
-      - name: Package the tested image and provenance
+      - name: Package all three tested images and bound evidence
         run: |
-          python3 deployment/image_bundle.py package --image openid-pilot:ci \
+          python3 deployment/production/release_bundle.py package --image openid-pilot:ci \
             --protocol "$RUNNER_TEMP/protocol-evidence/protocol-results.json" \
             --inventory "$RUNNER_TEMP/python-packages.json" \
             --os-audit "$RUNNER_TEMP/image-os-audit" \
+            --vendor-audit "$RUNNER_TEMP/vendor-audit" \
+            --runtime "$RUNNER_TEMP/canonical-runtime.json" \
             --output "$RUNNER_TEMP/image-bundle"
       - name: Verify export and reload without rebuilding
         run: |
           revision="$(git rev-parse HEAD)"
           manifest_sha="$(sha256sum "$RUNNER_TEMP/image-bundle/manifest.json" | cut -d ' ' -f 1)"
           docker image rm "openid-pilot:commit-$revision" openid-pilot:ci
-          sudo python3 deployment/image_bundle.py import --directory "$RUNNER_TEMP/image-bundle" \
+          python3 - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          vendors = json.loads(Path('deployment/production/vendor-images.lock.json').read_text())
+          for role, vendor in vendors.items():
+              subprocess.run(['docker', 'image', 'rm', 'tjipp-'+role+':commit-'+revision, vendor['source']], check=True)
+          PY
+          sudo python3 deployment/production/release_bundle.py import --directory "$RUNNER_TEMP/image-bundle" \
             --expected-revision "$revision" --expected-manifest-sha256 "$manifest_sha"
           docker run --rm --network none --read-only --cap-drop ALL \
             --security-opt no-new-privileges --entrypoint java \
@@ -352,7 +362,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: pilot-image-${{ github.sha }}
+          name: production-image-${{ github.sha }}
           path: '${{ runner.temp }}/image-bundle'
           compression-level: 0
           if-no-files-found: error
