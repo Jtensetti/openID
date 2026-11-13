@@ -7,16 +7,14 @@ final class WalletUITests: XCTestCase {
         app.launchEnvironment["TJIPP_DISABLE_ICON_CHANGES"] = "1"
         return app
     }
-    private func dismissIconConfirmation() {
-        let alert = XCUIApplication(bundleIdentifier: "com.apple.springboard").alerts.firstMatch
-        if alert.waitForExistence(timeout: 2) {
-            let message = alert.staticTexts.allElementsBoundByIndex.map(\.label).joined(separator: " ").lowercased()
-            if message.contains("icon") || message.contains("ikon") || message.contains("symbolen") { alert.buttons.firstMatch.tap() }
-        }
-    }
     func testAppIconFollowsSelectedColor() {
+        let monitor = addUIInterruptionMonitor(withDescription: "iOS icon change confirmation") { alert in
+            let message = alert.staticTexts.allElementsBoundByIndex.map(\.label).joined(separator: " ").lowercased()
+            guard message.contains("icon") || message.contains("ikon") || message.contains("symbolen") else { return false }
+            alert.buttons.firstMatch.tap(); return true
+        }
+        defer { removeUIInterruptionMonitor(monitor) }
         let app = XCUIApplication(); app.launchEnvironment["TJIPP_TEST_ICON_CHANGES"] = "1"; app.launch()
-        dismissIconConfirmation()
         app.buttons["Inställningar"].tap()
         let appearance = app.buttons["settings.appearance"]
         for _ in 0..<6 { if appearance.isHittable { break }; app.swipeUp() }
@@ -24,12 +22,17 @@ final class WalletUITests: XCTestCase {
         for color in ["hav", "sol"] {
             let choice = app.buttons["appearance.color." + color]
             for _ in 0..<6 { if choice.isHittable { break }; app.swipeUp() }
-            choice.tap(); dismissIconConfirmation()
+            choice.tap()
             XCTAssertEqual(choice.value as? String, "Vald")
             let status = app.staticTexts["appearance.icon-status"]
             let expected = "Appikonen följer " + (color == "hav" ? "Hav" : "Sol") + "."
-            let applied = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", expected), object: status)
-            XCTAssertEqual(XCTWaiter.wait(for: [applied], timeout: 5), .completed)
+            // iOS may present its confirmation after the color tap has returned.
+            // Interact until XCTest routes that system alert to the monitor.
+            for _ in 0..<15 {
+                if status.label == expected { break }
+                app.tap()
+            }
+            XCTAssertEqual(status.label, expected)
         }
         XCUIDevice.shared.press(.home)
         let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
