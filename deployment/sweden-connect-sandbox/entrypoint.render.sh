@@ -34,10 +34,17 @@ for i in $(seq 1 90); do
   fi
   # The IdP deliberately rejects every Host except the configured public origin.
   # Verify loopback TLS as localhost while using the same Host as nginx.
-  if curl --silent --show-error --fail --max-time 2 --noproxy '*' \
-      --header 'Host: tjipp-sweden-connect-sandbox.onrender.com' \
-      --cacert /srv/tjipp-sandbox/keys/tls.crt \
-      https://localhost:9443/saml2/metadata >/dev/null 2>/dev/null; then
+  sandbox_ready=true
+  for path in /saml2/metadata /.well-known/openid-configuration /.well-known/openid-federation /oidc/jwks; do
+    if ! curl --silent --show-error --fail --max-time 2 --noproxy '*' \
+        --header 'Host: tjipp-sweden-connect-sandbox.onrender.com' \
+        --cacert /srv/tjipp-sandbox/keys/tls.crt \
+        "https://localhost:9443$path" >/dev/null 2>/dev/null; then
+      sandbox_ready=false
+      break
+    fi
+  done
+  if "$sandbox_ready"; then
     break
   fi
   if (( i == 90 )); then

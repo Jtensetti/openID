@@ -16,10 +16,12 @@ class SandboxConfigTest {
     SandboxKeys.validate(keysPath);
     var config = new SandboxConfig("https://idp-sandbox.tensetti.io", "Tjipp sandbox test", "operator@example.org");
     var properties = new HashMap<String, Object>();
+    properties.put("authn-server.oidc.enabled", false);
     config.apply(properties, new TestKeys(keysPath));
 
     assertEquals(SandboxConfig.SP_METADATA, properties.get("authn-server.saml.metadata-providers[0].location"));
     assertNotNull(properties.get("authn-server.saml.metadata-providers[0].validation-certificate"));
+    assertEquals(true, properties.get("authn-server.oidc.enabled"));
     assertEquals(SandboxConfig.INTERMEDIATE, properties.get("authn-server.oidc.federation.authority-hints[0]"));
     assertEquals(SandboxConfig.TRUST_ANCHOR, properties.get("authn-server.oidc.federation.trust-anchor.entity-id"));
     assertEquals(true, properties.get("authn-server.oidc.federation.enabled"));

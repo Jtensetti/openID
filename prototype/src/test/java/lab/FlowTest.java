@@ -36,6 +36,11 @@ class FlowTest {
   @Test void readinessUsesThePersistentRegistry() throws Exception {
     var b = new Browser(lab); assertEquals(200, b.get(lab.spBase + "/health/ready").statusCode());
   }
+  @Test void ordinarySamlLabDoesNotExposeOidc() throws Exception {
+    var b = new Browser(lab);
+    for (String path : new String[]{"/.well-known/openid-configuration", "/.well-known/openid-federation", "/oidc/jwks"})
+      assertEquals(403, b.get(lab.idpBase + path).statusCode(), path);
+  }
 
   @Test @Order(1) void signedEncryptedLoginWorks() throws Exception {
     var b = new Browser(lab);

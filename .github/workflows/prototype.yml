@@ -43,6 +43,8 @@ jobs:
           python3 -m unittest discover -s ../deployment/federation -p 'test_*.py' -v
       - name: Packaged CLI smoke test with certificate verification
         run: python3 scripts/smoke.py
+      - name: Packaged synthetic Sandbox OIDC publication and request boundaries
+        run: python3 scripts/sandbox-smoke.py
       - name: Restart, durable revocation, backup and restore drill
         run: python3 scripts/recovery-smoke.py
       - name: Deployment container HTTP and negative route tests

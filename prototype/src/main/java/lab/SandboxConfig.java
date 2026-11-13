@@ -109,6 +109,8 @@ public record SandboxConfig(String idp, String organization, String contact) {
         keys.directory().resolve("sandbox-sp-metadata-backup.xml").toUri().toString());
     p.put("authn-server.saml.metadata-providers[0].skip-hostname-verification", false);
 
+    // This standalone mode has no phone-pilot origins, but still serves OIDC.
+    p.put("authn-server.oidc.enabled", true);
     p.put("authn-server.oidc.issuer", idp);
     p.put("authn-server.oidc.keys.signing[0].credential.bundle", "lab-idp");
     p.put("authn-server.oidc.keys.signing[0].default-key", true);
@@ -132,6 +134,11 @@ public record SandboxConfig(String idp, String organization, String contact) {
 
     p.put("authn-server.entity-information.ui-info.display-names.sv", "Tjipp Sandbox – ENDAST TEST");
     p.put("authn-server.entity-information.ui-info.display-names.en", "Tjipp Sandbox – SYNTHETIC ONLY");
+    p.put("authn-server.entity-information.ui-info.descriptions.sv", "Testinloggning med enbart simulerade identiteter.");
+    p.put("authn-server.entity-information.ui-info.descriptions.en", "Test authentication with synthetic identities only.");
+    p.put("authn-server.entity-information.ui-info.logotypes[0].url", idp + "/logo.svg");
+    p.put("authn-server.entity-information.ui-info.logotypes[0].width", 192);
+    p.put("authn-server.entity-information.ui-info.logotypes[0].height", 192);
     p.put("authn-server.entity-information.organization.names.sv", organization);
     p.put("authn-server.entity-information.organization.names.en", organization);
     p.put("authn-server.entity-information.organization.display-names.sv", organization);
@@ -142,6 +149,7 @@ public record SandboxConfig(String idp, String organization, String contact) {
     p.put("authn-server.oidc.entity-information.contacts[0]", contact);
     p.put("authn-server.oidc.ui-locales[0]", "sv");
     p.put("authn-server.oidc.ui-locales[1]", "en");
-    p.put("authn-server.saml.metadata.ui-info.display-names.sv", "Tjipp Sandbox – SIMULERAD");
+    // Remove the lab's SAML-only override so both protocols use the shared test labels.
+    p.remove("authn-server.saml.metadata.ui-info.display-names.sv");
   }
 }
