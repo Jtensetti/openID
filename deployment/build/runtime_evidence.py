@@ -27,7 +27,15 @@ ROOT = Path('/usr/share/doc/openid-runtime')
 SYMBOLS = {'posix_memalign','strfmon','strfmon_l','wordexp','regcomp','regexec','glob','glob64','tdelete',
  'ns_printrr','ns_printrrf','fp_nquery','crc32_combine64','crc32_combine_gen64','gzprintf','gzvprintf','gzclearerr',
  'sqlite3changeset_apply','sqlite3changeset_apply_v2','sqlite3changeset_apply_v3',
- 'sqlite3changeset_concat','sqlite3changegroup_add','XML_ParserReset'}
+ 'sqlite3changeset_concat','sqlite3changegroup_add','XML_ParserReset',
+ 'fwscanf','wscanf','swscanf','vfwscanf','vwscanf','vswscanf',
+ '__isoc99_fwscanf','__isoc99_wscanf','__isoc99_swscanf',
+ '__isoc99_vfwscanf','__isoc99_vwscanf','__isoc99_vswscanf',
+ '__isoc23_fwscanf','__isoc23_wscanf','__isoc23_swscanf',
+ '__isoc23_vfwscanf','__isoc23_vwscanf','__isoc23_vswscanf',
+ 'CMS_encrypt','CMS_encrypt_ex','OSSL_QUIC_client_method','OSSL_QUIC_client_thread_method',
+ 'SSL_set1_initial_peer_addr','SSL_set_blocking_mode','SSL_handle_events',
+ 'EVP_CIPHER_fetch','EVP_aes_128_gcm_siv','EVP_aes_256_gcm_siv'}
 
 
 def check_network_transport():
@@ -220,7 +228,7 @@ def elf_imports(path):
                     stop=raw.find(b'\0',start+name,end)
                     if stop<0: raise ValueError('invalid ELF symbol string')
                     symbol=raw[start+name:stop].decode('utf-8')
-                    if symbol in SYMBOLS: imports.add(symbol)
+                    if symbol in SYMBOLS or 'from_chars' in symbol: imports.add(symbol)
             return imports
 
 
@@ -249,6 +257,33 @@ def check_sources(directory):
                     count+=1
     if count==0: raise ValueError('no application decoder coverage')
     return count
+
+
+def check_crypto_routes(directory):
+    """Assert the reviewed service profile does not introduce these crypto APIs.
+
+    Native consumers are separately bound by image hash and ELF call inventory;
+    this is a change detector for the source review, not a general code sandbox.
+    """
+    prohibited = ('gcm-siv', 'cms_encrypt', 'ossl_quic_', 'ssl_set1_initial_peer_addr')
+    for pattern in ('*.py', '*.mjs'):
+        for path in directory.glob(pattern):
+            source = path.read_text()
+            if any(word in source.lower() for word in prohibited):
+                raise ValueError('new service crypto route needs review')
+            if path.suffix == '.py':
+                for node in ast.walk(ast.parse(source)):
+                    if (isinstance(node, ast.Constant) and isinstance(node.value, str)
+                            and (node.value == 'openssl' or node.value.endswith('/openssl'))):
+                        raise ValueError('service invokes OpenSSL CLI')
+    import ssl
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    if any('SIV' in cipher['name'] for cipher in context.get_ciphers()):
+        raise ValueError('unexpected TLS cipher profile')
+    for path in (directory/'node_modules').rglob('package.json'):
+        if json.loads(path.read_text()).get('name') == 'webpack-dev-middleware':
+            raise ValueError('unexpected development middleware in runtime')
+    return ['service_crypto_profile', 'no_webpack_dev_middleware']
 
 
 def collect():
@@ -318,7 +353,7 @@ def collect():
         if set(aws.values())-{'json','rest-json'}: raise ValueError('new AWS XML protocol')
     sys.path.insert(0,'/app/verification')
     sts=check_sts_transport();aws['sts']=sts['protocol']
-    guards=check_network_transport()+check_sqlite_snapshot_boundary()
+    guards=check_network_transport()+check_sqlite_snapshot_boundary()+check_crypto_routes(Path('/app/verification'))
     guards.extend(sts['checks'])
     import locale
     if (os.environ.get('LC_ALL')!='C.UTF-8' or os.environ.get('LANGUAGE')!=''
@@ -358,14 +393,14 @@ def collect():
                 if found is not None:
                     visited+=1
                     if found: imports[str(path)]=sorted(found)
-                    if found & {'glob','glob64','regcomp','regexec'}:
+                    if found:
                         with path.open('rb') as stream:
                             native_hashes[str(path)]=hashlib.file_digest(stream,'sha256').hexdigest()
     if not visited: raise ValueError('empty native-code coverage')
     return {'format':1,'python':platform.python_version(),'architecture':platform.machine(),
         'policySHA256':hashlib.sha256((ROOT/'runtime-policy.json').read_bytes()).hexdigest(),
         'removedPackages':sorted(removal['packages']),'removedPathCount':len(paths),
-        'elfFiles':visited,'sensitiveImports':imports,'nativeFileSHA256':native_hashes,'awsProtocols':aws,'awsStsTransport':sts,'strictDecoderCalls':decoder_count,
+        'elfFiles':visited,'nativeProbeVersion':2,'sensitiveImports':imports,'nativeFileSHA256':native_hashes,'awsProtocols':aws,'awsStsTransport':sts,'strictDecoderCalls':decoder_count,
         'alignedNewProbe':subprocess.run(['/checks/aligned-new'],timeout=10).returncode==0,
         'checks':['removed_payload','mail_modules_absent','gconv_absent','no_setid_or_filecaps',
             'strict_base64','temporary_directory_safe','resolver_search_disabled','fopen_mode_validated',

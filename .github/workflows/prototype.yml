@@ -31,6 +31,17 @@ jobs:
           tar --extract --gzip --file "$RUNNER_TEMP/lab-jdk.tar.gz" --directory "$RUNNER_TEMP"
           printf 'JAVA_HOME=%s\n' "$RUNNER_TEMP/jdk-21.0.13+9" >> "$GITHUB_ENV"
           printf '%s\n' "$RUNNER_TEMP/jdk-21.0.13+9/bin" >> "$GITHUB_PATH"
+      - name: Fetch the checksum-locked Maven distribution with bounded transport retries
+        run: |
+          for attempt in 1 2 3; do
+            if ./mvnw --version; then
+              break
+            fi
+            if [ "$attempt" = 3 ]; then
+              exit 1
+            fi
+            sleep 2
+          done
       - name: Compile and test HTTPS, SAML and lifecycle
         run: ./mvnw -B -ntp clean verify dependency:list -DoutputAbsoluteArtifactFilename=true -DoutputFile=target/dependencies.txt -Dsignature.fixtureDirectory=target/signature-fixtures
       - name: Verify document signature using the independent OpenSSL implementation
@@ -77,7 +88,7 @@ jobs:
               source.write_text(updated)
           print('Ubuntu mirror selected; suites, components and signing key unchanged.')
           PY
-          sudo apt-get update --error-on=any
+          sudo apt-get -o Acquire::Retries=3 update --error-on=any
       - name: Install Chromium for the pinned Playwright version
         run: npx --no-install playwright install --with-deps chromium --only-shell
       - name: Browser SAML, WebAuthn USB/platform, PWA and revocation

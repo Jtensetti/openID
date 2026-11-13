@@ -1,5 +1,12 @@
 # Separat byggmiljö och serverleverans
 
+Den samlade driftprofilen levereras nu med
+[tre-image-paketet](../production/README.md#inventering-av-alla-tre-bilder).
+Det återanvänder appverifieraren nedan men kräver även separata bedömningar
+och importkontroller för PostgreSQL och OpenBao. Instruktionerna för
+`deployment/image_bundle.py` gäller appens underpaket och äldre privat beta;
+de räcker inte ensamma för den samlade driften.
+
 `Private pilot runtime` bygger Linux/amd64-paketet på en ny GitHub-hostad
 Ubuntu 24.04-maskin. Betavärden används inte för kompilering eller Dockerbyggen.
 Jobbet får endast läsa repot och har inga AWS-behörigheter, Apple-nycklar,
@@ -15,11 +22,12 @@ beroenden; verifierar- och protokollproven körs utan externt nät.
 
 1. Merge till `main` startar hela `Assurance checks`. Serverjobbet bygger,
    provar, exporterar och återläser exakt samma image utan ett nytt bygge.
-   PR-jobb provar också export/import, men lagrar inte det stora imagepaketet.
+   PR-jobb provar också export/import. För PR:er från samma repository sparas
+   det fullständiga paketet; externa fork-PR:er får inget sådant leveranspaket.
 2. Hela körningen, inklusive `assurance-gate`, ska vara godkänd för vald
    revision. Ett tillgängligt imagepaket är inte ensamt ett godkännande:
    ett annat komponentjobb kan ha misslyckats efter att det laddades upp.
-3. Hämta `pilot-image-<full revision>` från den verifierade körningen. Bevara
+3. Hämta `production-image-<full revision>` från den verifierade körningen. Bevara
    körningslänk, försök, revision och manifestets SHA-256 från jobbsammanfattningen
    separat från det hämtade paketet. Artefakten sparas i GitHub i **sju dagar**;
    releasearkivet behöver egen bevaring. Byggdata använder Actions-lagringskvoten.
@@ -28,7 +36,7 @@ beroenden; verifierar- och protokollproven körs utan externt nät.
    byggda HEAD. Kräv också en passerad helhetskörning på samma källträd och
    dokumentera kopplingen. En manuell serverkörning ersätter inte den grinden.
 
-Paketet innehåller `image.tar.gz`, `source.tar.gz`, `manifest.json`,
+Appens underpaket i `application/` innehåller `image.tar.gz`, `source.tar.gz`, `manifest.json`,
 `python-packages.json`, syntetiska `protocol-results.json` och elva `os-*`-filer:
 OS-bedömning, Trivy-rapport, CycloneDX, dpkg-lista, databasmetadata,
 skannerlås, skanner-SBOM, tillämplighetspolicy, runtimeprov, komponentadvisories
@@ -200,7 +208,7 @@ Import/export räknar om besluten från rådata och kräver policyn från den
 betrodda checkouten. Bedömningar är inte oberoende attestation eller riskacceptans.
 
 STS-förnyaren ingår i appimages och använder den låsta SDK:ns Query/XML-protokoll.
-Den tidigare undantagsbedömningen för CVE-2026-115506 är därför tillbakadragen.
+Bedömningen får inte utgå från att XML saknas.
 `metadata_client()` registrerar en kontroll på `before-parse.sts` för både
 lyckade svar och API-fel, innan SDK:ns XML-parser skapas. Den kräver UTF-8,
 nekar DTD/entitetsdeklarationer, nulltecken och annan deklarerad kodning samt
@@ -220,10 +228,13 @@ PYTHONPATH=verification:deployment/build python3 -m unittest -v test_aws_credent
 
 Tre JSON-klienter är inte längre underlag för påståendet att XML saknas.
 Den gamla markören `python_xml_not_exposed` lämnas inte som godkänt bevis.
-Övriga XML-konsumenter, inklusive SPAR, måste bedömas separat. Den befintliga
-AST-gränsen för XML-importer behålls och kan fortsatt stoppa hela provet.
-STS-provet ändrar inte source-hash, advisorybeslut eller tidsgränser i
-runtimepolicyn och stänger inte hela leveransgrinden.
+De tre Expat-besluten kräver nu enkeldokumentprov, granskad källkod och samtliga
+STS-kontroller. Gränserna prövas mot parser-reset, DTD-expansion respektive
+orimligt stora attributmängder. Övriga XML-konsumenter måste bedömas separat.
+SPAR:s kundtestmodul är inte kopplad till utfärdande och följer inte med i
+runtimebilderna; dess separata tester finns kvar. AST-gränsen för direkta
+XML-importer behålls. Källhashen binder den dokumenterade ändringsgranskningen;
+okända eller kvarvarande GCC-/glibc-/OpenSSL-fynd blockerar fortfarande.
 
 Skanner och upstream-SBOM verifieras mot [trivy.lock.json](trivy.lock.json).
 Databasen och komponentfeedens index/arkiv får vara högst 24 timmar gamla.

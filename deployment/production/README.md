@@ -2,8 +2,14 @@
 
 Den här profilen är den enda kandidaten för Tjipps samlade drift. Den ersätter
 den tidigare SQLite-/socket-vault-kompositionen med PostgreSQL och OpenBao
-Transit. Nyregistrering är stängd. Profilen är under verifiering och har inget
+Transit. Nyregistrering är stängd som standard. Profilen är under verifiering och har inget
 tillstånd att utfärda e-legitimationer.
+
+De härledda [leverantörsbilderna](vendor-builds/README.md) tar bort oanvänd
+kod och uppdaterar OpenBaos beroenden. Låset binder både de officiella
+basbilderna, samtliga byggindata och de valda utbildernas exakta ID:n.
+`vendor_images.py` bygger dem i CI och kräver samma ID innan runtimeprovet.
+Driftvärden importerar sedan de redan provade bilderna utan ombygge.
 
 Samma version ska kunna granskas och senare importeras utan ombygge. Kod,
 lokalt prov, CI-resultat, installerade image-ID:n och formellt driftbeslut är
@@ -13,7 +19,7 @@ skilda bevis. Röd leveransgrind stoppar driftsättning.
 
 | Tjänst | Identitet | Åtkomst |
 | --- | --- | --- |
-| postgres | 999:999 | Egen data och TLS/SCRAM-konfiguration; loopback 15432 |
+| postgres | 70:70 | Egen data och TLS/SCRAM-konfiguration; loopback 15432 |
 | openbao | 10008:20008 | Egen Raft-data, maskad revisionslogg och TLS; loopback 18210/18211 |
 | credential-rotator | 0:0, endast CHOWN | Instansroll till STS; två separata kortlivade sessioner; inga register-, profilnyckel- eller IPC-monteringar |
 | verifier | 10001:20010, grupp 20004 | PG-utfärdanderoll, begränsad Transit-token och spärrsocket; stängt insamlings-API 8767 |
@@ -28,9 +34,16 @@ skilda bevis. Röd leveransgrind stoppar driftsättning.
 samlar kontrollerade identiteter, monteringar, kommandon och resursgränser.
 Alla tre importerade image-ID:n måste vara fullständiga SHA-256-ID:n och
 `pull_policy: never` gäller. Gemensam appimage används av åtta tjänster;
-PostgreSQL 18.6 och OpenBao 2.7.1 har egna digestbundna källor. Ett komplett
-leveranspaket och OS-bedömning för samtliga tre images återstår innan release;
+PostgreSQL 18.7 (Alpine 3.24) och OpenBao 2.7.2 har egna digestbundna källor. Ett komplett
+leveranspaket och passerade bedömningar för samtliga tre images krävs innan release;
 den befintliga en-image-importören är inte ett sådant paket.
+
+[Leverantörslåset](vendor-images.lock.json) binder källmanifest, Linux/amd64-image,
+version, byggkälla, licens och förväntade Go-binärer. PostgreSQL använder
+Alpine-imagens UID 70; denna profil ska initieras i en tom katalog med rätt
+ägare. Byt inte ägare eller libc/locale-variant på en befintlig databas utan
+ett separat migrationsprov. Övriga äldre komponentprov använder fortfarande
+sina egna låsta tjänsteversioner.
 
 Varje tjänst har skrivskyddad rot, borttagna Linux-förmågor, skydd mot
 privilegieförhöjning, begränsade resurser och avstängda minnesdumpar.
@@ -80,12 +93,24 @@ NFC-/proofingprocessen har avsiktligt en arbetare.
 All privat konfiguration ligger utanför repot i `$TJIPP_DIRECTORY`.
 `check.py settings` kontrollerar den exakta filuppsättningen, ägare, grupper,
 lägen, fasta sökvägar och sammanhängande inställningar. Symboliska länkar,
-delade roller, öppnad registrering och gamla beta-flaggor avvisas.
+hårdlänkad konfiguration, delade roller och gamla beta-flaggor avvisas.
+
+För uttryckligen beslutad registrering kan enbart verifieraren sätta
+`newRegistrationsEnabled: true` tillsammans med
+`enrollmentPolicyFile: /srv/openid/service/enrollment-policy.json`.
+Installera då den beslutade [registreringsinformationen](../../docs/registreringsinformation.md)
+som `services/verifier/enrollment-policy.json`, ägare 10001:20010, läge 0600.
+Kontrollen kräver fullständig, aktuell information och exakt denna sökväg.
+Saknad, utgången eller felaktig information stoppar starten. Stängd
+registrering ska inte ha någon informationsfil kvar. Appkoppling, App Attest,
+passkontroll, biometri och separat aktivering behåller sina krav.
+Ett lyckat konfigurationsprov intygar varken beslutets behörighet eller
+att informationen är rättsligt bedömd.
 
 | Sökväg | Ägare och läge |
 | --- | --- |
 | services/{verifier,wallet,bridge,continuity,credential-rotator} | Respektive tjänsts UID:GID; katalog 0700, privata filer 0600 |
-| postgres/config, postgres/data | 999:999, 0700; konfigurationsfiler 0600 |
+| postgres/config, postgres/data | 70:70, 0700; konfigurationsfiler 0600 |
 | openbao/config, openbao/data, openbao/audit | 10008:20008, 0700; konfigurationsfiler 0600 |
 | ipc/continuity | 10007:20004, 2710 |
 | ipc/federation, ipc/notice | 10009:20001 respektive 10009:20003, 2710 |
@@ -234,21 +259,26 @@ låsta leverantörskällan och bildens uppmätta linux/amd64-ID i Docker,
 läser OS-identitet och installerade dpkg-/APK-paket samt kör binärernas
 versionskommandon utan nät, driftvolymer eller extra kapabiliteter. Appen
 inventeras med sin befintliga Python; den saknar avsiktligt kommandoskal.
-Källbindningen bygger på Docker-daemonens upplösning av den låsta referensen;
-den är ingen oberoende attestering av registret eller en komplett SBOM.
+För de härledda leverantörsbilderna krävs låsta byggindata och exakt utbilds-ID;
+föregående CI-steg kontrollerar basbildens ID och ombyggnadens resultat.
+Det är ingen oberoende attestering eller en komplett SBOM.
 
 ```sh
 python3 deployment/production/delivery_inventory.py \
   --image "$TJIPP_IMAGE_ID" --runtime "$RUNNER_TEMP/canonical-runtime.json" \
   --os-audit "$RUNNER_TEMP/image-os-audit" \
+  --vendor-audit "$RUNNER_TEMP/vendor-audit" \
   --output "$RUNNER_TEMP/three-image-inventory.json"
 ```
 
 Rapporten skiljer `inventoryComplete` från `releaseReady`. Appens befintliga
-OS-verifierare återanvänds endast för appen. PostgreSQL och OpenBao har ännu
-inga egna införda bedömningsprofiler; deras status är `missing`, aldrig
-`not_applicable` eller ett ärvt godkännande. Saknad, ofullständig, underkänd
-och avvisad appbedömning redovisas separat. Inventeringen kan lyckas samtidigt
+OS-verifierare återanvänds endast för appen. `audit_vendors.py --output KATALOG`
+bedömer de två exakta leverantörsbilderna med den låsta skannern, färsk databas,
+alla APK-paket och alla förväntade Go-binärer. Inventering, ofiltrerade fynd,
+CycloneDX, skanner-SBOM och hashbundna underlag bevaras. Även lågriskfynd och
+fynd utan rättning blockerar tills de har hanterats; inga tillämplighetsundantag
+är införda för leverantörerna. Saknad, ofullständig, underkänd och avvisad
+bedömning redovisas separat. Inventeringen kan lyckas samtidigt
 som `releaseStatus` är `BLOCKED`; `--require-release-ready` nekar då med
 felkod 2. Ofullständig inventering ger felkod 1 även utan denna flagga.
 
@@ -256,10 +286,33 @@ CI kräver `--require-release-ready` före paketeringen och behåller
 inventeringen även när appens OS-bedömning eller leveransberedskapen
 underkänns. Därmed kan den äldre en-image-paketeringen inte fortsätta
 enbart för att appens bedömning skulle passera.
-Detta verktyg exporterar eller importerar inga bilder. Full bedömning av
-alla tre, versionsbundet export-/importpaket och verifierad återläsning
-återstår före leverans. Den äldre `image_bundle.py` hanterar en enda
-appbild och utgör inte ett komplett paket för denna driftprofil.
+Inventeringen exporterar inga bilder. `release_bundle.py` paketerar appen,
+PostgreSQL och OpenBao först efter passerade separata bedömningar och det
+kompletta runtimeprovet. Appens befintliga importverifiering återanvänds;
+leverantörerna kontrolleras även mot sina rårapporter, paketlistor, lås och
+SBOM:er. Det yttre manifestet binder samtliga filer och tre image-ID:n till
+en revision och ett källträd. `READY_FOR_PACKAGING` är ingen produktionsattest.
+
+CI provar export och återläsning utan ombygge. Main-/manuella körningar och PR:er från samma repository
+bevarar `production-image-<revision>` i sju dagar. Hämta manifestets SHA-256
+från den betrodda körningen. Använd en separat skyddad katalog och den
+granskade kodrevisionen:
+
+```sh
+python3 deployment/production/release_bundle.py verify \
+  --directory /privat/tjipp-kandidat --expected-revision FULL_COMMIT_SHA \
+  --expected-manifest-sha256 SHA256_FRAN_GITHUB_KORNINGEN
+python3 deployment/production/release_bundle.py import \
+  --directory /privat/tjipp-kandidat --expected-revision FULL_COMMIT_SHA \
+  --expected-manifest-sha256 SHA256_FRAN_GITHUB_KORNINGEN
+```
+
+Import nekar ofullständiga, ändrade, länkade eller äldre än 24 timmar gamla
+paket innan någon bild laddas. Linux/amd64 och ledigt Dockerutrymme för hela
+paketet krävs. Samtliga laddade ID:n kontrolleras. Ingen tjänst startas,
+ingen konfiguration ändras och inga register eller nycklar återläses.
+En underkänd komponent stoppar hela leveransen; en genomförd import ersätter
+inte den fullständiga CI-körningen, oberoende granskning eller driftbeslut.
 
 ### Konfiguration och runtime
 

@@ -225,6 +225,18 @@ Versionslås behöver uppdateras och provas när nya säkerhetsfixar publiceras.
 Repoförvaltaren ansvarar för paketuppdateringar; driftägaren ansvarar för
 PostgreSQL-/OpenBao-uppgraderingar och operativ säkerhetsbevakning.
 
+Den sammanhängande driftprofilen har ett separat
+[leverantörslås](../deployment/production/vendor-images.lock.json): PostgreSQL
+18.7 på Alpine 3.24 och OpenBao 2.7.2. Kontrollerade originalkällor är
+[PostgreSQLs officiella image-recept](https://github.com/docker-library/postgres/tree/185fae3519025ac5715b35134e440af1948f4de2/18/alpine3.24)
+och [OpenBao 2.7.2](https://github.com/openbao/openbao/releases/tag/v2.7.2).
+Receptet behåller MIT-licens; PostgreSQL behåller PostgreSQL License.
+OpenBaos MPL-2.0-text och release-SBOM är hämtade och SHA-256-bundna i låset.
+Ingen leverantörskod modifieras. Uppgraderingen omfattar bland annat
+OpenBaos rättning av Transit-importens sökvägshantering. Exakta images måste
+fortfarande klara egna paket-/binärbedömningar och sammanhängande driftprov;
+applikationsimagens tillämplighetsundantag gäller inte dessa images.
+
 Primärkällor:
 - https://www.psycopg.org/psycopg3/docs/advanced/pool.html
 - https://github.com/psycopg/psycopg/tree/a67654d1e7afbf9b3a619557838f62de1c790e7c

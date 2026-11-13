@@ -46,6 +46,32 @@ class ApplicabilityTests(unittest.TestCase):
         self.assertEqual(self.evaluate()[0]['status'],'not_affected')
         self.evidence['sensitiveImports']={'/app/lib.so':['wordexp']}
         self.assertEqual(self.evaluate()[0]['status'],'under_investigation')
+
+    def test_expanded_native_decisions_need_new_probe_and_reject_new_callers(self):
+        for check,symbol in [('no_wide_scanf','__isoc23_vswscanf'),
+                             ('no_native_from_chars','_ZSt10from_charsPKcS0_RdSt12chars_format'),
+                             ('no_untrusted_cms_encrypt','CMS_encrypt_ex'),
+                             ('no_quic_transport','OSSL_QUIC_client_method'),
+                             ('no_gcm_siv','EVP_CIPHER_fetch')]:
+            with self.subTest(check=check):
+                self.policy['advisories'][0]['checks']=[check]
+                self.evidence['sensitiveImports']={};self.evidence.pop('nativeProbeVersion',None)
+                self.assertEqual(self.evaluate()[0]['status'],'under_investigation')
+                self.evidence['nativeProbeVersion']=2
+                self.assertEqual(self.evaluate()[0]['status'],'not_affected')
+                self.evidence['sensitiveImports']={'/app/new.so':[symbol]}
+                self.assertEqual(self.evaluate()[0]['status'],'under_investigation')
+
+    def test_service_crypto_change_and_development_middleware_rejected(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);p=root/'service.py';p.write_text('pass\n')
+            self.assertIn('service_crypto_profile',evidence.check_crypto_routes(root))
+            for change in ['run(["openssl"])','mode="AES-256-GCM-SIV"','call=CMS_encrypt_ex']:
+                p.write_text(change)
+                with self.subTest(change=change),self.assertRaises(ValueError):evidence.check_crypto_routes(root)
+            p.write_text('pass\n'); module=root/'node_modules'/'dev';module.mkdir(parents=True)
+            (module/'package.json').write_text('{"name":"webpack-dev-middleware"}')
+            with self.assertRaises(ValueError):evidence.check_crypto_routes(root)
     def test_runtime_only_compiler_decision_needs_observed_evidence(self):
         self.policy['advisories'][0]['checks']=['gcc_runtime_only']
         self.assertEqual(self.evaluate()[0]['status'],'under_investigation')
@@ -116,6 +142,26 @@ class ApplicabilityTests(unittest.TestCase):
         finding={'id':'CVE-UPSTREAM','package':'cpython','version':'3.12.16'}
         self.assertIn(finding,advisory.runtime_findings(report))
         self.assertEqual(self.evaluate(findings=[finding])[0]['status'],'under_investigation')
+
+
+class STSApplicabilityTests(unittest.TestCase):
+    def test_each_expat_decision_requires_all_live_consumer_guards(self):
+        import json
+        value=json.loads(policy.POLICY.read_text())
+        guards={'python_xml_single_document','reviewed_source_apis','aws_sts_query_transport',
+                'aws_sts_before_parse_guard','aws_sts_api_errors'}
+        observed={'format':1,'python':'3.12.16','architecture':'x86_64','elfFiles':1,
+            'strictDecoderCalls':1,'removedPackages':value['removedPackages'],'removedPathCount':1,
+            'sensitiveImports':{},'checks':sorted(guards)}
+        for ident in ('CVE-2026-113351','CVE-2026-115506','CVE-2026-118370'):
+            finding={'id':ident,'package':'expat','version':'2.9.0'}
+            def evaluate(evidence):
+                return policy.decisions(value,evidence,[finding],datetime(2026,11,13,tzinfo=timezone.utc),
+                                        source_sha=value['sourceSHA256'])[0]['status']
+            self.assertEqual(evaluate(observed),'not_affected')
+            for guard in guards:
+                with self.subTest(advisory=ident,missing=guard):
+                    self.assertEqual(evaluate(dict(observed,checks=sorted(guards-{guard}))),'under_investigation')
 
 
 if __name__=='__main__':unittest.main()

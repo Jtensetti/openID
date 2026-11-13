@@ -4,6 +4,8 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import tempfile
+import time
 import unittest
 import check
 from contract import VENDORS
@@ -26,6 +28,50 @@ class SettingsTests(unittest.TestCase):
                           ('trustedProxy','10.0.0.1'),('role','wallet')]:
             data=values();data['verifier'][key]=value
             with self.subTest(field=key),self.assertRaises(ValueError):check.check_values(data)
+
+    def registration(self):
+        data=values(); now=int(time.time())
+        data['verifier'].update(newRegistrationsEnabled=True,enrollmentPolicyFile=check.ENROLLMENT_PATH)
+        data['enrollment']={'schema':1,'decisionReference':'SYNTHETIC_DECISION_001','notice':{
+            'version':'SYNTHETIC_TERMS_001','locale':'sv-SE','notBefore':now-60,'notAfter':now+600,
+            'controller':'Syntetisk testoperatör','contact':'privacy@example.invalid',
+            'terms':'Syntetiska testvillkor.','privacy':'Endast syntetiska uppgifter.',
+            'biometrics':'Syntetiskt biometrival.','withdrawal':'Syntetisk återkallelseinformation.'}}
+        return data
+
+    def test_registration_requires_current_exact_policy_and_keeps_production_boundaries(self):
+        data=self.registration();check.check_values(data)
+        self.assertIn('enrollment-policy.json',check.private_files('verifier',data['verifier']))
+        self.assertNotIn('enrollment-policy.json',check.private_files('wallet',data['wallet']))
+        for kind in ('missing','expired','future','empty_text','no_decision','wrong_path','wrong_type','beta'):
+            data=self.registration()
+            if kind=='missing':del data['enrollment']
+            elif kind=='expired':data['enrollment']['notice']['notAfter']=int(time.time())-1
+            elif kind=='future':data['enrollment']['notice']['notBefore']=int(time.time())+60
+            elif kind=='empty_text':data['enrollment']['notice']['biometrics']=''
+            elif kind=='no_decision':data['enrollment']['decisionReference']=''
+            elif kind=='wrong_path':data['verifier']['enrollmentPolicyFile']='/tmp/other.json'
+            elif kind=='wrong_type':data['verifier']['newRegistrationsEnabled']=1
+            else:data['verifier']['testBeta']=True
+            with self.subTest(kind=kind),self.assertRaises(ValueError):check.check_values(data)
+
+    def test_closed_default_rejects_stale_policy_and_policy_cannot_change_other_roles(self):
+        data=self.registration();data['verifier']['newRegistrationsEnabled']=False
+        with self.assertRaises(ValueError):check.check_values(data)
+        data=self.registration();data['wallet']['enrollmentPolicyFile']=check.ENROLLMENT_PATH
+        with self.assertRaises(ValueError):check.check_values(data)
+
+    def test_policy_file_has_separate_size_limit_and_rejects_duplicate_fields_and_links(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path=Path(temp)/'policy.json'; value=self.registration()['enrollment']
+            value['notice']['privacy']='x'*20000;path.write_text(json.dumps(value))
+            with self.assertRaises(ValueError):check.private_json(path)
+            self.assertEqual(value,check.private_json(path,65536))
+            with self.assertRaises(ValueError):check.enrollment_policy(value)
+            path.write_text('{"schema":1,"schema":1}')
+            with self.assertRaises(ValueError):check.private_json(path,65536)
+            path.write_text('{}');os.link(path,Path(temp)/'linked')
+            with self.assertRaises(ValueError):check.private_json(path,65536)
 
     def test_separate_wallet_origin_and_service_socket_overrides_rejected(self):
         for role,key,value in [('wallet','origin','https://different.example.org'),('wallet','workers',4),

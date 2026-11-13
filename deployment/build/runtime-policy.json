@@ -1,8 +1,8 @@
 {
   "format": 1,
-  "reviewed": "2026-11-10",
+  "reviewed": "2026-11-13",
   "reviewBefore": "2026-11-30",
-  "sourceSHA256": "5a329bbde5cdb85d5c6cdc410dd542d2e9c8cddb86e94d8037ca33916aeaf402",
+  "sourceSHA256": "eb55f6bf6a6f238f7a3bc98ebe0f57077535ac33ec33c372548047c08b43314c",
   "scope": "The two Linux/amd64 application images built from the locked Docker Official Python image. Not a distribution-wide VEX, host assessment, or risk acceptance.",
   "removedPackages": [
     "apt",
@@ -2286,9 +2286,13 @@
       "version": "2.9.0",
       "status": "not_affected",
       "checks": [
-        "python_xml_not_exposed"
+        "python_xml_single_document",
+        "reviewed_source_apis",
+        "aws_sts_query_transport",
+        "aws_sts_before_parse_guard",
+        "aws_sts_api_errors"
       ],
-      "reason": "No XML_ParserReset exposed in the Python service. pyexpat parsers are single-document; ordinary ElementTree creates/frees parsers. Public payloads are JSON; SAML is parsed by Java, not Expat.",
+      "reason": "The shipped pyexpat interface is tested as single-document and exposes no XML_ParserReset. The locked STS Query client uses fresh SDK parsers for successful and error responses; the in-image probe exercises both and subsequent reuse of the client. Direct application XML imports are forbidden. SAML remains in Java. This is a consumer-specific decision, not a claim that XML or the upstream defect is absent.",
       "references": [
         "https://www.cve.org/CVERecord?id=CVE-2026-113351"
       ]
@@ -2299,9 +2303,13 @@
       "version": "2.9.0",
       "status": "not_affected",
       "checks": [
-        "python_xml_not_exposed"
+        "python_xml_single_document",
+        "reviewed_source_apis",
+        "aws_sts_query_transport",
+        "aws_sts_before_parse_guard",
+        "aws_sts_api_errors"
       ],
-      "reason": "No attacker-supplied XML reaches Expat; the greater-than-2^30-attribute trigger also exceeds all service request limits. Java SAML does not use this parser.",
+      "reason": "The reviewed Python XML consumer is the fixed verified-TLS STS Query client. Every success and error body is rejected before SDK XML parsing above 65536 bytes, or with a DTD/entity declaration, NUL, non-UTF-8 bytes or alternate declared encoding. The greater-than-2^30-attributes trigger cannot fit this parser input. Direct application XML imports are forbidden. This does not bound SDK transport buffering or assess other consumers.",
       "references": [
         "https://www.cve.org/CVERecord?id=CVE-2026-118370"
       ]
@@ -2663,11 +2671,358 @@
       "status": "not_affected",
       "checks": [
         "no_zlib_clearerr",
+        "no_webpack_dev_middleware",
         "reviewed_source_apis"
       ],
-      "reason": "For the installed zlib 1.3.1 the trigger requires gzclearerr() after a failed gz write. No application/native dependency imports gzclearerr; Python gzip uses in-memory deflate/inflate, not gz* file streams, and the reviewed service exposes neither a gz stream nor a native clear-error operation. Import absence supports this call-path review, not a general zlib guarantee.",
+      "reason": "The current primary CNA identifies webpack-dev-middleware path traversal, not zlib. The locked runtime has no webpack-dev-middleware. The stale Debian/zlib scanner association is retained in raw findings; the previously associated gzclearerr-after-failed-write trigger also remains excluded by the exact native import inventory and reviewed in-memory zlib use. Both boundaries are required; no claim is made that the zlib library is patched.",
       "references": [
-        "https://github.com/CVEProject/cvelistV5/blob/main/cves/2026/76xxx/CVE-2026-76844.json"
+        "https://raw.githubusercontent.com/CVEProject/cvelistV5/main/cves/2026/76xxx/CVE-2026-76844.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-115506",
+      "package": "expat",
+      "version": "2.9.0",
+      "status": "not_affected",
+      "checks": [
+        "python_xml_single_document",
+        "reviewed_source_apis",
+        "aws_sts_query_transport",
+        "aws_sts_before_parse_guard",
+        "aws_sts_api_errors"
+      ],
+      "reason": "The entity-expansion trigger requires a DTD. The sole reviewed Python XML consumer, the fixed STS Query client, rejects DTD and entity declarations before both SDK success and error parsing. UTF-8-only decoding, NUL and encoding checks prevent alternate-encoding bypass. Direct application XML imports are forbidden; the SPAR customer-test-only adapter is not shipped. Exact-image probes must exercise the locked SDK and all rejection cases. This does not claim that Expat is patched or that SDK transport buffering is bounded.",
+      "references": [
+        "https://www.cve.org/CVERecord?id=CVE-2026-115506",
+        "https://github.com/libexpat/libexpat/pull/1433"
+      ]
+    },
+    {
+      "id": "CVE-2026-100290",
+      "package": "libc-bin",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "no_untrusted_posix_regex",
+        "postgres_scram_only",
+        "reviewed_source_apis"
+      ],
+      "reason": "The allocation-failure trigger is in POSIX regcomp/regexec. The only native imports are in the exact hashed Kerberos library bundled with Psycopg. The application forces verified TLS, SCRAM-only authentication and gssencmode=disable even against a conflicting input configuration. This disables that Kerberos path; Python/Java/Node regular expressions use other implementations. The result does not claim general allocation-failure safety or a patched glibc.",
+      "references": [
+        "https://raw.githubusercontent.com/CVEProject/cvelistV5/main/cves/2026/100xxx/CVE-2026-100290.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-100290",
+      "package": "libc6",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "no_untrusted_posix_regex",
+        "postgres_scram_only",
+        "reviewed_source_apis"
+      ],
+      "reason": "The allocation-failure trigger is in POSIX regcomp/regexec. The only native imports are in the exact hashed Kerberos library bundled with Psycopg. The application forces verified TLS, SCRAM-only authentication and gssencmode=disable even against a conflicting input configuration. This disables that Kerberos path; Python/Java/Node regular expressions use other implementations. The result does not claim general allocation-failure safety or a patched glibc.",
+      "references": [
+        "https://raw.githubusercontent.com/CVEProject/cvelistV5/main/cves/2026/100xxx/CVE-2026-100290.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-115819",
+      "package": "libc-bin",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "no_wide_scanf",
+        "reviewed_source_apis"
+      ],
+      "reason": "The trigger requires a wide scanf conversion into a narrow char array. The reviewed Python/Java/Node services do not expose this API; their JSON, MRZ, fixed-model and bounded image decoding paths do not call it. The expanded exact-image ELF inventory must find no wide scanf imports, including isoc99/isoc23 variants. This does not cover unrelated programs or separately inlined library code.",
+      "references": [
+        "https://raw.githubusercontent.com/CVEProject/cvelistV5/main/cves/2026/115xxx/CVE-2026-115819.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-115819",
+      "package": "libc6",
+      "version": "2.41-12+deb13u4",
+      "status": "not_affected",
+      "checks": [
+        "no_wide_scanf",
+        "reviewed_source_apis"
+      ],
+      "reason": "The trigger requires a wide scanf conversion into a narrow char array. The reviewed Python/Java/Node services do not expose this API; their JSON, MRZ, fixed-model and bounded image decoding paths do not call it. The expanded exact-image ELF inventory must find no wide scanf imports, including isoc99/isoc23 variants. This does not cover unrelated programs or separately inlined library code.",
+      "references": [
+        "https://raw.githubusercontent.com/CVEProject/cvelistV5/main/cves/2026/115xxx/CVE-2026-115819.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-115456",
+      "package": "gcc-14-base",
+      "version": "14.2.0-19",
+      "status": "not_affected",
+      "checks": [
+        "no_native_from_chars",
+        "gcc_runtime_only",
+        "reviewed_source_apis"
+      ],
+      "reason": "This issue is in the runtime floating-point std::from_chars parser, not merely a compiler header. No shipped native consumer imports any from_chars symbol in the expanded exact-image inventory. The reviewed fixed Python/Node/Java numeric parsing and fixed model/image paths do not dynamically resolve that C++ parser; uploaded code/models and arbitrary native-library loading are not service operations. This decision covers the installed Debian runtime, not a general guarantee about code compiled into other wheels.",
+      "references": [
+        "https://raw.githubusercontent.com/CVEProject/cvelistV5/main/cves/2026/115xxx/CVE-2026-115456.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-115456",
+      "package": "libgcc-s1",
+      "version": "14.2.0-19",
+      "status": "not_affected",
+      "checks": [
+        "no_native_from_chars",
+        "gcc_runtime_only",
+        "reviewed_source_apis"
+      ],
+      "reason": "This issue is in the runtime floating-point std::from_chars parser, not merely a compiler header. No shipped native consumer imports any from_chars symbol in the expanded exact-image inventory. The reviewed fixed Python/Node/Java numeric parsing and fixed model/image paths do not dynamically resolve that C++ parser; uploaded code/models and arbitrary native-library loading are not service operations. This decision covers the installed Debian runtime, not a general guarantee about code compiled into other wheels.",
+      "references": [
+        "https://raw.githubusercontent.com/CVEProject/cvelistV5/main/cves/2026/115xxx/CVE-2026-115456.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-115456",
+      "package": "libstdc++6",
+      "version": "14.2.0-19",
+      "status": "not_affected",
+      "checks": [
+        "no_native_from_chars",
+        "gcc_runtime_only",
+        "reviewed_source_apis"
+      ],
+      "reason": "This issue is in the runtime floating-point std::from_chars parser, not merely a compiler header. No shipped native consumer imports any from_chars symbol in the expanded exact-image inventory. The reviewed fixed Python/Node/Java numeric parsing and fixed model/image paths do not dynamically resolve that C++ parser; uploaded code/models and arbitrary native-library loading are not service operations. This decision covers the installed Debian runtime, not a general guarantee about code compiled into other wheels.",
+      "references": [
+        "https://raw.githubusercontent.com/CVEProject/cvelistV5/main/cves/2026/115xxx/CVE-2026-115456.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-107496",
+      "package": "libssl3t64",
+      "version": "3.5.7-1~deb13u3",
+      "status": "not_affected",
+      "checks": [
+        "no_untrusted_cms_encrypt",
+        "service_crypto_profile",
+        "reviewed_source_apis"
+      ],
+      "reason": "The trigger requires CMS_encrypt or CMS_encrypt_ex with an attacker-chosen EC recipient. The sole importer in this image is the exact hashed OpenSSL CLI. It is retained for isolated test PKI but no shipped service invokes it; source change detection rejects a new CLI or CMS route. Passport signatures are verified through the fixed Node/PKI.js code, not encrypted to an uploaded recipient by this CLI. TLS is explicitly outside this CNA trigger.",
+      "references": [
+        "https://raw.githubusercontent.com/CVEProject/cvelistV5/main/cves/2026/107xxx/CVE-2026-107496.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-107496",
+      "package": "openssl",
+      "version": "3.5.7-1~deb13u3",
+      "status": "not_affected",
+      "checks": [
+        "no_untrusted_cms_encrypt",
+        "service_crypto_profile",
+        "reviewed_source_apis"
+      ],
+      "reason": "The trigger requires CMS_encrypt or CMS_encrypt_ex with an attacker-chosen EC recipient. The sole importer in this image is the exact hashed OpenSSL CLI. It is retained for isolated test PKI but no shipped service invokes it; source change detection rejects a new CLI or CMS route. Passport signatures are verified through the fixed Node/PKI.js code, not encrypted to an uploaded recipient by this CLI. TLS is explicitly outside this CNA trigger.",
+      "references": [
+        "https://raw.githubusercontent.com/CVEProject/cvelistV5/main/cves/2026/107xxx/CVE-2026-107496.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-107496",
+      "package": "openssl-provider-legacy",
+      "version": "3.5.7-1~deb13u3",
+      "status": "not_affected",
+      "checks": [
+        "no_untrusted_cms_encrypt",
+        "service_crypto_profile",
+        "reviewed_source_apis"
+      ],
+      "reason": "The trigger requires CMS_encrypt or CMS_encrypt_ex with an attacker-chosen EC recipient. The sole importer in this image is the exact hashed OpenSSL CLI. It is retained for isolated test PKI but no shipped service invokes it; source change detection rejects a new CLI or CMS route. Passport signatures are verified through the fixed Node/PKI.js code, not encrypted to an uploaded recipient by this CLI. TLS is explicitly outside this CNA trigger.",
+      "references": [
+        "https://raw.githubusercontent.com/CVEProject/cvelistV5/main/cves/2026/107xxx/CVE-2026-107496.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-88822",
+      "package": "libssl3t64",
+      "version": "3.5.7-1~deb13u3",
+      "status": "not_affected",
+      "checks": [
+        "no_quic_transport",
+        "service_crypto_profile",
+        "reviewed_source_apis"
+      ],
+      "reason": "The trigger requires the OpenSSL QUIC client. The only QUIC API importer is the exact hashed OpenSSL CLI, which no shipped service invokes. The reviewed service transports are TCP HTTPS/PostgreSQL TLS and local IPC; Python SSLContext is used with its fixed TLS profile and no QUIC endpoint/API is available. New native QUIC callers, CLI routes or changed binary hashes invalidate the decision. OpenSSL itself remains unpatched for general QUIC use.",
+      "references": [
+        "https://raw.githubusercontent.com/CVEProject/cvelistV5/main/cves/2026/88xxx/CVE-2026-88822.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-88822",
+      "package": "openssl",
+      "version": "3.5.7-1~deb13u3",
+      "status": "not_affected",
+      "checks": [
+        "no_quic_transport",
+        "service_crypto_profile",
+        "reviewed_source_apis"
+      ],
+      "reason": "The trigger requires the OpenSSL QUIC client. The only QUIC API importer is the exact hashed OpenSSL CLI, which no shipped service invokes. The reviewed service transports are TCP HTTPS/PostgreSQL TLS and local IPC; Python SSLContext is used with its fixed TLS profile and no QUIC endpoint/API is available. New native QUIC callers, CLI routes or changed binary hashes invalidate the decision. OpenSSL itself remains unpatched for general QUIC use.",
+      "references": [
+        "https://raw.githubusercontent.com/CVEProject/cvelistV5/main/cves/2026/88xxx/CVE-2026-88822.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-88822",
+      "package": "openssl-provider-legacy",
+      "version": "3.5.7-1~deb13u3",
+      "status": "not_affected",
+      "checks": [
+        "no_quic_transport",
+        "service_crypto_profile",
+        "reviewed_source_apis"
+      ],
+      "reason": "The trigger requires the OpenSSL QUIC client. The only QUIC API importer is the exact hashed OpenSSL CLI, which no shipped service invokes. The reviewed service transports are TCP HTTPS/PostgreSQL TLS and local IPC; Python SSLContext is used with its fixed TLS profile and no QUIC endpoint/API is available. New native QUIC callers, CLI routes or changed binary hashes invalidate the decision. OpenSSL itself remains unpatched for general QUIC use.",
+      "references": [
+        "https://raw.githubusercontent.com/CVEProject/cvelistV5/main/cves/2026/88xxx/CVE-2026-88822.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-95691",
+      "package": "libssl3t64",
+      "version": "3.5.7-1~deb13u3",
+      "status": "not_affected",
+      "checks": [
+        "no_quic_transport",
+        "service_crypto_profile",
+        "reviewed_source_apis"
+      ],
+      "reason": "The trigger requires the OpenSSL QUIC client. The only QUIC API importer is the exact hashed OpenSSL CLI, which no shipped service invokes. The reviewed service transports are TCP HTTPS/PostgreSQL TLS and local IPC; Python SSLContext is used with its fixed TLS profile and no QUIC endpoint/API is available. New native QUIC callers, CLI routes or changed binary hashes invalidate the decision. OpenSSL itself remains unpatched for general QUIC use.",
+      "references": [
+        "https://raw.githubusercontent.com/CVEProject/cvelistV5/main/cves/2026/95xxx/CVE-2026-95691.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-95691",
+      "package": "openssl",
+      "version": "3.5.7-1~deb13u3",
+      "status": "not_affected",
+      "checks": [
+        "no_quic_transport",
+        "service_crypto_profile",
+        "reviewed_source_apis"
+      ],
+      "reason": "The trigger requires the OpenSSL QUIC client. The only QUIC API importer is the exact hashed OpenSSL CLI, which no shipped service invokes. The reviewed service transports are TCP HTTPS/PostgreSQL TLS and local IPC; Python SSLContext is used with its fixed TLS profile and no QUIC endpoint/API is available. New native QUIC callers, CLI routes or changed binary hashes invalidate the decision. OpenSSL itself remains unpatched for general QUIC use.",
+      "references": [
+        "https://raw.githubusercontent.com/CVEProject/cvelistV5/main/cves/2026/95xxx/CVE-2026-95691.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-95691",
+      "package": "openssl-provider-legacy",
+      "version": "3.5.7-1~deb13u3",
+      "status": "not_affected",
+      "checks": [
+        "no_quic_transport",
+        "service_crypto_profile",
+        "reviewed_source_apis"
+      ],
+      "reason": "The trigger requires the OpenSSL QUIC client. The only QUIC API importer is the exact hashed OpenSSL CLI, which no shipped service invokes. The reviewed service transports are TCP HTTPS/PostgreSQL TLS and local IPC; Python SSLContext is used with its fixed TLS profile and no QUIC endpoint/API is available. New native QUIC callers, CLI routes or changed binary hashes invalidate the decision. OpenSSL itself remains unpatched for general QUIC use.",
+      "references": [
+        "https://raw.githubusercontent.com/CVEProject/cvelistV5/main/cves/2026/95xxx/CVE-2026-95691.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-88823",
+      "package": "libssl3t64",
+      "version": "3.5.7-1~deb13u3",
+      "status": "not_affected",
+      "checks": [
+        "no_gcm_siv",
+        "service_crypto_profile",
+        "reviewed_source_apis"
+      ],
+      "reason": "The trigger requires AES-GCM-SIV, which is distinct from the AES-256-GCM used by the fixed application and Transit protocols. The exact hashed EVP_CIPHER_fetch consumers are TLS libraries, legacy/key loaders and the unused service CLI. TLS does not negotiate GCM-SIV; key loader inputs are fixed private configuration, and no service accepts cipher names, arbitrary provider/engine configuration or CLI commands. The service source check rejects GCM-SIV/CMS/QUIC additions; native callers and their hashes must remain exactly reviewed. This is not a patch or an exemption for general EVP use.",
+      "references": [
+        "https://raw.githubusercontent.com/CVEProject/cvelistV5/main/cves/2026/88xxx/CVE-2026-88823.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-88823",
+      "package": "openssl",
+      "version": "3.5.7-1~deb13u3",
+      "status": "not_affected",
+      "checks": [
+        "no_gcm_siv",
+        "service_crypto_profile",
+        "reviewed_source_apis"
+      ],
+      "reason": "The trigger requires AES-GCM-SIV, which is distinct from the AES-256-GCM used by the fixed application and Transit protocols. The exact hashed EVP_CIPHER_fetch consumers are TLS libraries, legacy/key loaders and the unused service CLI. TLS does not negotiate GCM-SIV; key loader inputs are fixed private configuration, and no service accepts cipher names, arbitrary provider/engine configuration or CLI commands. The service source check rejects GCM-SIV/CMS/QUIC additions; native callers and their hashes must remain exactly reviewed. This is not a patch or an exemption for general EVP use.",
+      "references": [
+        "https://raw.githubusercontent.com/CVEProject/cvelistV5/main/cves/2026/88xxx/CVE-2026-88823.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-88823",
+      "package": "openssl-provider-legacy",
+      "version": "3.5.7-1~deb13u3",
+      "status": "not_affected",
+      "checks": [
+        "no_gcm_siv",
+        "service_crypto_profile",
+        "reviewed_source_apis"
+      ],
+      "reason": "The trigger requires AES-GCM-SIV, which is distinct from the AES-256-GCM used by the fixed application and Transit protocols. The exact hashed EVP_CIPHER_fetch consumers are TLS libraries, legacy/key loaders and the unused service CLI. TLS does not negotiate GCM-SIV; key loader inputs are fixed private configuration, and no service accepts cipher names, arbitrary provider/engine configuration or CLI commands. The service source check rejects GCM-SIV/CMS/QUIC additions; native callers and their hashes must remain exactly reviewed. This is not a patch or an exemption for general EVP use.",
+      "references": [
+        "https://raw.githubusercontent.com/CVEProject/cvelistV5/main/cves/2026/88xxx/CVE-2026-88823.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-95692",
+      "package": "libssl3t64",
+      "version": "3.5.7-1~deb13u3",
+      "status": "not_affected",
+      "checks": [
+        "no_gcm_siv",
+        "service_crypto_profile",
+        "reviewed_source_apis"
+      ],
+      "reason": "The trigger requires AES-GCM-SIV, which is distinct from the AES-256-GCM used by the fixed application and Transit protocols. The exact hashed EVP_CIPHER_fetch consumers are TLS libraries, legacy/key loaders and the unused service CLI. TLS does not negotiate GCM-SIV; key loader inputs are fixed private configuration, and no service accepts cipher names, arbitrary provider/engine configuration or CLI commands. The service source check rejects GCM-SIV/CMS/QUIC additions; native callers and their hashes must remain exactly reviewed. This is not a patch or an exemption for general EVP use.",
+      "references": [
+        "https://raw.githubusercontent.com/CVEProject/cvelistV5/main/cves/2026/95xxx/CVE-2026-95692.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-95692",
+      "package": "openssl",
+      "version": "3.5.7-1~deb13u3",
+      "status": "not_affected",
+      "checks": [
+        "no_gcm_siv",
+        "service_crypto_profile",
+        "reviewed_source_apis"
+      ],
+      "reason": "The trigger requires AES-GCM-SIV, which is distinct from the AES-256-GCM used by the fixed application and Transit protocols. The exact hashed EVP_CIPHER_fetch consumers are TLS libraries, legacy/key loaders and the unused service CLI. TLS does not negotiate GCM-SIV; key loader inputs are fixed private configuration, and no service accepts cipher names, arbitrary provider/engine configuration or CLI commands. The service source check rejects GCM-SIV/CMS/QUIC additions; native callers and their hashes must remain exactly reviewed. This is not a patch or an exemption for general EVP use.",
+      "references": [
+        "https://raw.githubusercontent.com/CVEProject/cvelistV5/main/cves/2026/95xxx/CVE-2026-95692.json"
+      ]
+    },
+    {
+      "id": "CVE-2026-95692",
+      "package": "openssl-provider-legacy",
+      "version": "3.5.7-1~deb13u3",
+      "status": "not_affected",
+      "checks": [
+        "no_gcm_siv",
+        "service_crypto_profile",
+        "reviewed_source_apis"
+      ],
+      "reason": "The trigger requires AES-GCM-SIV, which is distinct from the AES-256-GCM used by the fixed application and Transit protocols. The exact hashed EVP_CIPHER_fetch consumers are TLS libraries, legacy/key loaders and the unused service CLI. TLS does not negotiate GCM-SIV; key loader inputs are fixed private configuration, and no service accepts cipher names, arbitrary provider/engine configuration or CLI commands. The service source check rejects GCM-SIV/CMS/QUIC additions; native callers and their hashes must remain exactly reviewed. This is not a patch or an exemption for general EVP use.",
+      "references": [
+        "https://raw.githubusercontent.com/CVEProject/cvelistV5/main/cves/2026/95xxx/CVE-2026-95692.json"
       ]
     }
   ],
@@ -2675,36 +3030,36 @@
     "CGA-wp44-6jjx-9fc4": "360bc119da7b6454d85e83ae69f1b47270da085751397d6673ba25fbd14d294c",
     "CGA-pjgm-mfph-cxr6": "a193eb2f0f3630159a700aa04b285342582daf4211af37c44f153dc68045db56",
     "CGA-677h-pf23-hqmp": "1c246a7848260395bb17347368d80f09270cd00cccc136a66ff5edc61041f573",
-    "CGA-qr78-9fg9-c676": "2dea181c5dd2533b97015483ac33d566f799bff53466f9cf6af62f04f2df978d",
+    "CGA-qr78-9fg9-c676": "a533e074cfe84d414fef427d688aec30e2f151612b6bad1873fc77bf026bba7b",
     "CGA-6qp7-9r8g-vg6m": "105d503fda7911969f954204a3491953d1ffe2b5820d8d08a8daef7464fd980f",
     "CGA-q36p-p2gv-8p7v": "f9fb8d50c612b00ef466ef60842d3a8e403071b5462eaf7d5cf96a8a5b1dc742",
     "CGA-wjx3-hqwp-78pc": "a161f59d489054b0d399962bc01af87ed35dbd73cb236e0cb8cf714af55b6bfc",
     "CGA-2wjh-6ccq-ffgc": "49ea18b4f695ba9998103e9af1d622de9d6bcbc50406ea0351aa9333c830781a",
     "CGA-pv5x-4jfj-wqvj": "633f273eae5731a5e1fa775f6a1d8f337c199df96b0c509b0fae7589e3bd6764",
-    "CGA-6xvr-hm4r-272f": "07fd6c765b1fb1de78686b8a62cc1ea9029067de3f60a293179caaaf348ce18d",
+    "CGA-6xvr-hm4r-272f": "4e5e9e2c53380051fd2fb1e0bfe20358ac3cc00e1885ce97498be99d2a7ebd1c",
     "CGA-7p22-p3hv-6q3w": "04ed303f9d76170ed0b1d4a9ec70d0f761927dac9a32621283fc4634f8596c02",
-    "CGA-g5qm-4qwx-5v9f": "5e469ffcfcfcab32355fea9616b9f1be7919d9e1e906556cb195d5419ccd9ccc",
+    "CGA-g5qm-4qwx-5v9f": "7c4f93b2abcbc933e7aa4f059d7b5b1285ab66b0f224fd65d87b121041a7590d",
     "CGA-49qp-h3gj-c2h5": "74d69cab363aed1a60a31a8533c7045e24235beb2bd8d59942d992224d528450",
-    "CGA-m7x7-v6v6-v355": "f9aa9bf90ef21b6f54f171f55b8c0797829a591541a0f30b6d53634de2e12778",
-    "CGA-v285-6rg6-mrf4": "2886d0fb746f6dc28533f040ea276ca7a1a42f7b5d817e9ba3ad20199682e4c0",
-    "CGA-73rh-q5gp-5hcc": "aaecdd3fb13a3fe1cf6dafe24ab98468b9a820199aee31a7737b4007fc5628aa",
+    "CGA-m7x7-v6v6-v355": "966d2e7f143227634b0409ed0311b76e9a9d6c5506f9516940e1d782511ce0f7",
+    "CGA-v285-6rg6-mrf4": "c7b5865631eabcbb6c2d6d96ca97a487514c78340f0f2b463103efbf36a341d1",
+    "CGA-73rh-q5gp-5hcc": "69f6e436e2fd7b76c8a9ca92b64cf4cc2283189ba65e7d31261b2f1993571abe",
     "CGA-fr3r-p288-gqg5": "e03cd7b8cae98c7b6e2d4777745836920575fc312a3fa8113d22745a5b9edb78",
-    "CGA-qrcf-92jm-xh4v": "80c9190e3b05f60257c99605f879a2ade348b83b816c1699645d2c3c4deb63d5",
+    "CGA-qrcf-92jm-xh4v": "6a88ad8f59e3f14db19f2be353a22a7d31b5a0d45b4a727df2858c99e436ce03",
     "CGA-5c52-mxq5-wvjj": "d1aa85f7c5778c473cae971ceda0d73025658ab467b054ae2bfd850338801e32",
-    "CGA-mq6v-qm72-mrxm": "e881bb1cf22e5263bf83ad79580e432f00534b56475cf27deb8f9a51207b4634",
+    "CGA-mq6v-qm72-mrxm": "d8ea4df817e209037d4b05fc6ba671d198a4c8f0b08a993096a2f20c6e366388",
     "CGA-rpv2-h7fc-3m48": "20bbb7599c9d1032c06972acf65b30fdaac1b70303d2d4439241cc63020bc361",
     "CGA-q8pr-wxrw-3vx3": "db590a2e7ac3ce165685feefd6507d37bcba807077f1e4776b201be6e619219a",
-    "CGA-w7r7-76wj-xg3r": "4e9fe18d0a59014931064e4dca372154130ae9051a546ef406f0079266c6d6d3",
+    "CGA-w7r7-76wj-xg3r": "46c7bbc71dbb5401a16206f6ab4067f814565555589bce40b031366749cb1d52",
     "CGA-4fj7-28j9-5v6j": "6bed023e8fe667f560e7e01cc40aacae8cf4ac62a601e3ad36396e73d18d0110",
     "CGA-m5w4-vf4q-538c": "1621df0f36417e078fa9261f1d596880e0e8eedfc444e8333d3b3d09caa74d40",
-    "CGA-9983-7642-5rjm": "03a64b6232684af679d883a8e37c864c0ea7aef74d9ae413a6b8dc1b3b257dbc",
+    "CGA-9983-7642-5rjm": "710f3cf50b3f11f3132a90673b8f355f4140f74eb39f6bc8b8094503e8cac958",
     "CGA-62cm-pj6f-6398": "771a0e825df8176b8711914d74f90b170ee53cca9d314ee1e28e013f39a80567",
-    "CGA-9x2h-jjvc-66mh": "f9bf10e5bc9ad4b8d31b0041130d31a091c68bd8e7959ebd73af3d14fda1d056",
+    "CGA-9x2h-jjvc-66mh": "7ae5e5bd3a0e76e7f8b267282cb33ecdb51b1858f0275e81f08894a8082b8ecc",
     "CGA-93c7-pmh4-f4m2": "667a6e049c38154d858af33a22b88bfd1272f1df86b1be932347911e16cf1174",
     "CGA-252r-8vp6-7f2v": "729579a55079d7abd9ef299e43a7990629c6938e380007e4dfa90f4679842110",
     "CGA-38jr-x953-j4jx": "2b770cbf0db4069e30a597854b23122f6917be7c13e2652b80f7c51ab6924726",
     "CGA-r84j-6hp9-23xm": "0b5720cb5663c7051296dff35b6e0f1dc6f4c49383bf733d9d9a2f6452f9f9fc",
-    "CGA-g475-xr4q-qf74": "6abc039efff171a50e146ef6342cc17b07d422fe66174ee9d9f17825b4e7a3a8",
+    "CGA-g475-xr4q-qf74": "c16afb49fbe328a84e466c94b3f6911240b8bb35802b5e9aafb909cc3b7cc194",
     "CGA-ww88-c2fm-562f": "6679ca6dd915618b04c61695759cbfe2d560a302a63c5289757dd29f78b6e43b",
     "CGA-hr32-mjp4-9qhj": "c97cd6701fc68bb1a81cd544fa87e08b1a6ec78ea76d7af45534236b23b0b62c",
     "CGA-j22q-88r7-qqp3": "8fd3e2f1004c79ab1e40785f54a548f6869316886985e76cdee7d34e22ff0767",
@@ -2713,39 +3068,39 @@
     "CGA-3p6w-cc5r-c372": "360e86a76f6c69a0429156c7bf687e10a563f51e830dd06422f1e7d4c09529a1",
     "CGA-hfw3-q3ph-5fq4": "e8660229cb86391381e7c340f79338eb0716aee6154b8f1804a0b86ad6036d6e",
     "CGA-mhhx-w3qv-3796": "8fec94aa0c55e58cd2ad13703e994e7a84ff7c29e32b2178cd1de202bef327d1",
-    "CGA-4x86-7m8f-54p5": "4d1ca648bb5cb25f0cb11545ee2e8583d7b235fa30f7cd7bab902825e17b8c6f",
-    "CGA-f3xq-534h-274w": "8425eaa436f3ea86b7104c4b7cf7378e2eb6e0ae6f4b1c64e2621bbbfa993599",
+    "CGA-4x86-7m8f-54p5": "55a03e75ae984280a79f22db426ac9df19fbcdb2cb8605ca96e86bf655835a47",
+    "CGA-f3xq-534h-274w": "d611828c5c42a32d697d43189df9472c86903d8552077b0224b6164004453e17",
     "CGA-pf6p-6fjc-h933": "6e02e8b3777e125d1d7ff62c42f867c778cdf67b8c8af0289c7fd055d3c58d53",
     "CGA-3hm5-gv2v-vgw8": "1ea6dbc83e032a1170989e736048f289d442dc254bbd4f21d93b0580bbbd590e",
     "CGA-4p82-rx99-f2mg": "f94ecc25b90c26e083ced12ecd4c0c4a9af1cbf8574a0e00eab2cc4871e6f054",
     "CGA-mqh9-m9rm-23q7": "06e21f9d2d26e19bb2bad0909a0598a3cad78c9e01f2097e6d0999cdf66adabb",
     "CGA-mwjj-543v-2qxw": "f6b84d72111d9b64db1194b8d7ec1b6d3beba0e82fd5bdac96b02a51c46799d8",
     "CGA-gw64-r736-v492": "cab3c27c7e823541148e98629c786052b6912f5432769cd0f43fda917a1310e3",
-    "CGA-94jq-8xf3-wq3h": "4b55d0e7dd35d40032f3dae68a7742dffe2fbc7986d188b6006aae38736089f5",
-    "CGA-rjwr-43v6-f337": "2fece2b9542c673f146780c4c1c9b6c6e6e5337f9d35c8433a185c0c2f713d3a",
+    "CGA-94jq-8xf3-wq3h": "3f4a86d97c867d3f3815ea617b4d851d9b7a772c0de0fc68b10b11d1233574c0",
+    "CGA-rjwr-43v6-f337": "dbfde1e977b979dc75037c1cccc6edb7d28781cdfabb9728870ebb86191772db",
     "CGA-2mjr-3r9q-f75m": "f3a89c90df1fe307d644583ea64bf6981064d7bc6106c3bfb685f12863fcf332",
     "CGA-x3jx-7xjp-vpm8": "626819092ac52ae611344b769a77c89fc11896785a61eaf7fb593f4ad033fdd0",
     "CGA-x52p-3rjh-fg35": "9b7575eda279435882f0e1971eaa8699e936fc354dd752ec678f165935fe4a41",
-    "CGA-5p54-hmw4-q476": "d0fb46cd600233bbc0f7c80d86b668b9ec59c6caf6f8e2836fec2ca49b79a91a",
+    "CGA-5p54-hmw4-q476": "acb32e5f089be3dbbe0ec8374acf6ecbe77909877dcfa581f398bdc31136c8c7",
     "CGA-5gxf-7323-jhp2": "f51a7e29e07a5d845ae745ef5a523347e77ec0a28bdbf3ed53211d2bb296000b",
     "CGA-38xq-jhr9-7p8p": "ff11baa760750aa3d5f83df9b3656b051bb9edf3c2321a03bfde3cd7b84f7bc0",
     "CGA-cp3f-r43j-qh98": "1cdeace17f35963d4cdfdd536e51ed89c566b745bb0c2c02082493fbb70585ea",
     "CGA-5mfj-x876-gfg8": "61c34f3841b5a07eb953de2a32c5791a9e4733db15158fcfb16632f1d312a33c",
     "CGA-5hv6-5ccm-5wj9": "c80177b2aff8fcb193ad104e665d81a9120ab9e5551c40bb3133a943caab14e3",
-    "CGA-p9wh-4mxh-99fj": "8934a6b4d14b4d361da4a28511686cfdd2507713165b3647a0bed7b43a5d6719",
+    "CGA-p9wh-4mxh-99fj": "15a6720c4cede0b3127aa5add0c19041b78b7a313480222e468babd8774086fd",
     "CGA-3jxx-qmh5-7q8p": "052adbff3bfc1ffb7e6b010235652a2984fc75fb505c8936395165be637450a3",
     "CGA-pc6g-f7g9-qmgw": "c2855aec4f56a14ce094470eb211fcc241fdc0559d1a14644b48aaf19fa81629",
     "CGA-prfc-8p4x-jjjh": "5ccf6f1917b18f5ed9577dd057b401387fbbf12a5395e92824d087e383b0afb7",
-    "CGA-872m-7xj4-h457": "5cf72893789c5fe29980e799708030b7195126fe727e35da2cc5ffe8cc3ec705",
+    "CGA-872m-7xj4-h457": "aaceccff0cdfce8204367d68bd52577477a7cfe6b3369dacb3d4d5b8bcf849a0",
     "CGA-87wc-m3c5-v3pm": "64ca44cdc0014f724d2da4ae7444f316082286fa441636da22e8f80e53bc2cbc",
     "CGA-vh77-pg27-2xpj": "e27e4c3ee0589761ccebfd681c69fc790fd53cd0db6b1a417802c7a3d10b9122",
-    "CGA-6gw2-65p5-m27x": "b6cb74931b992c296ff803e591844c5b07c980d8b94c1f536365625c1e6b73fe",
+    "CGA-6gw2-65p5-m27x": "191912373f852c3d025167469ff478a650dfbe2289a6cebd96858fa4875788fc",
     "CGA-g3hc-7hgr-hfv4": "10171c781a8612aba13dbf3d4ec50aa33abae687dfc78da6e403cc45cdfbfa68",
-    "CGA-m33w-fcq7-wmg3": "696fdc696637313d0a5678248be97849b5f92347dbfa273f32bb54b4f5a9b2c3",
+    "CGA-m33w-fcq7-wmg3": "7262ce8cc0d3363f3c90b157b8f61479e3f8683e2ee720d8023cdbe1ec4d4d14",
     "CGA-j63h-vp6v-ph85": "e7c47e3b1967be52fe8d3e4c8afe7ea43dc2210dc84d34b22607e7a093cc3e85",
-    "CGA-m8qw-87rc-5pgj": "6baca2bc15c6619dfd81f2dbc76af195166def9c29c326e09a504c32fdef7a90",
-    "CGA-r9hf-494w-36f7": "ade306ce3801e46b5c559237931adac26a6b3f7d91bf4cc229bbd223d89a6457",
-    "CGA-gjp2-qvw3-j4qm": "28f0a270eca4373aed65870be7feb21ad8eabd3e7199e70733e0c7d581fd3dd1",
+    "CGA-m8qw-87rc-5pgj": "7cc97867e49fcc31061eab790f10e77173da317603c4af82ad3e53185f1bf21d",
+    "CGA-r9hf-494w-36f7": "d8b7ad6cbe82687f459f33807eb474a99c8bfd4d967c069e510d9a5d39647661",
+    "CGA-gjp2-qvw3-j4qm": "7659da41b82c09c833115c057255091b3d1db2402d38183a787c48349788306f",
     "CGA-8r82-m95x-v555": "81a708ba69439555fe808ff4a5d867ffb216b13b12a6b6f58e095e0801e81669",
     "CGA-w33q-f28h-3vj7": "259d56640e199728e9e54e56b61a7b714f8f57911718af9e5ea74e83ee25eaa0",
     "CGA-59jp-p3fg-vcq8": "3f1467a9da26def6822cac225b661fd721c46bd85e5f37499a6bc3c4e66178cd",
@@ -2753,7 +3108,7 @@
     "CGA-56x7-w5g7-cp2r": "3e495e91b549d34a23c72ad81d6ba92bf903c810ae9175855ee53c71ead4c10e",
     "CGA-w27g-mvvc-9237": "58a0579171dd884d99e7df2ccadb1dd042fa243a38b5f3e17ed11997bebb9a66",
     "CGA-mv79-84p3-2cjx": "e97d1f74a9e4340cf9b81ba3f94fac9835fead62a3d063225f9b7d8d95063c57",
-    "CGA-p69v-pp9m-4999": "85d7bdefe72e2817723f4052fc9f66bebce9899d8fd1136baed3812845071fbf"
+    "CGA-p69v-pp9m-4999": "a399b296885ae1eb63c28640e27e3883c85ba05e3d6794b79f2a1406b5bea07f"
   },
   "cnaSHA256": {
     "CVE-2019-1010022": "3f53b4b1fafa0c4750765deafadf427498cb63f7a7d948181b79feb66863d0d3",
@@ -2773,11 +3128,11 @@
     "CVE-2026-103995": "8619d18631cdf10d3014aa90270604026964a9234485e6a32cf4ef564514e455",
     "CVE-2026-116566": "82730ad12219168166d605385cdea1d9f94bde44d9bd056b4a20d6c44600ca51",
     "CVE-2026-109518": "3f7cda7f4b56d8df51030014ced21b5470db452b96641154ea0295e1543fe61d",
-    "CVE-2026-114690": "3bdc6ff7b8cd49badb5d7187c3bc2619d0b4bb4cde040394f18a69dfc1f4ed01",
-    "CVE-2026-114691": "92c245a3a745d0ef30923a2a14bb48fd405363cdf578cdbd557912e94e9dc2a7",
-    "CVE-2026-115455": "06f0c2e7f68944911411770fb6b6f4199d9e180f237c0ab240647345c8fc82b8",
+    "CVE-2026-114690": "3f91ea8f46c0eb7863c3db3b067fce175b60b1bc07555bb2db2821b3eddc5392",
+    "CVE-2026-114691": "5a906491b06ded245efa4aac240ac8377b437cdd9819da2ebbe3045dd285388d",
+    "CVE-2026-115455": "a6c212a035baa8ae2748d4a4d13b6530d554a26d06887057bd1108b55effe7a2",
     "CVE-2026-84243": "0d25bf5c7cbe808c050368b93abc1a8d4fd49c9045d51d09f7db9c8ca4085eff",
-    "CVE-2026-76844": "6c757788f26aee161879f197d924f1a7c841caf924cf57547cb0895063425a97",
+    "CVE-2026-76844": "2d38e177519955ff89aafe6cce914fed5ad5c91e5230e2d2a1e3b145e2b286af",
     "CVE-2026-119371": "c77fce312a3c741d9104b62429f9f437f78f13ce0d3b0627ccde4b5da8f68546",
     "CVE-2026-119372": "8ed7b980234d483a576a14834542ca859a2e7a0ecc638ebc9382fcde9f715ad5",
     "CVE-2026-119373": "66fe10bee963a1a194e931fb64d6e8a29829a385e82c426c617cd08db3c8c791",
@@ -2787,7 +3142,15 @@
     "CVE-2026-119377": "08251692e51bee6c834a91c13aa9e262a0f6c4a763b2114914bb94866a774c79",
     "CVE-2026-119378": "c95767367b8c1e8d4b7832588124edd84e3de6ef3c649c0b760b61c6971ce9a6",
     "CVE-2026-119379": "a100e8a91550535ebeac976c1f8c2168da6c123c3c733ce23c79198bc261c6b1",
-    "CVE-2026-119591": "abe13008363259feaf27f86374617906db9415c008f2140b068cfab4c6280d42"
+    "CVE-2026-119591": "abe13008363259feaf27f86374617906db9415c008f2140b068cfab4c6280d42",
+    "CVE-2026-100290": "9fd9b9bde25b80599a82804b531affcb256f634a8407111657998f9a10a4f346",
+    "CVE-2026-115819": "4181c0ca14b4e3fcc1b99bd2456de03c29bde2b5aa2e2537fa38e3c4645e2261",
+    "CVE-2026-115456": "8d3c283f876b8fd512b6bd9d6ea621c63b24e4d1b15014795d2a3f7365b7f310",
+    "CVE-2026-107496": "d0001f13d98f2d6897e3582aadf597cf07ed2c95a5c1b85dc19655b41b55db8f",
+    "CVE-2026-88822": "6e4e8f257830b849a31032c8b3b52b8fb16615b0511cd5413189cefc5be57530",
+    "CVE-2026-88823": "a2207e1034257f43d859fcc89e01f31c25ea2e187b8c4a0a4f5e012bbd7ae048",
+    "CVE-2026-95691": "567c6d08919ea98aed6a09dee0fcb5e8db68499d8e01394b360b174f9cf87d1c",
+    "CVE-2026-95692": "f802dd3e7b79930b56159f58cd9297148a269f3f1b76975cff722a7aeab5504f"
   },
   "nativeCallBoundaries": {
     "/usr/local/lib/python3.12/site-packages/opencv_python_headless.libs/libavformat-50e282e4.so.62.12.102": {
@@ -2811,43 +3174,102 @@
         "regexec"
       ],
       "check": "postgres_scram_only"
+    },
+    "/usr/bin/openssl": {
+      "sha256": "acc10176d038aeb7b2a77d9ec972ac2985857a7191f7aecb7c54ef0e2c7e9549",
+      "symbols": [
+        "CMS_encrypt_ex",
+        "EVP_CIPHER_fetch",
+        "OSSL_QUIC_client_method",
+        "SSL_handle_events",
+        "SSL_set1_initial_peer_addr",
+        "SSL_set_blocking_mode"
+      ],
+      "check": "service_crypto_profile"
+    },
+    "/usr/lib/x86_64-linux-gnu/engines-3/loader_attic.so": {
+      "sha256": "2c99266b31bfc02d011955db1600bd36146554cd6970d3cbfe46011e11014c83",
+      "symbols": [
+        "EVP_CIPHER_fetch"
+      ],
+      "check": "service_crypto_profile"
+    },
+    "/usr/lib/x86_64-linux-gnu/libssl.so.3": {
+      "sha256": "9592038e92d1f41affcbb625334d0b6e788714c889104fa6d5b107cf9fd657f2",
+      "symbols": [
+        "EVP_CIPHER_fetch"
+      ],
+      "check": "service_crypto_profile"
+    },
+    "/usr/lib/x86_64-linux-gnu/ossl-modules/legacy.so": {
+      "sha256": "533bb6758a00a87a2d7835bcd3ebca58e0def2c1096ec582dea180adceeb7404",
+      "symbols": [
+        "EVP_CIPHER_fetch"
+      ],
+      "check": "service_crypto_profile"
+    },
+    "/usr/local/lib/python3.12/site-packages/psycopg_binary.libs/libssl-8bd944e8.so.3": {
+      "sha256": "ef566b112dc7532a689c07de999c16efda3b4872df0c9d011bdcf00b94dd8a2e",
+      "symbols": [
+        "EVP_CIPHER_fetch"
+      ],
+      "check": "service_crypto_profile"
     }
   },
   "sourceReview": {
-    "baselineRevision": "dd08cb09abf028e018ce959c7eb0641c7d37d41d",
-    "baselineSourceSHA256": "6ab7e19798b789eda5f1bf084b837c8506eabfb3c156209282ba60ed2154cd9c",
-    "candidateRevision": "2ae993dcdc94a0af0a70deb4ef57b5ab9e960a59",
-    "scope": "Application source changes covered by the two Docker COPY sets since the previous exact source fingerprint. Policy excluded from its own fingerprint.",
+    "baselineRevision": "2ae993dcdc94a0af0a70deb4ef57b5ab9e960a59",
+    "candidateBaseRevision": "2a87798a1394471f005f306083c20e5fb27a61fc",
+    "scope": "OS applicability impact of the Docker COPY/build-source delta; final bytes bound by sourceSHA256. This is not a complete lifecycle, SQL, cryptographic or independent release review.",
     "changedFiles": [
       "deployment/Dockerfile",
-      "deployment/saml_bridge.py",
-      "prototype/src/main/java/lab/Lab.java",
-      "prototype/src/main/java/lab/Metadata.java",
-      "prototype/src/main/java/lab/PilotOidc.java",
-      "prototype/src/main/java/lab/PilotOidcClient.java",
-      "prototype/src/main/java/lab/RelyingParty.java",
-      "prototype/src/main/java/lab/RuntimeFederation.java",
-      "prototype/src/main/java/lab/RuntimeKeys.java",
-      "prototype/src/main/java/lab/ServiceKeys.java",
-      "prototype/src/main/java/lab/SwedenConnectSandbox.java",
-      "prototype/src/main/java/lab/TestConsole.java",
-      "prototype/src/main/java/lab/TestKeys.java",
-      "verification/federation_config.py"
+      "deployment/aws/THIRD_PARTY.md",
+      "deployment/build/python-wheels.lock.json",
+      "deployment/build/runtime-policy.json",
+      "deployment/build/runtime_evidence.py",
+      "deployment/cluster/Dockerfile",
+      "deployment/cluster/probe.py",
+      "deployment/cluster/schema.sql",
+      "deployment/production/probe.py",
+      "verification/audit_archive.py",
+      "verification/aws_client.py",
+      "verification/aws_credential_process.py",
+      "verification/aws_credential_rotate.py",
+      "verification/cluster_bridge.py",
+      "verification/cluster_operator.py",
+      "verification/cluster_recovery.py",
+      "verification/cluster_serve.py",
+      "verification/continuity_operator.py",
+      "verification/erasure_policy.py",
+      "verification/federation_config.py",
+      "verification/ipc_support.py",
+      "verification/notices.py",
+      "verification/postgres.py",
+      "verification/postgres_continuity.py",
+      "verification/postgres_subject_access.py",
+      "verification/registry_binding.py",
+      "verification/revocation.py",
+      "verification/serve.py",
+      "verification/spar_provider.py",
+      "verification/subject_erasure.py",
+      "verification/transit.py"
     ],
     "assessment": [
-      "Docker adds only federation_config.py, using Python standard-library JSON and fixed-size protected configuration files. Base images, native libraries, package locks, runtime hardening and removed payload sets are unchanged.",
-      "The bridge maps the shared protected configuration only to the existing sandbox boolean. No new SQL, XML parser, native image/video input, subprocess or Base64 decoder is introduced in the shipped Python surface. Existing exact requester allowlists and consent binding remain in both languages.",
-      "Java runtime files load operator-provisioned PKCS12 stores and pinned public X.509 peers with existing JCA/Sweden Connect APIs. Role checks expose no private issuer material to the SP; metadata state is separate from the read-only credentials. New command paths do not forward public protocol input to Python native sinks.",
-      "SAML adds the existing fixed HTTPS signed SP feed and packaged signature anchor to the runtime profile. It retains HTTPS hostname checks, scoped algorithms and exact requester controls. No arbitrary network URL or new upstream dependency is configured.",
-      "The public OIDC JWK is derived from the pinned public RSA certificate with the library-compatible thumbprint identifier. Existing JWS, nonce, PKCE, client-assertion and revocation checks remain. No assertion assurance level is raised.",
-      "No advisory disposition, native-call boundary, required evidence check, feed digest or review expiry is relaxed. Fresh image evidence and current scanner/advisory inputs must still satisfy every existing rule."
+      "Reviewed changed Python import and call surfaces plus the credential, transport, readiness, IPC and registry boundaries. Added registry-schema/backup/rights mappings use the existing parameterized SQL and bounded JSON/Transit paths; no new native parser, extension loader, video input or non-strict Base64 entry point is introduced in these changes.",
+      "The common image now includes the already locked Psycopg packages and the registry image the already locked AWS SDK packages. Exact native library hashes and the SCRAM-only/GSS-disabled runtime probe remain mandatory. Wheel/source and license evidence remain independently checked; the source review does not approve these packages generally.",
+      "STS is an explicit XML consumer. Verified the exact locked boto3/botocore 1.43.115 Query parser against 25 synthetic replies: normal identity and role replies, API denial, malformed XML, 20 pre-parser rejections and successful client reuse. No network was allowed. The same probe is required in each exact Linux image. A 64 KiB parser bound is not a transport buffering bound.",
+      "Removed the unused SPAR customer-test-only XML helper from both runtime COPY sets. It has no production importer; its repository tests remain. The runtime source scan still rejects all direct XML/mail imports and checks 18 strict Base64 decoders in the common image and 13 in the registry image.",
+      "Updated the three Expat consumer decisions to require single-document parsing, reviewed application sources and all three STS transport checks. Their primary CNA records identify parser reset, DTD expansion and oversized attribute-count triggers. No claim of XML absence remains in these decisions.",
+      "Expanded exact-image ELF diagnostics for wide scanf, CMS encryption, QUIC, AES-GCM-SIV and C++ from_chars callers. No new disposition for the unresolved GCC, glibc or OpenSSL findings is created by that observation."
     ],
     "limits": [
-      "This source-impact review is AI-assisted preparation, not independent release attestation, proof of deployment or a claim of general vulnerability absence.",
-      "Native imports, image hashes and guards must be re-collected inside each exact final image; missing, changed or new advisory evidence remains blocking.",
-      "The private synthetic runtime protocol suite does not verify the live Sandbox feed or external clients, HSM protection, organizational separation or identity assurance.",
-      "The prior exact-image scanner also reports CVE-2026-115456 and five OpenSSL advisory IDs without matching disposition rules. This source binding does not close them; fresh image assessment must retain each as under investigation.",
-      "The later candidate ships the STS credential rotator using the locked SDK's Query/XML protocol. The prior no-XML-exposure rule for CVE-2026-115506 is withdrawn. STS response handling and the other XML/transport assumptions require reassessment before updating the source binding; they have not been revalidated by this withdrawal."
-    ]
+      "AI-assisted source-impact preparation, not independent review, deployment evidence or general vulnerability absence.",
+      "All existing native call boundaries, removal requirements, advisory feed hashes and the November 30 review expiry remain enforced. Changed or missing native evidence remains blocking.",
+      "Unresolved GCC, glibc and OpenSSL advisories remain under investigation and block packaging. Vendor images use separate assessment and never inherit these rules."
+    ],
+    "candidateBase": "c855f2676ddb38453352547cbef5fb86b512266d",
+    "advisoryRefresh": "2026-11-13: CGA-p69v-pp9m-4999 changes Python 3.12 from detection to pending_upstream_fix; the affected upstream version and existing runtime controls remain unchanged. CVE-2026-114690/114691 add Red Hat product/version/reference metadata; descriptions and header-template triggers are unchanged. No new applicability exemption.",
+    "diagnosticOrder": "The exact-image read-only probe is saved before supplemental feed verification; vendorDisputesVerified stays false until that verification succeeds. All existing gates remain required. THIRD_PARTY.md adds attribution for separate vendor candidates; no runtime behavior change.",
+    "nativeApplicability": "Expanded exact-image evidence from source 01d5c1b8964431f7a5922470c4e97e4128fa0381: no from_chars or wide scanf caller; only SCRAM-disabled Kerberos regcomp/regexec; hashed OpenSSL CLI/TLS/key-loader consumers and fixed service crypto profile reviewed. New rules need expanded probe version 2, live source/profile guards and exact native hashes. No independent approval.",
+    "cnaCorrection": "CVE-2026-76844 primary CNA now identifies webpack-dev-middleware. Raw zlib package finding retained; require both absent middleware and the existing no-gzclearerr boundary."
   }
 }

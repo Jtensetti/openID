@@ -23,6 +23,12 @@ Unix-sockets krävs för federationens processprov. Pass, bilder, privata
 nycklar och verkliga tokens får inte hamna i loggar eller testartefakter.
 Installation av molninfrastruktur och tester mot delade miljöer är separata driftåtgärder.
 
+Protokollfixturens certifikatprov kräver en JDK och OpenSSL i `PATH`:
+`cd verification && python3 -m unittest -v test_runtime_test_fixture`.
+Provet använder riktig `keytool` med ett genererat lösenord som börjar med
+Java-startarens `-J`-prefix och läser sedan båda PKCS12-nycklarna med OpenSSL.
+Lösenord överförs i barnprocessens miljö, aldrig som Java-startargument.
+
 ## CI och bevis
 
 [Assurance checks](../.github/workflows/assurance.yml) återanvänder

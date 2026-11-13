@@ -97,6 +97,8 @@ jobs:
             -v "$PWD/verification/test_aws_credentials.py:/tests/test_aws_credentials.py:ro" \
             -v "$PWD/deployment/build/runtime_evidence.py:/tests/runtime_evidence.py:ro" \
             --entrypoint python openid-pilot:ci -m unittest -v test_aws_credentials
+      - name: Rebuild the exact locked vendor images without deployment credentials
+        run: python3 deployment/production/vendor_images.py
       - name: Run the complete canonical PostgreSQL and non-dev OpenBao profile
         run: |
           sudo apt-get update -qq
@@ -269,8 +271,8 @@ jobs:
         run: |
           mkdir "$RUNNER_TEMP/protocol-evidence"
           mkdir "$RUNNER_TEMP/protocol-tests"
-          cp verification/{protocol_evidence.py,oidc-negative-test.py,saml-negative-test.py,runtime_test_fixture.py,test_federation_config.py,test_identity.py,test_wallet.py,test_runtime.py,test_chip_fixture.py,test_native_retention.py,test_recovery_operations.py,test_recovery_binding.py,test_passport_revocation.py,test_ingress_client.py,test_crl_maintenance.py,test_sqlite_retention.py,test_consent_retention.py,test_subject_access.py,test_subject_erasure.py,test_erasure_helpers.py,test_enrollment_policy.py,test_enrollment_consent.py,test_acceptance_journal.py,test_test_beta.py,test_audit_archive.py,test_runtime_isolation.py} "$RUNNER_TEMP/protocol-tests/"
-          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 128 --memory 2g --cpus 2 --user "$(id -u):$(id -g)" --tmpfs /tmp:size=256m,mode=1777 -e PYTHONPATH=/tests:/app/verification -v "$RUNNER_TEMP/protocol-tests:/tests:ro" --entrypoint python openid-pilot:ci -m unittest -v test_federation_config test_wallet test_runtime test_native_retention test_recovery_operations test_recovery_binding test_passport_revocation test_ingress_client test_crl_maintenance.MaintenanceTests test_sqlite_retention test_consent_retention test_subject_access test_subject_erasure test_enrollment_consent test_acceptance_journal test_test_beta test_audit_archive test_runtime_isolation
+          cp verification/{protocol_evidence.py,oidc-negative-test.py,saml-negative-test.py,runtime_test_fixture.py,test_runtime_test_fixture.py,test_federation_config.py,test_identity.py,test_wallet.py,test_runtime.py,test_chip_fixture.py,test_native_retention.py,test_recovery_operations.py,test_recovery_binding.py,test_passport_revocation.py,test_ingress_client.py,test_crl_maintenance.py,test_sqlite_retention.py,test_consent_retention.py,test_subject_access.py,test_subject_erasure.py,test_erasure_helpers.py,test_enrollment_policy.py,test_enrollment_consent.py,test_acceptance_journal.py,test_test_beta.py,test_audit_archive.py,test_runtime_isolation.py} "$RUNNER_TEMP/protocol-tests/"
+          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 128 --memory 2g --cpus 2 --user "$(id -u):$(id -g)" --tmpfs /tmp:size=256m,mode=1777 -e PYTHONPATH=/tests:/app/verification -v "$RUNNER_TEMP/protocol-tests:/tests:ro" --entrypoint python openid-pilot:ci -m unittest -v test_runtime_test_fixture test_federation_config test_wallet test_runtime test_native_retention test_recovery_operations test_recovery_binding test_passport_revocation test_ingress_client test_crl_maintenance.MaintenanceTests test_sqlite_retention test_consent_retention test_subject_access test_subject_erasure test_enrollment_consent test_acceptance_journal test_test_beta test_audit_archive test_runtime_isolation
           docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 128 --memory 2g --cpus 2 --user "$(id -u):$(id -g)" --sysctl net.ipv4.ip_unprivileged_port_start=0 --tmpfs /tmp:size=256m,mode=1777 --add-host idp.example.test:127.0.0.1 --add-host sp.example.test:127.0.0.1 -e PYTHONPATH=/tests:/app/verification -v "$RUNNER_TEMP/protocol-tests:/tests:ro" -v "$RUNNER_TEMP/protocol-evidence:/evidence" --entrypoint python openid-pilot:ci /tests/protocol_evidence.py --output /evidence/protocol-results.json
       - name: Package protocol evidence
         if: always()
@@ -289,6 +291,9 @@ jobs:
           python3 .github/scripts/audit_image_os.py \
             --image "$(cat "$RUNNER_TEMP/image-id.txt")" \
             --output "$RUNNER_TEMP/image-os-audit"
+      - name: Audit exact vendor OS packages and embedded Go dependencies
+        if: always()
+        run: python3 deployment/production/audit_vendors.py --output "$RUNNER_TEMP/vendor-audit"
       - name: Inventory the three canonical images without inheriting application approval
         if: always()
         run: |
@@ -296,6 +301,7 @@ jobs:
             --image "$(cat "$RUNNER_TEMP/image-id.txt")" \
             --runtime "$RUNNER_TEMP/canonical-runtime.json" \
             --os-audit "$RUNNER_TEMP/image-os-audit" \
+            --vendor-audit "$RUNNER_TEMP/vendor-audit" \
             --output "$RUNNER_TEMP/three-image-inventory.json" \
             --require-release-ready
       - name: Save image package inventory
@@ -318,6 +324,7 @@ jobs:
             ${{ runner.temp }}/debian-runtime-evidence
             ${{ runner.temp }}/temurin-upstream-sbom.cdx.json
             ${{ runner.temp }}/image-os-audit/
+            ${{ runner.temp }}/vendor-audit/
           if-no-files-found: error
           retention-days: 90
       - name: Logs and cleanup
@@ -326,28 +333,38 @@ jobs:
           docker logs openid-pilot || true
           docker logs openid-rp || true
           docker rm --force openid-pilot openid-rp openid-image-surface openid-image-surface-root || true
-      - name: Package the tested image and provenance
+      - name: Package all three tested images and bound evidence
         run: |
-          python3 deployment/image_bundle.py package --image openid-pilot:ci \
+          python3 deployment/production/release_bundle.py package --image openid-pilot:ci \
             --protocol "$RUNNER_TEMP/protocol-evidence/protocol-results.json" \
             --inventory "$RUNNER_TEMP/python-packages.json" \
             --os-audit "$RUNNER_TEMP/image-os-audit" \
+            --vendor-audit "$RUNNER_TEMP/vendor-audit" \
+            --runtime "$RUNNER_TEMP/canonical-runtime.json" \
             --output "$RUNNER_TEMP/image-bundle"
       - name: Verify export and reload without rebuilding
         run: |
           revision="$(git rev-parse HEAD)"
           manifest_sha="$(sha256sum "$RUNNER_TEMP/image-bundle/manifest.json" | cut -d ' ' -f 1)"
           docker image rm "openid-pilot:commit-$revision" openid-pilot:ci
-          sudo python3 deployment/image_bundle.py import --directory "$RUNNER_TEMP/image-bundle" \
+          python3 - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          vendors = json.loads(Path('deployment/production/vendor-images.lock.json').read_text())
+          for role, vendor in vendors.items():
+              subprocess.run(['docker', 'image', 'rm', 'tjipp-'+role+':commit-'+revision, 'tjipp-'+role+':locked-build'], check=True)
+          PY
+          sudo python3 deployment/production/release_bundle.py import --directory "$RUNNER_TEMP/image-bundle" \
             --expected-revision "$revision" --expected-manifest-sha256 "$manifest_sha"
           docker run --rm --network none --read-only --cap-drop ALL \
             --security-opt no-new-privileges --entrypoint java \
             "openid-pilot:commit-$revision" -version
-      - name: Retain deployable image after main push or manual build
-        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      - name: Retain tested candidate images for exact-artifact review
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: pilot-image-${{ github.sha }}
+          name: production-image-${{ github.sha }}
           path: '${{ runner.temp }}/image-bundle'
           compression-level: 0
           if-no-files-found: error

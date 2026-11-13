@@ -1,11 +1,9 @@
 """Declared boundaries for the single closed-issuance production candidate."""
-VENDORS = {
-    'postgres': {'source': 'postgres:18.6-bookworm@sha256:afc7e2d441324c0388fa80c3d24f733b4194a4eb7f47dd8ee2b08eb1a24a647c',
-                 'id': 'sha256:2e182ed2ff8f5d0835353864264437a26dffc542a9a6c677ec495aa54e491627', 'uid': '999:999'},
-    'openbao': {'source': 'ghcr.io/openbao/openbao:2.7.1@sha256:6d2b93856e3fcf7b18ad855a0b51eaba474dc8b79cf554379ea32034797d2acf',
-                'id': 'sha256:8b664b4dd46db74a327e373f7b9581e39a1447b7d788b9b69f664896683c14d5', 'uid': '10008:20008'},
-}
-IDENTITIES = {'postgres': '999:999', 'openbao': '10008:20008', 'credential-rotator': '0:0',
+import json
+from pathlib import Path
+
+VENDORS = json.loads(Path(__file__).with_name("vendor-images.lock.json").read_text())
+IDENTITIES = {'postgres': '70:70', 'openbao': '10008:20008', 'credential-rotator': '0:0',
               'verifier': '10001:20010', 'wallet': '10006:20011', 'bridge': '10009:20001',
               'continuity': '10007:20004', 'idp': '10002:20001', 'sp': '10003:20001', 'notice-exporter': '10004:20003'}
 GROUPS = {'verifier': ['20004'], 'wallet': ['20004'], 'bridge': ['20003', '20004']}

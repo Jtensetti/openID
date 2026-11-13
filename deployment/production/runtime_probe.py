@@ -149,14 +149,15 @@ class Runtime:
         from test_federation_postgres import FederationPostgres
         from test_continuity_support import REFERENCE
         for name,ref in VENDORS.items():
-            command(['docker','pull','--platform','linux/amd64',ref['source']])
-            actual=command(['docker','image','inspect',ref['source'],'--format','{{.Id}}']).strip()
+            from vendor_images import check_inputs
+            check_inputs(name)
+            actual=command(['docker','image','inspect',ref['id'],'--format','{{.Id}}']).strip()
             if actual!=ref['id']:raise ValueError('vendor image identity mismatch')
         self.phase('prepare_synthetic_keys_and_boundaries')
         for name,identity in IDENTITIES.items():
             if name in ('idp','sp','notice-exporter','postgres','openbao'):continue
             uid,gid=map(int,identity.split(':'));self.directory('services/'+name,uid,gid,0o700)
-        for name,uid,gid,mode in [('postgres/config',999,999,0o700),('postgres/data',999,999,0o700),
+        for name,uid,gid,mode in [('postgres/config',70,70,0o700),('postgres/data',70,70,0o700),
             ('openbao/config',10008,20008,0o700),('openbao/data',10008,20008,0o700),('openbao/audit',10008,20008,0o700),
             ('ipc/continuity',10007,20004,0o2710),('ipc/federation',10009,20001,0o2710),('ipc/notice',10009,20003,0o2710),
             ('aws/continuity',0,20004,0o2710),('aws/notices',0,20003,0o2710)]:self.directory(name,uid,gid,mode)
@@ -174,8 +175,8 @@ class Runtime:
         pg_cert,pg_key=certificate(self.pki,'postgres','DNS:localhost,IP:127.0.0.1')
         bao_cert,bao_key=certificate(self.pki,'openbao','DNS:localhost,IP:127.0.0.1')
         aws_cert,aws_key=certificate(self.pki,'aws','DNS:sts.eu-north-1.amazonaws.com,DNS:lambda.eu-north-1.amazonaws.com,DNS:sqs.eu-north-1.amazonaws.com')
-        for file in ('postgresql.conf','pg_hba.conf'):self.file('postgres/config/'+file,(ROOT/'deployment/production'/file).read_bytes(),999,999)
-        self.file('postgres/config/server.pem',pg_cert.read_bytes(),999,999);self.file('postgres/config/server.key',pg_key.read_bytes(),999,999)
+        for file in ('postgresql.conf','pg_hba.conf'):self.file('postgres/config/'+file,(ROOT/'deployment/production'/file).read_bytes(),70,70)
+        self.file('postgres/config/server.pem',pg_cert.read_bytes(),70,70);self.file('postgres/config/server.key',pg_key.read_bytes(),70,70)
         self.json('openbao/config/openbao.json',check.example('openbao.example.json'),10008,20008)
         self.file('openbao/config/tls.pem',bao_cert.read_bytes(),10008,20008);self.file('openbao/config/tls.key',bao_key.read_bytes(),10008,20008)
         # The addresses are loopback-owned synthetic endpoints before any client
@@ -227,9 +228,9 @@ class Runtime:
             if 'entrypoint' in allowed:assert service['entrypoint']==allowed['entrypoint'],'synthetic Java trust override changed'
         self.phase('initialize_real_postgres_and_sealed_openbao')
         password=secrets.token_urlsafe(32)
-        password_file=self.file('bootstrap-password',password,999,999)
+        password_file=self.file('bootstrap-password',password,70,70)
         command(['docker','run','--rm','--network','none','--read-only','--cap-drop','ALL','--security-opt','no-new-privileges',
-                 '--user','999:999','--tmpfs','/tmp:size=32m,mode=1777','-v',str(self.root/'postgres/data')+':/data',
+                 '--user','70:70','--tmpfs','/tmp:size=32m,mode=1777','-v',str(self.root/'postgres/data')+':/data',
                  '-v',str(password_file)+':/password:ro','--entrypoint','initdb',VENDORS['postgres']['id'],
                  '-D','/data','-U','postgres','--pwfile=/password','--auth=scram-sha-256'])
         self.children_started=True;self.dc('up','-d','postgres','openbao')
@@ -376,14 +377,14 @@ class Runtime:
         self.report['ingress']={'implementation':'nginx','version':subprocess.run(['nginx','-v'],capture_output=True,text=True,check=True).stderr.strip(),
                                 'templateSHA256':__import__('hashlib').sha256((ROOT/'deployment/production/nginx.conf.in').read_bytes()).hexdigest()}
 
-    def api(self,path,body,*,native=False,direct=False):
+    def api(self,path,body,*,native=False,direct=False,pairing=None):
         name='verifier' if native else 'wallet'
         context=ssl.create_default_context(cafile=str(self.root/'services'/name/'server.pem')) if direct else self.fixture.public_tls
         connection=http.client.HTTPSConnection('localhost' if direct else 'api.example.test',
             (8767 if native else 8768) if direct else 443,context=context,timeout=8)
         try:
             connection.request('POST',path,json.dumps(body),{'Host':'api.example.test','Origin':'https://api.example.test',
-                'Content-Type':'application/json','X-CSRF-Token':self.pairing,
+                'Content-Type':'application/json','X-CSRF-Token':self.pairing if pairing is None else pairing,
                 'X-OpenID-Client-IP':'192.0.2.10'})
             response=connection.getresponse();return response.status,json.loads(response.read())
         finally:connection.close()
@@ -493,6 +494,30 @@ class Runtime:
         assert self.api('/wallet/challenge',{},native=True,direct=True)[0]==404,'wallet route exposed through enroller'
         assert self.api('/native/start',{},direct=True)[0]==404,'proofing route exposed through wallet'
         report['checks'].append('closed_registration_and_separate_api_roles')
+        self.phase('explicit_registration_notice_and_production_attestation')
+        from test_enrollment_policy import fixture_policy
+        policy=fixture_policy();now=int(time.time())
+        policy['notice'].update(notBefore=now-60,notAfter=now+600)
+        config_path=self.root/'services/verifier/runtime.json'
+        closed=json.loads(config_path.read_text())
+        opened={**closed,'newRegistrationsEnabled':True,'enrollmentPolicyFile':check.ENROLLMENT_PATH}
+        policy_path=self.json('services/verifier/enrollment-policy.json',policy,10001,20010)
+        self.json('services/verifier/runtime.json',opened,10001,20010)
+        check.check_directory(self.root)
+        self.dc('up','-d','--force-recreate','--wait','--wait-timeout','90','verifier')
+        assert self.api('/native/start',{},native=True,pairing='')[0]==403,'unpaired admission unexpectedly open'
+        status,notice=self.api('/native/notice',{},native=True)
+        assert status==200 and notice==check.enrollment_policy(policy).public(),'exact enrollment notice unavailable'
+        status,session=self.api('/native/start',{},native=True)
+        assert status==200 and set(session)=={'id','challenge'},'production registration session unavailable'
+        assert self.api('/native/attest',{'id':session['id']},native=True)[0]==400,'missing App Attest evidence accepted'
+        assert self.api('/wallet/challenge',{},native=True,direct=True)[0]==404,'open collection crossed role boundary'
+        # Restore closed collection before the unrelated synthetic credential tests.
+        self.json('services/verifier/runtime.json',closed,10001,20010)
+        policy_path.unlink();check.check_directory(self.root)
+        self.dc('up','-d','--force-recreate','--wait','--wait-timeout','90','verifier')
+        assert self.api('/native/start',{},native=True)[0]==503,'collection failed to close again'
+        report['checks'].append('explicit_registration_notice_paired_session_and_required_production_attestation')
         self.phase('activate_and_deliver_opaque_notice')
         key=json.loads(crypt(op='new'));credential=self.model.enroller.enroll(key['publicKey'],document())['id']
         self.model.activate(credential)

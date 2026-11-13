@@ -1,0 +1,9 @@
+{
+  "github.com/yeqown/reedsolomon@v1.0.0": {
+    "file": "reedsolomon-MIT",
+    "sha256": "58fb0c85bfc183bad46c47dd38ac17e3372d86c1fcb65bce880fa1d964424f69",
+    "source": "https://raw.githubusercontent.com/yeqown/reedsolomon/c5f4bc9af094852b52e593a5f964647c43028c51/LICENSE",
+    "upstreamRevision": "c5f4bc9af094852b52e593a5f964647c43028c51",
+    "review": "The sole commit after v1.0.0 adds this MIT license; no source code differs. Verified upstream compare v1.0.0...c5f4bc9af094852b52e593a5f964647c43028c51."
+  }
+}

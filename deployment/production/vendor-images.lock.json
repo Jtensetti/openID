@@ -1,0 +1,67 @@
+{
+  "postgres": {
+    "source": "postgres:18.7-alpine3.24@sha256:75dcac3dfb1cd01ca3536910bbc84128759362f8b118bf8c55b38a94f68f3b73",
+    "id": "sha256:4e4f8dc6cb06ddf2d6eb863caf889a1765919dfe077c9890e283e05ff9b23685",
+    "uid": "70:70",
+    "osFamily": "alpine",
+    "osVersion": "3.24",
+    "version": "18.7",
+    "sourceRevision": "185fae3519025ac5715b35134e440af1948f4de2",
+    "license": "PostgreSQL",
+    "recipeLicense": "MIT",
+    "recipeLicenseSHA256": "87ffd2c45e3f90cfa3407b5c40ef8333e87c3e875e4895f8b64df758198deafc",
+    "languageTargets": [],
+    "localGoModules": [],
+    "baseID": "sha256:0f6c51e48b3458e87ab43692e49c9dafc72ffe0a0dbde3fd8cdb6ab92d5c025e",
+    "build": {
+      "recipe": "Dockerfile.postgres",
+      "epoch": "1794484800",
+      "inputs": {
+        "Dockerfile.postgres": "bae4293a0ec86c83e5d014552e96271630253b2ff78a6ba9d0d38a802488c8d5"
+      },
+      "builderImage": "moby/buildkit:v0.33.1@sha256:98cc6a3fc46220d00f8224ae483f3274fc874e9be8d7dd1e2e2c5481209228b5"
+    }
+  },
+  "openbao": {
+    "source": "ghcr.io/openbao/openbao:2.7.2@sha256:5046911075e137e154ce49ab051502f4ec7cf367d484ae4a4dce665d9b90561f",
+    "id": "sha256:c3f4cecba0452ba7a5440eac0449006d78f2afcc47f9bbb3262ef5bae3e797d4",
+    "uid": "10008:20008",
+    "osFamily": "alpine",
+    "osVersion": "3.24",
+    "version": "2.7.2",
+    "sourceRevision": "9e0a0d3c3504a0a00b45e61355afac5e35c78379",
+    "license": "MPL-2.0",
+    "licenseSHA256": "d6b1a865f1c8c697d343bd4e0ce61025f91898486a1f00d727f32e8644af77d3",
+    "upstreamSBOMSHA256": "baf83d86c9f34d1a84fd72f86e3a199f5864fdd1d2a8834f57b2147229c7b37b",
+    "languageTargets": [
+      "usr/bin/bao"
+    ],
+    "localGoModules": [
+      "./api",
+      "./api/auth/kubernetes",
+      "./internal/helper/stubbolt",
+      "./sdk"
+    ],
+    "baseID": "sha256:9089bc6d4aac6d69317f2faf7935135a6b48f949565b03c08677a7f15ff2454f",
+    "build": {
+      "recipe": "Dockerfile.openbao",
+      "epoch": "1794484800",
+      "inputs": {
+        "Dockerfile.openbao": "a5d3ae27c60b3efde569339eb7c3c60cf32b335d9e34130cb3f5b4341f7879f3",
+        "openbao.go.mod": "1b9f71485061d7f368406984744ac06e6281f7a4a4dc3a8f598d1077497011dd",
+        "openbao.go.sum": "8de013c274996938fa450153a38b01f2a3de152f332c90fb97f5e2c73f3f3d4d",
+        "openbao.login_mfa.go": "4236f09570ee56f4c737b17e0c69d1d64b0e5871f1f9577ed3f562f7daf6bd92",
+        "tjipp_mfa_test.go": "319ef596f4131efd33eb241860083e712227ea501546c481ac55b5f1a77b8f2c",
+        "sources.lock.json": "6425b7cda25b6cae50159197221867a8dc8b81b23b52488c3a03b46334e0e3fc",
+        "prepare_source.py": "ea915278830bdd8ca1c50f5444ba1d4bb0be3617c9fc43886adf5e0fad35c5ea",
+        "collect_licenses.py": "d635520803cbe077fed4be2f29d6e70f9102869bf1fd9787cf14c8195683c4eb",
+        "supplemental-licenses/lock.json": "f2dd443784914e37097be83302b59afa56696c686582719447c87b121c7c9006",
+        "supplemental-licenses/reedsolomon-MIT": "58fb0c85bfc183bad46c47dd38ac17e3372d86c1fcb65bce880fa1d964424f69"
+      },
+      "builderImage": "moby/buildkit:v0.33.1@sha256:98cc6a3fc46220d00f8224ae483f3274fc874e9be8d7dd1e2e2c5481209228b5"
+    },
+    "sourceGoModules": {
+      "github.com/openbao/openbao/v2": "2.7.2"
+    }
+  }
+}
