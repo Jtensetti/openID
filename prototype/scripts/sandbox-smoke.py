@@ -14,6 +14,7 @@ import ssl
 import subprocess
 import tempfile
 import time
+import xml.etree.ElementTree as ET
 
 from smoke import JAVA, JAR
 
@@ -66,6 +67,20 @@ def main():
                 else:
                     raise RuntimeError("Synthetic Sandbox did not become ready within 90 seconds")
 
+                status, body = request("/saml2/metadata")
+                assert status == 200
+                saml = ET.fromstring(body)
+                ns = {"md": "urn:oasis:names:tc:SAML:2.0:metadata",
+                      "mdui": "urn:oasis:names:tc:SAML:metadata:ui"}
+                ui = saml.find("md:IDPSSODescriptor/md:Extensions/mdui:UIInfo", ns)
+                assert ui is not None
+                names = {item.get("{http://www.w3.org/XML/1998/namespace}lang"): item.text
+                         for item in ui.findall("mdui:DisplayName", ns)}
+                assert names == {"sv": "Tjipp Sandbox – ENDAST TEST", "en": "Tjipp Sandbox – SYNTHETIC ONLY"}
+                logo = ui.find("mdui:Logo", ns)
+                assert logo is not None and logo.text == ISSUER + "/logo.svg"
+                assert logo.get("width") == logo.get("height") == "192"
+
                 status, body = request("/.well-known/openid-configuration")
                 assert status == 200, f"OIDC discovery returned {status}, expected 200"
                 discovery = json.loads(body)
@@ -99,7 +114,7 @@ def main():
                                body="action=approve")[0] == 403
                 status, _ = request("/oidc/authorize")
                 assert status == 400, f"Missing OIDC client returned {status}, expected 400"
-                print("PASS: packaged sandbox-idp publishes discovery, public JWKS and Entity Configuration; "
+                print("PASS: packaged sandbox-idp publishes SAML test labels and logo, discovery, public JWKS and Entity Configuration; "
                       "synthetic ACR, PKCE and client authentication metadata; rejected foreign Host, "
                       "forwarded Host, approval without CSRF and authorization without a client")
             finally:
