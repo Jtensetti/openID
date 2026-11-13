@@ -655,3 +655,21 @@ Se [operatörsflöde, adapterkontrakt och begränsningar](../docs/registerbindni
 Nyregistrering kräver en privat `enrollmentPolicyFile`; se [information, versionsbundna val och återkallelse](../docs/registreringsinformation.md). Standardläget kräver separat aktivering; [TestFlight-läget](../docs/testflight-beta.md) aktiverar automatiskt efter godkända kontroller. PostgreSQL kräver schema 8. [Gallring av registreringskvitton](../docs/gallring-samtycken.md) kräver separat beslutad policy.
 
 Beslutad radering och aktuell beslutsförteckning vid återställning beskrivs i [radering i rättighetsärende](../docs/radering-rattighetsarende.md). Skyddsreferenser och externa kopior kräver separat prövning.
+
+## App Attest med signerade tillägg
+
+Aktuella Apple-system kan lägga ett CBOR-extensionsobjekt efter assertionens
+37 grundbyte. Apples kategori kan vara en fyrabytes little-endian-kod och
+assertions kan behålla AT-flaggan tillsammans med ED (0xC0). Verifieraren kontrollerar ED-flaggan, storleksgräns, ett enda
+objekt utan dubbla nycklar samt Apples valideringskategori och appbygge.
+Produktionskategorierna TestFlight, App Store och ad hoc stöds; utveckling
+kräver uttryckligt utvecklingsläge. För tilläggsformatet krävs bygge 117
+eller senare. Äldre assertioner utan tillägg har fortfarande exakt 37 byte.
+Hela authenticatorData, inklusive tilläggen, ingår oförändrat i den
+befintliga signaturkontrollen. App-ID, payload, nonce och ökande räknare
+kontrolleras fortsatt; tilläggen ersätter ingen identitetskontroll.
+
+Kör `node --test test-attest.mjs` i denna katalog med låsta npm-beroenden.
+Proven använder genererade signeringsnycklar och syntetiska payloads för
+giltiga och manipulerade assertioner. Fysisk App Attest prövas separat.
+Formatet beskrivs i [Apples servervalidering](https://developer.apple.com/documentation/devicecheck/validating-apps-that-connect-to-your-server).
