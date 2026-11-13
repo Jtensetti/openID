@@ -46,6 +46,7 @@ def main(output):
             tag = 'tjipp-'+role+':candidate'
             subprocess.run(['docker','build','--platform','linux/amd64',
                 '--build-arg','SOURCE_DATE_EPOCH=1794484800','--provenance=false',
+                '--output','type=image,rewrite-timestamp=true',
                 '--file',str(context/('Dockerfile.'+role)),'--tag',tag,str(context)],check=True)
             info = json.loads(run(['docker','image','inspect',tag]))[0]
             scanner.save(directory/'image-inspect.json',info)
@@ -67,6 +68,11 @@ def main(output):
             subprocess.run(prefix+['convert','--format','cyclonedx','--output',str(directory/'sbom.cdx.json'),
                 str(directory/'trivy.json')],env=env,check=True)
             scan=json.loads((directory/'trivy.json').read_text())
+            language = [r for r in scan['Results'] if r.get('Class') == 'lang-pkgs']
+            expected = [] if role == 'postgres' else ['usr/bin/bao']
+            if ([r.get('Target') for r in language] != expected or
+                    any(r.get('Type') != 'gobinary' or not any(p.get('Name') == 'stdlib' for p in r.get('Packages', [])) for r in language)):
+                raise ValueError('candidate Go binary coverage missing or changed')
             report['images'][role]={'base':base['source'],'baseID':base['id'],'imageID':image,
                 'findingCount':sum(len(r.get('Vulnerabilities',[])) for r in scan['Results']),
                 'languageTargets':[r['Target'] for r in scan['Results'] if r['Class']=='lang-pkgs'],

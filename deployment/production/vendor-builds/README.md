@@ -28,7 +28,8 @@ originallicensen finns i `OPENBAO-LICENSE`. Build-steget samlar även
 beroendenas LICENSE/NOTICE-filer, Go-licensen, modullista och de ändrade
 källfilerna i `/usr/share/doc/tjipp-openbao`. go-jose är Apache-2.0, CAP
 MPL-2.0 och Go/x-moduler BSD-3-Clause. Go:s modulsummor verifieras innan
-kompilering. Den fasta tidsstämpeln gör repeterbara bild-ID:n möjliga;
+kompilering. Exporteraren normaliserar även lagrens filtidsstämplar till det fasta
+SOURCE_DATE_EPOCH-värdet. Enbart bildens skapandetid räcker inte;
 en separat ombyggnad måste visa detta innan ett ID låses.
 
 Reedsolomon 1.0.0 saknar licensfil i Go-arkivet. Upstreams enda efterföljande
