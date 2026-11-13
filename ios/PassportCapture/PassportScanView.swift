@@ -36,9 +36,10 @@ struct PassportScanView: View {
                     Text("Fotograferas automatiskt när hela sidan och kodraderna kan läsas. Håll passet plant och undvik reflexer.")
                         .font(.subheadline).multilineTextAlignment(.center)
                     Text("Bilden används bara på telefonen för att läsa uppgifterna. Den sparas eller skickas inte.")
-                        .font(.footnote).foregroundStyle(.secondary)
+                        .font(.footnote).foregroundStyle(Palette.muted)
                 }.padding(20)
             }
+            .tjippScreen()
             .navigationTitle("Skanna passuppgifter").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Stäng") { dismiss() } } }
             .task {
@@ -74,6 +75,8 @@ struct PassportGuideOverlay: View {
                     path.addRect(CGRect(origin: .zero, size: geometry.size))
                     path.addRoundedRect(in: frame, cornerSize: CGSize(width: 12, height: 12))
                 }.fill(.black.opacity(0.5), style: FillStyle(eoFill: true))
+                RoundedRectangle(cornerRadius: 12).stroke(.black.opacity(0.65), lineWidth: 6)
+                    .frame(width: frame.width, height: frame.height).position(x: frame.midX, y: frame.midY)
                 RoundedRectangle(cornerRadius: 12).stroke(captured ? .green : .white, lineWidth: 3)
                     .frame(width: frame.width, height: frame.height).position(x: frame.midX, y: frame.midY)
                 Image(systemName: "person.crop.rectangle").resizable().scaledToFit()

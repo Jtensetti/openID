@@ -1,0 +1,52 @@
+[
+  {
+    "asset": "TjippSymbol-hav",
+    "url": "https://folkidentitet.se/__l5e/assets-v1/c7b9a053-d07a-4a99-8abb-e91ae8bb85e2/tjipp-symbol-hav.png",
+    "sha256": "7afb2552ba124070375f2aa526768b26d30d3f4c0be92177ebdac2b2489c3446"
+  },
+  {
+    "asset": "TjippSymbol-skog",
+    "url": "https://folkidentitet.se/__l5e/assets-v1/865597d8-1673-4f5d-8063-e3ecd0f7d100/tjipp-symbol-skog.png",
+    "sha256": "1225ddfca614fcac3b4329ecf1d020390b5f39a475ea78178f1a61fb40bac304"
+  },
+  {
+    "asset": "TjippSymbol-aprikos",
+    "url": "https://folkidentitet.se/__l5e/assets-v1/d37f333f-8394-40ff-8bc5-4416f6bb4f52/tjipp-symbol-aprikos.png",
+    "sha256": "0162e8aeb688c9055f915120efbc02e7315a34abaa8e971ad83a0228dbb393a3"
+  },
+  {
+    "asset": "TjippSymbol-lera",
+    "url": "https://folkidentitet.se/__l5e/assets-v1/e4474fae-9331-4f44-b6a6-bad9c683f216/tjipp-symbol-lera.png",
+    "sha256": "9fe1f8ddf6434daab9acbc59ab66a62c1944b14877e92a9b81bbeff9d10776a8"
+  },
+  {
+    "asset": "TjippSymbol-sol",
+    "url": "https://folkidentitet.se/__l5e/assets-v1/5959d45a-48ac-4e20-9c28-4a566a8139fe/tjipp-symbol-sol.png",
+    "sha256": "5cc6e49d8b0c1021f4b5cf60475bc205e0f4584e16a67c9f48d6a77e4268af0b"
+  },
+  {
+    "asset": "TjippSymbol-lavendel",
+    "url": "https://folkidentitet.se/__l5e/assets-v1/1d5bcb2c-ca41-4ec7-b172-e9e47a004b9a/tjipp-symbol-lavendel.png",
+    "sha256": "dcdbdd6ec15bb81941a0573815e1a2a027a10bdd930dadfdb85ce29ab3c518e0"
+  },
+  {
+    "asset": "TjippSymbol-ros",
+    "url": "https://folkidentitet.se/__l5e/assets-v1/962d52e0-b0bc-42ec-ab20-661d499b7ed4/tjipp-symbol-ros.png",
+    "sha256": "3c1499eca165f8a14ddcb7423402cab247617960e9ee013312d10d268af65ae0"
+  },
+  {
+    "asset": "TjippSymbol-grafit",
+    "url": "https://folkidentitet.se/__l5e/assets-v1/2044cbc7-ff3c-48e0-a148-08696f764199/tjipp-symbol-grafit.png",
+    "sha256": "218938e566633d2e74cff29434d11369e8544b873d0165528350f924fc25ac81"
+  },
+  {
+    "asset": "TjippSymbol",
+    "url": "https://folkidentitet.se/__l5e/assets-v1/d632eec2-302f-47cf-af4c-716477661641/tjipp-symbol.png",
+    "sha256": "25c317e0e96d4010a782ac3979c0f0862f9f85fc04c91be1d14ba421e9c644f3"
+  },
+  {
+    "asset": "TjippWordmark",
+    "url": "https://folkidentitet.se/__l5e/assets-v1/0469b13e-e85b-4a8e-9a58-80688836dab1/tjipp-wordmark.png",
+    "sha256": "aff95c328bd21493d4efea68e08761cbe8500cb1f61e628de8f6e125fff95338"
+  }
+]

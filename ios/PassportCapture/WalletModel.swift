@@ -17,7 +17,10 @@ import LocalAuthentication
     @Published private(set) var securityCodeMessage: String?
     @Published var registrationPresented = false
     @Published var settingsPresented = false
-    private let vault: any CredentialVault
+    private var vault: any CredentialVault
+    @Published private(set) var environment: WalletEnvironment
+    private let environmentVault: ((WalletEnvironment) -> any CredentialVault)?
+    private let saveEnvironment: ((WalletEnvironment) -> Void)?
     @Published private(set) var confirmedRevocationID: String?
     private var context: LAContext?
     private var operationContext: LAContext?
@@ -27,15 +30,46 @@ import LocalAuthentication
     private var pendingLink: String?
     let verification = VerificationFlow()
 
-    init(vault: any CredentialVault = SecureVault()) { self.vault = vault }
+    init(vault: any CredentialVault = SecureVault(), environment: WalletEnvironment = .original,
+         environmentVault: ((WalletEnvironment) -> any CredentialVault)? = nil,
+         saveEnvironment: ((WalletEnvironment) -> Void)? = nil) {
+        self.vault = vault; self.environment = environment
+        self.environmentVault = environmentVault; self.saveEnvironment = saveEnvironment
+    }
+    static func live() -> WalletModel {
+        let selected = UserDefaults.standard.string(forKey: "tjipp.wallet.environment")
+            .flatMap(WalletEnvironment.init(rawValue:)) ?? .original
+        return WalletModel(vault: SecureVault(environment: selected), environment: selected,
+            environmentVault: { SecureVault(environment: $0) },
+            saveEnvironment: { UserDefaults.standard.set($0.rawValue, forKey: "tjipp.wallet.environment") })
+    }
+    var canSwitchEnvironment: Bool {
+        environmentVault != nil && !verification.busy && (!busy || isRefreshingStatus)
+    }
+    func switchEnvironment(to selected: WalletEnvironment) throws {
+        guard canSwitchEnvironment, selected != environment, let environmentVault else { throw WalletError.rejected }
+        // Keep the old key, configuration, revocation proof and receipts in their original storage.
+        // A server change never rebinds an existing key or abandons an in-flight write.
+        lock()
+        vault = environmentVault(selected); environment = selected
+        saveEnvironment?(selected)
+    }
 
     var credentialState: CredentialState? {
         if let credential, confirmedRevocationID == credential.id { return .revoked }
         return snapshot?.state
     }
-    var canResumeRegistration: Bool {
-        unlocked && configuration != nil && !busy && !verification.busy
-            && snapshot == nil && confirmedRevocationID == nil
+    var canOfferRegistration: Bool {
+        unlocked && configuration != nil && snapshot == nil && confirmedRevocationID == nil
+    }
+    var canResumeRegistration: Bool { canOfferRegistration && !busy && !verification.busy }
+    var isRefreshingStatus: Bool { busy && activeAction == "snapshot" }
+    func cancelStatusRefresh() {
+        // Only a read may be abandoned. A write may have reached the server already.
+        guard isRefreshingStatus else { return }
+        generation = UUID(); task?.cancel(); activeAction = nil; busy = false
+        pendingLink = nil; focusedRequest = nil
+        statusMessage = "Statuskontrollen avbröts. Ingen ny status har hämtats. Registrering kräver att servern svarar."
     }
     var canForgetCredential: Bool {
         guard unlocked, !busy, !verification.busy, let credential else { return false }
@@ -66,14 +100,15 @@ import LocalAuthentication
             }
             do {
                 let auth = LAContext(); context = auth
-                guard try await auth.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Öppna ditt openID") else { throw WalletError.cancelled }
+                guard try await auth.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Öppna ditt Tjipp") else { throw WalletError.cancelled }
                 try Task.checkCancellation(); guard generation == epoch else { return }
                 let saved = try vault.read("configuration", as: ServerConfiguration.self)
-                let selected = ServerConfiguration.initial(saved: saved)
-                configuration = try ServerConfiguration(origin: selected.origin, pairing: selected.pairing)
-                if saved == nil { try vault.save(selected, account: "configuration") }
+                let selected = try environment.initialConfiguration(saved: saved)
+                configuration = try selected.map { try ServerConfiguration(origin: $0.origin, pairing: $0.pairing) }
+                if saved == nil, let selected { try vault.save(selected, account: "configuration") }
                 credential = try vault.read("credential", as: LocalCredential.self)
-                if selected.isPublicBeta, let credential,
+                guard credential == nil || configuration != nil else { throw WalletError.keyUnavailable }
+                if selected?.isPublicBeta == true, let credential,
                    let proof = try vault.read("revocation-" + credential.id, as: RevocationProof.self) {
                     try proof.validate(for: credential.id)
                     revocationProof = proof
@@ -97,6 +132,7 @@ import LocalAuthentication
     func saveConfiguration(origin: String, pairing: String) throws {
         guard unlocked, !busy, !verification.busy else { throw WalletError.rejected }
         let value = try ServerConfiguration(origin: origin, pairing: pairing)
+        guard environment == .original || value.origin == environment.suggestedOrigin else { throw WalletError.rejected }
         // Only the pairing code may change after enrollment.
         if credential != nil, configuration?.origin != value.origin { throw WalletError.rejected }
         try vault.save(value, account: "configuration"); configuration = value; snapshot = nil
@@ -108,7 +144,8 @@ import LocalAuthentication
             guard let context else { throw WalletError.keyUnavailable }
             if credential == nil { credential = try vault.createCredential(context: context) }
             guard let credential else { throw WalletError.keyUnavailable }
-            verification.prepare(configuration: configuration, credential: credential)
+            verification.prepare(configuration: configuration, credential: credential,
+                                 receipts: EnrollmentReceiptStore(vault: vault))
             statusMessage = nil; error = nil
             registrationPresented = true
         } catch { self.error = error.localizedDescription }
@@ -141,7 +178,8 @@ import LocalAuthentication
         task = Task {
             defer { if generation == epoch { busy = false; activeAction = nil } }
             do {
-                guard var receipt = try EnrollmentReceiptStore().read(for: credential.id).first(where: { $0.id == receiptID }),
+                let receipts = EnrollmentReceiptStore(vault: vault)
+                guard var receipt = try receipts.read(for: credential.id).first(where: { $0.id == receiptID }),
                       receipt.origin == configuration.origin else { throw WalletError.rejected }
                 let auth = LAContext(); operationContext = auth
                 defer { auth.invalidate(); if generation == epoch { operationContext = nil } }
@@ -153,7 +191,7 @@ import LocalAuthentication
                     ["publicKey":credential.publicKey.base64EncodedString(), "payload":payload.base64EncodedString(), "signature":signature.base64EncodedString()])
                 try Task.checkCancellation(); guard generation == epoch else { return }
                 guard result["withdrawn"] as? Bool == true, result["receipt"] as? String == receipt.id else { throw WalletError.rejected }
-                receipt.state = .withdrawn; try EnrollmentReceiptStore().save(receipt)
+                receipt.state = .withdrawn; try receipts.save(receipt)
                 statusMessage = "Återkallelsen är bekräftad."
             } catch {
                 if generation == epoch, !Self.wasCancelled(error) {
@@ -219,7 +257,7 @@ import LocalAuthentication
                 }
             }
             do {
-                let api = WalletAPI(configuration: configuration)
+                let api = WalletAPI(configuration: configuration, requestTimeout: action == "snapshot" ? 10 : 60)
                 let challenge = try await api.post("/wallet/challenge", body: ["credentialId": credential.id,
                     "action": action, "requestId": (request?.id ?? inspectID) as Any? ?? NSNull()], as: DeviceChallenge.self)
                 let bytes = try challenge.validatedBytes(configuration: configuration, credentialID: credential.id, action: action, request: request, inspectID: inspectID)
@@ -230,8 +268,8 @@ import LocalAuthentication
                     auth = LAContext()
                     operationContext = auth
                     guard try await auth.evaluatePolicy(.deviceOwnerAuthentication, localizedReason:
-                        action == "revoke" ? "Spärra ditt ID permanent" : action == "set-pin" ? "Spara säkerhetskoden för openID"
-                        : action == "sign" ? "Skriv under för \(request?.relyingParty ?? "openID")" : "Bekräfta ditt val för \(request?.relyingParty ?? "openID")") else { throw WalletError.cancelled }
+                        action == "revoke" ? "Spärra ditt ID permanent" : action == "set-pin" ? "Spara säkerhetskoden för Tjipp"
+                        : action == "sign" ? "Skriv under för \(request?.relyingParty ?? "Tjipp")" : "Bekräfta ditt val för \(request?.relyingParty ?? "Tjipp")") else { throw WalletError.cancelled }
                 }
                 defer { if !["snapshot", "inspect"].contains(action) { auth.invalidate() } }
                 try Task.checkCancellation(); guard generation == epoch else { return }
@@ -304,9 +342,13 @@ import LocalAuthentication
         return "Kunde inte nå tjänsten. Kontrollera internetanslutningen och försök sedan igen."
     }
     func open(_ url: URL) {
-        guard let id = RequestLink.identifier(url) else { error = "Länken är inte en giltig openID-begäran."; return }
+        guard let id = RequestLink.identifier(url) else { error = "Länken är inte en giltig Tjipp-begäran."; return }
         pendingLink = id; selectedTab = 1
         if unlocked { refresh() }
+    }
+    func enrollmentReceipts() throws -> [EnrollmentReceipt] {
+        guard unlocked, let credential else { return [] }
+        return try EnrollmentReceiptStore(vault: vault).read(for: credential.id)
     }
     func forgetRevokedCredential() throws {
         guard canForgetCredential, let old = credential else { throw WalletError.rejected }
@@ -321,14 +363,19 @@ import LocalAuthentication
     }
 
     #if DEBUG && targetEnvironment(simulator)
+    func configureWaitingStatusPreview() {
+        busy = true; activeAction = "snapshot"; statusMessage = nil
+        task = Task { try? await Task.sleep(nanoseconds: 60_000_000_000) }
+    }
     /// Synthetic UI/unit-test state only; never compiled into device builds.
     func configureRecoveryPreview(credential: LocalCredential?, state: CredentialState? = nil,
-                                  statusError: Error? = nil, confirmedRevocation: Bool = false) {
+                                  statusError: Error? = nil, confirmedRevocation: Bool = false,
+                                  identity: PassportIdentity? = nil) {
         configuration = try! ServerConfiguration(origin: "https://synthetic.invalid", pairing: String(repeating: "x", count: 43))
         self.credential = credential; unlocked = true; context = LAContext()
         if let credential, let state {
             snapshot = WalletSnapshot(credentialId: credential.id, state: state, createdAt: 1, expiresAt: nil,
-                requests: [], events: [], environment: "PRIVATE_PILOT", legalIdentityIssued: false)
+                requests: [], events: [], environment: "PRIVATE_PILOT", legalIdentityIssued: false, identity: identity)
         }
         statusMessage = statusError.map { Self.failureMessage(action: "snapshot", error: $0) }
         confirmedRevocationID = confirmedRevocation ? credential?.id : nil

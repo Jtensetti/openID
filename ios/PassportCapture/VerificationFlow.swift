@@ -7,6 +7,7 @@ import LocalAuthentication
 @MainActor final class VerificationFlow: ObservableObject {
     private var configuration: ServerConfiguration?
     private var credential: LocalCredential?
+    private var receipts = EnrollmentReceiptStore()
     @Published var phase = 0
     @Published var completed = false
     @Published var failed = false
@@ -34,8 +35,10 @@ import LocalAuthentication
     private var reader: PassportReader?
     private let chipRelay = PassportChipRelay()
 
-    func prepare(configuration: ServerConfiguration, credential: LocalCredential) {
+    func prepare(configuration: ServerConfiguration, credential: LocalCredential,
+                 receipts: EnrollmentReceiptStore = EnrollmentReceiptStore()) {
         self.configuration = configuration; self.credential = credential
+        self.receipts = receipts
         noticeGeneration = UUID(); notice = nil; noticeText = nil; loadingNotice = false; termsAccepted = false; biometricsAccepted = false
         phase = 0; completed = false; failed = false; passportRead = false; stepTitle = "Passuppgifter"; status = ""
     }
@@ -46,7 +49,7 @@ import LocalAuthentication
         loadingNotice = true; notice = nil; noticeText = nil; termsAccepted = false; biometricsAccepted = false
         defer { if noticeGeneration == epoch { loadingNotice = false } }
         do {
-            let value = try await WalletAPI(configuration: configuration).post("/native/notice", body: [:], as: EnrollmentNotice.self)
+            let value = try await WalletAPI(configuration: configuration, requestTimeout: 10).post("/native/notice", body: [:], as: EnrollmentNotice.self)
             try Task.checkCancellation()
             let text = try value.text(at: Date())
             guard noticeGeneration == epoch else { return }
@@ -104,13 +107,13 @@ import LocalAuthentication
                 // does not lose the holder's ability to request withdrawal.
                 var receipt = EnrollmentReceipt(id: receiptID, credentialId: credential.id,
                     origin: configuration.origin, notice: notice, state: .submitted)
-                try EnrollmentReceiptStore().save(receipt)
+                try receipts.save(receipt)
                 let accepted = try await api.postObject("/native/consent", body: ["id":id,
                     "payload":choiceBytes.base64EncodedString(), "assertion":choiceAssertion.base64EncodedString(),
                     "deviceProof":deviceProof.base64EncodedString()])
                 guard accepted["id"] as? String == id, accepted["receipt"] as? String == receiptID,
                       let nonce = accepted["nonce"] as? String else { throw FlowError.rejected }
-                receipt.state = .recorded; try EnrollmentReceiptStore().save(receipt)
+                receipt.state = .recorded; try receipts.save(receipt)
                 try Task.checkCancellation()
                 stepTitle = "Läser passets chip"
                 status = "Lägg passet plant och håll telefonens överkant stilla mot passet tills läsningen är klar."

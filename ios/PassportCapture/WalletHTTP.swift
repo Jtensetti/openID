@@ -4,13 +4,13 @@ import Foundation
 final class WalletHTTP {
     private let session: URLSession
 
-    init(configuration: URLSessionConfiguration = .ephemeral) {
+    init(configuration: URLSessionConfiguration = .ephemeral, requestTimeout: TimeInterval = 60) {
         configuration.urlCache = nil
         configuration.httpCookieStorage = nil
         configuration.httpShouldSetCookies = false
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
-        configuration.timeoutIntervalForRequest = 60
-        configuration.timeoutIntervalForResource = 90
+        configuration.timeoutIntervalForRequest = requestTimeout
+        configuration.timeoutIntervalForResource = requestTimeout * 1.5
         session = URLSession(configuration: configuration, delegate: NoRedirect(), delegateQueue: nil)
     }
 

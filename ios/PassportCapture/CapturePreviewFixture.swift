@@ -8,13 +8,26 @@ struct RecoveryPreviewFixture: View {
     init() {
         let model = WalletModel(vault: RecoveryPreviewVault())
         let arguments = ProcessInfo.processInfo.arguments
-        let state = CredentialState.allRecoveryPreviewStates.first { arguments.contains("--" + $0.rawValue) }
+        let design = arguments.contains("--design-preview")
+        let state = design ? CredentialState.active : CredentialState.allRecoveryPreviewStates.first { arguments.contains("--" + $0.rawValue) }
         model.configureRecoveryPreview(credential: LocalCredential(id: String(repeating: "a", count: 64), wrappedKey: Data(), publicKey: Data()),
             state: state, statusError: state == nil ? URLError(.notConnectedToInternet) : nil,
-            confirmedRevocation: arguments.contains("--confirmed-revocation"))
+            confirmedRevocation: arguments.contains("--confirmed-revocation"),
+            identity: design ? PassportIdentity(displayName: "ALEX LIND", birthDateMrz: "900516", portraitJpeg: "") : nil)
+        if arguments.contains("--waiting-status") { model.configureWaitingStatusPreview() }
         _model = StateObject(wrappedValue: model)
     }
-    var body: some View { WalletRootView().environmentObject(model) }
+    var body: some View {
+        WalletRootView().environmentObject(model)
+            .preferredColorScheme(ProcessInfo.processInfo.arguments.contains("--dark") ? .dark : nil)
+            .environment(\.dynamicTypeSize, ProcessInfo.processInfo.arguments.contains("--largest-text") ? .accessibility5 : .large)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if ProcessInfo.processInfo.arguments.contains("--design-preview") {
+                    Text("EXEMPELDATA · INGET VERKLIGT ID").font(.caption2.weight(.semibold))
+                        .padding(6).frame(maxWidth: .infinity).background(Palette.surface)
+                }
+            }
+    }
 }
 private extension CredentialState {
     static let allRecoveryPreviewStates: [CredentialState] = [.pending, .active, .expired, .revoked]
@@ -80,6 +93,8 @@ struct UsabilityPreviewFixture: View {
         NavigationStack {
             List {
                 Text("TESTDATA – inga riktiga ID")
+                NavigationLink("Säkerhetskod") { SecurityCodeView() }
+                NavigationLink("NFC-vägledning") { ScrollView { PassportPlacementView().padding(24) }.background(Palette.paper) }
                 NavigationLink("Passformulär") { EnrollmentView(flow: model.verification).onAppear {
                     let now = Int(Date().timeIntervalSince1970)
                     let text: [String: Any] = ["version":"SYNTHETIC_TERMS_001", "locale":"sv-SE", "notBefore":now-60, "notAfter":now+3600,

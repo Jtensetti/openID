@@ -2,8 +2,195 @@ import XCTest
 
 final class WalletUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
+    private func makeApp() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchEnvironment["TJIPP_DISABLE_ICON_CHANGES"] = "1"
+        return app
+    }
+    func testSeparateEnvironmentSelectionLocksAndSurvivesRelaunch() {
+        let app = makeApp(); app.launch()
+        app.buttons["Inställningar"].tap()
+        func change(_ action: String) {
+            let button = app.buttons["settings.switchEnvironment"]
+            for _ in 0..<6 { if button.isHittable { break }; app.swipeUp() }
+            XCTAssertTrue(button.isEnabled); button.tap()
+            let confirm = app.sheets.buttons[action]
+            XCTAssertTrue(confirm.waitForExistence(timeout: 3)); confirm.tap()
+        }
+        if app.buttons["settings.switchEnvironment"].label == "Öppna tidigare anslutning" {
+            change("Öppna tidigare anslutning")
+        }
+        change("Anslut till nya Tjipp")
+        XCTAssertTrue(app.staticTexts["Tjipp på folkidentitet.se"].waitForExistence(timeout: 3))
+        app.terminate(); app.launch(); app.buttons["Inställningar"].tap()
+        XCTAssertTrue(app.buttons["Lås upp Tjipp"].exists)
+        XCTAssertTrue(app.staticTexts["Tjipp på folkidentitet.se"].exists)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Tjipp-ny-anslutning"; screenshot.lifetime = .keepAlways; add(screenshot)
+        change("Öppna tidigare anslutning")
+        XCTAssertTrue(app.staticTexts["Tidigare anslutning"].waitForExistence(timeout: 5))
+    }
+    func testAppIconFollowsSelectedColor() {
+        let monitor = addUIInterruptionMonitor(withDescription: "iOS icon change confirmation") { alert in
+            let message = alert.staticTexts.allElementsBoundByIndex.map(\.label).joined(separator: " ").lowercased()
+            guard message.contains("icon") || message.contains("ikon") || message.contains("symbolen") else { return false }
+            alert.buttons.firstMatch.tap(); return true
+        }
+        defer { removeUIInterruptionMonitor(monitor) }
+        let app = XCUIApplication(); app.launchEnvironment["TJIPP_TEST_ICON_CHANGES"] = "1"; app.launch()
+        app.buttons["Inställningar"].tap()
+        let appearance = app.buttons["settings.appearance"]
+        for _ in 0..<6 { if appearance.isHittable { break }; app.swipeUp() }
+        appearance.tap()
+        for color in ["hav", "sol"] {
+            let choice = app.buttons["appearance.color." + color]
+            for _ in 0..<6 { if choice.isHittable { break }; app.swipeUp() }
+            choice.tap()
+            XCTAssertEqual(choice.value as? String, "Vald")
+            let status = app.staticTexts["appearance.icon-status"]
+            let expected = "Appikonen följer " + (color == "hav" ? "Hav" : "Sol") + "."
+            // iOS may present its confirmation after the color tap has returned.
+            // Interact until XCTest routes that system alert to the monitor.
+            for _ in 0..<15 {
+                if status.label == expected { break }
+                app.tap()
+            }
+            XCTAssertEqual(status.label, expected)
+        }
+        XCUIDevice.shared.press(.home)
+        let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        screenshot.name = "Tjipp-appikon-Sol"; screenshot.lifetime = .keepAlways; add(screenshot)
+    }
+    func testWaitingStatusKeepsRegistrationVisibleAndCanBeCancelled() {
+        let app = makeApp(); app.launchArguments = ["--recovery-preview", "--waiting-status"]; app.launch()
+        let resume = app.buttons["home.resumeRegistration"]
+        XCTAssertTrue(resume.waitForExistence(timeout: 5))
+        XCTAssertFalse(resume.isEnabled)
+        let cancel = app.buttons["home.cancelStatus"]
+        for _ in 0..<5 { if cancel.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(cancel.isHittable); cancel.tap()
+        XCTAssertTrue(resume.isEnabled)
+        XCTAssertFalse(app.progressIndicators["home.progress"].exists)
+        XCTAssertTrue(app.staticTexts["home.statusMessage"].exists)
+    }
+    func testYellowThemeAcrossEveryTabAndHelp() {
+        let app = makeApp(); app.launchArguments = []; app.launch()
+        app.buttons["Inställningar"].tap()
+        let appearance = app.buttons["settings.appearance"]
+        for _ in 0..<6 { if appearance.isHittable { break }; app.swipeUp() }
+        appearance.tap()
+        let yellow = app.buttons["appearance.color.sol"]
+        for _ in 0..<6 { if yellow.isHittable { break }; app.swipeUp() }
+        yellow.tap(); XCTAssertEqual(yellow.value as? String, "Vald")
+        app.terminate(); app.launch()
+        for tab in ["Mitt ID", "Legitimera", "Aktivitet", "Inställningar"] {
+            app.buttons[tab].tap()
+            if tab == "Mitt ID" {
+                XCTAssertEqual(app.staticTexts["home.heading"].label, "Mitt ID")
+                XCTAssertFalse(app.staticTexts["Ditt ID, nära till hands."].exists)
+            }
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = "Tjipp-Sol-" + tab; screenshot.lifetime = .keepAlways; add(screenshot)
+        }
+        let privacy = app.buttons["Personuppgifter och säkerhet"]
+        for _ in 0..<6 { if privacy.isHittable { break }; app.swipeUp() }
+        privacy.tap()
+        XCTAssertTrue(app.navigationBars["Integritet"].waitForExistence(timeout: 3))
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Tjipp-Sol-Integritet"; screenshot.lifetime = .keepAlways; add(screenshot)
+        app.terminate(); app.launchArguments = ["--design-preview", "--dark"]; app.launch()
+        for tab in ["Mitt ID", "Legitimera", "Aktivitet", "Inställningar"] {
+            app.buttons[tab].tap()
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = "Tjipp-Sol-mork-" + tab; screenshot.lifetime = .keepAlways; add(screenshot)
+        }
+    }
+    func testLinkActionStaysAboveKeyboard() {
+        let app = makeApp(); app.launchArguments = ["--design-preview"]; app.launch()
+        app.buttons["Legitimera"].tap()
+        let disclosure = app.buttons["Öppna en länk i stället"]
+        for _ in 0..<5 { if disclosure.isHittable { break }; app.swipeUp() }
+        disclosure.tap()
+        let field = app.textFields["requests.link"]
+        for _ in 0..<5 { if field.isHittable { break }; app.swipeUp() }
+        field.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        let visible = app.buttons.matching(NSPredicate(format: "label == %@", "Öppna begäran")).allElementsBoundByIndex.filter { $0.isHittable }
+        XCTAssertFalse(visible.isEmpty)
+        XCTAssertTrue(visible.contains { $0.frame.maxY <= app.keyboards.firstMatch.frame.minY })
+    }
+    func testDarkAppearanceAndLargestTextHaveReadableHome() {
+        for arguments in [["--dark"], ["--largest-text"]] {
+            let app = makeApp(); app.launchArguments = ["--design-preview"] + arguments; app.launch()
+            XCTAssertTrue(app.staticTexts["home.greeting"].waitForExistence(timeout: 5))
+            XCTAssertLessThanOrEqual(app.staticTexts["home.greeting"].frame.maxX, app.frame.maxX)
+            let image = XCTAttachment(screenshot: app.screenshot())
+            image.name = arguments[0] == "--dark" ? "Tjipp-home-dark" : "Tjipp-home-large-text"
+            image.lifetime = .keepAlways; add(image)
+        }
+    }
+    func testSigningCodeKeepsBothActionsAboveKeyboard() {
+        let app = makeApp(); app.launchArguments = ["--approval-preview", "--sign", "--pin"]; app.launch()
+        XCTAssertEqual(app.staticTexts["approval.heading"].label, "Skriv under med säkerhetskod")
+        XCTAssertTrue(app.staticTexts["approval.signMessage"].exists)
+        let field = app.secureTextFields["approval.securityCode"]
+        for _ in 0..<8 { if field.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(field.isHittable); field.tap(); field.typeText("628401")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        let approve = app.buttons["approval.approve"], reject = app.buttons["approval.reject"]
+        XCTAssertTrue(approve.isEnabled); XCTAssertTrue(reject.isEnabled)
+        for button in [approve, reject] {
+            XCTAssertTrue(button.isHittable)
+            XCTAssertLessThanOrEqual(button.frame.maxY, app.keyboards.firstMatch.frame.minY)
+        }
+        let image = XCTAttachment(screenshot: app.screenshot()); image.name = "Tjipp-signing-keyboard"; image.lifetime = .keepAlways; add(image)
+        app.buttons["Klart"].tap()
+        XCTAssertFalse(app.keyboards.firstMatch.exists)
+        // No decision is sent from this synthetic layout test.
+    }
+    func testAppearanceChoicesPersistAndHaveAllEightLogos() {
+        let app = makeApp(); app.launchArguments = []; app.launch()
+        app.buttons["Inställningar"].tap()
+        app.buttons["settings.appearance"].tap()
+        for color in ["hav", "skog", "aprikos", "lera", "sol", "lavendel", "ros", "grafit"] {
+            let option = app.buttons["appearance.color.\(color)"]
+            for _ in 0..<4 { if option.isHittable { break }; app.swipeUp() }
+            XCTAssertTrue(option.isHittable); option.tap()
+            XCTAssertEqual(option.value as? String, "Vald")
+        }
+        let pattern = app.buttons["appearance.pattern.dunes"]
+        for _ in 0..<5 { if pattern.isHittable { break }; app.swipeUp() }
+        pattern.tap(); XCTAssertEqual(pattern.value as? String, "Valt")
+        app.terminate(); app.launch()
+        app.buttons["Inställningar"].tap(); app.buttons["settings.appearance"].tap()
+        XCTAssertEqual(app.buttons["appearance.color.grafit"].value as? String, "Vald")
+        for _ in 0..<5 { if pattern.isHittable { break }; app.swipeUp() }
+        XCTAssertEqual(pattern.value as? String, "Valt")
+        let image = XCTAttachment(screenshot: app.screenshot()); image.name = "Tjipp-patterns"; image.lifetime = .keepAlways; add(image)
+    }
+    func testGreetingUsesUnlockedIdentityAndClearsWhenLocked() {
+        let app = makeApp(); app.launchArguments = ["--design-preview"]; app.launch()
+        XCTAssertTrue(app.staticTexts["home.greeting"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.staticTexts["home.greeting"].label, "Hej, Alex!")
+        let image = XCTAttachment(screenshot: app.screenshot()); image.name = "Tjipp-home-example"; image.lifetime = .keepAlways; add(image)
+        app.buttons["Inställningar"].tap(); app.buttons["Lås appen"].tap()
+        app.buttons["Mitt ID"].tap()
+        XCTAssertFalse(app.staticTexts["Hej, Alex!"].exists)
+        XCTAssertFalse(app.staticTexts["ALEX LIND"].exists)
+    }
+    func testSecurityCodeSaveStaysAboveKeyboard() {
+        let app = makeApp(); app.launchArguments = ["--usability-preview"]; app.launch()
+        app.buttons["Säkerhetskod"].tap()
+        let field = app.secureTextFields["Upprepa koden"]
+        for _ in 0..<5 { if field.isHittable { break }; app.swipeUp() }
+        field.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        let save = app.buttons["Spara säkerhetskod"]
+        XCTAssertTrue(save.isHittable)
+        XCTAssertLessThanOrEqual(save.frame.maxY, app.keyboards.firstMatch.frame.minY)
+    }
     func testFailedStatusOffersRegistrationButRequiresCurrentNotice() {
-        let app = XCUIApplication(); app.launchArguments = ["--recovery-preview"]; app.launch()
+        let app = makeApp(); app.launchArguments = ["--recovery-preview"]; app.launch()
         let resume = app.buttons["home.resumeRegistration"]
         XCTAssertTrue(resume.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["home.statusMessage"].exists)
@@ -15,7 +202,7 @@ final class WalletUITests: XCTestCase {
         XCTAssertTrue(resume.waitForExistence(timeout: 5))
     }
     func testExpiredKeyMustBeRevokedBeforeRemoval() {
-        let app = XCUIApplication(); app.launchArguments = ["--recovery-preview", "--EXPIRED"]; app.launch()
+        let app = makeApp(); app.launchArguments = ["--recovery-preview", "--EXPIRED"]; app.launch()
         app.buttons["Inställningar"].tap()
         for _ in 0..<3 { app.swipeUp() }
         XCTAssertTrue(app.buttons["Spärra mitt ID"].exists)
@@ -23,7 +210,7 @@ final class WalletUITests: XCTestCase {
         XCTAssertFalse(app.buttons["home.resumeRegistration"].exists)
     }
     func testConfirmedRevocationAndRemovalReturnToRegistration() {
-        let app = XCUIApplication(); app.launchArguments = ["--recovery-preview", "--confirmed-revocation"]; app.launch()
+        let app = makeApp(); app.launchArguments = ["--recovery-preview", "--confirmed-revocation"]; app.launch()
         app.buttons["Inställningar"].tap()
         let forget = app.buttons["settings.forgetCredential"]
         for _ in 0..<5 { if forget.isHittable { break }; app.swipeUp() }
@@ -35,7 +222,7 @@ final class WalletUITests: XCTestCase {
     }
     func testRejectIsVisibleWithoutScrollingForEveryRequestKind() {
         for variant in [[], ["--pin"], ["--sign"], ["--sign", "--pin"], ["--sign", "--pin", "--largest-text"]] as [[String]] {
-            let app = XCUIApplication(); app.launchArguments = ["--approval-preview"] + variant; app.launch()
+            let app = makeApp(); app.launchArguments = ["--approval-preview"] + variant; app.launch()
             let reject = app.buttons[variant.contains("--sign") ? "Avböj underskrift" : "Neka begäran"]
             XCTAssertTrue(reject.waitForExistence(timeout: 5))
             // Accessibility can expose the button before the simulator draws its first frame.
@@ -56,7 +243,7 @@ final class WalletUITests: XCTestCase {
         }
     }
     func testRejectRemainsVisibleWithKeyboardAndDoesNotRequireSecurityCode() {
-        let app = XCUIApplication(); app.launchArguments = ["--approval-preview", "--pin"]; app.launch()
+        let app = makeApp(); app.launchArguments = ["--approval-preview", "--pin"]; app.launch()
         let field = app.secureTextFields["approval.securityCode"]
         for _ in 0..<6 { if field.isHittable { break }; app.swipeUp() }
         XCTAssertTrue(field.isHittable); field.tap()
@@ -66,16 +253,18 @@ final class WalletUITests: XCTestCase {
         XCTAssertTrue(reject.isHittable)
         XCTAssertTrue(reject.isEnabled)
         XCTAssertLessThanOrEqual(reject.frame.maxY, app.keyboards.firstMatch.frame.minY)
+        XCTAssertTrue(app.buttons["approval.approve"].isHittable)
+        XCTAssertLessThanOrEqual(app.buttons["approval.approve"].frame.maxY, app.keyboards.firstMatch.frame.minY)
     }
     func testExpiredRequestKeepsBothDecisionsDisabled() {
-        let app = XCUIApplication(); app.launchArguments = ["--approval-preview", "--expired"]; app.launch()
+        let app = makeApp(); app.launchArguments = ["--approval-preview", "--expired"]; app.launch()
         let reject = app.buttons["Neka begäran"]
         XCTAssertTrue(reject.waitForExistence(timeout: 5))
         XCTAssertFalse(reject.isEnabled)
         XCTAssertFalse(app.buttons["approval.approve"].isEnabled)
     }
     func testCaptureGuideInstructionsProgressAndCorrection() {
-        let app = XCUIApplication(); app.launchArguments = ["--capture-guide-preview"]; app.launch()
+        let app = makeApp(); app.launchArguments = ["--capture-guide-preview"]; app.launch()
         XCTAssertTrue(app.staticTexts["capture.instruction"].waitForExistence(timeout: 10))
         XCTAssertEqual(app.staticTexts["capture.instruction"].label, "Titta rakt mot kameran")
         XCTAssertTrue(app.staticTexts["capture.instruction"].isHittable)
@@ -94,7 +283,7 @@ final class WalletUITests: XCTestCase {
         XCTAssertFalse(app.buttons["Godkänn"].exists)
     }
     func testPassportGuideInstructionAndSyntheticPreview() {
-        let app = XCUIApplication(); app.launchArguments = ["--passport-guide-preview"]; app.launch()
+        let app = makeApp(); app.launchArguments = ["--passport-guide-preview"]; app.launch()
         let instruction = app.staticTexts["passport.instruction"]
         XCTAssertTrue(instruction.waitForExistence(timeout: 5))
         XCTAssertTrue(instruction.isHittable)
@@ -103,7 +292,7 @@ final class WalletUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Verifierad"].exists)
     }
     func testControlCodePreservesLeadingZeroAtLargestTextSize() {
-        let app = XCUIApplication(); app.launchArguments = ["--usability-preview"]; app.launch()
+        let app = makeApp(); app.launchArguments = ["--usability-preview"]; app.launch()
         app.buttons["Kontrollkod med stor text"].tap()
         let code = app.descendants(matching: .any)["approval.code"].firstMatch
         XCTAssertTrue(code.waitForExistence(timeout: 5))
@@ -113,7 +302,7 @@ final class WalletUITests: XCTestCase {
         let image = XCTAttachment(screenshot: app.screenshot()); image.name = "openID-large-control-code"; image.lifetime = .keepAlways; add(image)
     }
     func testLargestTextCameraInstructionIsOutsidePreviewAndReadable() {
-        let app = XCUIApplication(); app.launchArguments = ["--usability-preview"]; app.launch()
+        let app = makeApp(); app.launchArguments = ["--usability-preview"]; app.launch()
         app.buttons["Kameraguide med stor text"].tap()
         let instruction = app.staticTexts["capture.instruction"]
         for _ in 0..<5 { if instruction.isHittable { break }; app.swipeUp() }
@@ -122,22 +311,25 @@ final class WalletUITests: XCTestCase {
         XCTAssertLessThanOrEqual(instruction.frame.maxX, app.frame.maxX)
     }
     func testPassportFieldsKeepLabelsAndExplainMissingDate() {
-        let app = XCUIApplication(); app.launchArguments = ["--usability-preview"]; app.launch()
+        let app = makeApp(); app.launchArguments = ["--usability-preview"]; app.launch()
         app.buttons["Passformulär"].tap()
         XCTAssertFalse(app.textFields["enrollment.number"].exists)
         let terms = app.switches["enrollment.terms"]
         for _ in 0..<6 { if terms.isHittable { break }; app.swipeUp() }
-        terms.tap()
+        // iOS exposes the labelled row and its native switch separately.
+        if terms.switches.count > 0 { terms.switches.firstMatch.tap() } else { terms.tap() }
         XCTAssertEqual(terms.value as? String, "1", app.debugDescription)
         XCTAssertFalse(app.textFields["enrollment.number"].exists)
         let biometrics = app.switches["enrollment.biometrics"]
         for _ in 0..<6 { if biometrics.isHittable { break }; app.swipeUp() }
-        biometrics.tap()
+        if biometrics.switches.count > 0 { biometrics.switches.firstMatch.tap() } else { biometrics.tap() }
         XCTAssertEqual(biometrics.value as? String, "1", app.debugDescription)
         let number = app.textFields["enrollment.number"]
         for _ in 0..<5 { if number.isHittable { break }; app.swipeUp() }
         number.tap(); number.typeText("ABC123")
         XCTAssertTrue(app.staticTexts["Passnummer"].exists)
+        XCTAssertTrue(app.buttons["enrollment.read"].isHittable)
+        XCTAssertLessThanOrEqual(app.buttons["enrollment.read"].frame.maxY, app.keyboards.firstMatch.frame.minY)
         app.buttons["Klart"].tap()
         let preparation = app.buttons["Förbered dig innan du börjar"]
         for _ in 0..<5 { if preparation.isHittable { break }; app.swipeDown() }
@@ -168,16 +360,15 @@ final class WalletUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Ansluter säkert"].exists)
     }
     func testHomeAndScreenshot() {
-        let app = XCUIApplication(); app.launchArguments = []; app.launch()
+        let app = makeApp(); app.launchArguments = []; app.launch()
         XCTAssertTrue(app.staticTexts["home.heading"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["home.unlock"].exists)
         let betaHours = app.staticTexts["home.betaHours"].label
-        XCTAssertTrue(betaHours.contains("dygnet runt till och med 30 november 2026"))
-        XCTAssertTrue(betaHours.contains("1 december kl. 00.00 svensk tid"))
+        XCTAssertTrue(betaHours.contains("Telefonpiloten avslutades den 10 november 2026"))
         let image = XCTAttachment(screenshot: app.screenshot()); image.name = "openID-home"; image.lifetime = .keepAlways; add(image)
     }
     func testAllTabsShowSafeLockedStates() {
-        let app = XCUIApplication(); app.launchArguments = []; app.launch()
+        let app = makeApp(); app.launchArguments = []; app.launch()
         XCTAssertTrue(app.staticTexts["home.heading"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["Legitimera"].waitForExistence(timeout: 5))
         app.buttons["Legitimera"].tap()
@@ -187,11 +378,11 @@ final class WalletUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Din aktivitet"].exists)
         XCTAssertTrue(app.buttons["Inställningar"].waitForExistence(timeout: 5))
         app.buttons["Inställningar"].tap()
-        XCTAssertTrue(app.buttons["Lås upp openID"].exists)
+        XCTAssertTrue(app.buttons["Lås upp Tjipp"].exists)
         XCTAssertFalse(app.buttons["Spärra mitt ID"].exists)
     }
     func testInstalledBuildCanBeIdentifiedWithoutUnlocking() {
-        let app = XCUIApplication(); app.launchArguments = []; app.launch()
+        let app = makeApp(); app.launchArguments = []; app.launch()
         app.buttons["Inställningar"].tap()
         let version = app.descendants(matching: .any)["settings.version"].firstMatch
         for _ in 0..<4 { if version.isHittable { break }; app.swipeUp() }
@@ -199,7 +390,7 @@ final class WalletUITests: XCTestCase {
         XCTAssertNotNil((version.value as? String)?.range(of: #"^[0-9]+\.[0-9]+\.[0-9]+ \([0-9]+\)$"#, options: .regularExpression))
     }
     func testGuideIsReachableWithoutBiometricPermission() {
-        let app = XCUIApplication(); app.launchArguments = []; app.launch()
+        let app = makeApp(); app.launchArguments = []; app.launch()
         app.swipeUp()
         app.buttons["home.guide"].tap()
         XCTAssertTrue(app.navigationBars["Så fungerar det"].waitForExistence(timeout: 3))
@@ -207,10 +398,12 @@ final class WalletUITests: XCTestCase {
         XCTAssertTrue(app.buttons["home.unlock"].exists)
     }
     func testPrivacyIsAvailableWhileLocked() {
-        let app = XCUIApplication(); app.launchArguments = []; app.launch()
+        let app = makeApp(); app.launchArguments = []; app.launch()
         XCTAssertTrue(app.buttons["Inställningar"].waitForExistence(timeout: 5))
         app.buttons["Inställningar"].tap()
-        app.buttons["Personuppgifter och säkerhet"].tap()
+        let privacy = app.buttons["Personuppgifter och säkerhet"]
+        for _ in 0..<6 { if privacy.isHittable { break }; app.swipeUp() }
+        privacy.tap()
         XCTAssertTrue(app.navigationBars["Integritet"].waitForExistence(timeout: 3))
         XCTAssertFalse(app.buttons["Återaktivera"].exists)
     }

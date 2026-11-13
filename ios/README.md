@@ -1,22 +1,30 @@
-# openID för iPhone
+# Tjipp för iPhone
 
 SwiftUI-app med Mitt ID, Legitimera, Aktivitet och Inställningar.
 Appen använder [verifieringsservern](../verification/README.md).
 
 ## Utgåvor
 
-- **TestFlight-pilot: 0.2.0 (112)**, byggd från `ac4160fe6ce819b360c5a8532c32b2eceb40a84b`.
+Telefonpiloten avslutades den 10 november 2026 enligt [projektets webbplats](https://folkidentitet.se).
+Ingen appinstallation startar om testtjänsterna.
+
+- **Tidigare TestFlight-pilot: 0.2.0 (112)**, byggd från `ac4160fe6ce819b360c5a8532c32b2eceb40a84b`.
   Innehåller automatisk testaktivering, fortsatt registrering efter statusfel,
   spärr före nyckelborttagning och systemstyrt ljust/mörkt utseende.
   Inskickad till Apples betagranskning den 29 oktober 2026. Då var status
   *Waiting for Review* och den publika inbjudningslänken avstängd. Kontrollera
   aktuell status i App Store Connect före nya inbjudningar. Piloten avser Sverige.
-- **Nästa utvecklingsbygge: 0.2.0 (114)**. Innehåller kameraguiden,
+- **Utvecklingsbygge: 0.2.0 (116)**. Har [Tjipps formspråk](DESIGN.md),
+  åtta färgval, fyra mönster, runt passfoto och tangentbordsanpassade huvudknappar.
+  Underskrift med säkerhetskod visar hela texten och båda beslutsvalen.
+  Kameraramarnas geometri bevaras. Bygget är avsett för lokal provning.
+- **Registreringsändring i källkoden sedan bygge 114**. Innehåller kameraguiden,
   lokal passbildskontroll samt versionsbunden information, separata val och
   kvittohantering före registrering. Kräver serverns nya `/native/notice`
   och `/native/consent` samt konfigurerad informationsfil; se
   [registreringsflödet](../docs/registreringsinformation.md).
-  Bygge 114 är källkod under utveckling, inte en ny TestFlight-pilot.
+  Den nya informationen kräver en kompatibel privat testserver; den avslutade
+  telefonpiloten är inte en sådan verifierad serverkombination.
 - **Tidigare lokalt bygge: 0.2.0 (113)** från
   `8b6a83ce0cd3b3b3ae7e11232a96d5f9ec88327f` installerades den 30 oktober.
   Den installationen omfattar inte de nya registreringskvittona.
@@ -43,7 +51,7 @@ open ios/PassportCapture.xcodeproj
 3. För en egen privat server: starta [pilotmiljön](../deployment/README.md) på en Linux-dator.
    Telefonen måste nå HTTPS-adressen och lita på certifikatet. För en privat
    test-CA behöver dess rot installeras och betros på telefonen.
-4. Kör appen och välj **Öppna openID**. Nya installationer ansluts automatiskt
+4. Kör appen och välj **Öppna Tjipp**. Nya installationer ansluts automatiskt
    till `https://api.openid.tensetti.io`, utan VPN eller kopplingskod.
    Sparad serverkonfiguration behålls för befintliga privata test-ID:n.
 5. Välj **Registrera med ditt pass**. Välj **Skanna passuppgifter** och rikta kameran mot kodraderna på fotosidan.
@@ -71,10 +79,13 @@ ensamt är inget attestbevis. Se [Apples miljöbeskrivning](https://developer.ap
 
 ## Funktioner
 
+Formspråk, logotypkällor, färg/mönster och tangentbordsbeteende beskrivs i
+[gränssnittsinstruktionen](DESIGN.md).
+
 Appen följer iPhones inställning för ljust eller mörkt utseende, även när
 systemet byter automatiskt. Bakgrunder, text, formulärpaneler, kontrollkod,
-knappar och felmeddelanden har färger för båda lägena. ID-kortet och
-kamerans överlägg behåller mörk bakgrund med ljus text. `PaletteTests`
+knappar och felmeddelanden har färger för båda lägena. ID-kortet följer utseendet med en svag personlig färgton;
+kamerans överlägg och integritetsskyddet behåller mörk bakgrund med ljus text. `PaletteTests`
 kontrollerar färgbyte och minst 4,5:1 kontrast för de angivna textparen;
 detta är inte en fullständig tillgänglighetsgranskning.
 
@@ -300,7 +311,7 @@ webbtjänsten har slutfört inloggningen. Vid osäkert resultat av en skrivande
 åtgärd uppmanas användaren att kontrollera status och Aktivitet innan nytt försök.
 Utgångna begäranden går inte att godkänna eller neka från bekräftelsevyn.
 
-**Neka begäran** respektive **Avböj underskrift** ligger fast längst ned i
+Både **Godkänn/Skriv under** och **Neka begäran/Avböj underskrift** ligger fast längst ned i
 bekräftelsevyn, även med lång text eller öppet kodtangentbord. Nekande kräver
 ingen säkerhetskod. **Stäng** lämnar bara vyn; använd nekandevalet för att
 avböja hos tjänsten. Under ett pågående beslut och efter utgång är båda
@@ -338,3 +349,25 @@ TrueDepth ingår inte i fångstflödet. Kameraguiden använder AVFoundation och 
 API-underlag för automatisk fångst, kontrollerat 2026-10-30:
 [Vision-bildval](https://developer.apple.com/documentation/vision/selecting-a-selfie-based-on-capture-quality),
 [DataScanner och lokal stillbild](https://developer.apple.com/documentation/visionkit/datascannerviewcontroller).
+
+### När statusservern inte svarar
+
+Status och registreringsinformation använder 10 sekunders väntetid per
+nätanrop (15 sekunders total överföringsgräns). Övriga operationer behåller
+60/90 sekunder. **Fortsätt registreringen** är synlig men avstängd medan
+status hämtas. **Avbryt hämtningen** avbryter endast statusläsningen och behåller
+tidigare känd status, nyckel och spärrbevis utan att bekräfta en ny status. Den kan inte avbryta ett
+underskrifts-, godkännande-, kodbytes- eller spärrbeslut. Den ordinarie
+registreringen kräver fortfarande aktuell information, samtycken och server.
+
+## Separata anslutningar
+
+Inställningar erbjuder ett uttryckligt byte mellan tidigare anslutning och
+Tjipp på folkidentitet.se. Bytet låser appen och kräver ny upplåsning. Den
+tidigare nyckelringen `se.openid.wallet.v1`, dess konfiguration och spärrbevis
+bevaras. Den nya anslutningen har en separat nyckelring och kräver sin egen
+kopplingskod och registrering. Ingen nyckel kopplas till en annan origin.
+Tidigare anslutning kan alltid väljas igen; detta är inte spärr eller radering.
+Pågående signerade skrivningar och passfångst måste avslutas före byte. En
+statusläsning får avbrytas. `WalletRecoveryTests` provar bevarat material,
+separata namnrymder, nekad origin, ombyte och skrivgränser.

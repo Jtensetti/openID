@@ -1,13 +1,15 @@
 import SwiftUI
 
 @main struct PassportCaptureApp: App {
-    @StateObject private var model = WalletModel()
+    @StateObject private var model = WalletModel.live()
+    @StateObject private var icons = AppIconController()
+    @AppStorage("tjipp.color") private var selectedColor: TjippColor = .hav
     @Environment(\.scenePhase) private var phase
     var body: some Scene {
         WindowGroup {
             Group {
                 #if DEBUG && targetEnvironment(simulator)
-                if ProcessInfo.processInfo.arguments.contains("--recovery-preview") {
+                if ProcessInfo.processInfo.arguments.contains("--recovery-preview") || ProcessInfo.processInfo.arguments.contains("--design-preview") {
                     RecoveryPreviewFixture()
                 } else if ProcessInfo.processInfo.arguments.contains("--passport-guide-preview") {
                     PassportGuidePreviewFixture()
@@ -25,15 +27,18 @@ import SwiftUI
                 #else
                 WalletRootView()
                 #endif
-            }.environmentObject(model)
+            }.environmentObject(model).environmentObject(icons).tjippTheme()
+                .onAppear { icons.update(for: selectedColor) }
+                .onChange(of: selectedColor) { icons.update(for: $0) }
                 .onOpenURL { model.open($0) }
                 .onChange(of: phase) { value in
                     if value == .background { model.lock() }
+                    if value == .active { icons.update(for: selectedColor) }
                 }
                 // Cover app-switcher snapshots and interruptions without cancelling an active Face ID/NFC prompt.
                 .overlay {
                     if phase != .active {
-                        ZStack { Palette.cardStart.ignoresSafeArea(); Label("openID", systemImage: "lock.shield").font(.largeTitle.bold()).foregroundStyle(Palette.mint) }
+                        ZStack { Palette.paper.ignoresSafeArea(); VStack(spacing: 20) { TjippSymbol(size: 72); Text("Tjipp är låst").font(TjippLayout.title); Image(systemName: "lock").foregroundStyle(Palette.muted) } }
                     }
                 }
         }
