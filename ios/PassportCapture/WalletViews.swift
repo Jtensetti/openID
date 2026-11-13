@@ -462,6 +462,7 @@ struct SettingsView: View {
     @EnvironmentObject var model: WalletModel
     @State private var revoke = false
     @State private var forget = false
+    @State private var changeEnvironment = false
     var body: some View {
         TjippPage(title: "Inställningar", showsBrand: true) {
             TjippSection("Ditt Tjipp") {
@@ -516,6 +517,15 @@ struct SettingsView: View {
                     NavigationLink { RecoveryView() } label: { TjippNavigationRow(title: "Jag har förlorat min telefon", symbol: "iphone.slash") }
                 }
             }
+            TjippSection("Anslutning") {
+                Text(model.environment == .folkidentitet ? "Tjipp på folkidentitet.se" : "Tidigare anslutning")
+                    .font(.subheadline.weight(.medium))
+                Text("Varje anslutning har en egen nyckel. Tidigare nycklar och kvitton finns kvar när du byter.")
+                    .font(.caption).foregroundStyle(Palette.muted)
+                Button(model.environment == .original ? "Anslut till nya Tjipp" : "Öppna tidigare anslutning") {
+                    changeEnvironment = true
+                }.disabled(!model.canSwitchEnvironment).accessibilityIdentifier("settings.switchEnvironment")
+            }
             TjippSection("Utseende") {
                 NavigationLink { AppearanceView() } label: { TjippNavigationRow(title: "Färg och mönster", symbol: "paintpalette") }
                     .accessibilityIdentifier("settings.appearance")
@@ -531,6 +541,12 @@ struct SettingsView: View {
                     .accessibilityValue(AppBuild.current.display).accessibilityIdentifier("settings.version")
             }
         }.navigationTitle("Inställningar")
+            .confirmationDialog("Byt anslutning?", isPresented: $changeEnvironment, titleVisibility: .visible) {
+                Button(model.environment == .original ? "Anslut till nya Tjipp" : "Öppna tidigare anslutning") {
+                    do { try model.switchEnvironment(to: model.environment == .original ? .folkidentitet : .original) }
+                    catch { model.error = error.localizedDescription }
+                }
+            } message: { Text("Appen låses. Lås upp igen för den valda anslutningen. Din tidigare nyckel behålls och kan fortfarande nås genom att byta tillbaka.") }
             .confirmationDialog("Spärra detta ID permanent?", isPresented: $revoke, titleVisibility: .visible) {
                 Button("Spärra permanent", role: .destructive) { model.revoke() }
             } message: { Text("Pågående och nya inloggningar stoppas. Du behöver registrera dig på nytt för att få ett nytt ID.") }
@@ -550,7 +566,7 @@ struct ConnectionView: View {
     var body: some View {
         TjippPage(title: "Anslutning") {
             TjippSection {
-                Text("Ange adress och kopplingskod från serverns terminal.")
+                Text("Ange serveradressen och den kopplingskod du fått för anslutningen.")
             }
             TjippSection("Server") {
                 Text("Serveradress").font(.subheadline.weight(.medium))
@@ -574,7 +590,7 @@ struct ConnectionView: View {
             } }
             .toolbar { ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Klart") { focusedField = nil } } }
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Stäng") { dismiss() } } }
-            .onAppear { origin = model.configuration?.origin ?? ""; pairing = model.configuration?.pairing ?? "" }
+            .onAppear { origin = model.configuration?.origin ?? model.environment.suggestedOrigin; pairing = model.configuration?.pairing ?? "" }
     }
 }
 struct EnrollmentView: View {

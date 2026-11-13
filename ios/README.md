@@ -359,3 +359,15 @@ status hämtas. **Avbryt hämtningen** avbryter endast statusläsningen och beh�
 tidigare känd status, nyckel och spärrbevis utan att bekräfta en ny status. Den kan inte avbryta ett
 underskrifts-, godkännande-, kodbytes- eller spärrbeslut. Den ordinarie
 registreringen kräver fortfarande aktuell information, samtycken och server.
+
+## Separata anslutningar
+
+Inställningar erbjuder ett uttryckligt byte mellan tidigare anslutning och
+Tjipp på folkidentitet.se. Bytet låser appen och kräver ny upplåsning. Den
+tidigare nyckelringen `se.openid.wallet.v1`, dess konfiguration och spärrbevis
+bevaras. Den nya anslutningen har en separat nyckelring och kräver sin egen
+kopplingskod och registrering. Ingen nyckel kopplas till en annan origin.
+Tidigare anslutning kan alltid väljas igen; detta är inte spärr eller radering.
+Pågående signerade skrivningar och passfångst måste avslutas före byte. En
+statusläsning får avbrytas. `WalletRecoveryTests` provar bevarat material,
+separata namnrymder, nekad origin, ombyte och skrivgränser.

@@ -26,8 +26,8 @@ struct EnrollmentReceiptsView: View {
 
     private func reload() {
         do {
-            guard model.unlocked, let credential = model.credential else { receipts = []; return }
-            receipts = try EnrollmentReceiptStore().read(for: credential.id).reversed()
+            guard model.unlocked, model.credential != nil else { receipts = []; return }
+            receipts = try model.enrollmentReceipts().reversed()
         } catch { issue = "Kvittona kunde inte läsas från telefonen." }
     }
 

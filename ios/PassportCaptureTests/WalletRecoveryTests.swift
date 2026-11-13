@@ -160,6 +160,110 @@ import LocalAuthentication
         XCTAssertFalse(model.registrationPresented)
         XCTAssertNotNil(vault.data["credential"])
     }
+
+    func testNewEnvironmentDoesNotReuseLegacyConfigurationOrKeychainNamespace() throws {
+        XCTAssertEqual(WalletEnvironment.original.keychainService, "se.openid.wallet.v1")
+        XCTAssertNotEqual(WalletEnvironment.original.keychainService, WalletEnvironment.folkidentitet.keychainService)
+        XCTAssertNil(try WalletEnvironment.folkidentitet.initialConfiguration(saved: nil))
+        XCTAssertEqual(try WalletEnvironment.original.initialConfiguration(saved: nil), .beta)
+        XCTAssertThrowsError(try WalletEnvironment.folkidentitet.initialConfiguration(saved: .beta))
+        let new = try ServerConfiguration(origin: WalletEnvironment.folkidentitet.suggestedOrigin,
+                                          pairing: String(repeating: "x", count: 43))
+        XCTAssertEqual(try WalletEnvironment.folkidentitet.initialConfiguration(saved: new), new)
+        XCTAssertThrowsError(try ServerConfiguration(origin: WalletEnvironment.folkidentitet.suggestedOrigin, pairing: ""))
+    }
+
+    func testEnvironmentSwitchPreservesOldKeyAndClearsUnlockedState() throws {
+        let old = RecoveryVault(), new = RecoveryVault()
+        try old.save(credential, account: "credential")
+        try old.save(ServerConfiguration.beta, account: "configuration")
+        try old.save("revocation-proof", account: proofAccount)
+        try old.save("consent-receipt", account: receiptAccount)
+        let original = old.data
+        var selections: [WalletEnvironment] = []
+        let model = WalletModel(vault: old, environmentVault: { $0 == .original ? old : new },
+                                saveEnvironment: { selections.append($0) })
+        model.configureRecoveryPreview(credential: credential, state: .active)
+        try model.switchEnvironment(to: .folkidentitet)
+        XCTAssertEqual(model.environment, .folkidentitet)
+        XCTAssertFalse(model.unlocked)
+        XCTAssertNil(model.credential); XCTAssertNil(model.configuration); XCTAssertNil(model.snapshot)
+        XCTAssertNil(model.revocationProof); XCTAssertFalse(model.canOfferRegistration)
+        XCTAssertEqual(old.data, original); XCTAssertTrue(old.removed.isEmpty)
+        XCTAssertTrue(new.data.isEmpty); XCTAssertEqual(new.created, 0)
+        try model.switchEnvironment(to: .original)
+        XCTAssertEqual(old.data, original)
+        XCTAssertEqual(selections, [.folkidentitet, .original])
+    }
+
+    func testEnvironmentSwitchCanCancelOnlyStatusRead() throws {
+        let old = RecoveryVault(), new = RecoveryVault()
+        try old.save(credential, account: "credential")
+        let model = WalletModel(vault: old, environmentVault: { $0 == .original ? old : new })
+        model.configureRecoveryPreview(credential: credential, state: nil)
+        model.refresh()
+        XCTAssertTrue(model.isRefreshingStatus)
+        try model.switchEnvironment(to: .folkidentitet)
+        XCTAssertFalse(model.busy); XCTAssertNil(model.credential)
+        XCTAssertNotNil(old.data["credential"]); XCTAssertTrue(old.removed.isEmpty)
+    }
+
+    func testEnvironmentSwitchRejectsSignedWriteAndPreservesOriginalStorage() throws {
+        let request = WalletRequest(id: String(repeating: "b", count: 64), relyingParty: "Synthetic",
+            purpose: "Test", code: "012345", expiresAt: Date().timeIntervalSince1970 + 120,
+            signMessage: "Synthetic text", verification: nil)
+        let actions: [(WalletModel) -> Void] = [
+            { $0.decide(request, approve: true) }, { $0.decide(request, approve: false) },
+            { $0.revoke() }, { $0.setSecurityCode(current: nil, new: "628401") }
+        ]
+        for action in actions {
+            let old = RecoveryVault(), new = RecoveryVault()
+            try old.save(credential, account: "credential")
+            let model = WalletModel(vault: old, environmentVault: { $0 == .original ? old : new })
+            model.configureRecoveryPreview(credential: credential, state: .active)
+            action(model)
+            XCTAssertTrue(model.busy); XCTAssertFalse(model.canSwitchEnvironment)
+            XCTAssertThrowsError(try model.switchEnvironment(to: .folkidentitet))
+            XCTAssertEqual(model.environment, .original)
+            XCTAssertEqual(model.credential?.id, credential.id)
+            XCTAssertTrue(old.removed.isEmpty); XCTAssertTrue(new.data.isEmpty)
+            model.lock()
+        }
+    }
+
+    func testNewEnvironmentRejectsAnUnrelatedServerWithoutSavingIt() throws {
+        let vault = RecoveryVault()
+        let model = WalletModel(vault: vault, environment: .folkidentitet)
+        model.configureRecoveryPreview(credential: credential, state: .pending)
+        XCTAssertThrowsError(try model.saveConfiguration(origin: ServerConfiguration.betaOrigin, pairing: ""))
+        XCTAssertTrue(vault.data.isEmpty)
+    }
+
+    func testConsentReceiptsUseTheSameSeparateStorageAsTheirCredentials() throws {
+        let old = RecoveryVault(), new = RecoveryVault()
+        let notice = EnrollmentNotice(digest: String(repeating: "0", count: 64), noticeJSON: "e30=")
+        let original = EnrollmentReceipt(id: String(repeating: "c", count: 64), credentialId: credential.id,
+            origin: ServerConfiguration.betaOrigin, notice: notice, state: .submitted)
+        let replacement = EnrollmentReceipt(id: String(repeating: "d", count: 64), credentialId: credential.id,
+            origin: WalletEnvironment.folkidentitet.suggestedOrigin, notice: notice, state: .submitted)
+        let oldStore = EnrollmentReceiptStore(vault: old), newStore = EnrollmentReceiptStore(vault: new)
+        try oldStore.save(original)
+        XCTAssertTrue(try newStore.read(for: credential.id).isEmpty)
+        try newStore.save(replacement)
+        XCTAssertEqual(try oldStore.read(for: credential.id).map(\.id), [original.id])
+        XCTAssertEqual(try newStore.read(for: credential.id).map(\.id), [replacement.id])
+    }
+
+    func testActivePassportCaptureBlocksEnvironmentSwitch() throws {
+        let old = RecoveryVault(), new = RecoveryVault()
+        let model = WalletModel(vault: old, environmentVault: { $0 == .original ? old : new })
+        model.verification.busy = true
+        XCTAssertFalse(model.canSwitchEnvironment)
+        XCTAssertThrowsError(try model.switchEnvironment(to: .folkidentitet))
+        XCTAssertEqual(model.environment, .original)
+        XCTAssertTrue(new.data.isEmpty)
+        model.verification.busy = false
+    }
 }
 
 private final class RecoveryVault: CredentialVault {

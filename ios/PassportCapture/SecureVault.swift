@@ -12,7 +12,8 @@ protocol CredentialVault {
 }
 
 struct SecureVault: CredentialVault {
-    private let service = "se.openid.wallet.v1"
+    private let service: String
+    init(environment: WalletEnvironment = .original) { service = environment.keychainService }
     private func query(_ account: String) -> [String: Any] {
         [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
          kSecAttrAccount as String: account, kSecAttrSynchronizable as String: false]

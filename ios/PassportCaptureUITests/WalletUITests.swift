@@ -7,6 +7,29 @@ final class WalletUITests: XCTestCase {
         app.launchEnvironment["TJIPP_DISABLE_ICON_CHANGES"] = "1"
         return app
     }
+    func testSeparateEnvironmentSelectionLocksAndSurvivesRelaunch() {
+        let app = makeApp(); app.launch()
+        app.buttons["Inställningar"].tap()
+        func change(_ action: String) {
+            let button = app.buttons["settings.switchEnvironment"]
+            for _ in 0..<6 { if button.isHittable { break }; app.swipeUp() }
+            XCTAssertTrue(button.isEnabled); button.tap()
+            let confirm = app.sheets.buttons[action]
+            XCTAssertTrue(confirm.waitForExistence(timeout: 3)); confirm.tap()
+        }
+        if app.buttons["settings.switchEnvironment"].label == "Öppna tidigare anslutning" {
+            change("Öppna tidigare anslutning")
+        }
+        change("Anslut till nya Tjipp")
+        XCTAssertTrue(app.staticTexts["Tjipp på folkidentitet.se"].waitForExistence(timeout: 3))
+        app.terminate(); app.launch(); app.buttons["Inställningar"].tap()
+        XCTAssertTrue(app.buttons["Lås upp Tjipp"].exists)
+        XCTAssertTrue(app.staticTexts["Tjipp på folkidentitet.se"].exists)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Tjipp-ny-anslutning"; screenshot.lifetime = .keepAlways; add(screenshot)
+        change("Öppna tidigare anslutning")
+        XCTAssertTrue(app.staticTexts["Tidigare anslutning"].waitForExistence(timeout: 5))
+    }
     func testAppIconFollowsSelectedColor() {
         let monitor = addUIInterruptionMonitor(withDescription: "iOS icon change confirmation") { alert in
             let message = alert.staticTexts.allElementsBoundByIndex.map(\.label).joined(separator: " ").lowercased()

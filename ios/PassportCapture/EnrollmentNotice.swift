@@ -67,7 +67,8 @@ struct EnrollmentReceipt: Codable, Identifiable, Equatable {
 }
 
 struct EnrollmentReceiptStore {
-    private let vault = SecureVault()
+    private let vault: any CredentialVault
+    init(vault: any CredentialVault = SecureVault()) { self.vault = vault }
     func read(for credentialId: String) throws -> [EnrollmentReceipt] {
         let values = try vault.read("enrollment-" + credentialId, as: [EnrollmentReceipt].self) ?? []
         guard values.count <= 32, values.allSatisfy({ $0.credentialId == credentialId }) else { throw WalletError.rejected }

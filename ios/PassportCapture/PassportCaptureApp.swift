@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main struct PassportCaptureApp: App {
-    @StateObject private var model = WalletModel()
+    @StateObject private var model = WalletModel.live()
     @StateObject private var icons = AppIconController()
     @AppStorage("tjipp.color") private var selectedColor: TjippColor = .hav
     @Environment(\.scenePhase) private var phase

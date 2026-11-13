@@ -29,6 +29,22 @@ enum WalletError: LocalizedError {
     }
 }
 
+enum WalletEnvironment: String, CaseIterable {
+    case original, folkidentitet
+    var keychainService: String {
+        self == .original ? "se.openid.wallet.v1" : "se.openid.wallet.folkidentitet.v1"
+    }
+    var suggestedOrigin: String {
+        self == .original ? ServerConfiguration.betaOrigin : "https://api.folkidentitet.se"
+    }
+    func initialConfiguration(saved: ServerConfiguration?) throws -> ServerConfiguration? {
+        if self == .original { return ServerConfiguration.initial(saved: saved) }
+        guard saved == nil || saved?.origin == suggestedOrigin else { throw WalletError.rejected }
+        // The new service requires its own pairing code; never copy the old configuration.
+        return saved
+    }
+}
+
 struct ServerConfiguration: Codable, Equatable {
     static let betaOrigin = "https://api.openid.tensetti.io"
     static var beta: ServerConfiguration { try! ServerConfiguration(origin: betaOrigin, pairing: "") }
