@@ -128,7 +128,7 @@ struct AppearanceView: View {
                     TjippSymbol(size: 72)
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Tjipp").font(.title2.weight(.semibold))
-                        Text("\(color.title) · \(pattern.title)").font(.subheadline).foregroundStyle(Palette.muted)
+                        Text("\(color.title) · \(pattern.title)").font(.subheadline).foregroundStyle(Palette.ink)
                     }
                     Spacer(minLength: 0)
                 }.padding(24).frame(minHeight: 145).background(TjippCardBackground())

@@ -11,6 +11,26 @@ final class PaletteTests: XCTestCase {
         }
         XCTAssertNotNil(UIImage(named: "TjippWordmark"))
     }
+    func testTextContrastOnEveryPersonalCardIncludingPattern() {
+        func components(_ color: Color, _ traits: UITraitCollection) -> [Double] {
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            UIColor(color).resolvedColor(with: traits).getRed(&r, green: &g, blue: &b, alpha: &a)
+            return [Double(r), Double(g), Double(b)]
+        }
+        for style in [UIUserInterfaceStyle.light, .dark] {
+            let traits = UITraitCollection(userInterfaceStyle: style)
+            for variant in TjippColor.allCases {
+                let base = components(Palette.surface, traits), accent = components(variant.color, traits)
+                let ink = components(Palette.ink, traits)
+                let tint = style == .dark ? 0.16 : 0.07
+                // Worst-case background under text, including the strongest texture pixel.
+                let background = (0..<3).map { (base[$0] * (1-tint) + accent[$0] * tint) * 0.935 + ink[$0] * 0.065 }
+                let bg = Color(red: background[0], green: background[1], blue: background[2])
+                let a = luminance(Palette.ink, traits: traits), b = luminance(bg, traits: traits)
+                XCTAssertGreaterThanOrEqual((max(a,b)+0.05)/(min(a,b)+0.05), 4.5, "\(variant.title), \(style)")
+            }
+        }
+    }
     private func luminance(_ color: Color, traits: UITraitCollection) -> Double {
         let resolved = UIColor(color).resolvedColor(with: traits)
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0

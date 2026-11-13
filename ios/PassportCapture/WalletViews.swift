@@ -151,7 +151,7 @@ struct IdentityCard: View {
                         Image(systemName: model.credentialState == .active ? "checkmark.circle.fill" : "info.circle").accessibilityHidden(true)
                         Text(model.credentialState?.title ?? (model.unlocked ? (model.credential != nil ? (model.busy ? "Hämtar status…" : "Status inte hämtad") : "Registrera med ditt pass") : "Lås upp för att se status"))
                             .font(.caption).fixedSize(horizontal: false, vertical: true)
-                    }.foregroundStyle(Palette.muted)
+                    }.foregroundStyle(Palette.ink)
                 }
             }
             HStack {
@@ -159,7 +159,7 @@ struct IdentityCard: View {
                 Spacer()
                 Text(model.snapshot.map { "ID · " + String($0.credentialId.suffix(6)).uppercased() } ?? "••••  ••••")
                     .font(.system(size: 11, design: .monospaced))
-            }.foregroundStyle(Palette.muted)
+            }.foregroundStyle(Palette.ink)
         }
         .padding(24).foregroundStyle(Palette.ink)
         .background(TjippCardBackground())

@@ -213,12 +213,13 @@ final class WalletUITests: XCTestCase {
         XCTAssertFalse(app.textFields["enrollment.number"].exists)
         let terms = app.switches["enrollment.terms"]
         for _ in 0..<6 { if terms.isHittable { break }; app.swipeUp() }
-        terms.tap()
+        // iOS exposes the labelled row and its native switch separately.
+        if terms.switches.count > 0 { terms.switches.firstMatch.tap() } else { terms.tap() }
         XCTAssertEqual(terms.value as? String, "1", app.debugDescription)
         XCTAssertFalse(app.textFields["enrollment.number"].exists)
         let biometrics = app.switches["enrollment.biometrics"]
         for _ in 0..<6 { if biometrics.isHittable { break }; app.swipeUp() }
-        biometrics.tap()
+        if biometrics.switches.count > 0 { biometrics.switches.firstMatch.tap() } else { biometrics.tap() }
         XCTAssertEqual(biometrics.value as? String, "1", app.debugDescription)
         let number = app.textFields["enrollment.number"]
         for _ in 0..<5 { if number.isHittable { break }; app.swipeUp() }
