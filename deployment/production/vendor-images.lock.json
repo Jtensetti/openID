@@ -24,7 +24,7 @@
   },
   "openbao": {
     "source": "ghcr.io/openbao/openbao:2.7.2@sha256:5046911075e137e154ce49ab051502f4ec7cf367d484ae4a4dce665d9b90561f",
-    "id": "sha256:b9457698554a3d789446466588ccc908ba5f6035d293decd87a367837bdc4da1",
+    "id": "sha256:c3f4cecba0452ba7a5440eac0449006d78f2afcc47f9bbb3262ef5bae3e797d4",
     "uid": "10008:20008",
     "osFamily": "alpine",
     "osVersion": "3.24",
