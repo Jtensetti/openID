@@ -16,7 +16,14 @@ NATIVE_GROUPS={
  'no_zlib_clearerr':{'gzclearerr'},
  'no_sqlite_session':{'sqlite3changeset_apply','sqlite3changeset_apply_v2','sqlite3changeset_apply_v3',
                      'sqlite3changeset_concat','sqlite3changegroup_add'},
+ 'no_wide_scanf':{prefix+name for prefix in ('','__isoc99_','__isoc23_')
+                  for name in ('fwscanf','wscanf','swscanf','vfwscanf','vwscanf','vswscanf')},
+ 'no_untrusted_cms_encrypt':{'CMS_encrypt','CMS_encrypt_ex'},
+ 'no_quic_transport':{'OSSL_QUIC_client_method','OSSL_QUIC_client_thread_method',
+                      'SSL_set1_initial_peer_addr','SSL_set_blocking_mode','SSL_handle_events'},
+ 'no_gcm_siv':{'EVP_CIPHER_fetch','EVP_aes_128_gcm_siv','EVP_aes_256_gcm_siv'},
 }
+EXPANDED_NATIVE = {'no_wide_scanf','no_untrusted_cms_encrypt','no_quic_transport','no_gcm_siv'}
 
 
 def source_fingerprint(root=ROOT):
@@ -65,7 +72,10 @@ def decisions(policy, evidence, findings, now, *, source_sha):
     # This is additional evidence for explicitly reviewed call paths, not a
     # generic "no symbol found therefore safe" determination.
     imported={s for values in evidence['sensitiveImports'].values() for s in values}
+    if evidence.get('nativeProbeVersion') == 2 and not any('from_chars' in s for s in imported):
+        checks.add('no_native_from_chars')
     for check,symbols in NATIVE_GROUPS.items():
+        if check in EXPANDED_NATIVE and evidence.get('nativeProbeVersion') != 2: continue
         callers={path:set(values)&symbols for path,values in evidence['sensitiveImports'].items() if set(values)&symbols}
         def bounded(path,used):
             boundary=policy.get('nativeCallBoundaries',{}).get(path)

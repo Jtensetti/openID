@@ -259,6 +259,33 @@ def check_sources(directory):
     return count
 
 
+def check_crypto_routes(directory):
+    """Assert the reviewed service profile does not introduce these crypto APIs.
+
+    Native consumers are separately bound by image hash and ELF call inventory;
+    this is a change detector for the source review, not a general code sandbox.
+    """
+    prohibited = ('gcm-siv', 'cms_encrypt', 'ossl_quic_', 'ssl_set1_initial_peer_addr')
+    for pattern in ('*.py', '*.mjs'):
+        for path in directory.glob(pattern):
+            source = path.read_text()
+            if any(word in source.lower() for word in prohibited):
+                raise ValueError('new service crypto route needs review')
+            if path.suffix == '.py':
+                for node in ast.walk(ast.parse(source)):
+                    if (isinstance(node, ast.Constant) and isinstance(node.value, str)
+                            and (node.value == 'openssl' or node.value.endswith('/openssl'))):
+                        raise ValueError('service invokes OpenSSL CLI')
+    import ssl
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    if any('SIV' in cipher['name'] for cipher in context.get_ciphers()):
+        raise ValueError('unexpected TLS cipher profile')
+    for path in (directory/'node_modules').rglob('package.json'):
+        if json.loads(path.read_text()).get('name') == 'webpack-dev-middleware':
+            raise ValueError('unexpected development middleware in runtime')
+    return ['service_crypto_profile', 'no_webpack_dev_middleware']
+
+
 def collect():
     if sys.platform!='linux' or sys.version_info[:3]!=(3,12,16) or platform.machine()!='x86_64':
         raise ValueError('unexpected runtime')
@@ -326,7 +353,7 @@ def collect():
         if set(aws.values())-{'json','rest-json'}: raise ValueError('new AWS XML protocol')
     sys.path.insert(0,'/app/verification')
     sts=check_sts_transport();aws['sts']=sts['protocol']
-    guards=check_network_transport()+check_sqlite_snapshot_boundary()
+    guards=check_network_transport()+check_sqlite_snapshot_boundary()+check_crypto_routes(Path('/app/verification'))
     guards.extend(sts['checks'])
     import locale
     if (os.environ.get('LC_ALL')!='C.UTF-8' or os.environ.get('LANGUAGE')!=''
@@ -373,7 +400,7 @@ def collect():
     return {'format':1,'python':platform.python_version(),'architecture':platform.machine(),
         'policySHA256':hashlib.sha256((ROOT/'runtime-policy.json').read_bytes()).hexdigest(),
         'removedPackages':sorted(removal['packages']),'removedPathCount':len(paths),
-        'elfFiles':visited,'sensitiveImports':imports,'nativeFileSHA256':native_hashes,'awsProtocols':aws,'awsStsTransport':sts,'strictDecoderCalls':decoder_count,
+        'elfFiles':visited,'nativeProbeVersion':2,'sensitiveImports':imports,'nativeFileSHA256':native_hashes,'awsProtocols':aws,'awsStsTransport':sts,'strictDecoderCalls':decoder_count,
         'alignedNewProbe':subprocess.run(['/checks/aligned-new'],timeout=10).returncode==0,
         'checks':['removed_payload','mail_modules_absent','gconv_absent','no_setid_or_filecaps',
             'strict_base64','temporary_directory_safe','resolver_search_disabled','fopen_mode_validated',

@@ -31,6 +31,11 @@ MPL-2.0 och Go/x-moduler BSD-3-Clause. Go:s modulsummor verifieras innan
 kompilering. Den fasta tidsstämpeln gör repeterbara bild-ID:n möjliga;
 en separat ombyggnad måste visa detta innan ett ID låses.
 
+Reedsolomon 1.0.0 saknar licensfil i Go-arkivet. Upstreams enda efterföljande
+commit `c5f4bc9af094852b52e593a5f964647c43028c51` tillför MIT-licensen utan
+kodändringar. Den licensfilen bevaras separat med källa och SHA-256 i
+`supplemental-licenses/lock.json`; andra saknade licenser stoppar bygget.
+
 OpenBao-bilden tar bort de oanvända APK-verktygen och deras zlib-beroende
 genom pakethanteraren. Paketregistret bevaras. Efter bygget sparas faktisk
 paketlista, samtliga OS-/Go-fynd, CycloneDX-SBOM, bild-ID och byggreceptets

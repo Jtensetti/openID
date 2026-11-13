@@ -46,6 +46,32 @@ class ApplicabilityTests(unittest.TestCase):
         self.assertEqual(self.evaluate()[0]['status'],'not_affected')
         self.evidence['sensitiveImports']={'/app/lib.so':['wordexp']}
         self.assertEqual(self.evaluate()[0]['status'],'under_investigation')
+
+    def test_expanded_native_decisions_need_new_probe_and_reject_new_callers(self):
+        for check,symbol in [('no_wide_scanf','__isoc23_vswscanf'),
+                             ('no_native_from_chars','_ZSt10from_charsPKcS0_RdSt12chars_format'),
+                             ('no_untrusted_cms_encrypt','CMS_encrypt_ex'),
+                             ('no_quic_transport','OSSL_QUIC_client_method'),
+                             ('no_gcm_siv','EVP_CIPHER_fetch')]:
+            with self.subTest(check=check):
+                self.policy['advisories'][0]['checks']=[check]
+                self.evidence['sensitiveImports']={};self.evidence.pop('nativeProbeVersion',None)
+                self.assertEqual(self.evaluate()[0]['status'],'under_investigation')
+                self.evidence['nativeProbeVersion']=2
+                self.assertEqual(self.evaluate()[0]['status'],'not_affected')
+                self.evidence['sensitiveImports']={'/app/new.so':[symbol]}
+                self.assertEqual(self.evaluate()[0]['status'],'under_investigation')
+
+    def test_service_crypto_change_and_development_middleware_rejected(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);p=root/'service.py';p.write_text('pass\n')
+            self.assertIn('service_crypto_profile',evidence.check_crypto_routes(root))
+            for change in ['run(["openssl"])','mode="AES-256-GCM-SIV"','call=CMS_encrypt_ex']:
+                p.write_text(change)
+                with self.subTest(change=change),self.assertRaises(ValueError):evidence.check_crypto_routes(root)
+            p.write_text('pass\n'); module=root/'node_modules'/'dev';module.mkdir(parents=True)
+            (module/'package.json').write_text('{"name":"webpack-dev-middleware"}')
+            with self.assertRaises(ValueError):evidence.check_crypto_routes(root)
     def test_runtime_only_compiler_decision_needs_observed_evidence(self):
         self.policy['advisories'][0]['checks']=['gcc_runtime_only']
         self.assertEqual(self.evaluate()[0]['status'],'under_investigation')

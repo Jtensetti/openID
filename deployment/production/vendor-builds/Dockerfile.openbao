@@ -10,6 +10,7 @@ RUN go mod download && go mod verify
 RUN --network=none go test -p=2 -mod=readonly ./internal/vault -run '^TestTjippOktaUnavailable$' -count=1
 RUN --network=none go build -p=2 -mod=readonly -trimpath -buildvcs=false -tags=openbao -ldflags="-s -w -X github.com/openbao/openbao/v2/internal/version.GitCommit=9e0a0d3c3504a0a00b45e61355afac5e35c78379+TJIPP-DEPENDENCY-UPDATES" -o /out/bao .
 COPY collect_licenses.py /patch/
+COPY supplemental-licenses /patch/supplemental-licenses
 RUN --network=none python /patch/collect_licenses.py /out/notices && cp /usr/local/go/LICENSE /out/notices/GO-LICENSE && cp LICENSE /out/notices/OPENBAO-LICENSE && cp go.mod go.sum internal/vault/login_mfa.go /out/notices/ && cp /patch/sources.lock.json /out/notices/
 
 FROM ghcr.io/openbao/openbao:2.7.2@sha256:5046911075e137e154ce49ab051502f4ec7cf367d484ae4a4dce665d9b90561f
