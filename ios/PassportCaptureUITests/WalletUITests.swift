@@ -11,7 +11,7 @@ final class WalletUITests: XCTestCase {
         let alert = XCUIApplication(bundleIdentifier: "com.apple.springboard").alerts.firstMatch
         if alert.waitForExistence(timeout: 2) {
             let message = alert.staticTexts.allElementsBoundByIndex.map(\.label).joined(separator: " ").lowercased()
-            if message.contains("icon") || message.contains("ikon") { alert.buttons.firstMatch.tap() }
+            if message.contains("icon") || message.contains("ikon") || message.contains("symbolen") { alert.buttons.firstMatch.tap() }
         }
     }
     func testAppIconFollowsSelectedColor() {
