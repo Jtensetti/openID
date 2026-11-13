@@ -109,6 +109,8 @@ public record SandboxConfig(String idp, String organization, String contact) {
         keys.directory().resolve("sandbox-sp-metadata-backup.xml").toUri().toString());
     p.put("authn-server.saml.metadata-providers[0].skip-hostname-verification", false);
 
+    // This standalone mode has no phone-pilot origins, but still serves OIDC.
+    p.put("authn-server.oidc.enabled", true);
     p.put("authn-server.oidc.issuer", idp);
     p.put("authn-server.oidc.keys.signing[0].credential.bundle", "lab-idp");
     p.put("authn-server.oidc.keys.signing[0].default-key", true);

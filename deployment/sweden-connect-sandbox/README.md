@@ -25,6 +25,19 @@ The code provides:
 There is no LoA3 approval, federation Trust Mark or general-purpose external identity
 issuance. Full OIDC Signature Extension and external profile conformance remain untested.
 
+The standalone `sandbox-idp` explicitly enables OIDC through `SandboxConfig`;
+it does not use the phone pilot's `PilotOrigins`. The ordinary SAML lab keeps
+OIDC disabled. After building the JAR, run `python3 scripts/sandbox-smoke.py`
+from `prototype/`. This starts a disposable loopback Sandbox with verified TLS
+and checks discovery, public JWKS, Entity Configuration, the simulated ACR,
+and rejection of foreign Host, forwarded Host, approval without CSRF and
+authorization without a client. It loads the public signed Sandbox SAML feed
+but does not register an entity or authenticate with an external RP.
+The smoke test checks JWT publication and claims, not its signature or a
+federation trust chain; those need separate verification before registration.
+The Render ingress starts only after SAML metadata and all three OIDC
+publication endpoints respond successfully over verified loopback TLS.
+
 ## Preconditions not handled by this code
 
 1. Digg administrator access (requested via email to swedenconnect@digg.se).
