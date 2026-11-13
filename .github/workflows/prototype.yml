@@ -31,6 +31,17 @@ jobs:
           tar --extract --gzip --file "$RUNNER_TEMP/lab-jdk.tar.gz" --directory "$RUNNER_TEMP"
           printf 'JAVA_HOME=%s\n' "$RUNNER_TEMP/jdk-21.0.13+9" >> "$GITHUB_ENV"
           printf '%s\n' "$RUNNER_TEMP/jdk-21.0.13+9/bin" >> "$GITHUB_PATH"
+      - name: Fetch the checksum-locked Maven distribution with bounded transport retries
+        run: |
+          for attempt in 1 2 3; do
+            if ./mvnw --version; then
+              break
+            fi
+            if [ "$attempt" = 3 ]; then
+              exit 1
+            fi
+            sleep 2
+          done
       - name: Compile and test HTTPS, SAML and lifecycle
         run: ./mvnw -B -ntp clean verify dependency:list -DoutputAbsoluteArtifactFilename=true -DoutputFile=target/dependencies.txt -Dsignature.fixtureDirectory=target/signature-fixtures
       - name: Verify document signature using the independent OpenSSL implementation

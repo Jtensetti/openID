@@ -1,7 +1,7 @@
 {
   "postgres": {
     "source": "postgres:18.7-alpine3.24@sha256:75dcac3dfb1cd01ca3536910bbc84128759362f8b118bf8c55b38a94f68f3b73",
-    "id": "sha256:1a9c03586a724b13efb68576a4e38ca8b7d901b7ba7d4588a4fc1193eae30ab1",
+    "id": "sha256:4e4f8dc6cb06ddf2d6eb863caf889a1765919dfe077c9890e283e05ff9b23685",
     "uid": "70:70",
     "osFamily": "alpine",
     "osVersion": "3.24",
@@ -24,7 +24,7 @@
   },
   "openbao": {
     "source": "ghcr.io/openbao/openbao:2.7.2@sha256:5046911075e137e154ce49ab051502f4ec7cf367d484ae4a4dce665d9b90561f",
-    "id": "sha256:f7dccf3696040fac6e15815ac82e1b50b9436101bfe873503fc25a0452bddf70",
+    "id": "sha256:b9457698554a3d789446466588ccc908ba5f6035d293decd87a367837bdc4da1",
     "uid": "10008:20008",
     "osFamily": "alpine",
     "osVersion": "3.24",

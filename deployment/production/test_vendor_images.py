@@ -14,6 +14,10 @@ class DerivedSourceTests(unittest.TestCase):
     def test_exact_inputs_and_reject_missing_changed_or_linked_sources(self):
         for role, vendor in images.VENDORS.items():
             images.check_inputs(role)
+            changed = copy.deepcopy(vendor)
+            changed['build']['builderImage'] = 'moby/buildkit:latest'
+            with self.subTest(role=role, mutation='builder'), self.assertRaises(ValueError):
+                images.check_inputs(role, changed)
             with tempfile.TemporaryDirectory() as temp:
                 context = Path(temp)
                 for name in vendor['build']['inputs']:
