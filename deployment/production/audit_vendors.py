@@ -11,6 +11,7 @@ import subprocess
 import tempfile
 
 from contract import VENDORS
+import vendor_source_advisories as source_advisories
 
 ROOT = Path(__file__).resolve().parents[2]
 LOCK = Path(__file__).with_name('vendor-images.lock.json')
@@ -18,7 +19,7 @@ _spec = importlib.util.spec_from_file_location('tjipp_os_scanner', ROOT / '.gith
 scanner = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(scanner)
 FILES = {'vendor-lock.json', 'scanner-lock.json', 'scanner-sbom.json', 'database-metadata.json',
-         'inventory.json', 'trivy.json', 'sbom.cdx.json'}
+         'inventory.json', 'trivy.json', 'sbom.cdx.json', 'source-advisories.json'}
 SCHEMA = 'tjipp-vendor-assessment-v1'
 
 
@@ -34,7 +35,7 @@ def save(path, value):
     scanner.save(path, value)
 
 
-def assess(scan, inventory, role, scanner_version, now):
+def assess(scan, inventory, role, scanner_version, now, source_report):
     vendor = VENDORS[role]
     require(scan.get('SchemaVersion') == 2 and scan.get('ArtifactType') == 'container_image'
             and scan.get('Trivy', {}).get('Version') == scanner_version, 'vendor scanner identity mismatch')
@@ -66,14 +67,15 @@ def assess(scan, inventory, role, scanner_version, now):
     scanned = [(p['Name'], p['Version'], p['Arch']) for p in packages]
     require(installed and len(installed) == len(set(installed)) and len(scanned) == len(set(scanned))
             and set(installed) == set(scanned), 'vendor installed package coverage mismatch')
-    findings = []; language_count = 0
+    findings = source_advisories.verify(source_report, role, now, scanner.timestamp); language_count = 0
     for result in results:
         require(not result.get('ExperimentalModifiedFindings') and not result.get('Misconfigurations'),
                 'suppressed or modified vendor findings')
         packages = result.get('Packages')
         require(isinstance(packages, list) and packages, 'vendor package inventory missing')
         local = {p['Name'] for p in packages if not p.get('Version')}
-        require(local == (set(vendor['localGoModules']) if result in language else set()),
+        expected_local = set(vendor['localGoModules']) | set(vendor.get('sourceGoModules', {}))
+        require(local == (expected_local if result in language else set()),
                 'unversioned vendor modules changed')
         identities = {(p['Name'], p.get('Version')) for p in packages}
         if result in language:
@@ -114,7 +116,8 @@ def verify(directory, role, revision, at):
     scanner.check_database(json.loads((directory/'database-metadata.json').read_text()), checked)
     require(re.fullmatch('[a-f0-9]{64}', report.get('databaseSha256', '')), 'missing advisory database digest')
     scan = json.loads((directory/'trivy.json').read_text())
-    assessment = assess(scan, json.loads((directory/'inventory.json').read_text()), role, lock['version'], checked)
+    assessment = assess(scan, json.loads((directory/'inventory.json').read_text()), role, lock['version'], checked,
+                        json.loads((directory/'source-advisories.json').read_text()))
     require(all(report.get(k) == v for k, v in assessment.items()), 'vendor result does not match raw evidence')
     bom = json.loads((directory/'sbom.cdx.json').read_text())
     require(bom.get('bomFormat') == 'CycloneDX' and isinstance(bom.get('components'), list), 'vendor SBOM missing')
@@ -160,8 +163,10 @@ def audit(role, output):
             subprocess.run(prefix+['convert', '--format', 'cyclonedx', '--output', str(output/'sbom.cdx.json'),
                 str(output/'trivy.json')], env=env, cwd=work, check=True, timeout=60)
             report['checkedAt'] = datetime.now(timezone.utc).isoformat()
+            source_report = source_advisories.collect(role, scanner.timestamp(report['checkedAt']))
+            save(output/'source-advisories.json', source_report)
             report.update(assess(json.loads((output/'trivy.json').read_text()), inventory, role, lock['version'],
-                                 scanner.timestamp(report['checkedAt'])))
+                                 scanner.timestamp(report['checkedAt']), source_report))
     except Exception as error:
         report['errorType'] = type(error).__name__
         if isinstance(error, ValueError): report['error'] = str(error)[:200]

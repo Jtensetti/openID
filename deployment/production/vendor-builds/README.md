@@ -50,6 +50,16 @@ maskade revisionslogg i drift. Efter bygget sparas faktisk
 paketlista, samtliga OS-/Go-fynd, CycloneDX-SBOM, bild-ID och byggreceptets
 hash. Noll paketfynd ersätter inte funktionstest eller oberoende granskning.
 
+Go anger den lokalt byggda huvudmodulen som `(devel)`. Därför binder
+`sourceGoModules` just denna modul till OpenBaos låsta upstream-version.
+Leveransgranskningen frågar OSV om både den exakta modulversionen och
+upstream-commiten. Råa svar, samtliga sidfrågor och resultaten sparas i
+`source-advisories.json` och spelas om vid importkontrollen. Saknade svar,
+ändrad frågetäckning eller ett enda fynd stoppar leveransen. Dessa fynd får
+inte undantas med hänvisning till våra beroendeändringar. Bildskanningen
+kontrollerar samtidigt de faktiskt kompilerade beroendena. OSV:s ofullständiga
+datatäckning ersätter inte oberoende granskning av upstream eller vår ändring.
+
 Den kanoniska profilen väljer uttryckligen bilder genom det överordnade
 `vendor-images.lock.json`. Kandidatskanningen ändrar inte detta lås.
 `vendor_images.py` verifierar samtliga angivna byggindata och basens ID,

@@ -59,6 +59,9 @@
         "supplemental-licenses/reedsolomon-MIT": "58fb0c85bfc183bad46c47dd38ac17e3372d86c1fcb65bce880fa1d964424f69"
       },
       "builderImage": "moby/buildkit:v0.33.1@sha256:98cc6a3fc46220d00f8224ae483f3274fc874e9be8d7dd1e2e2c5481209228b5"
+    },
+    "sourceGoModules": {
+      "github.com/openbao/openbao/v2": "2.7.2"
     }
   }
 }
