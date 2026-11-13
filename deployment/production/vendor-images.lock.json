@@ -47,7 +47,7 @@
       "recipe": "Dockerfile.openbao",
       "epoch": "1794484800",
       "inputs": {
-        "Dockerfile.openbao": "f71bca5c32913b3109bbaf5269c0a8f67ab5e9fd5b36a82b71a65e6fa898ea13",
+        "Dockerfile.openbao": "db40709eec54cbba4245301f9f8b7f841eef186c99db0dc8b7a705d072c079a6",
         "openbao.go.mod": "1b9f71485061d7f368406984744ac06e6281f7a4a4dc3a8f598d1077497011dd",
         "openbao.go.sum": "8de013c274996938fa450153a38b01f2a3de152f332c90fb97f5e2c73f3f3d4d",
         "openbao.login_mfa.go": "4236f09570ee56f4c737b17e0c69d1d64b0e5871f1f9577ed3f562f7daf6bd92",

@@ -22,7 +22,8 @@ beroenden; verifierar- och protokollproven körs utan externt nät.
 
 1. Merge till `main` startar hela `Assurance checks`. Serverjobbet bygger,
    provar, exporterar och återläser exakt samma image utan ett nytt bygge.
-   PR-jobb provar också export/import, men lagrar inte det stora imagepaketet.
+   PR-jobb provar också export/import. För PR:er från samma repository sparas
+   det fullständiga paketet; externa fork-PR:er får inget sådant leveranspaket.
 2. Hela körningen, inklusive `assurance-gate`, ska vara godkänd för vald
    revision. Ett tillgängligt imagepaket är inte ensamt ett godkännande:
    ett annat komponentjobb kan ha misslyckats efter att det laddades upp.

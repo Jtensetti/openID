@@ -32,8 +32,8 @@ kompilering. `vendor_builder.py` använder en separat `docker-container`-byggare
 med digestlåst BuildKit 0.33.1 och exporterar ett Docker-arkiv med
 `rewrite-timestamp=true`. Docker Engines vanliga Moby-export får inte användas
 för detta. Arkivet läses sedan in i Docker; lagrens filtidsstämplar normaliseras
-till det fasta SOURCE_DATE_EPOCH-värdet. Kandidatprovet bygger PostgreSQL på nytt
-i en andra, tom byggare och kräver samma bild-ID. Enbart bildens skapandetid räcker inte;
+till det fasta SOURCE_DATE_EPOCH-värdet. Kandidatprovet bygger båda bilderna på nytt
+i separata, tomma byggare och kräver samma bild-ID. Enbart bildens skapandetid räcker inte;
 en separat ombyggnad måste visa detta innan ett ID låses.
 
 Reedsolomon 1.0.0 saknar licensfil i Go-arkivet. Upstreams enda efterföljande
@@ -42,7 +42,11 @@ kodändringar. Den licensfilen bevaras separat med källa och SHA-256 i
 `supplemental-licenses/lock.json`; andra saknade licenser stoppar bygget.
 
 OpenBao-bilden tar bort de oanvända APK-verktygen och deras zlib-beroende
-genom pakethanteraren. Paketregistret bevaras. Efter bygget sparas faktisk
+genom pakethanteraren. Paketregistret bevaras. APK:s byggtransaktionslogg
+stängs av med dess dokumenterade `--logfile=false`; annars bäddas byggögonblicket
+in i filinnehållet även när lagertiderna normaliseras. CI behåller kommandots
+utdata och granskar det verkliga paketregistret. Detta påverkar inte OpenBaos
+maskade revisionslogg i drift. Efter bygget sparas faktisk
 paketlista, samtliga OS-/Go-fynd, CycloneDX-SBOM, bild-ID och byggreceptets
 hash. Noll paketfynd ersätter inte funktionstest eller oberoende granskning.
 

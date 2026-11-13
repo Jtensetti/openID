@@ -76,12 +76,11 @@ def main(output):
                 'findingCount':sum(len(r.get('Vulnerabilities',[])) for r in scan['Results']),
                 'languageTargets':[r['Target'] for r in scan['Results'] if r['Class']=='lang-pkgs'],
                 'recipeSHA256':scanner.digest(context/('Dockerfile.'+role))}
-            if role == 'postgres':
-                export_image(context, 'Dockerfile.'+role, tag, '1794484800')
-                rebuilt = run(['docker','image','inspect',tag,'--format','{{.Id}}'])
-                if rebuilt != image:
-                    raise ValueError('fresh-builder PostgreSQL reproduction differs')
-                report['images'][role]['freshBuilderReproduced'] = True
+            export_image(context, 'Dockerfile.'+role, tag, '1794484800')
+            rebuilt = run(['docker','image','inspect',tag,'--format','{{.Id}}'])
+            if rebuilt != image:
+                raise ValueError('fresh-builder '+role+' reproduction differs')
+            report['images'][role]['freshBuilderReproduced'] = True
             scanner.save(output/'candidates.json',report)
     print(json.dumps(report,indent=2))
     return 0 if all(r['findingCount']==0 for r in report['images'].values()) else 1
