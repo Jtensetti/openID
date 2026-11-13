@@ -39,6 +39,7 @@ struct PassportScanView: View {
                         .font(.footnote).foregroundStyle(.secondary)
                 }.padding(20)
             }
+            .background(Palette.paper).foregroundStyle(Palette.ink)
             .navigationTitle("Skanna passuppgifter").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Stäng") { dismiss() } } }
             .task {
@@ -74,6 +75,8 @@ struct PassportGuideOverlay: View {
                     path.addRect(CGRect(origin: .zero, size: geometry.size))
                     path.addRoundedRect(in: frame, cornerSize: CGSize(width: 12, height: 12))
                 }.fill(.black.opacity(0.5), style: FillStyle(eoFill: true))
+                RoundedRectangle(cornerRadius: 12).stroke(.black.opacity(0.65), lineWidth: 6)
+                    .frame(width: frame.width, height: frame.height).position(x: frame.midX, y: frame.midY)
                 RoundedRectangle(cornerRadius: 12).stroke(captured ? .green : .white, lineWidth: 3)
                     .frame(width: frame.width, height: frame.height).position(x: frame.midX, y: frame.midY)
                 Image(systemName: "person.crop.rectangle").resizable().scaledToFit()

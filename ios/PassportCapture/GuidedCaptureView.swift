@@ -22,6 +22,11 @@ struct CaptureGuideView<Preview: View>: View {
                     let oval = CGRect(x: geometry.size.width * 0.09, y: geometry.size.height * 0.17,
                                       width: geometry.size.width * 0.82, height: geometry.size.height * 0.66)
                     CaptureMask().fill(.black.opacity(0.42), style: FillStyle(eoFill: true))
+                    // A dark under-stroke improves contrast without moving the existing guide.
+                    ForEach(0..<72, id: \.self) { index in
+                        OvalSegment(index: index, oval: oval)
+                            .stroke(.black.opacity(0.65), style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                    }
                     ForEach(0..<72, id: \.self) { index in
                         OvalSegment(index: index, oval: oval)
                             .stroke(segmentColor(index), style: StrokeStyle(lineWidth: 3, lineCap: .round))
@@ -74,7 +79,7 @@ struct CaptureGuideView<Preview: View>: View {
     private func segmentColor(_ index: Int) -> Color {
         let pose = OvalSegment.pose(for: index)
         if guidance.completedPoses.contains(pose) { return .green }
-        guard guidance.completed < 3, guidance.pose == pose else { return .white.opacity(0.30) }
+        guard guidance.completed < 3, guidance.pose == pose else { return .white.opacity(0.55) }
         let indices = (0..<72).filter { OvalSegment.pose(for: $0) == pose }
         let position = indices.firstIndex(of: index) ?? 0
         guard Double(position + 1) / Double(indices.count) <= guidance.proximity else { return .white.opacity(0.45) }

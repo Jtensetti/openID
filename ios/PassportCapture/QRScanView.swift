@@ -51,7 +51,7 @@ final class RequestQRReader: NSObject, ObservableObject, AVCaptureMetadataOutput
     func metadataOutput(_ output: AVCaptureMetadataOutput, didOutput objects: [AVMetadataObject], from connection: AVCaptureConnection) {
         guard !lock.withLock({ stopped }), let text = (objects.first as? AVMetadataMachineReadableCodeObject)?.stringValue else { return }
         guard text.count < 256, let url = URL(string: text), RequestLink.identifier(url) != nil else {
-            message = "Koden är inte en giltig openID-begäran."; return
+            message = "Koden är inte en giltig Tjipp-begäran."; return
         }
         stop(); selected?(url)
     }

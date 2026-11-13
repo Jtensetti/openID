@@ -66,7 +66,7 @@ import LocalAuthentication
             }
             do {
                 let auth = LAContext(); context = auth
-                guard try await auth.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Öppna ditt openID") else { throw WalletError.cancelled }
+                guard try await auth.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Öppna ditt Tjipp") else { throw WalletError.cancelled }
                 try Task.checkCancellation(); guard generation == epoch else { return }
                 let saved = try vault.read("configuration", as: ServerConfiguration.self)
                 let selected = ServerConfiguration.initial(saved: saved)
@@ -230,8 +230,8 @@ import LocalAuthentication
                     auth = LAContext()
                     operationContext = auth
                     guard try await auth.evaluatePolicy(.deviceOwnerAuthentication, localizedReason:
-                        action == "revoke" ? "Spärra ditt ID permanent" : action == "set-pin" ? "Spara säkerhetskoden för openID"
-                        : action == "sign" ? "Skriv under för \(request?.relyingParty ?? "openID")" : "Bekräfta ditt val för \(request?.relyingParty ?? "openID")") else { throw WalletError.cancelled }
+                        action == "revoke" ? "Spärra ditt ID permanent" : action == "set-pin" ? "Spara säkerhetskoden för Tjipp"
+                        : action == "sign" ? "Skriv under för \(request?.relyingParty ?? "Tjipp")" : "Bekräfta ditt val för \(request?.relyingParty ?? "Tjipp")") else { throw WalletError.cancelled }
                 }
                 defer { if !["snapshot", "inspect"].contains(action) { auth.invalidate() } }
                 try Task.checkCancellation(); guard generation == epoch else { return }
@@ -304,7 +304,7 @@ import LocalAuthentication
         return "Kunde inte nå tjänsten. Kontrollera internetanslutningen och försök sedan igen."
     }
     func open(_ url: URL) {
-        guard let id = RequestLink.identifier(url) else { error = "Länken är inte en giltig openID-begäran."; return }
+        guard let id = RequestLink.identifier(url) else { error = "Länken är inte en giltig Tjipp-begäran."; return }
         pendingLink = id; selectedTab = 1
         if unlocked { refresh() }
     }
@@ -323,12 +323,13 @@ import LocalAuthentication
     #if DEBUG && targetEnvironment(simulator)
     /// Synthetic UI/unit-test state only; never compiled into device builds.
     func configureRecoveryPreview(credential: LocalCredential?, state: CredentialState? = nil,
-                                  statusError: Error? = nil, confirmedRevocation: Bool = false) {
+                                  statusError: Error? = nil, confirmedRevocation: Bool = false,
+                                  identity: PassportIdentity? = nil) {
         configuration = try! ServerConfiguration(origin: "https://synthetic.invalid", pairing: String(repeating: "x", count: 43))
         self.credential = credential; unlocked = true; context = LAContext()
         if let credential, let state {
             snapshot = WalletSnapshot(credentialId: credential.id, state: state, createdAt: 1, expiresAt: nil,
-                requests: [], events: [], environment: "PRIVATE_PILOT", legalIdentityIssued: false)
+                requests: [], events: [], environment: "PRIVATE_PILOT", legalIdentityIssued: false, identity: identity)
         }
         statusMessage = statusError.map { Self.failureMessage(action: "snapshot", error: $0) }
         confirmedRevocationID = confirmedRevocation ? credential?.id : nil

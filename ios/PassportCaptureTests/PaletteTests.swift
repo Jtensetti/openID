@@ -3,6 +3,14 @@ import SwiftUI
 @testable import PassportCapture
 
 final class PaletteTests: XCTestCase {
+    func testAllOriginalLogoVariantsArePackaged() {
+        for variant in TjippColor.allCases {
+            let image = UIImage(named: variant.asset)
+            XCTAssertNotNil(image, "Missing original artwork for \(variant.title)")
+            XCTAssertEqual(image?.size.width, image?.size.height)
+        }
+        XCTAssertNotNil(UIImage(named: "TjippWordmark"))
+    }
     private func luminance(_ color: Color, traits: UITraitCollection) -> Double {
         let resolved = UIColor(color).resolvedColor(with: traits)
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
