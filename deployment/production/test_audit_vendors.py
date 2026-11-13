@@ -9,15 +9,16 @@ from contract import VENDORS
 NOW = datetime(2026, 11, 13, tzinfo=timezone.utc)
 
 
-def fixture(role='postgres'):
+def fixture(role='openbao'):
     vendor=VENDORS[role]
     scan={'SchemaVersion':2,'ArtifactType':'container_image','Trivy':{'Version':'0.76.1'},
           'CreatedAt':NOW.isoformat(),'Metadata':{'ImageID':vendor['id'],'ImageConfig':{'architecture':'amd64'},
           'OS':{'Family':'alpine','Name':'3.24.4'}},'Results':[
           {'Class':'os-pkgs','Type':'alpine','Target':'synthetic-image','Packages':[
-              {'Name':'musl','Version':'synthetic-version','Arch':'x86_64'}]},
-          {'Class':'lang-pkgs','Type':'gobinary','Target':vendor['languageTargets'][0],
-           'Packages':[{'Name':'stdlib','Version':'go-synthetic'}]+[{'Name':n} for n in vendor['localGoModules']]}]}
+              {'Name':'musl','Version':'synthetic-version','Arch':'x86_64'}]}] + [
+          {'Class':'lang-pkgs','Type':'gobinary','Target':target,
+           'Packages':[{'Name':'stdlib','Version':'go-synthetic'}]+[{'Name':n} for n in vendor['localGoModules']]}
+          for target in vendor['languageTargets']]}
     inventory={'role':role,'imageID':vendor['id'],'source':vendor['source'],'platform':'linux/amd64',
                'inventoryComplete':True,'packageManager':'apk','osRelease':{'ID':'alpine','VERSION_ID':'3.24.4'},
                'packages':[{'name':'musl','version':'synthetic-version','architecture':'x86_64'}]}
@@ -30,14 +31,17 @@ class VendorCoverageTests(unittest.TestCase):
             scan,inventory=fixture(role)
             result=audit.assess(scan,inventory,role,'0.76.1',NOW)
             self.assertTrue(result['complete']);self.assertTrue(result['passed'])
-            del scan['Results'][1]
+            if vendor := VENDORS[role]['languageTargets']:
+                del scan['Results'][1]
+            else:
+                scan['Results'].append({'Class':'lang-pkgs','Type':'gobinary','Target':'unexpected','Packages':[]})
             with self.assertRaises(ValueError):audit.assess(scan,inventory,role,'0.76.1',NOW)
 
     def test_go_findings_block_even_when_all_os_packages_have_no_findings(self):
         scan,inventory=fixture()
         scan['Results'][1]['Vulnerabilities']=[{'VulnerabilityID':'SYNTHETIC-001','PkgName':'stdlib',
             'InstalledVersion':'go-synthetic','Severity':'LOW'}]
-        result=audit.assess(scan,inventory,'postgres','0.76.1',NOW)
+        result=audit.assess(scan,inventory,'openbao','0.76.1',NOW)
         self.assertTrue(result['complete']);self.assertFalse(result['passed'])
         self.assertEqual(result['unresolvedCount'],1)
 
@@ -52,7 +56,7 @@ class VendorCoverageTests(unittest.TestCase):
             elif mutation=='old':scan['CreatedAt']=(NOW-timedelta(hours=2)).isoformat()
             elif mutation=='future':scan['CreatedAt']=(NOW+timedelta(hours=2)).isoformat()
             else:inventory['source']='unverified:latest'
-            with self.subTest(mutation=mutation),self.assertRaises(ValueError):audit.assess(scan,inventory,'postgres','0.76.1',NOW)
+            with self.subTest(mutation=mutation),self.assertRaises(ValueError):audit.assess(scan,inventory,'openbao','0.76.1',NOW)
 
     def test_partial_duplicate_suppressed_or_unidentified_coverage_rejected(self):
         for mutation in ('missing','duplicate','suppressed','unknown_binary','unknown_module','unknown_finding'):
@@ -64,7 +68,7 @@ class VendorCoverageTests(unittest.TestCase):
             elif mutation=='unknown_module':scan['Results'][1]['Packages'].append({'Name':'./unreviewed'})
             else:scan['Results'][0]['Vulnerabilities']=[{'VulnerabilityID':'SYNTHETIC-001','PkgName':'other',
                 'InstalledVersion':'synthetic-version','Severity':'HIGH'}]
-            with self.subTest(mutation=mutation),self.assertRaises(ValueError):audit.assess(scan,inventory,'postgres','0.76.1',NOW)
+            with self.subTest(mutation=mutation),self.assertRaises(ValueError):audit.assess(scan,inventory,'openbao','0.76.1',NOW)
 
 
 if __name__=='__main__':unittest.main()

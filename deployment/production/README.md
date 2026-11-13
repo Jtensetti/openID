@@ -5,8 +5,11 @@ den tidigare SQLite-/socket-vault-kompositionen med PostgreSQL och OpenBao
 Transit. Nyregistrering är stängd som standard. Profilen är under verifiering och har inget
 tillstånd att utfärda e-legitimationer.
 
-Separata [leverantörskandidater](vendor-builds/README.md) kan byggas för att
-åtgärda paketfynd. Deras provresultat ändrar inte profilens låsta bilder.
+De härledda [leverantörsbilderna](vendor-builds/README.md) tar bort oanvänd
+kod och uppdaterar OpenBaos beroenden. Låset binder både de officiella
+basbilderna, samtliga byggindata och de valda utbildernas exakta ID:n.
+`vendor_images.py` bygger dem i CI och kräver samma ID innan runtimeprovet.
+Driftvärden importerar sedan de redan provade bilderna utan ombygge.
 
 Samma version ska kunna granskas och senare importeras utan ombygge. Kod,
 lokalt prov, CI-resultat, installerade image-ID:n och formellt driftbeslut är
@@ -256,8 +259,9 @@ låsta leverantörskällan och bildens uppmätta linux/amd64-ID i Docker,
 läser OS-identitet och installerade dpkg-/APK-paket samt kör binärernas
 versionskommandon utan nät, driftvolymer eller extra kapabiliteter. Appen
 inventeras med sin befintliga Python; den saknar avsiktligt kommandoskal.
-Källbindningen bygger på Docker-daemonens upplösning av den låsta referensen;
-den är ingen oberoende attestering av registret eller en komplett SBOM.
+För de härledda leverantörsbilderna krävs låsta byggindata och exakt utbilds-ID;
+föregående CI-steg kontrollerar basbildens ID och ombyggnadens resultat.
+Det är ingen oberoende attestering eller en komplett SBOM.
 
 ```sh
 python3 deployment/production/delivery_inventory.py \
@@ -289,7 +293,7 @@ leverantörerna kontrolleras även mot sina rårapporter, paketlistor, lås och
 SBOM:er. Det yttre manifestet binder samtliga filer och tre image-ID:n till
 en revision och ett källträd. `READY_FOR_PACKAGING` är ingen produktionsattest.
 
-CI provar export och återläsning utan ombygge. Main-/manuella körningar
+CI provar export och återläsning utan ombygge. Main-/manuella körningar och PR:er från samma repository
 bevarar `production-image-<revision>` i sju dagar. Hämta manifestets SHA-256
 från den betrodda körningen. Använd en separat skyddad katalog och den
 granskade kodrevisionen:

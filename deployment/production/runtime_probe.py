@@ -149,8 +149,9 @@ class Runtime:
         from test_federation_postgres import FederationPostgres
         from test_continuity_support import REFERENCE
         for name,ref in VENDORS.items():
-            command(['docker','pull','--platform','linux/amd64',ref['source']])
-            actual=command(['docker','image','inspect',ref['source'],'--format','{{.Id}}']).strip()
+            from vendor_images import check_inputs
+            check_inputs(name)
+            actual=command(['docker','image','inspect',ref['id'],'--format','{{.Id}}']).strip()
             if actual!=ref['id']:raise ValueError('vendor image identity mismatch')
         self.phase('prepare_synthetic_keys_and_boundaries')
         for name,identity in IDENTITIES.items():

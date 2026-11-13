@@ -168,14 +168,20 @@ def parse_inventory(raw):
 
 def image_inventory(role, image_id, runner=command):
     source = VENDORS[role]['source'] if role in VENDORS else image_id
-    infos = json.loads(runner(['docker', 'image', 'inspect', source]))
+    if role in VENDORS:
+        require(image_id == VENDORS[role]['id'], 'vendor output differs from the source lock')
+    derived = role in VENDORS and 'build' in VENDORS[role]
+    if derived:
+        from vendor_images import check_inputs
+        check_inputs(role)
+    infos = json.loads(runner(['docker', 'image', 'inspect', image_id if derived else source]))
     require(isinstance(infos, list) and len(infos) == 1, 'one locally resolved image required')
     info = infos[0]
     require(isinstance(info, dict), 'image inspection object required')
     require(info.get('Id') == image_id, 'resolved source image ID mismatch')
     require(info.get('Os') == 'linux' and info.get('Architecture') == 'amd64'
             and info.get('Variant') in (None, ''), 'linux/amd64 image required')
-    if role in VENDORS:
+    if role in VENDORS and not derived:
         repository, sha = source.split('@')
         repository = repository.rsplit(':', 1)[0]
         # Docker Hub may report either a short or fully qualified official repository.
@@ -191,7 +197,8 @@ def image_inventory(role, image_id, runner=command):
         '/bin/sh', image_id, '-eu', '-c', PROBE + VERSIONS[role]]
     raw = runner(invocation)
     return {'role': role, 'source': source, 'imageID': image_id, 'platform': 'linux/amd64',
-            'sourceBinding': 'local_docker_daemon_resolution', 'inventoryComplete': True,
+            'sourceBinding': 'locked_derived_image_and_build_inputs' if derived else 'local_docker_daemon_resolution',
+            'inventoryComplete': True,
             **parse_inventory(raw)}
 
 

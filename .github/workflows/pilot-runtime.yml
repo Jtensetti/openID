@@ -97,6 +97,8 @@ jobs:
             -v "$PWD/verification/test_aws_credentials.py:/tests/test_aws_credentials.py:ro" \
             -v "$PWD/deployment/build/runtime_evidence.py:/tests/runtime_evidence.py:ro" \
             --entrypoint python openid-pilot:ci -m unittest -v test_aws_credentials
+      - name: Rebuild the exact locked vendor images without deployment credentials
+        run: python3 deployment/production/vendor_images.py
       - name: Run the complete canonical PostgreSQL and non-dev OpenBao profile
         run: |
           sudo apt-get update -qq
@@ -351,15 +353,15 @@ jobs:
           revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
           vendors = json.loads(Path('deployment/production/vendor-images.lock.json').read_text())
           for role, vendor in vendors.items():
-              subprocess.run(['docker', 'image', 'rm', 'tjipp-'+role+':commit-'+revision, vendor['source']], check=True)
+              subprocess.run(['docker', 'image', 'rm', 'tjipp-'+role+':commit-'+revision, 'tjipp-'+role+':locked-build'], check=True)
           PY
           sudo python3 deployment/production/release_bundle.py import --directory "$RUNNER_TEMP/image-bundle" \
             --expected-revision "$revision" --expected-manifest-sha256 "$manifest_sha"
           docker run --rm --network none --read-only --cap-drop ALL \
             --security-opt no-new-privileges --entrypoint java \
             "openid-pilot:commit-$revision" -version
-      - name: Retain deployable image after main push or manual build
-        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      - name: Retain tested candidate images for exact-artifact review
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: production-image-${{ github.sha }}

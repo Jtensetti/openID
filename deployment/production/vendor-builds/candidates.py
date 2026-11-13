@@ -41,7 +41,7 @@ def main(output):
         for role, base in VENDORS.items():
             directory = output/role; directory.mkdir()
             subprocess.run(['docker','pull','--platform','linux/amd64',base['source']],check=True)
-            if run(['docker','image','inspect',base['source'],'--format','{{.Id}}']) != base['id']:
+            if run(['docker','image','inspect',base['source'],'--format','{{.Id}}']) != base.get('baseID', base['id']):
                 raise ValueError('upstream vendor image changed')
             tag = 'tjipp-'+role+':candidate'
             subprocess.run(['docker','build','--platform','linux/amd64',
@@ -73,7 +73,7 @@ def main(output):
             if ([r.get('Target') for r in language] != expected or
                     any(r.get('Type') != 'gobinary' or not any(p.get('Name') == 'stdlib' for p in r.get('Packages', [])) for r in language)):
                 raise ValueError('candidate Go binary coverage missing or changed')
-            report['images'][role]={'base':base['source'],'baseID':base['id'],'imageID':image,
+            report['images'][role]={'base':base['source'],'baseID':base.get('baseID', base['id']),'imageID':image,
                 'findingCount':sum(len(r.get('Vulnerabilities',[])) for r in scan['Results']),
                 'languageTargets':[r['Target'] for r in scan['Results'] if r['Class']=='lang-pkgs'],
                 'recipeSHA256':scanner.digest(context/('Dockerfile.'+role))}

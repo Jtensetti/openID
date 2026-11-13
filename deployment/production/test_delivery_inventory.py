@@ -44,7 +44,7 @@ class FakeDocker:
             source = VENDORS[name]['source'] if name in VENDORS else image
             repository, sha = source.split('@') if '@' in source else ('', '')
             refs = [repository.rsplit(':', 1)[0] + '@' + sha] if sha else []
-            self.inspection[source] = [{'Id': image, 'Os': 'linux', 'Architecture': 'amd64', 'RepoDigests': refs}]
+            self.inspection[image if name in VENDORS and 'build' in VENDORS[name] else source] = [{'Id': image, 'Os': 'linux', 'Architecture': 'amd64', 'RepoDigests': refs}]
             self.contents[image] = payload()
 
     def __call__(self, args):
@@ -102,16 +102,15 @@ class ImageInventoryTests(unittest.TestCase):
                 self.assertNotIn('-v', call)
                 self.assertNotIn('--privileged', call)
 
-    def test_wrong_id_platform_or_repository_digest_rejected(self):
-        source = VENDORS['postgres']['source']
-        for field, replacement in [('Id', IMAGE), ('Architecture', 'arm64'), ('Os', 'windows'),
-                                   ('RepoDigests', ['other/repository@' + source.split('@')[1]])]:
+    def test_wrong_derived_id_or_platform_rejected(self):
+        source = VENDORS['postgres']['id']
+        for field, replacement in [('Id', IMAGE), ('Architecture', 'arm64'), ('Os', 'windows')]:
             runner = FakeDocker(); runner.inspection[source][0][field] = replacement
             with self.subTest(field=field), self.assertRaises(ValueError):
                 inventory.image_inventory('postgres', VENDORS['postgres']['id'], runner)
 
     def test_missing_image_preserves_other_inventories_without_release(self):
-        runner = FakeDocker(); runner.inspection[VENDORS['openbao']['source']] = []
+        runner = FakeDocker(); runner.inspection[VENDORS['openbao']['id']] = []
         with tempfile.TemporaryDirectory() as temp:
             report = inventory.collect(json.dumps(runtime()).encode(), REVISION, TREE, IMAGE, Path(temp), runner)
         self.assertFalse(report['inventoryComplete'])

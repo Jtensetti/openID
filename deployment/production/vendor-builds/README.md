@@ -41,3 +41,10 @@ OpenBao-bilden tar bort de oanvända APK-verktygen och deras zlib-beroende
 genom pakethanteraren. Paketregistret bevaras. Efter bygget sparas faktisk
 paketlista, samtliga OS-/Go-fynd, CycloneDX-SBOM, bild-ID och byggreceptets
 hash. Noll paketfynd ersätter inte funktionstest eller oberoende granskning.
+
+Den kanoniska profilen väljer uttryckligen bilder genom det överordnade
+`vendor-images.lock.json`. Kandidatskanningen ändrar inte detta lås.
+`vendor_images.py` verifierar samtliga angivna byggindata och basens ID,
+bygger utan driftuppgifter och nekar ett annat utbilds-ID. Det kompletta
+runtimeprovet och separata, färska paketbedömningar måste därefter passera.
+Driftimporten använder det exporterade paketet och bygger ingenting.
