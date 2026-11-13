@@ -95,6 +95,7 @@ jobs:
             --security-opt no-new-privileges --pids-limit 64 --memory 256m --cpus 1 \
             --tmpfs /tmp:size=32m,mode=1777 -e PYTHONPATH=/tests:/app/verification \
             -v "$PWD/verification/test_aws_credentials.py:/tests/test_aws_credentials.py:ro" \
+            -v "$PWD/deployment/build/runtime_evidence.py:/tests/runtime_evidence.py:ro" \
             --entrypoint python openid-pilot:ci -m unittest -v test_aws_credentials
       - name: Run the complete canonical PostgreSQL and non-dev OpenBao profile
         run: |

@@ -98,6 +98,106 @@ def check_sqlite_snapshot_boundary():
     return ['sqlite_snapshot_schema','sqlite_no_external_wal']
 
 
+def check_sts_transport():
+    """Exercise the shipped client and locked parser with synthetic wire bytes."""
+    import datetime
+    import boto3
+    import botocore
+    from botocore.awsrequest import AWSResponse
+    from botocore.exceptions import ClientError
+    from botocore.parsers import ResponseParserError
+    from unittest.mock import patch
+    from aws_credential_rotate import metadata_client, STSResponseError, STS_XML_LIMIT
+    if (boto3.__version__, botocore.__version__) != ('1.43.115', '1.43.115'):
+        raise ValueError('STS SDK version needs review')
+    expiry=(datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(hours=1)).isoformat()
+    metadata={'role_name':'SYNTHETIC_HOST','access_key':'ASIA'+'A'*16,
+        'secret_key':'A'*40,'token':'SYNTHETIC_TOKEN','expiry_time':expiry}
+    identity=(b'<GetCallerIdentityResponse xmlns="https://sts.amazonaws.com/doc/2011-06-15/">'
+        b'<GetCallerIdentityResult><Arn>arn:aws:sts::000000000000:assumed-role/SYNTHETIC_HOST/probe</Arn>'
+        b'<UserId>generated</UserId><Account>000000000000</Account></GetCallerIdentityResult>'
+        b'<ResponseMetadata><RequestId>generated</RequestId></ResponseMetadata></GetCallerIdentityResponse>')
+    assumed=(f'<AssumeRoleResponse xmlns="https://sts.amazonaws.com/doc/2011-06-15/">'
+        f'<AssumeRoleResult><Credentials><AccessKeyId>ASIA{"B"*16}</AccessKeyId>'
+        f'<SecretAccessKey>{"B"*40}</SecretAccessKey><SessionToken>SYNTHETIC_TOKEN</SessionToken>'
+        f'<Expiration>{expiry}</Expiration></Credentials><AssumedRoleUser>'
+        f'<Arn>arn:aws:sts::000000000000:assumed-role/SYNTHETIC_TARGET/probe</Arn>'
+        f'<AssumedRoleId>generated:probe</AssumedRoleId></AssumedRoleUser></AssumeRoleResult>'
+        f'<ResponseMetadata><RequestId>generated</RequestId></ResponseMetadata></AssumeRoleResponse>').encode()
+    denied=(b'<ErrorResponse xmlns="https://sts.amazonaws.com/doc/2011-06-15/">'
+        b'<Error><Type>Sender</Type><Code>AccessDenied</Code><Message>synthetic denial</Message></Error>'
+        b'<RequestId>generated</RequestId></ErrorResponse>')
+    dtd=(b'<!DOCTYPE GetCallerIdentityResponse [<!ENTITY generated "000000000000">]>'
+        +identity.replace(b'000000000000',b'&generated;'))
+    rejected=[dtd,b'\xef\xbb\xbf'+dtd,b'<!ENTITY generated "value">'+identity,
+        identity.decode().encode('utf-16-le'),identity.decode().encode('utf-16-be'),
+        b'<?xml version="1.0" encoding="ISO-8859-1"?>'+identity,
+        b'\xff'+identity,b'\0'+identity,b'',b' '*(STS_XML_LIMIT+1)]
+    class Raw:
+        def __init__(self, body): self.body=body
+        def stream(self, **kwargs): yield self.body
+    env={k:v for k,v in os.environ.items() if not k.startswith('AWS_')}
+    env.update(AWS_CONFIG_FILE='/dev/null',AWS_SHARED_CREDENTIALS_FILE='/dev/null',AWS_EC2_METADATA_DISABLED='true')
+    calls=0
+    with patch.dict(os.environ,env,clear=True), \
+            patch('socket.socket.connect',side_effect=AssertionError('offline STS probe attempted network')), \
+            patch('botocore.utils.InstanceMetadataFetcher.retrieve_iam_role_credentials',return_value=metadata):
+        client=metadata_client()
+        try:
+            config=client.meta.config
+            if (client.meta.endpoint_url!='https://sts.eu-north-1.amazonaws.com'
+                    or client.meta.service_model.metadata['protocol']!='query'
+                    or config.proxies!={} or config.connect_timeout!=2 or config.read_timeout!=3
+                    or config.retries.get('total_max_attempts')!=1
+                    or client._endpoint.http_session._verify is not True
+                    or client._request_signer._credentials.method!='iam-role'):
+                raise ValueError('STS endpoint, TLS or provider boundary changed')
+            factory=client._endpoint._response_parser_factory
+            def invoke(body, status=200, operation='get_caller_identity'):
+                nonlocal calls
+                calls+=1
+                response=AWSResponse(client.meta.endpoint_url,status,{'content-type':'text/xml'},Raw(body))
+                with patch.object(client._endpoint.http_session,'send',return_value=response):
+                    if operation=='assume_role':
+                        return client.assume_role(RoleArn='arn:aws:iam::000000000000:role/SYNTHETIC_TARGET',
+                            RoleSessionName='probe',DurationSeconds=3600)
+                    return client.get_caller_identity()
+            with patch.object(factory,'create_parser',wraps=factory.create_parser) as parser:
+                if invoke(identity).get('Account')!='000000000000': raise ValueError('normal STS identity failed')
+                if invoke(assumed,operation='assume_role')['Credentials']['AccessKeyId']!='ASIA'+'B'*16:
+                    raise ValueError('normal STS role response failed')
+                if parser.call_count<2: raise ValueError('STS successes skipped real parser')
+            with patch.object(factory,'create_parser',wraps=factory.create_parser) as parser:
+                try: invoke(denied,403)
+                except ClientError as error:
+                    if error.response['Error']['Code']!='AccessDenied': raise
+                else: raise ValueError('STS API denial accepted')
+                if not parser.called: raise ValueError('STS error skipped real parser')
+            for body in rejected:
+                for status in (200,403):
+                    with patch.object(factory,'create_parser',wraps=factory.create_parser) as parser:
+                        try: invoke(body,status)
+                        except STSResponseError: pass
+                        else: raise ValueError('prohibited STS XML accepted')
+                        if parser.called: raise ValueError('prohibited STS XML reached parser')
+            with patch.object(factory,'create_parser',wraps=factory.create_parser) as parser:
+                try: invoke(b'<broken')
+                except ResponseParserError: pass
+                else: raise ValueError('malformed STS XML accepted')
+                if not parser.called: raise ValueError('malformed XML did not exercise SDK parser')
+            if invoke(b'\xef\xbb\xbf'+identity).get('Account')!='000000000000':
+                raise ValueError('normal BOM response or post-error reuse failed')
+        finally:
+            client.close()
+    return {'protocol':'query','boto3':boto3.__version__,'botocore':botocore.__version__,
+        'operations':['GetCallerIdentity','AssumeRole'],'syntheticResponses':calls,
+        'rejectedBeforeParser':2*len(rejected),'parserBodyLimit':STS_XML_LIMIT,
+        'checks':['aws_sts_query_transport','aws_sts_before_parse_guard','aws_sts_api_errors'],
+        'limits':['Synthetic responses and credentials; no network or AWS access.',
+            'The SDK already buffered the body; this is not a transport memory bound.',
+            'This does not assess other XML consumers or close an advisory.']}
+
+
 def elf_imports(path):
     with path.open('rb') as stream:
         if stream.read(4)!=b'\x7fELF': return None
@@ -208,8 +308,8 @@ def collect():
         if not modules or 'zipfile' in modules: raise ValueError('unexpected SQLite modules')
         db.execute('CREATE TABLE t(x)');db.execute('INSERT INTO t VALUES (?)',('ok',))
         if db.execute('SELECT x FROM t').fetchone()!=('ok',): raise ValueError('ordinary SQL failed')
-    # Verify the locked AWS runtime clients use JSON protocols. Archive S3/STS
-    # tools are host-side operator code and are not included in these images.
+    # Inventory the configured JSON consumers. The shipped STS process has a
+    # separate Query/XML transport probe; this is no claim that XML is absent.
     aws={}
     if importlib.util.find_spec('botocore'):
         from botocore.session import Session
@@ -217,7 +317,9 @@ def collect():
             model=Session().get_service_model(name);aws[name]=model.metadata['protocol']
         if set(aws.values())-{'json','rest-json'}: raise ValueError('new AWS XML protocol')
     sys.path.insert(0,'/app/verification')
+    sts=check_sts_transport();aws['sts']=sts['protocol']
     guards=check_network_transport()+check_sqlite_snapshot_boundary()
+    guards.extend(sts['checks'])
     import locale
     if (os.environ.get('LC_ALL')!='C.UTF-8' or os.environ.get('LANGUAGE')!=''
             or locale.setlocale(locale.LC_MESSAGES) not in ('C','C.UTF-8')):
@@ -263,14 +365,18 @@ def collect():
     return {'format':1,'python':platform.python_version(),'architecture':platform.machine(),
         'policySHA256':hashlib.sha256((ROOT/'runtime-policy.json').read_bytes()).hexdigest(),
         'removedPackages':sorted(removal['packages']),'removedPathCount':len(paths),
-        'elfFiles':visited,'sensitiveImports':imports,'nativeFileSHA256':native_hashes,'awsProtocols':aws,'strictDecoderCalls':decoder_count,
+        'elfFiles':visited,'sensitiveImports':imports,'nativeFileSHA256':native_hashes,'awsProtocols':aws,'awsStsTransport':sts,'strictDecoderCalls':decoder_count,
         'alignedNewProbe':subprocess.run(['/checks/aligned-new'],timeout=10).returncode==0,
         'checks':['removed_payload','mail_modules_absent','gconv_absent','no_setid_or_filecaps',
             'strict_base64','temporary_directory_safe','resolver_search_disabled','fopen_mode_validated',
-            'sqlite_extension_disabled','python_xml_not_exposed','reviewed_source_apis','amd64']+guards,
+            'sqlite_extension_disabled','python_xml_single_document','reviewed_source_apis','amd64']+guards,
         'limits':['Static imports are supporting evidence, not proof of whole-program reachability.',
             'Public protocol input, trusted dependency code and service configuration are reviewed separately in the version-bound policy.']}
 
 
-if __name__=='__main__':
+def main():
     print(json.dumps(collect(),indent=2,sort_keys=True))
+
+
+if __name__=='__main__':
+    main()

@@ -18,6 +18,30 @@ from serve import private_file
 TARGETS = {'continuity': (10007, 20004), 'notices': (10004, 20003)}
 ROLE = r'arn:aws:iam::([0-9]{12}):role/([A-Za-z0-9+=,.@_-]{1,64})'
 HEALTH = Path('/tmp/tjipp-credential-health.json')
+STS_XML_LIMIT = 64 * 1024
+
+
+class STSResponseError(ValueError):
+    """STS bytes were rejected before the SDK's XML parser."""
+
+
+def check_sts_response(response_dict, **kwargs):
+    # The SDK has already buffered this body. This bounds XML parsing, not
+    # transport buffering, decompression or the remote service's response size.
+    body = response_dict.get('body')
+    if type(body) is not bytes or not 0 < len(body) <= STS_XML_LIMIT:
+        raise STSResponseError('STS XML response rejected before parsing')
+    try:
+        text = body.decode('utf-8-sig')
+    except UnicodeDecodeError:
+        raise STSResponseError('STS XML response rejected before parsing') from None
+    if '\0' in text or re.search(r'<!\s*(?:DOCTYPE|ENTITY)\b', text, re.IGNORECASE):
+        raise STSResponseError('STS XML response rejected before parsing')
+    declaration = re.match(r'\s*<\?xml\b([^?]*)\?>', text)
+    if declaration:
+        encoding = re.search(r'''\bencoding\s*=\s*(['"])(.*?)\1''', declaration.group(1))
+        if encoding and encoding.group(2).lower() not in {'utf-8', 'utf8', 'us-ascii', 'ascii'}:
+            raise STSResponseError('STS XML response rejected before parsing')
 
 
 def configuration(path):
@@ -104,9 +128,13 @@ def metadata_client():
     resolver.providers = [provider for provider in resolver.providers if provider.METHOD == 'iam-role']
     if len(resolver.providers) != 1:
         raise ValueError('instance role provider required')
-    return boto3.Session(botocore_session=session).client('sts', region_name='eu-north-1',
+    client = boto3.Session(botocore_session=session).client('sts', region_name='eu-north-1',
         endpoint_url='https://sts.eu-north-1.amazonaws.com',
         config=Config(connect_timeout=2, read_timeout=3, retries={'total_max_attempts': 1}, proxies={}))
+    # The locked SDK emits this event for successes and errors before either
+    # parsing pass. A raised exception is required; return values are ignored.
+    client.meta.events.register_first('before-parse.sts', check_sts_response)
+    return client
 
 
 def main():

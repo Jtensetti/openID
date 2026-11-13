@@ -201,8 +201,29 @@ betrodda checkouten. Bedömningar är inte oberoende attestation eller riskaccep
 
 STS-förnyaren ingår i appimages och använder den låsta SDK:ns Query/XML-protokoll.
 Den tidigare undantagsbedömningen för CVE-2026-115506 är därför tillbakadragen.
-Före förnyad källbindning behöver STS-svarens dataväg och berörda XML-/transportvillkor
-omprövas. Den befintliga kontrollen av tre JSON-klienter täcker inte denna process.
+`metadata_client()` registrerar en kontroll på `before-parse.sts` för både
+lyckade svar och API-fel, innan SDK:ns XML-parser skapas. Den kräver UTF-8,
+nekar DTD/entitetsdeklarationer, nulltecken och annan deklarerad kodning samt
+nekar parserindata över 64 KiB. SDK:n har redan buffrat kroppen vid denna
+punkt; gränsen begränsar parsningen, inte hämtningens minnesåtgång.
+
+`runtime_evidence.check_sts_transport()` provar samma klient och låsta SDK
+med syntetiska wire-svar. Vanlig GetCallerIdentity, AssumeRole och API-fel
+ska nå den riktiga parsern; förbjudna kroppar ska avvisas innan parsern
+skapas. Nätanslutningar nekas och endast genererade metadata-credentials
+används. Pilotens SDK-prov kör också denna kontroll från den färdiga imagen.
+För lokala prov i en utvecklingsmiljö med SDK-låset installerat:
+
+```sh
+PYTHONPATH=verification:deployment/build python3 -m unittest -v test_aws_credentials
+```
+
+Tre JSON-klienter är inte längre underlag för påståendet att XML saknas.
+Den gamla markören `python_xml_not_exposed` lämnas inte som godkänt bevis.
+Övriga XML-konsumenter, inklusive SPAR, måste bedömas separat. Den befintliga
+AST-gränsen för XML-importer behålls och kan fortsatt stoppa hela provet.
+STS-provet ändrar inte source-hash, advisorybeslut eller tidsgränser i
+runtimepolicyn och stänger inte hela leveransgrinden.
 
 Skanner och upstream-SBOM verifieras mot [trivy.lock.json](trivy.lock.json).
 Databasen och komponentfeedens index/arkiv får vara högst 24 timmar gamla.
