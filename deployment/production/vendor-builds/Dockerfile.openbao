@@ -20,7 +20,7 @@ USER root
 # retaining an honest installed-package database for the later full scan.
 # Avoid embedding apk's wall-clock transaction log in the immutable image.
 # The package database and CI's command output remain available for auditing.
-RUN --network=none apk --logfile=false del --no-network apk-tools libapk zlib && test ! -e /lib/libz.so.1
+RUN --network=none apk --logfile=no del --no-network apk-tools libapk zlib && test ! -e /lib/libz.so.1
 COPY --from=build /out/bao /usr/bin/bao
 COPY --from=build /out/notices /usr/share/doc/tjipp-openbao
 USER 10008:20008

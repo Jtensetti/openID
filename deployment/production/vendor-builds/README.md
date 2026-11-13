@@ -43,7 +43,7 @@ kodändringar. Den licensfilen bevaras separat med källa och SHA-256 i
 
 OpenBao-bilden tar bort de oanvända APK-verktygen och deras zlib-beroende
 genom pakethanteraren. Paketregistret bevaras. APK:s byggtransaktionslogg
-stängs av med dess dokumenterade `--logfile=false`; annars bäddas byggögonblicket
+stängs av med dess dokumenterade `--logfile=no`; annars bäddas byggögonblicket
 in i filinnehållet även när lagertiderna normaliseras. CI behåller kommandots
 utdata och granskar det verkliga paketregistret. Detta påverkar inte OpenBaos
 maskade revisionslogg i drift. Efter bygget sparas faktisk
