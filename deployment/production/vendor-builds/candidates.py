@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT/'deployment/production'))
 from audit_vendors import scanner
 from contract import VENDORS
 from delivery_inventory import PROBE, VERSIONS, parse_inventory
+from vendor_builder import BUILDER_IMAGE, export_image
 
 
 def run(args, **kw):
@@ -24,7 +25,8 @@ def main(output):
     output.mkdir(parents=True, exist_ok=False)
     context = Path(__file__).resolve().parent
     report = {'schema': 'tjipp-vendor-candidates-v1', 'productionApproved': False,
-              'sourceRevision': run(['git','rev-parse','HEAD'], cwd=ROOT), 'images': {}}
+              'sourceRevision': run(['git','rev-parse','HEAD'], cwd=ROOT),
+              'builderImage': BUILDER_IMAGE, 'images': {}}
     lock = json.loads(scanner.LOCK.read_text())
     (output/'scanner-lock.json').write_bytes(scanner.LOCK.read_bytes())
     with tempfile.TemporaryDirectory(prefix='vendor-candidates-') as work:
@@ -44,10 +46,7 @@ def main(output):
             if run(['docker','image','inspect',base['source'],'--format','{{.Id}}']) != base.get('baseID', base['id']):
                 raise ValueError('upstream vendor image changed')
             tag = 'tjipp-'+role+':candidate'
-            subprocess.run(['docker','build','--platform','linux/amd64',
-                '--build-arg','SOURCE_DATE_EPOCH=1794484800','--provenance=false',
-                '--output','type=image,rewrite-timestamp=true',
-                '--file',str(context/('Dockerfile.'+role)),'--tag',tag,str(context)],check=True)
+            export_image(context, 'Dockerfile.'+role, tag, '1794484800')
             info = json.loads(run(['docker','image','inspect',tag]))[0]
             scanner.save(directory/'image-inspect.json',info)
             image = info['Id']
@@ -77,6 +76,12 @@ def main(output):
                 'findingCount':sum(len(r.get('Vulnerabilities',[])) for r in scan['Results']),
                 'languageTargets':[r['Target'] for r in scan['Results'] if r['Class']=='lang-pkgs'],
                 'recipeSHA256':scanner.digest(context/('Dockerfile.'+role))}
+            if role == 'postgres':
+                export_image(context, 'Dockerfile.'+role, tag, '1794484800')
+                rebuilt = run(['docker','image','inspect',tag,'--format','{{.Id}}'])
+                if rebuilt != image:
+                    raise ValueError('fresh-builder PostgreSQL reproduction differs')
+                report['images'][role]['freshBuilderReproduced'] = True
             scanner.save(output/'candidates.json',report)
     print(json.dumps(report,indent=2))
     return 0 if all(r['findingCount']==0 for r in report['images'].values()) else 1

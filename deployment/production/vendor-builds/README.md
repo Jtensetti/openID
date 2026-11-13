@@ -28,8 +28,12 @@ originallicensen finns i `OPENBAO-LICENSE`. Build-steget samlar även
 beroendenas LICENSE/NOTICE-filer, Go-licensen, modullista och de ändrade
 källfilerna i `/usr/share/doc/tjipp-openbao`. go-jose är Apache-2.0, CAP
 MPL-2.0 och Go/x-moduler BSD-3-Clause. Go:s modulsummor verifieras innan
-kompilering. Exporteraren normaliserar även lagrens filtidsstämplar till det fasta
-SOURCE_DATE_EPOCH-värdet. Enbart bildens skapandetid räcker inte;
+kompilering. `vendor_builder.py` använder en separat `docker-container`-byggare
+med digestlåst BuildKit 0.33.1 och exporterar ett Docker-arkiv med
+`rewrite-timestamp=true`. Docker Engines vanliga Moby-export får inte användas
+för detta. Arkivet läses sedan in i Docker; lagrens filtidsstämplar normaliseras
+till det fasta SOURCE_DATE_EPOCH-värdet. Kandidatprovet bygger PostgreSQL på nytt
+i en andra, tom byggare och kräver samma bild-ID. Enbart bildens skapandetid räcker inte;
 en separat ombyggnad måste visa detta innan ett ID låses.
 
 Reedsolomon 1.0.0 saknar licensfil i Go-arkivet. Upstreams enda efterföljande
@@ -48,3 +52,11 @@ Den kanoniska profilen väljer uttryckligen bilder genom det överordnade
 bygger utan driftuppgifter och nekar ett annat utbilds-ID. Det kompletta
 runtimeprovet och separata, färska paketbedömningar måste därefter passera.
 Driftimporten använder det exporterade paketet och bygger ingenting.
+
+BuildKit är ett byggverktyg enbart i isolerad CI, utan driftuppgifter.
+Det körs inte på driftvärden eller i levererade tjänster. Version 0.33.1
+([officiell release](https://github.com/moby/buildkit/releases/tag/v0.33.1))
+och dess linux/amd64-manifest låses i `vendor_builder.py` och bildlåset.
+Verktyget är Apache-2.0; dess licenser stannar i den officiella verktygsbilden.
+Se [Docker-exporten](https://docs.docker.com/build/exporters/oci-docker/)
+och [containerdrivrutinen](https://docs.docker.com/build/builders/drivers/docker-container/).

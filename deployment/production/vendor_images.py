@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 
 from contract import VENDORS
+from vendor_builder import BUILDER_IMAGE, export_image
 
 ROOT = Path(__file__).resolve().parent
 CONTEXT = ROOT / 'vendor-builds'
@@ -20,10 +21,11 @@ def require(value, message):
 def check_inputs(role, vendor=None, context=CONTEXT):
     vendor = VENDORS[role] if vendor is None else vendor
     build = vendor.get('build')
-    require(isinstance(build, dict) and set(build) == {'recipe', 'epoch', 'inputs'},
+    require(isinstance(build, dict) and set(build) == {'recipe', 'epoch', 'inputs', 'builderImage'},
             'complete derived-image build lock required')
     require(build['recipe'] == 'Dockerfile.' + role and build['epoch'] == EPOCH,
             'derived-image recipe or timestamp changed')
+    require(build['builderImage'] == BUILDER_IMAGE, 'derived-image builder changed')
     inputs = build['inputs']
     expected = {'Dockerfile.postgres'} if role == 'postgres' else {
         'Dockerfile.openbao', 'openbao.go.mod', 'openbao.go.sum', 'openbao.login_mfa.go',
@@ -46,10 +48,7 @@ def build(role):
     require(base['Id'] == vendor['baseID'] and base['Os'] == 'linux' and base['Architecture'] == 'amd64',
             'derived-image base identity changed')
     tag = 'tjipp-' + role + ':locked-build'
-    subprocess.run(['docker', 'build', '--platform', 'linux/amd64', '--build-arg',
-                    'SOURCE_DATE_EPOCH=' + recipe['epoch'], '--provenance=false',
-                    '--output', 'type=image,rewrite-timestamp=true', '--file',
-                    str(CONTEXT / recipe['recipe']), '--tag', tag, str(CONTEXT)], check=True)
+    export_image(CONTEXT, recipe['recipe'], tag, recipe['epoch'])
     info = json.loads(subprocess.check_output(['docker', 'image', 'inspect', tag]))[0]
     require(info['Id'] == vendor['id'] and info['Os'] == 'linux' and info['Architecture'] == 'amd64',
             'derived-image rebuild differs from the locked candidate')

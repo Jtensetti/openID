@@ -18,7 +18,8 @@
       "epoch": "1794484800",
       "inputs": {
         "Dockerfile.postgres": "bae4293a0ec86c83e5d014552e96271630253b2ff78a6ba9d0d38a802488c8d5"
-      }
+      },
+      "builderImage": "moby/buildkit:v0.33.1@sha256:98cc6a3fc46220d00f8224ae483f3274fc874e9be8d7dd1e2e2c5481209228b5"
     }
   },
   "openbao": {
@@ -56,7 +57,8 @@
         "collect_licenses.py": "d635520803cbe077fed4be2f29d6e70f9102869bf1fd9787cf14c8195683c4eb",
         "supplemental-licenses/lock.json": "f2dd443784914e37097be83302b59afa56696c686582719447c87b121c7c9006",
         "supplemental-licenses/reedsolomon-MIT": "58fb0c85bfc183bad46c47dd38ac17e3372d86c1fcb65bce880fa1d964424f69"
-      }
+      },
+      "builderImage": "moby/buildkit:v0.33.1@sha256:98cc6a3fc46220d00f8224ae483f3274fc874e9be8d7dd1e2e2c5481209228b5"
     }
   }
 }

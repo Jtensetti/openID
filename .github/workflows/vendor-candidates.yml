@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - deployment/production/vendor-builds/**
+      - deployment/production/vendor_builder.py
       - .github/workflows/vendor-candidates.yml
   workflow_dispatch:
 permissions:
