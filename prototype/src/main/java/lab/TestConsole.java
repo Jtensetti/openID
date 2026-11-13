@@ -109,7 +109,7 @@ final class TestConsole {
   /** Pinned IdP signing certificate, the same anchor as the SP's metadata. */
   private final X509Certificate idpCertificate;
 
-  TestConsole(TestKeys keys, String base, String idpBase, EntityDescriptor idpMetadata, MetadataResolver resolver,
+  TestConsole(ServiceKeys keys, String base, String idpBase, EntityDescriptor idpMetadata, MetadataResolver resolver,
       LabResponseProcessor processor, PhoneBridge phone) throws Exception {
     this.base = base; this.idpBase = idpBase; this.idpMetadata = idpMetadata; this.resolver = resolver;
     this.processor = processor; this.phone = phone;
@@ -120,7 +120,7 @@ final class TestConsole {
     signer = new PadesSigner(Clock.systemUTC());
     idpCertificate = keys.certificate("idp");
   }
-  private AbstractAuthnRequestGenerator generator(String entity, EntityDescriptor metadata, TestKeys keys) throws Exception {
+  private AbstractAuthnRequestGenerator generator(String entity, EntityDescriptor metadata, ServiceKeys keys) throws Exception {
     var generator = new AbstractAuthnRequestGenerator(entity, new OpenSamlCredential(keys.credential("sp"))) {
       @Override protected EntityDescriptor getSpMetadata() { return metadata; }
       @Override protected EntityDescriptor getIdpMetadata(String id) { return idpMetadata.getEntityID().equals(id) ? idpMetadata : null; }

@@ -27,14 +27,22 @@ final class PilotOidcClient {
   private final Map<String,Pending> pending=new HashMap<>();
   private final Map<String,Session> sessions=new HashMap<>();
   private final String issuer, base, client;
-  private final TestKeys keys;
+  private final ServiceKeys keys;
   private final PhoneBridge bridge;
   private final IDTokenValidator validator;
-  PilotOidcClient(TestKeys keys, String issuer, String base, PhoneBridge bridge) throws Exception {
+  PilotOidcClient(ServiceKeys keys, String issuer, String base, PhoneBridge bridge) throws Exception {
     this.keys=keys;this.issuer=issuer;this.base=base;this.client=base+"/sp";this.bridge=bridge;
     validator=new IDTokenValidator(new Issuer(issuer),new ClientID(client),JWSAlgorithm.RS256,
-        new com.nimbusds.jose.jwk.JWKSet(se.swedenconnect.spring.authnserver.oidc.keys.SigningKey.activeDefault(keys.credential("idp")).getPublicJwk()));
+        new com.nimbusds.jose.jwk.JWKSet(publicIssuerKey(keys)));
     validator.setMaxClockSkew(0);
+  }
+  // Matches credentials-support-nimbus 2.2.1's RFC 7638 public-key kid.
+  // A recipient needs the pinned public certificate, never the issuer private key.
+  static com.nimbusds.jose.jwk.RSAKey publicIssuerKey(ServiceKeys keys) throws Exception {
+    var key = new com.nimbusds.jose.jwk.RSAKey.Builder(
+        (java.security.interfaces.RSAPublicKey) keys.certificate("idp").getPublicKey()).build();
+    return new com.nimbusds.jose.jwk.RSAKey.Builder(key)
+        .keyID(key.computeThumbprint().toString()).keyUse(com.nimbusds.jose.jwk.KeyUse.SIGNATURE).build();
   }
   boolean handle(HttpExchange x) throws Exception {
     String path=x.getRequestURI().getPath();

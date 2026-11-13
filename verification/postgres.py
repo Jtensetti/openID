@@ -53,9 +53,11 @@ def connection_options(dsn, local_test=False):
 
 class PostgresWallet(Wallet):
 
-    def __init__(self, dsn, origin, vault, crypto=device_crypto, *, local_test=False, pool_size=8):
+    def __init__(self, dsn, origin, vault, crypto=device_crypto, *, local_test=False, pool_size=8, revocation=None):
         if type(pool_size) is not int or not 1 <= pool_size <= 16: raise ValueError('pool size')
         self.origin, self.vault, self.crypto = origin, vault, crypto
+        self.revocation, self.notifications = revocation, True
+        self.test_beta = self.test_beta_deadline = False
         self.clock_context = threading.local()
         self.clock = self.database_clock
         self.lock = nullcontext()
@@ -95,9 +97,25 @@ class PostgresWallet(Wallet):
 
     def health(self):
         with self.transaction() as db:
-            if db.execute('SELECT version FROM schema_version').fetchone()[0] != 7:
+            if db.execute('SELECT version FROM schema_version').fetchone()[0] != 10:
                 raise RegistryUnavailable('schema unavailable')
+            if self.revocation is not None:
+                pin = db.execute('SELECT authority FROM continuity_config WHERE id=1').fetchone()
+                if pin is None or not pin[0] or pin[0] != getattr(self.revocation, 'reference', None):
+                    raise RegistryUnavailable('continuity authority mismatch')
         self.vault.key()
+
+    def state(self, row):
+        # Enrollment/isolated recovery may open without a controller. Such a
+        # connection must never authenticate a locally ACTIVE credential.
+        if row['state'] == 'ACTIVE' and self.revocation is None:
+            raise RegistryUnavailable('independent revocation required')
+        return super().state(row)
+
+    def _revoke(self, db, ident):
+        if self.revocation is None:
+            raise RegistryUnavailable('independent revocation required')
+        return super()._revoke(db, ident)
 
     def biometric_attempt(self, document):
         if not isinstance(document, VerifiedDocument): raise ValueError('verified document required')
@@ -115,6 +133,17 @@ class PostgresWallet(Wallet):
         row = db.execute('SELECT * FROM credentials WHERE id=? FOR UPDATE', (identifier(ident),)).fetchone()
         if row is None: raise ValueError('credential unavailable')
         return row
+
+    def contact_registration(self, db, ident):
+        row = db.execute('SELECT * FROM credentials WHERE id=?', (identifier(ident),)).fetchone()
+        if row is None: raise ValueError('credential unavailable')
+        return row
+
+    def stage_contact(self, db, ident, sealed, version, evidence):
+        db.execute('SELECT stage_revocation_contact(?,?,?,?)', (ident, sealed, version, evidence))
+
+    def bind_contact(self, db, ident, version, evidence):
+        db.execute('SELECT bind_revocation_contact(?,?,?)', (ident, version, evidence))
 
     def activate(self, *args, **kwargs):
         raise ValueError('activation requires two separate operator accounts')

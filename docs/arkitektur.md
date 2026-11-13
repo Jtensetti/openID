@@ -1,8 +1,11 @@
 # Arkitektur
 
-Appflödet består av en iPhone-klient, en verifieringsserver med SQLite-register
-och separata Java-processer för SAML/OIDC. Den publika betan använder dessutom
-en oberoende spärrtjänst och aviseringskö. Se [avisering och spärr](avisering-och-sparr.md). Det finns också två äldre testlägen.
+Appflödet består av en iPhone-klient, ett separat insamlings- och
+autentiserings-API samt Java-processer för SAML/OIDC. Kandidaten för samlad
+drift använder PostgreSQL, OpenBao Transit, en separat kontrollprocess mot
+fristående spärrtjänst och avisering med avgränsade AWS-sessioner.
+Se [driftprofilen](../deployment/production/README.md) och
+[avisering och spärr](avisering-och-sparr.md). Äldre labblägen är separata.
 
 ## Komponenter
 
@@ -11,7 +14,7 @@ en oberoende spärrtjänst och aviseringskö. Se [avisering och spärr](aviserin
 | iPhone | `ios/PassportCapture/` | Läser passets chip, tar kamerabilder, skapar en enhetsnyckel och signerar användarens godkännande. |
 | Verifierare | `verification/server.py`, `native.py`, `face.py`, `pad.py` | Kontrollerar App Attest, passunderlag och bilder. |
 | Passkontroll | `prototype/src/main/java/lab/proofing/` | Bouncy Castle CMS, JCA PKIX och JMRTD för signaturkedja, datagruppshashar, MRZ och porträtt. Anropas via privat stdin/stdout. |
-| Register | `verification/wallet.py`, `identity.py`, `profile-crypto.mjs` | Binder passprofil till publik nyckel, hanterar aktivering, godkännanden, utgång och spärr. |
+| Register | `verification/postgres.py`, `wallet.py`, `identity.py`, `transit.py` | Binder passprofil till publik nyckel, hanterar aktivering, godkännanden, utgång och spärr. SQLite-/rånyckelläget finns kvar för avgränsade äldre kommandon. |
 | Lokal brygga | `verification/federation.py`, `lab/phone/PhoneBridge.java` | Avgränsat JSON-protokoll över Unix-socket mellan registret och SAML-processerna. |
 | IdP | `lab/idp/PhoneProvider.java`, `PhoneController.java` | Sweden Connect-provider som inväntar appens godkännande och utfärdar SAML-svaret. |
 | Kontotjänst/SP | `lab/RelyingParty.java`, `lab/phone/PhoneIdentity.java` | Validerar SAML-svar, skapar webbsession och kontrollerar aktuell spärr vid skyddad läsning. |
@@ -31,6 +34,15 @@ resursbegränsade processer med Landlock/seccomp på Linux. Se [bildarbetare](bi
 Databasens transaktioner avgör samtidiga godkännanden och spärrar. Ett fillås
 hindrar flera runtime-processer på samma databas. Detta är en ensam nod,
 inte en distribuerad tjänst. [Start och drift](../deployment/README.md).
+
+`runtime-idp` och `runtime-sp` läser rollspecifika credentialkataloger utan
+labbinitiering eller genererad reservnyckel. IdP:n behåller signerings- och
+krypteringsnycklar; SP:n får endast deras publika certifikat. IdP:ns metadata
+har en separat skrivbar katalog. Samma skrivskyddade `federation.json` styr
+IdP och registerbrygga: privat profil eller Sweden Connects fasta
+SAML-sandboxfeed med versionsbundet signeringsankare och tre tillåtna
+externa mottagare. Övriga externa requester-ID:n avvisas före appgodkännande.
+Profilerna ger ingen LoA och ändrar inte registreringsbeslut.
 
 Betans nginx ersätter `X-OpenID-Client-IP` med anslutningens adress. Endast
 en explicit betrodd loopbackproxy får förmedla den till trafikbegränsningen;
@@ -102,7 +114,9 @@ Spärr, ersatt nyckel eller registeravbrott nekar fortsatt åtkomst.
 
 Tjänsten får namn, MRZ-födelsedatum, förminskat passfoto, tjänstesubjekt,
 credentialreferens och profilversion. MRZ:s tvåsiffriga årtal används utan
-härledning av sekel, ålder eller svenskt personnummer.
+härledning av sekel, ålder eller svenskt personnummer. Dessa attribut avser
+den egna kontotjänsten. Sandboxens externa testklienter får en separat
+begränsad attributuppsättning enligt [driftprofilen](../deployment/production/README.md#federation).
 
 ## Livscykel och lagring
 
@@ -141,26 +155,34 @@ stöds inte, eftersom en äldre kopia kan sakna senare spärrar.
 
 ## PostgreSQL och OpenBao
 
-Det separata körläget `cluster_serve.py` delar register, spärrstatus och
+Driftprofilens explicita kommando `cluster_serve.py` delar register, spärrstatus och
 engångsutmaningar i PostgreSQL. Utmaningen konsumeras i en egen transaktion
 före signaturkontroll. Villkorade uppdateringar hindrar dubbel konsumtion;
 nyckelrader låses vid beslut. Giltighet använder databasens tid i transaktionen.
 
 OpenBao Transit krypterar profiler med person- och enhetsbunden kontext.
 Registreringskontot kan kryptera, autentiseringskontot dekryptera och
-underhållskontot omkryptera. Två olika databaslogins krävs för aktivering.
+underhållskontot omkryptera. Två olika databaslogins krävs för ett kortlivat aktiveringsintent. En separat
+controller kontrollerar aktuell fristående spärr, spärrar ersatta nycklar
+utan databaslås och slutför aktivering och aviseringspost atomiskt.
+PostgreSQL-autentisering saknar reservväg till enbart lokal ACTIVE-status.
 Detta ändrar inte SQLite-lägets lokala administratörsrättigheter.
 
-[Driftinstruktionen](../deployment/cluster/README.md) beskriver roller,
+[Registerinstruktionen](../deployment/cluster/README.md) beskriver roller,
 nyckelflöde, rotation, gallring och återställningsvillkor. Registreringens
 NFC-session har fortsatt en enda process. Klusterläget har separat register;
 SQLite-data flyttas inte automatiskt. `cluster_bridge.py` ansluter det
 befintliga lokala SAML-socketprotokollet till PostgreSQL-registret.
+Den [samlade profilen](../deployment/production/README.md) kopplar dessa
+kommandon, konton, nyckeltjänst, nginx och AWS-sessioner i en komposition.
+Den är under verifiering; källkod och CI är inte en införd produktionsdrift.
 
 `cluster_recovery.py` tar en konsekvent registerbackup via PostgreSQL COPY.
 Återställning skapar en ny databas med betrodd schemakod, spärrar gamla
 nycklar och kontrollerar profilernas dekryptering innan data får sparas.
-Databasen lämnas stängd utan anslutningsrätt för applikationen. Backupen
+Den lokala karantänen anropar inte den aktiva spärrtjänsten; ett faktiskt
+återgångsbeslut kräver separat operativ kontroll. Databasen lämnas stängd
+utan anslutningsrätt för applikationen. Backupen
 omfattar inte OpenBao, databaslogins eller infrastrukturkonfiguration.
 
 ## Förtroendegränser

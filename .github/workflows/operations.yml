@@ -12,6 +12,8 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
+      - name: Check the complete runtime configuration and rejected boundary changes
+        run: python3 -m unittest discover -s deployment/production -p 'test_*.py' -v
       - name: Build the digest-pinned image
         run: docker build --platform linux/amd64 --tag openid-sealed:ci ops
       - name: Run with no network, read-only filesystem and no Linux capabilities

@@ -2,6 +2,7 @@
 import base64
 from dataclasses import replace
 from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 import hashlib
 import importlib.util
 import http.client
@@ -17,7 +18,7 @@ import unittest
 import urllib.request
 
 from test_wallet import crypt
-from test_identity import document
+from test_identity import document, TEST_PERSON_NUMBER
 
 DSN = os.environ.get('OPENID_TEST_POSTGRES')
 
@@ -57,10 +58,10 @@ class ClusterTests(unittest.TestCase):
         cls.bao_request('transit/keys/openid-profile/config', {'auto_rotate_period':'720h'})
         cls.bao_request('transit/keys/openid-index', {'type':'hmac', 'key_size':32, 'exportable':False})
         cls.token_files = {}
-        for role in ('enroller','wallet','maintenance'):
+        for role in ('enroller','wallet','registry','contact','maintenance'):
             policy=(Path(__file__).parents[1]/'deployment/cluster'/(role+'.hcl')).read_text()
             cls.bao_request('sys/policies/acl/'+role, {'policy':policy})
-            response=cls.bao_request('auth/token/create', {'policies':[role], 'no_default_policy':True, 'ttl':'1h'})
+            response=cls.bao_request('auth/token/create', {'policies':[role], 'no_default_policy':True, 'no_parent':True, 'period':'1h'})
             path=cls.root/(role+'.token'); path.write_text(response['auth']['client_token']); path.chmod(0o600)
             cls.token_files[role]=path
         cls.dsns={}
@@ -68,8 +69,9 @@ class ClusterTests(unittest.TestCase):
             db.execute((Path(__file__).parents[1]/'deployment/cluster/schema.sql').read_text(), prepare=False)
             db.execute((Path(__file__).parents[1]/'deployment/cluster/archive-access.sql').read_text(), prepare=False)
             for user, roles in {'enroller':['enroller'], 'wallet':['wallet'], 'alice':['requester'],
-                'bob':['approver'], 'carol':['requester','approver'], 'revoker':['revoker'],
-                'maintenance':['maintenance'], 'auditor':['auditor'], 'backup':['backup']}.items():
+                'bob':['approver'], 'registry':['registry'], 'carol':['requester','approver'], 'revoker':['revoker'],
+                'maintenance':['maintenance'], 'auditor':['auditor'], 'backup':['backup'],
+                'contact':['contact'], 'continuity':['continuity']}.items():
                 password=secrets.token_urlsafe(32)
                 from psycopg import sql
                 db.execute(sql.SQL('CREATE ROLE {} LOGIN PASSWORD {}').format(sql.Identifier('test_'+user),sql.Literal(password)))
@@ -95,27 +97,336 @@ class ClusterTests(unittest.TestCase):
 
     def setUp(self):
         with self.psycopg.connect(DSN, autocommit=True) as db:
-            db.execute('TRUNCATE openid.erasure_runs,openid.credentials,openid.persons,openid.operator_events,openid.maintenance_runs,openid.biometric_attempts,openid.enrollment_quarantine,openid.enrollment_policies,openid.consent_retention_runs RESTART IDENTITY CASCADE')
+            db.execute('TRUNCATE openid.external_revocations,openid.continuity_config,openid.erasure_runs,openid.credentials,openid.persons,openid.operator_events,openid.maintenance_runs,openid.biometric_attempts,openid.enrollment_quarantine,openid.enrollment_policies,openid.consent_retention_runs RESTART IDENTITY CASCADE')
+            from test_continuity_support import REFERENCE, SyntheticContinuity
+            db.execute('INSERT INTO openid.continuity_config VALUES(1,%s)', (REFERENCE,))
+        from postgres_continuity import PostgresContinuity
+        self.synthetic=SyntheticContinuity()
+        self.controller=PostgresContinuity(self.dsns['continuity'],self.synthetic.authority,local_test=True)
+        self.addCleanup(self.controller.close)
         self.enroller=self.store('enroller')
         self.a=self.store('wallet'); self.b=self.store('wallet')
+        self.registry_store=self.store('registry')
         self.ident=self.enroller.enroll(self.keys[0]['publicKey'], document())['id']
 
     def store(self, role, origin='https://localhost:8765'):
         from postgres import PostgresWallet
         from transit import TransitVault
-        store=PostgresWallet(self.dsns[role],origin,TransitVault(self.address,self.token_files[role],local_test=True),local_test=True)
+        store=PostgresWallet(self.dsns[role],origin,TransitVault(self.address,self.token_files[role],local_test=True),local_test=True,revocation=self.controller)
         self.addCleanup(store.close)
         return store
 
-    def sql(self, role, query, args=()):
+    def raw_sql(self, role, query, args=()):
         with self.psycopg.connect(self.dsns[role], options='-c search_path=openid,pg_catalog') as db:
             result=db.execute(query,args)
             return result.fetchall() if result.description else None
 
+    def sql(self, role, query, args=()):
+        # Existing behavioral fixtures use the full controller chain. Direct
+        # capability-denial tests use raw_sql or their own operator connection.
+        if role=='revoker' and query=='SELECT revoke_credential(%s)':
+            self.controller.revoke(args[0])
+        result=self.raw_sql(role,query,args)
+        if query=='SELECT approve_activation(%s)':
+            self.controller.complete(result[0][0])
+        return result
+
+    def contact(self, credential, wallet=None):
+        from continuity_operator import prepare
+        from postgres import PostgresWallet
+        from psycopg.conninfo import conninfo_to_dict,make_conninfo
+        wallet=wallet or self.registry_store
+        with wallet.transaction() as db: database=db.execute('SELECT current_database()').fetchone()[0]
+        dsn=make_conninfo(**(conninfo_to_dict(self.dsns['contact'])|{'dbname':database}))
+        # The general fixture borrows the supplied cryptographic capability.
+        # A dedicated test below also exercises the separate contact token.
+        contact=PostgresWallet(dsn,wallet.origin,wallet.vault,local_test=True,revocation=self.controller)
+        try:
+            return prepare(contact,credential,'synthetic@example.invalid','SYNTHETIC_CONTACT_REVIEW',
+                           self.synthetic,'ledger','contacts')
+        finally:contact.close()
+
+    def registry_binding(self, ident=None, *, wallet=None, transform=None):
+        from registry_binding import RegistryBindings, RegistryResult
+        wallet = wallet or self.registry_store
+        self.contact(ident or self.ident,wallet)
+        def lookup(query):
+            now = int(wallet.clock())
+            result = RegistryResult(query.nonce, query.credential, query.profile_version,
+                query.document_reference, 'PROOF-'+query.nonce, now, now+3600,
+                'MATCH', False, 'personnummer', TEST_PERSON_NUMBER)
+            return transform(result) if transform else result
+        binding = RegistryBindings(wallet, source='fixture-registry', lookup=lookup, allow_synthetic=True)
+        binding.bind(ident or self.ident)
+        return binding
+
     def activate(self, ident=None):
+        self.registry_binding(ident)
         proposal=self.sql('alice','SELECT request_activation(%s,%s,%s)',(ident or self.ident,'REVIEW-test-001',24))[0][0]
         self.sql('bob','SELECT approve_activation(%s)',(proposal,))
         return proposal
+
+    def legacy_backup(self, db):
+        from cluster_recovery import LEGACY_SCHEMA, LEGACY_TABLES
+        fixture=(Path(__file__).parent/'fixtures/schema-v7.sql').read_bytes()
+        self.assertEqual(LEGACY_SCHEMA,hashlib.sha256(fixture).hexdigest())
+        self.assertEqual([(7,)],db.execute('SELECT version FROM openid.schema_version').fetchall())
+        destination=self.root/('schema7-backup-'+secrets.token_hex(8));destination.mkdir(mode=0o700)
+        manifest={'format':1,'schema':LEGACY_SCHEMA,'postgresMajor':18,'tables':{}}
+        for table in LEGACY_TABLES:
+            with db.cursor() as cursor:
+                with cursor.copy('COPY openid.'+table+' TO STDOUT (FORMAT BINARY)') as copy:
+                    raw=b''.join(copy)
+                rows=cursor.rowcount
+            path=destination/(table+'.copy');path.write_bytes(raw);path.chmod(0o600)
+            manifest['tables'][table]={'rows':rows,'bytes':len(raw),'sha256':hashlib.sha256(raw).hexdigest()}
+        path=destination/'manifest.json';path.write_text(json.dumps(manifest));path.chmod(0o600)
+        return destination
+
+    def version8_backup(self, db):
+        from cluster_recovery import SCHEMA8_HASH, SCHEMA8_TABLES
+        fixture=(Path(__file__).parent/'fixtures/schema-v8.sql').read_bytes()
+        self.assertEqual(SCHEMA8_HASH,hashlib.sha256(fixture).hexdigest())
+        self.assertEqual([(8,)],db.execute('SELECT version FROM openid.schema_version').fetchall())
+        destination=self.root/('schema8-backup-'+secrets.token_hex(8));destination.mkdir(mode=0o700)
+        manifest={'format':1,'schema':SCHEMA8_HASH,'postgresMajor':18,'tables':{}}
+        for table in SCHEMA8_TABLES:
+            with db.cursor() as cursor:
+                with cursor.copy('COPY openid.'+table+' TO STDOUT (FORMAT BINARY)') as copy:
+                    raw=b''.join(copy)
+                rows=cursor.rowcount
+            part=destination/(table+'.copy');part.write_bytes(raw);part.chmod(0o600)
+            manifest['tables'][table]={'rows':rows,'bytes':len(raw),'sha256':hashlib.sha256(raw).hexdigest()}
+        part=destination/'manifest.json';part.write_text(json.dumps(manifest));part.chmod(0o600)
+        return destination
+
+    def version9_backup(self, db):
+        from cluster_recovery import SCHEMA9_HASH, SCHEMA9_TABLES
+        fixture=(Path(__file__).parent/'fixtures/schema-v9.sql').read_bytes()
+        self.assertEqual(SCHEMA9_HASH,hashlib.sha256(fixture).hexdigest())
+        self.assertEqual([(9,)],db.execute('SELECT version FROM openid.schema_version').fetchall())
+        destination=self.root/('schema9-backup-'+secrets.token_hex(8));destination.mkdir(mode=0o700)
+        manifest={'format':1,'schema':SCHEMA9_HASH,'postgresMajor':18,'tables':{}}
+        for table in SCHEMA9_TABLES:
+            with db.cursor() as cursor:
+                with cursor.copy('COPY openid.'+table+' TO STDOUT (FORMAT BINARY)') as copy:
+                    raw=b''.join(copy)
+                rows=cursor.rowcount
+            part=destination/(table+'.copy');part.write_bytes(raw);part.chmod(0o600)
+            manifest['tables'][table]={'rows':rows,'bytes':len(raw),'sha256':hashlib.sha256(raw).hexdigest()}
+        part=destination/'manifest.json';part.write_text(json.dumps(manifest));part.chmod(0o600)
+        return destination
+
+    def intent(self, credential=None):
+        credential=credential or self.ident
+        self.registry_binding(credential)
+        proposal=self.raw_sql('alice','SELECT request_activation(%s,%s,%s)',
+                              (credential,'REVIEW-continuity-001',24))[0][0]
+        return self.raw_sql('bob','SELECT approve_activation(%s)',(proposal,))[0][0]
+
+    def test_approval_requires_controller_and_atomic_single_notice(self):
+        intent=self.intent()
+        self.assertEqual([('PENDING_REVIEW',)],self.raw_sql('backup','SELECT state FROM credentials'))
+        self.assertEqual([(0,)],self.raw_sql('backup','SELECT count(*) FROM notice_outbox'))
+        with ThreadPoolExecutor(6) as pool:
+            results=list(pool.map(lambda _:self.controller.complete(intent),range(12)))
+        self.assertEqual(1,sum(result['changed'] for result in results))
+        expected=hashlib.sha256(('activation:v1:'+self.ident).encode()).hexdigest()
+        self.assertEqual([(expected,'ACTIVATED_V1','PENDING')],
+                         self.raw_sql('backup','SELECT event,kind,status FROM notice_outbox'))
+        self.assertEqual([('test_bob',)],self.raw_sql('backup','SELECT approved_by FROM activation_proposals'))
+        self.assertEqual([('test_continuity',)],self.raw_sql('backup','SELECT completed_by FROM approval_intents'))
+        self.assertEqual({'completed':True,'changed':False},self.controller.complete(intent))
+
+    def test_outage_unknown_and_revoked_authority_never_activate(self):
+        from revocation import RevocationUnavailable
+        intent=self.intent()
+        original=self.synthetic.items.pop(('ledger',self.ident))
+        with self.assertRaises(ValueError):self.controller.complete(intent)
+        self.synthetic.items[('ledger',self.ident)]=original
+        self.synthetic.outage=True
+        with self.assertRaises(RevocationUnavailable):self.controller.complete(intent)
+        self.synthetic.outage=False
+        self.controller.revoke(self.ident)
+        with self.assertRaises(ValueError):self.controller.complete(intent)
+        self.assertEqual([('PENDING_REVIEW',)],self.raw_sql('backup','SELECT state FROM credentials'))
+        self.assertEqual([(0,)],self.raw_sql('backup','SELECT count(*) FROM notice_outbox'))
+
+    def test_notice_insert_failure_rolls_back_activation_and_decision(self):
+        intent=self.intent()
+        with self.psycopg.connect(DSN) as owner:
+            owner.execute("ALTER TABLE openid.notice_outbox ADD CONSTRAINT synthetic_reject CHECK(false) NOT VALID")
+        try:
+            with self.assertRaises(self.psycopg.Error):self.controller.complete(intent)
+            self.assertEqual([('PENDING_REVIEW',)],self.raw_sql('backup','SELECT state FROM credentials'))
+            self.assertEqual([(None,None)],self.raw_sql('backup','SELECT approved_by,approved_at FROM activation_proposals'))
+            self.assertEqual([(0,)],self.raw_sql('backup','SELECT count(*) FROM notice_outbox'))
+        finally:
+            with self.psycopg.connect(DSN) as owner:
+                owner.execute('ALTER TABLE openid.notice_outbox DROP CONSTRAINT synthetic_reject')
+        self.assertTrue(self.controller.complete(intent)['changed'])
+
+    def test_external_replacement_revocation_survives_final_rollback(self):
+        self.activate()
+        other=self.enroller.enroll(self.keys[1]['publicKey'],document())['id']
+        intent=self.intent(other)
+        self.assertEqual({'completed':False,'changed':False},self.controller.advance(intent))
+        self.assertEqual('REVOKED',self.synthetic.authority.request('status',self.ident))
+        # Change the evidence AFTER the permanent remote step. The decision
+        # cannot commit, and the old key must remain unusable despite local ACTIVE.
+        self.registry_binding(other)
+        with self.assertRaises(self.psycopg.Error):self.controller.complete(intent)
+        self.assertEqual('REVOKED',self.b.execute(self.signed())['state'])
+        self.assertEqual([('PENDING_REVIEW',)],self.raw_sql('backup','SELECT state FROM credentials WHERE id=%s',(other,)))
+        self.assertEqual([(1,)],self.raw_sql('backup','SELECT count(*) FROM notice_outbox'))
+
+    def test_holder_revocation_survives_local_rollback_without_nested_row_deadlock(self):
+        self.activate()
+        with self.assertRaisesRegex(RuntimeError,'synthetic rollback'):
+            with self.a.transaction() as db:
+                self.a._revoke(db,self.ident)
+                raise RuntimeError('synthetic rollback')
+        self.assertEqual([('ACTIVE',)],self.raw_sql('backup','SELECT state FROM credentials'))
+        self.assertEqual('REVOKED',self.b.execute(self.signed())['state'])
+        self.assertEqual([(self.ident,)],self.raw_sql('backup','SELECT credential FROM external_revocations'))
+
+    def test_expiry_during_remote_revoke_preserves_the_committed_global_receipt(self):
+        self.activate()
+        other=self.enroller.enroll(self.keys[1]['publicKey'],document())['id']
+        intent=self.intent(other)
+        def expire(operation,credential):
+            if operation=='revoke':
+                with self.psycopg.connect(DSN) as owner:
+                    owner.execute('UPDATE openid.approval_intents SET expires=0 WHERE id=%s',(intent,))
+        self.synthetic.hook=expire
+        try:
+            with self.assertRaises(self.psycopg.Error):self.controller.advance(intent)
+        finally:self.synthetic.hook=None
+        self.assertEqual([(self.ident,)],self.raw_sql('backup','SELECT credential FROM external_revocations'))
+        self.assertEqual([(0,)],self.raw_sql('backup','SELECT count(*) FROM intent_revocations'))
+        self.assertEqual('REVOKED',self.b.execute(self.signed())['state'])
+
+    def test_generic_retention_preserves_intent_history_without_foreign_key_failure(self):
+        intent=self.intent()
+        old=int(time.time())-1900*86400
+        with self.psycopg.connect(DSN) as owner:
+            owner.execute('UPDATE openid.activation_proposals SET created=%s,expires=%s',(old,old+60))
+            owner.execute('SET LOCAL ROLE openid_owner')
+            owner.execute('UPDATE openid.credentials SET created=%s',(old,))
+        self.raw_sql('maintenance','SELECT purge_expired(7,1827,100)')
+        self.assertEqual([(intent,)],self.raw_sql('backup','SELECT id FROM approval_intents'))
+        self.assertEqual([(1,)],self.raw_sql('backup','SELECT count(*) FROM activation_proposals'))
+
+    def test_restore_drill_cancels_intents_and_notices_without_external_side_effects(self):
+        from cluster_recovery import backup
+        from test_erasure_helpers import postgres_restore
+        self.activate()
+        other=self.enroller.enroll(self.keys[1]['publicKey'],document())['id']
+        self.intent(other)
+        from registry_binding import RegistryBindings
+        with self.assertRaises(ValueError):
+            RegistryBindings(self.registry_store,source='fixture-registry').bind(other)
+        self.assertEqual([(1,)],self.raw_sql('backup','SELECT count(*) FROM registry_checks'))
+        destination=self.root/('continuity-drill-'+secrets.token_hex(8))
+        backup(self.dsns['backup'],destination,local_test=True)
+        before=list(self.synthetic.calls)
+        target=self.restore_target()
+        postgres_restore(DSN,destination,target,self.a.vault,local_test=True)
+        self.assertEqual(before,self.synthetic.calls)
+        self.assertEqual('ENABLED',self.synthetic.authority.request('status',self.ident))
+        with self.psycopg.connect(self.restored_database(target)) as restored:
+            self.assertEqual([(0,)],restored.execute('SELECT count(*) FROM openid.registry_checks').fetchall())
+            self.assertEqual([(0,)],restored.execute('SELECT count(*) FROM openid.registry_bindings').fetchall())
+            self.assertEqual([('CANCELLED',)],restored.execute('SELECT status FROM openid.notice_outbox').fetchall())
+            self.assertEqual([(0,)],restored.execute('SELECT expires FROM openid.approval_intents WHERE completed_at IS NULL').fetchall())
+            self.assertEqual(0,restored.execute("SELECT count(*) FROM openid.credentials WHERE state!='REVOKED'").fetchone()[0])
+
+    def test_cross_passport_grouping_is_an_explicit_remaining_dependency(self):
+        self.activate()
+        other=self.enroller.enroll(self.keys[1]['publicKey'],document(documentNumber='TEST00002'))['id']
+        self.controller.complete(self.intent(other))
+        # No cross-document person matching is claimed by these fixtures.
+        self.assertEqual([(2,)],self.raw_sql('backup','SELECT count(*) FROM persons'))
+        self.assertEqual(['ACTIVE','ACTIVE'],sorted(row[0] for row in self.raw_sql('backup','SELECT state FROM credentials')))
+
+    def test_locally_active_key_never_falls_back_without_current_authority(self):
+        from postgres import RegistryUnavailable
+        from revocation import RevocationUnavailable
+        self.activate()
+        self.a.revocation=None
+        with self.assertRaises(RegistryUnavailable):self.a.execute(self.signed())
+        self.a.revocation=self.controller
+        self.synthetic.outage=True
+        try:
+            with self.assertRaises(RevocationUnavailable):self.a.execute(self.signed())
+        finally:self.synthetic.outage=False
+        self.assertEqual('ACTIVE',self.b.execute(self.signed())['state'])
+
+    def test_changed_contact_expired_intent_and_changed_key_set_fail_closed(self):
+        intent=self.intent()
+        with self.a.transaction() as db:
+            original=dict(db.execute('SELECT * FROM notice_contacts').fetchone())
+        with self.psycopg.connect(DSN) as owner:
+            owner.execute("UPDATE openid.notice_contacts SET contact_version='SYNTHETIC_CHANGED_CONTACT'")
+        with self.assertRaises(self.psycopg.Error):self.controller.complete(intent)
+        with self.psycopg.connect(DSN) as owner:
+            owner.execute('UPDATE openid.notice_contacts SET contact_version=%s',(original['contact_version'],))
+        # A key added after the controller's snapshot cannot escape revocation.
+        with self.psycopg.connect(self.dsns['continuity']) as controller:
+            snapshot=controller.execute('SELECT openid.activation_snapshot(%s)',(intent,)).fetchone()[0]
+        self.enroller.enroll(self.keys[1]['publicKey'],document())
+        with self.assertRaisesRegex(self.psycopg.Error,'snapshot changed'):
+            self.raw_sql('continuity','SELECT complete_activation(%s,%s,%s)',
+                         (intent,self.controller.reference,snapshot['previous']))
+        with self.psycopg.connect(DSN) as owner:
+            owner.execute('UPDATE openid.approval_intents SET expires=0')
+        with self.assertRaises(self.psycopg.Error):self.controller.complete(intent)
+        self.assertEqual([(0,)],self.raw_sql('backup','SELECT count(*) FROM notice_outbox'))
+
+    def test_direct_local_revocation_or_confirmation_cannot_bypass_controller(self):
+        for role,query,args in (
+            ('wallet',"UPDATE credentials SET state='REVOKED' WHERE id=%s",(self.ident,)),
+            ('revoker','SELECT revoke_credential(%s)',(self.ident,)),
+            ('revoker','SELECT revoke_all_after_restore()',()),
+            ('wallet','SELECT confirm_external_revocation(%s,%s)',(self.ident,self.controller.reference))):
+            with self.subTest(role=role,query=query),self.assertRaises(self.psycopg.Error):
+                self.raw_sql(role,query,args)
+        self.assertEqual([('PENDING_REVIEW',)],self.raw_sql('backup','SELECT state FROM credentials'))
+
+    def test_controller_and_service_cannot_provision_contact_or_create_operator_decisions(self):
+        for role in ('continuity','wallet','enroller','registry','contact','backup'):
+            with self.subTest(role=role),self.assertRaises(self.psycopg.Error):
+                self.raw_sql(role,'SELECT request_activation(%s,%s,%s)',(self.ident,'REVIEW-forged-controller',24))
+        for role in self.dsns:
+            if role=='contact':continue
+            with self.subTest(role=role),self.assertRaises(self.psycopg.Error):
+                self.raw_sql(role,'SELECT bind_revocation_contact(%s,%s,%s)',
+                             (self.ident,'SYNTHETIC_CONTACT_VERSION','SYNTHETIC_CONTACT_REVIEW'))
+
+    def test_separate_contact_role_preparation_retries_and_cannot_redirect(self):
+        from continuity_operator import prepare
+        contact=self.store('contact')
+        def run(email='synthetic@example.invalid'):
+            return prepare(contact,self.ident,email,'SYNTHETIC_CONTACT_REVIEW',self.synthetic,'ledger','contacts')
+        self.synthetic.fail=True
+        with self.assertRaises(ValueError):run()
+        self.assertEqual([(0,)],self.raw_sql('backup','SELECT count(*) FROM notice_contacts'))
+        staged=self.raw_sql('backup','SELECT * FROM revocation_codes')
+        self.synthetic.fail=False
+        self.assertTrue(run()['activationRequired']);run()
+        self.assertEqual(staged,self.raw_sql('backup','SELECT * FROM revocation_codes'))
+        with self.assertRaises(ValueError):run('changed@example.invalid')
+        self.controller.revoke(self.ident)
+        with self.assertRaises(ValueError):run()
+
+    def test_pinned_authority_mismatch_rejects_controller_and_wallet(self):
+        from postgres import PostgresWallet,RegistryUnavailable
+        from postgres_continuity import PostgresContinuity
+        from revocation import RevocationAuthority
+        wrong=RevocationAuthority(self.synthetic.invoke,reference=self.controller.reference+'-other')
+        with self.assertRaises(ValueError):PostgresContinuity(self.dsns['continuity'],wrong,local_test=True)
+        with self.assertRaises(RegistryUnavailable):
+            PostgresWallet(self.dsns['wallet'],self.a.origin,self.a.vault,local_test=True,revocation=wrong)
 
     def signed(self, action='snapshot', req=None, key=0, store=None):
         ident=hashlib.sha256(base64.b64decode(self.keys[key]['publicKey'])).hexdigest()
@@ -126,7 +437,363 @@ class ClusterTests(unittest.TestCase):
         proposal=self.activate()
         self.assertEqual('ACTIVE',self.b.execute(self.signed())['state'])
         with self.assertRaises(self.psycopg.Error):self.sql('bob','SELECT approve_activation(%s)',(proposal,))
-        self.assertEqual(2,len(self.sql('auditor','SELECT * FROM operator_events')))
+        self.assertEqual(5,len(self.sql('auditor','SELECT * FROM operator_events')))
+
+    def test_registry_evidence_is_required_before_both_operator_decisions(self):
+        with self.assertRaises(self.psycopg.Error):
+            self.sql('alice','SELECT request_activation(%s,%s,%s)',(self.ident,'REVIEW-no-registry',24))
+        self.registry_binding()
+        proposal=self.sql('alice','SELECT request_activation(%s,%s,%s)',(self.ident,'REVIEW-registry',24))[0][0]
+        with self.psycopg.connect(DSN) as db:
+            db.execute('UPDATE openid.registry_bindings SET checked_at=0,valid_until=1')
+        with self.assertRaises(self.psycopg.Error):self.sql('bob','SELECT approve_activation(%s)',(proposal,))
+        with self.assertRaises(self.psycopg.Error):
+            self.sql('alice','SELECT request_activation(%s,%s,%s)',(self.ident,'REVIEW-stale-registry',24))
+        self.assertEqual([('PENDING_REVIEW',)],self.sql('backup','SELECT state FROM credentials'))
+
+    def test_registry_freshness_is_rechecked_after_waiting_for_credential_lock(self):
+        self.registry_binding()
+        with self.psycopg.connect(DSN) as owner,ThreadPoolExecutor(max_workers=1) as pool:
+            owner.execute('SELECT id FROM openid.credentials WHERE id=%s FOR UPDATE',(self.ident,))
+            owner.execute('UPDATE openid.registry_bindings SET valid_until=floor(extract(epoch FROM clock_timestamp()))::bigint+2')
+            # Publish the short-lived proof before blocking the operator.
+            owner.commit()
+            owner.execute('SELECT id FROM openid.credentials WHERE id=%s FOR UPDATE',(self.ident,))
+            future=pool.submit(self.sql,'alice','SELECT request_activation(%s,%s,%s)',
+                               (self.ident,'REVIEW-expiry-during-lock',24))
+            try:time.sleep(2.2)
+            finally:owner.commit()
+            with self.assertRaises(self.psycopg.Error):future.result(timeout=5)
+        self.assertEqual([(0,)],self.sql('backup','SELECT count(*) FROM activation_proposals'))
+
+    def test_transit_registry_indexes_are_stable_and_domain_separated(self):
+        vault=self.registry_store.vault
+        domain='registry-person-v1:fixture-registry:personnummer'
+        person=vault.reference(domain,TEST_PERSON_NUMBER)
+        self.assertEqual(person,self.a.vault.reference(domain,TEST_PERSON_NUMBER))
+        self.assertNotEqual(person,vault.reference('registry-person-v1:other-registry:personnummer',TEST_PERSON_NUMBER))
+        self.assertNotEqual(person,vault.reference('registry-person-v1:fixture-registry:samordningsnummer',TEST_PERSON_NUMBER))
+        self.assertNotEqual(person,vault.reference('registry-evidence-v1:fixture-registry',TEST_PERSON_NUMBER))
+
+    def test_registry_refresh_requires_a_new_operator_proposal(self):
+        self.registry_binding()
+        proposal=self.sql('alice','SELECT request_activation(%s,%s,%s)',(self.ident,'REVIEW-first-proof',24))[0][0]
+        old=self.sql('backup','SELECT evidence_reference FROM registry_bindings')[0][0]
+        self.registry_binding()
+        current=self.sql('backup','SELECT evidence_reference FROM registry_bindings')[0][0]
+        self.assertNotEqual(old,current)
+        with self.assertRaises(self.psycopg.Error):self.sql('bob','SELECT approve_activation(%s)',(proposal,))
+        self.assertEqual([('PENDING_REVIEW',)],self.sql('backup','SELECT state FROM credentials'))
+        fresh=self.sql('alice','SELECT request_activation(%s,%s,%s)',(self.ident,'REVIEW-current-proof',24))[0][0]
+        self.sql('bob','SELECT approve_activation(%s)',(fresh,))
+        self.assertEqual('ACTIVE',self.b.execute(self.signed())['state'])
+
+    def test_registry_rejects_mismatched_protected_stale_or_future_results(self):
+        for change in ({'nonce':'wrong'}, {'credential':'f'*64}, {'profile_version':'wrong'},
+                       {'document_reference':'wrong'}, {'outcome':'NO_MATCH'}, {'protected':True},
+                       {'checked_at':0,'valid_until':1},
+                       {'checked_at':int(time.time())+600,'valid_until':int(time.time())+1200}):
+            with self.subTest(change=change),self.assertRaises(ValueError):
+                self.registry_binding(transform=lambda r:replace(r,**change))
+            self.assertEqual([(0,)],self.sql('backup','SELECT count(*) FROM registry_evidence'))
+            self.assertEqual([(0,)],self.sql('backup','SELECT count(*) FROM registry_bindings'))
+
+    def test_synthetic_binding_cannot_authorize_real_activation(self):
+        self.registry_binding(transform=lambda r:replace(r,kind='synthetic',value='TEST-ALPHA'))
+        with self.assertRaises(self.psycopg.Error):
+            self.sql('alice','SELECT request_activation(%s,%s,%s)',(self.ident,'REVIEW-synthetic',24))
+
+    def test_registry_proof_replay_and_identity_conflicts_roll_back(self):
+        from postgres import RegistryUnavailable
+        self.registry_binding(transform=lambda r:replace(r,evidence_reference='PROOF-UNIQUE-TEST'))
+        before=self.sql('backup','SELECT * FROM registry_bindings')
+        with self.assertRaises(RegistryUnavailable):
+            self.registry_binding(transform=lambda r:replace(r,evidence_reference='PROOF-UNIQUE-TEST'))
+        other=self.enroller.enroll(self.keys[1]['publicKey'],document())['id']
+        with self.assertRaises(RegistryUnavailable):
+            self.registry_binding(other,transform=lambda r:replace(r,evidence_reference='PROOF-UNIQUE-TEST'))
+        from test_registry_binding import OTHER_TEST_PERSON_NUMBER
+        with self.assertRaisesRegex(ValueError,'conflict'):
+            self.registry_binding(transform=lambda r:replace(r,value=OTHER_TEST_PERSON_NUMBER))
+        after=self.sql('backup','SELECT * FROM registry_bindings')
+        self.assertEqual(before[0][:7]+(0,1)+before[0][9:],after[0])
+        with self.assertRaises(self.psycopg.Error):
+            self.raw_sql('alice','SELECT request_activation(%s,%s,%s)',
+                         (self.ident,'REVIEW-replayed-proof',24))
+        self.assertEqual([(1,)],self.sql('backup','SELECT count(*) FROM registry_evidence'))
+
+    def test_concurrent_reuse_of_one_registry_proof_has_one_winner(self):
+        from postgres import RegistryUnavailable
+        def attempt(_):
+            try:
+                self.registry_binding(transform=lambda r:replace(r,evidence_reference='PROOF-PARALLEL-TEST'))
+                return True
+            except RegistryUnavailable:return False
+        with ThreadPoolExecutor(max_workers=8) as pool:self.assertEqual(1,sum(pool.map(attempt,range(16))))
+        self.assertEqual([(1,)],self.sql('backup','SELECT count(*) FROM registry_evidence'))
+        self.assertEqual([(1,)],self.sql('backup',"SELECT count(*) FROM events WHERE kind='REGISTRY_CHECKED'"))
+
+    def test_registry_role_is_separate_and_sql_rechecks_profile_binding(self):
+        self.registry_binding()
+        row=self.sql('backup','SELECT credential,person_tag,sealed,source,identity_kind,profile_version,document_reference,checked_at,valid_until,evidence_reference FROM registry_bindings')[0]
+        row=tuple(row)+('f'*64,)
+        function='SELECT record_registry_binding('+','.join(['%s']*11)+')'
+        for role in self.dsns:
+            if role=='registry':continue
+            with self.subTest(role=role),self.assertRaises(self.psycopg.Error):self.sql(role,function,row)
+        for index in (0,5,6,7,8):
+            args=list(row)
+            args[index]=0 if index in (7,8) else 'f'*64
+            expected='valid registry evidence required' if index in (7,8) else 'registry profile changed'
+            with self.subTest(index=index),self.assertRaisesRegex(self.psycopg.Error,expected):self.sql('registry',function,args)
+        for statement in ('DELETE FROM registry_checks','UPDATE registry_checks SET started_at=0',
+                          'DELETE FROM registry_evidence','DELETE FROM registry_bindings',
+                          "UPDATE registry_bindings SET valid_until=valid_until+1"):
+            with self.assertRaises(self.psycopg.Error):self.sql('registry',statement)
+        self.assertEqual([(1,)],self.sql('backup','SELECT count(*) FROM registry_evidence'))
+
+    def test_spar_customer_observation_uses_real_registry_and_controller_chain(self):
+        from registry_binding import RegistryBindings,RegistryResult
+        from spar_provider import parse_response
+        # Explicit synthetic passport: SPAR's digit-bearing fictitious surname
+        # cannot pass the real authenticated passport parser. Never use this
+        # test-only RegistryResult conversion outside this disposable database.
+        doc=document()
+        synthetic=replace(doc,identity=doc.identity | {
+            'documentNumber':'SPAR00001','givenNames':'CHRISTINA BIRGITTA ULRIKA',
+            'familyName':'THOMEAUS EFTERNAMN3542','birthDateMrz':'570413',
+            'issuingState':'SWE','passportPersonalNumber':'195704133106'})
+        credential=self.enroller.enroll(self.keys[1]['publicKey'],synthetic)['id']
+        self.contact(credential)
+        raw=(Path(__file__).parent/'fixtures/spar/response-3-1.xml').read_bytes()
+        def lookup(query):
+            now=int(self.registry_store.clock())
+            observed=parse_response(raw,'195704133106',now)
+            self.assertTrue(observed.matches_passport_fields(query.passport_fields))
+            return RegistryResult(query.nonce,query.credential,query.profile_version,
+                query.document_reference,'SPAR-'+observed.reference,now,now+300,
+                'MATCH',False,observed.kind,observed.number)
+        binding=RegistryBindings(self.registry_store,source='spar-kundtest',lookup=lookup)
+        with self.assertRaises(self.psycopg.Error):
+            self.raw_sql('alice','SELECT request_activation(%s,%s,%s)',
+                         (credential,'REVIEW-before-spar',24))
+        self.assertEqual('BOUND',binding.bind(credential)['state'])
+        proposal=self.raw_sql('alice','SELECT request_activation(%s,%s,%s)',
+                              (credential,'REVIEW-spar-fixture',24))[0][0]
+        intent=self.raw_sql('bob','SELECT approve_activation(%s)',(proposal,))[0][0]
+        self.assertTrue(self.controller.complete(intent)['changed'])
+        challenge=self.b.challenge({'credentialId':credential,'action':'snapshot','requestId':None})
+        signature=crypt(op='sign',key=self.keys[1]['privateKey'],payload=challenge['signingInput'])
+        self.assertEqual('ACTIVE',self.b.execute({'challengeId':challenge['id'],'signature':signature})['state'])
+        with self.assertRaisesRegex(ValueError,'synthetic national attributes'):
+            binding.identity_attributes(credential)
+
+    def test_spar_protected_observation_cannot_create_issuance_evidence(self):
+        from registry_binding import RegistryBindings,RegistryResult
+        from spar_provider import parse_response
+        raw=(Path(__file__).parent/'fixtures/spar/response-3-16.xml').read_bytes()
+        def lookup(query):
+            now=int(self.registry_store.clock())
+            observed=parse_response(raw,'198203249274',now)
+            self.assertEqual('PROTECTED',observed.reason)
+            return RegistryResult(query.nonce,query.credential,query.profile_version,
+                query.document_reference,'SPAR-'+observed.reference,now,now+300,
+                observed.outcome,True,observed.kind,observed.number)
+        binding=RegistryBindings(self.registry_store,source='spar-kundtest',lookup=lookup)
+        with self.assertRaisesRegex(ValueError,'registry review required'):
+            binding.bind(self.ident)
+        self.assertEqual([(0,)],self.raw_sql('backup','SELECT count(*) FROM registry_bindings'))
+        with self.assertRaises(self.psycopg.Error):
+            self.raw_sql('alice','SELECT request_activation(%s,%s,%s)',
+                         (self.ident,'REVIEW-protected-spar',24))
+
+    def test_registry_recheck_start_blocks_both_operators_before_provider_returns(self):
+        binding=self.registry_binding(); trusted=binding.lookup
+        proposal=self.raw_sql('alice','SELECT request_activation(%s,%s,%s)',
+                              (self.ident,'REVIEW-before-recheck',24))[0][0]
+        entered,release=Event(),Event()
+        def waiting(query):
+            entered.set()
+            if not release.wait(10):raise TimeoutError('synthetic provider timeout')
+            return trusted(query)
+        binding.lookup=waiting
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future=pool.submit(binding.bind,self.ident)
+            try:
+                self.assertTrue(entered.wait(5))
+                self.assertEqual([(0,1)],self.raw_sql('backup','SELECT checked_at,valid_until FROM registry_bindings'))
+                with self.assertRaises(self.psycopg.Error):
+                    self.raw_sql('alice','SELECT request_activation(%s,%s,%s)',
+                                 (self.ident,'REVIEW-during-recheck',24))
+                with self.assertRaises(self.psycopg.Error):
+                    self.raw_sql('bob','SELECT approve_activation(%s)',(proposal,))
+                with binding.wallet.transaction() as db:
+                    with self.assertRaisesRegex(ValueError,'invalidated'):
+                        binding._binding(db,self.ident)
+            finally:release.set()
+            self.assertEqual('BOUND',future.result(timeout=10)['state'])
+        with self.assertRaises(self.psycopg.Error):
+            self.raw_sql('bob','SELECT approve_activation(%s)',(proposal,))
+        fresh=self.raw_sql('alice','SELECT request_activation(%s,%s,%s)',
+                          (self.ident,'REVIEW-after-recheck',24))[0][0]
+        intent=self.raw_sql('bob','SELECT approve_activation(%s)',(fresh,))[0][0]
+        self.assertTrue(self.controller.complete(intent)['changed'])
+        self.assertEqual([('ACTIVE',)],self.raw_sql('backup','SELECT state FROM credentials'))
+
+    def test_registry_failure_never_reuses_old_proof_or_operator_intent(self):
+        from registry_binding import RegistryBindings
+        intent=self.intent()
+        binding=RegistryBindings(self.registry_store,source='fixture-registry')
+        def unavailable(_):raise TimeoutError('synthetic transport failure')
+        for lookup in (None,unavailable):
+            binding.lookup=lookup
+            with self.assertRaisesRegex(ValueError,'provider unavailable'):binding.bind(self.ident)
+            with self.assertRaises(self.psycopg.Error):self.controller.complete(intent)
+            with self.assertRaises(self.psycopg.Error):
+                self.raw_sql('alice','SELECT request_activation(%s,%s,%s)',
+                             (self.ident,'REVIEW-after-outage',24))
+        for change in ({'outcome':'NO_MATCH'},{'outcome':'UNKNOWN'},{'protected':True},
+                       {'nonce':'wrong'},{'checked_at':0,'valid_until':1}):
+            with self.subTest(change=change),self.assertRaises(ValueError):
+                self.registry_binding(transform=lambda r:replace(r,**change))
+            with self.assertRaises(self.psycopg.Error):self.controller.complete(intent)
+        self.assertEqual([(0,1)],self.raw_sql('backup','SELECT checked_at,valid_until FROM registry_bindings'))
+        self.assertEqual([('PENDING_REVIEW',)],self.raw_sql('backup','SELECT state FROM credentials'))
+        self.assertEqual([(0,)],self.raw_sql('backup','SELECT count(*) FROM notice_outbox'))
+        self.registry_binding()
+        with self.assertRaises(self.psycopg.Error):self.controller.complete(intent)
+        self.assertEqual([(0,)],self.raw_sql('backup','SELECT count(*) FROM intent_revocations'))
+
+    def test_late_positive_cannot_override_newer_negative_or_failed_lookup(self):
+        from postgres import RegistryUnavailable
+        for outage in (False,True):
+            with self.subTest(outage=outage):
+                binding=self.registry_binding(); trusted=binding.lookup
+                old=self.raw_sql('backup','SELECT evidence_reference FROM registry_bindings')
+                entered,release=Event(),Event()
+                def waiting(query):
+                    entered.set()
+                    if not release.wait(10):raise TimeoutError('synthetic provider timeout')
+                    return trusted(query)
+                binding.lookup=waiting
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    future=pool.submit(binding.bind,self.ident)
+                    try:
+                        self.assertTrue(entered.wait(5))
+                        if outage:
+                            def unavailable(_):raise TimeoutError('synthetic transport failure')
+                            from registry_binding import RegistryBindings
+                            newer=RegistryBindings(self.registry_store,source='fixture-registry',lookup=unavailable)
+                            with self.assertRaises(ValueError):newer.bind(self.ident)
+                        else:
+                            with self.assertRaises(ValueError):
+                                self.registry_binding(transform=lambda r:replace(r,outcome='NO_MATCH'))
+                    finally:release.set()
+                    with self.assertRaises(RegistryUnavailable):future.result(timeout=10)
+                self.assertEqual(old,self.raw_sql('backup','SELECT evidence_reference FROM registry_bindings'))
+                self.assertEqual([(0,1)],self.raw_sql('backup','SELECT checked_at,valid_until FROM registry_bindings'))
+                with self.assertRaises(self.psycopg.Error):
+                    self.raw_sql('alice','SELECT request_activation(%s,%s,%s)',
+                                 (self.ident,'REVIEW-after-late-positive',24))
+
+    def test_controller_cannot_finish_while_a_registry_lookup_is_pending(self):
+        from registry_binding import RegistryBindings,RegistryResult
+        intent=self.intent(); seen=[]
+        def lookup(query):
+            with self.assertRaises(self.psycopg.Error):self.controller.complete(intent)
+            seen.append(True)
+            now=int(self.registry_store.clock())
+            return RegistryResult(query.nonce,query.credential,query.profile_version,
+                query.document_reference,'PROOF-'+query.nonce,now,now+3600,
+                'MATCH',False,'personnummer',TEST_PERSON_NUMBER)
+        binding=RegistryBindings(self.registry_store,source='fixture-registry',lookup=lookup)
+        binding.bind(self.ident)
+        self.assertEqual([True],seen)
+        with self.assertRaises(self.psycopg.Error):self.controller.complete(intent)
+        self.assertEqual([(0,)],self.raw_sql('backup','SELECT count(*) FROM notice_outbox'))
+
+    def test_registry_generation_is_bounded_and_cannot_change_active_ids(self):
+        from postgres import RegistryUnavailable
+        binding=self.registry_binding(); trusted=binding.lookup
+        def expired(query):
+            with self.psycopg.connect(DSN) as owner:
+                owner.execute('UPDATE openid.registry_checks SET started_at=0')
+            return trusted(query)
+        binding.lookup=expired
+        with self.assertRaises(RegistryUnavailable):binding.bind(self.ident)
+        self.assertEqual([(0,1)],self.raw_sql('backup','SELECT checked_at,valid_until FROM registry_bindings'))
+        self.activate()
+        before=self.raw_sql('backup','SELECT * FROM registry_bindings')
+        called=[]
+        binding.lookup=lambda q:called.append(q)
+        with self.assertRaises(RegistryUnavailable):binding.bind(self.ident)
+        self.assertFalse(called)
+        self.assertEqual(before,self.raw_sql('backup','SELECT * FROM registry_bindings'))
+        self.assertEqual('ACTIVE',self.b.execute(self.signed())['state'])
+
+    def test_invalidation_requires_registry_role_and_expected_profile_document_evidence(self):
+        self.registry_binding()
+        before=self.raw_sql('backup','SELECT * FROM registry_bindings')
+        row=before[0]; args=(row[0],row[5],row[6],row[9])
+        statement='SELECT invalidate_registry_binding(%s,%s,%s,%s)'
+        for role in self.dsns:
+            if role=='registry':continue
+            with self.subTest(role=role),self.assertRaises(self.psycopg.Error):
+                self.raw_sql(role,statement,args)
+        for index in (1,2,3):
+            changed=list(args);changed[index]='f'*64
+            with self.subTest(index=index),self.assertRaisesRegex(self.psycopg.Error,'changed'):
+                self.raw_sql('registry',statement,changed)
+        self.assertEqual(before,self.raw_sql('backup','SELECT * FROM registry_bindings'))
+        self.assertEqual([(0,)],self.raw_sql('backup','SELECT count(*) FROM registry_checks'))
+        old_function='openid.record_registry_binding(text,text,text,text,text,text,text,bigint,bigint,text)'
+        self.assertEqual([(None,)],self.raw_sql('backup','SELECT to_regprocedure(%s)',(old_function,)))
+        record='SELECT record_registry_binding('+','.join(['%s']*11)+')'
+        with self.assertRaisesRegex(self.psycopg.Error,'current registry check'):
+            self.raw_sql('registry',record,tuple(row)+('f'*64,))
+
+    def test_registry_case_disclosure_and_approved_erasure_cover_new_records(self):
+        from test_subject_erasure import fixture_decision,fixture_ledger
+        self.registry_binding()
+        from registry_binding import RegistryBindings
+        with self.assertRaises(ValueError):
+            RegistryBindings(self.registry_store,source='fixture-registry').bind(self.ident)
+        case={'version':1,'reference':'TEST_REGISTRY_RIGHTS','identityCheck':'TEST_CHECK_001','credentials':[self.ident]}
+        _,_,value=self.rights_export(case)
+        binding=value['records']['registry_bindings'][0]
+        self.assertEqual(TEST_PERSON_NUMBER,binding['data']['value'])
+        self.assertNotIn('sealed',binding)
+        self.assertEqual(1,len(value['records']['registry_evidence']))
+        self.assertEqual(1,len(value['records']['registry_checks']))
+        self.assertNotIn('nonce',value['records']['registry_checks'][0])
+        self.sql('revoker','SELECT revoke_credential(%s)',(self.ident,))
+        config=fixture_decision([self.ident],at=int(time.time())-1)
+        ledger=fixture_ledger(config,reviewed_at=int(time.time()))
+        plan=self.erasure_plan(config)
+        self.assertEqual(1,plan['delete']['registry_checks'])
+        self.assertEqual(1,plan['delete']['registry_bindings'])
+        self.assertEqual(1,plan['delete']['registry_evidence'])
+        self.erasure_apply(config,ledger,plan['planSHA256'])
+        self.assertEqual([(0,)],self.sql('backup','SELECT count(*) FROM registry_checks'))
+        self.assertEqual([(0,)],self.sql('backup','SELECT count(*) FROM registry_bindings'))
+        self.assertEqual([(0,)],self.sql('backup','SELECT count(*) FROM registry_evidence'))
+
+    def test_registry_lifecycle_erasure_can_preserve_an_explicitly_retained_profile(self):
+        from test_subject_erasure import fixture_decision,fixture_ledger
+        self.registry_binding()
+        self.sql('revoker','SELECT revoke_credential(%s)',(self.ident,))
+        now=int(time.time())
+        config=fixture_decision([self.ident],at=now-1)
+        config['categories']['profiles']={'action':'retain','reasonReference':'TEST_RETENTION_001','reviewBy':now+86400}
+        ledger=fixture_ledger(config,reviewed_at=now)
+        plan=self.erasure_plan(config)
+        self.assertEqual(0,plan['delete']['registry_bindings'])
+        self.assertEqual(1,plan['delete']['registry_evidence'])
+        self.erasure_apply(config,ledger,plan['planSHA256'])
+        self.assertEqual([(1,)],self.sql('backup','SELECT count(*) FROM registry_bindings'))
+        self.assertEqual([(0,)],self.sql('backup','SELECT count(*) FROM registry_evidence'))
+        with self.assertRaises(self.psycopg.Error):
+            self.sql('alice','SELECT request_activation(%s,%s,%s)',(self.ident,'REVIEW-erased-history',24))
 
     def test_unchecked_or_expired_passport_does_not_enter_shared_registry(self):
         for doc in (replace(document(),revocation='NOT_CHECKED',revocation_valid_until=0),
@@ -244,9 +911,7 @@ class ClusterTests(unittest.TestCase):
             self.assertEqual(10,db.execute('SELECT count(*) FROM openid.federation_requests').fetchone()[0])
             with self.assertRaises(self.psycopg.Error):db.execute(migration5,prepare=False)
             db.execute('ROLLBACK')
-            definition="SELECT pg_get_functiondef('openid.purge_expired(integer,integer,integer)'::regprocedure)"
-            with self.psycopg.connect(DSN) as fresh:
-                self.assertEqual(fresh.execute(definition).fetchone(),db.execute(definition).fetchone())
+            # Schema-9 retention is compared only after the entire migration chain.
             self.assertTrue(db.execute("SELECT has_function_privilege('test_maintenance','openid.purge_expired(integer,integer,integer)','EXECUTE')").fetchone()[0])
             self.assertFalse(db.execute("SELECT has_function_privilege('test_wallet','openid.purge_expired(integer,integer,integer)','EXECUTE')").fetchone()[0])
         with self.psycopg.connect(dsn('maintenance')) as maintenance:
@@ -277,10 +942,46 @@ class ClusterTests(unittest.TestCase):
             self.assertEqual(links,db.execute('SELECT credential,person FROM openid.credential_persons ORDER BY credential').fetchall())
             self.assertEqual(0,db.execute('SELECT count(*) FROM openid.erasure_runs').fetchone()[0])
             with self.psycopg.connect(DSN) as fresh:
-                for function in ('guard_credential','guard_consent'):
+                for function in ('guard_consent',):
                     definition="SELECT pg_get_functiondef('openid."+function+"()'::regprocedure)"
                     self.assertEqual(fresh.execute(definition).fetchone(),db.execute(definition).fetchone())
             with self.assertRaises(self.psycopg.Error):db.execute(migration7,prepare=False)
+            db.execute('ROLLBACK')
+            old_proposal=db.execute('SELECT openid.request_activation(%s,%s,%s)',(self.ident,'REVIEW-legacy-001',24)).fetchone()[0]
+            legacy_backup=self.legacy_backup(db)
+            migration8=(Path(__file__).parents[1]/'deployment/cluster/migrate-7-to-8.sql').read_text()
+            db.execute(migration8,prepare=False)
+            self.assertEqual([(8,)],db.execute('SELECT version FROM openid.schema_version').fetchall())
+            self.assertEqual(0,db.execute('SELECT count(*) FROM openid.registry_bindings').fetchone()[0])
+            self.assertEqual((0,None),db.execute('SELECT expires,registry_reference FROM openid.activation_proposals WHERE id=%s',(old_proposal,)).fetchone())
+            schema8_backup=self.version8_backup(db)
+            migration9=(Path(__file__).parents[1]/'deployment/cluster/migrate-8-to-9.sql').read_text()
+            db.execute(migration9,prepare=False)
+            self.assertEqual([(9,)],db.execute('SELECT version FROM openid.schema_version').fetchall())
+            # Old pending evidence is synthetic; this never represents a real identity.
+            reference='vault:v1:'+base64.b64encode(b'R'*32).decode()
+            now=int(time.time())
+            db.execute('''INSERT INTO openid.registry_bindings
+                SELECT p.credential,%s,'{}','fixture-registry','synthetic',p.version,n.document_tag,%s,%s,%s
+                FROM openid.profiles p JOIN openid.persons n ON n.id=p.person''',
+                (reference,now,now+60,reference))
+            db.execute('INSERT INTO openid.registry_evidence VALUES(%s,%s)',(reference,self.ident))
+            schema9_backup=self.version9_backup(db)
+            migration10=(Path(__file__).parents[1]/'deployment/cluster/migrate-9-to-10.sql').read_text()
+            db.execute(migration10,prepare=False)
+            self.assertEqual([(10,)],db.execute('SELECT version FROM openid.schema_version').fetchall())
+            self.assertEqual([(0,1)],db.execute('SELECT checked_at,valid_until FROM openid.registry_bindings').fetchall())
+            self.assertEqual([(0,)],db.execute('SELECT count(*) FROM openid.registry_checks').fetchall())
+            with self.assertRaises(self.psycopg.Error):db.execute(migration10,prepare=False)
+            db.execute('ROLLBACK')
+            with self.psycopg.connect(DSN) as fresh:
+                for function in ('guard_credential()', 'invalidate_registry_binding(text,text,text,text)',
+                                 'record_registry_binding(text,text,text,text,text,text,text,bigint,bigint,text,text)',
+                                 'request_activation(text,text,integer)', 'approve_activation(text)',
+                                 'purge_expired(integer,integer,integer)', 'revoke_all_after_restore()'):
+                    definition="SELECT pg_get_functiondef('openid."+function+"'::regprocedure)"
+                    self.assertEqual(fresh.execute(definition).fetchone(),db.execute(definition).fetchone())
+            with self.assertRaises(self.psycopg.Error):db.execute(migration8,prepare=False)
             db.execute('ROLLBACK')
             # Optional audit grants must work after migration, even when the
             # caller has no openid schema in its default search path.
@@ -297,13 +998,36 @@ class ClusterTests(unittest.TestCase):
             export_case(dsn('backup'),destination,{'version':1,'reference':'TEST_LEGACY_001',
                 'identityCheck':'TEST_CHECK_001','credentials':[lost]},'f'*40,vault=None,local_test=True)
             self.assertEqual([lost],json.loads((destination/'case.json').read_bytes())['credentialsWithoutRetainedPersonLink'])
+        # Genuine schema-7 binary COPY data remains readable, but gains no
+        # fabricated register evidence and cannot carry an approval forward.
+        from test_erasure_helpers import postgres_restore
+        restored_name=self.restore_target()
+        restored_result=postgres_restore(DSN,legacy_backup,restored_name,self.a.vault,local_test=True)
+        self.assertEqual('QUARANTINED',restored_result['state'])
+        restored_dsn=self.restored_database(restored_name)
+        with self.psycopg.connect(restored_dsn) as db:
+            self.assertEqual([(10,)],db.execute('SELECT version FROM openid.schema_version').fetchall())
+            self.assertEqual([(0,)],db.execute('SELECT count(*) FROM openid.registry_bindings').fetchall())
+            self.assertEqual((0,None),db.execute('SELECT expires,registry_reference FROM openid.activation_proposals WHERE id=%s',(old_proposal,)).fetchone())
+            self.assertEqual(0,db.execute("SELECT count(*) FROM openid.credentials WHERE state!='REVOKED'").fetchone()[0])
+        schema8_target=self.restore_target()
+        self.assertEqual('QUARANTINED',postgres_restore(DSN,schema8_backup,schema8_target,self.a.vault,local_test=True)['state'])
+        with self.psycopg.connect(self.restored_database(schema8_target)) as restored8:
+            self.assertEqual([(10,)],restored8.execute('SELECT version FROM openid.schema_version').fetchall())
+            self.assertEqual([(0,)],restored8.execute('SELECT count(*) FROM openid.approval_intents').fetchall())
+        schema9_target=self.restore_target()
+        self.assertEqual('QUARANTINED',postgres_restore(DSN,schema9_backup,schema9_target,self.a.vault,local_test=True)['state'])
+        with self.psycopg.connect(self.restored_database(schema9_target)) as restored9:
+            self.assertEqual([(10,)],restored9.execute('SELECT version FROM openid.schema_version').fetchall())
+            self.assertEqual([(0,)],restored9.execute('SELECT count(*) FROM openid.registry_bindings').fetchall())
+            self.assertEqual([(0,)],restored9.execute('SELECT count(*) FROM openid.registry_checks').fetchall())
         migrated=PostgresWallet(dsn('enroller'),self.a.origin,self.enroller.vault,local_test=True)
         self.addCleanup(migrated.close)
         self.assertEqual(4,migrated.biometric_attempt(document()))
         with migrated.transaction() as db:
             self.assertEqual(self.ident,db.execute('SELECT credential FROM profiles').fetchone()[0])
             self.assertEqual('PENDING_REVIEW',db.execute('SELECT state FROM credentials').fetchone()[0])
-        with self.psycopg.connect(dsn('revoker')) as revoker:revoker.execute('SELECT openid.revoke_all_after_restore()')
+        with self.psycopg.connect(admin_dsn) as owner:owner.execute('SELECT openid.revoke_all_after_restore()')
         from wallet import EnrollmentQuarantine
         for operation in (migrated.enrollment_available,lambda:migrated.biometric_attempt(document()),
                           lambda:migrated.enroll(self.keys[2]['publicKey'],document())):
@@ -564,13 +1288,20 @@ class ClusterTests(unittest.TestCase):
         self.assertEqual('SYNTHETIC AGREEMENT',data['federation_requests'][0]['sign_message'])
         self.assertEqual(1,len(data['biometric_attempts']))
         second=next(ident for ident in case['credentials'] if ident!=self.ident)
-        self.assertCountEqual([(self.ident,'ACTIVATION_REQUESTED'),(second,'REVOKED'),(self.ident,'ACTIVATED')],
+        self.assertCountEqual([(self.ident,'REGISTRY_CHECK_STARTED'),(self.ident,'REGISTRY_CHECKED'),(self.ident,'ACTIVATION_REQUESTED'),
+                               (self.ident,'ACTIVATION_APPROVED'),(second,'REVOKED'),(self.ident,'ACTIVATED')],
             [(r['credential'],r['kind']) for r in data['operator_events']])
         self.assertTrue(all(r['time'].endswith('+00:00') for r in data['operator_events']))
         self.assertTrue(data['enrollment_consents'][0]['recordedAcceptance']['biometricsAccepted'])
         self.assertEqual([receipt],data['consent_retention_runs'][0]['protectedReceipts'])
         self.assertEqual('HANDLER_REVIEW_REQUIRED',value['status'])
-        self.assertEqual(7,value['databaseSchema'])
+        self.assertEqual(10,value['databaseSchema'])
+        self.assertEqual('test_bob',data['approval_intents'][0]['approver'])
+        self.assertEqual('test_continuity',data['approval_intents'][0]['completed_by'])
+        self.assertEqual(1,len(data['notice_outbox']))
+        self.assertEqual(1,len(data['intent_revocations']))
+        self.assertEqual(1,len(data['external_revocations']))
+        self.assertNotIn('sealed',data['revocation_codes'][0])
         for forbidden in ('BOB PRIVATE',other,other_receipt,'SECRET_', 'synthetic-assertion-already-checked-by-native'):
             self.assertNotIn(forbidden,raw.decode())
         self.assertNotIn('payload',data['challenges'][0])
@@ -715,7 +1446,7 @@ class ClusterTests(unittest.TestCase):
     def test_consent_is_key_bound_withdrawal_is_permanent_and_roles_cannot_rewrite_evidence(self):
         receipt,request=self.enrollment_receipt()
         self.enroller.require_acceptance(receipt,self.keys[2]['publicKey'])
-        for role in ('enroller','wallet','auditor','maintenance'):
+        for role in ('enroller','wallet','registry','auditor','maintenance'):
             for query in ("UPDATE enrollment_consents SET proof='forged'",'DELETE FROM enrollment_consents',
                           "UPDATE enrollment_policies SET record='{}'",'DELETE FROM credential_consents'):
                 with self.subTest(role=role,query=query),self.assertRaises(self.psycopg.Error):self.sql(role,query)
@@ -765,6 +1496,7 @@ class ClusterTests(unittest.TestCase):
         with self.assertRaises(EnrollmentQuarantine):restored.require_acceptance(pending,self.keys[3]['publicKey'])
 
     def test_same_login_cannot_approve_even_with_both_roles(self):
+        self.registry_binding()
         proposal=self.sql('carol','SELECT request_activation(%s,%s,%s)',(self.ident,'REVIEW-test-002',24))[0][0]
         with self.assertRaises(self.psycopg.Error):self.sql('carol','SELECT approve_activation(%s)',(proposal,))
 
@@ -886,7 +1618,7 @@ class ClusterTests(unittest.TestCase):
             ('SELECT request_activation(%s,%s,%s)',(self.ident,'REVIEW-forged-01',24)),
             ("UPDATE profiles SET sealed='{}' WHERE credential=%s",(self.ident,)),
             ('DELETE FROM operator_events',())]
-        for role in ('enroller','wallet','auditor','maintenance'):
+        for role in ('enroller','wallet','registry','auditor','maintenance'):
             for query,args in queries:
                 if role=='maintenance' and query.startswith('UPDATE profiles'):continue
                 with self.subTest(role=role,query=query),self.assertRaises(self.psycopg.Error):self.sql(role,query,args)
@@ -895,7 +1627,15 @@ class ClusterTests(unittest.TestCase):
     def test_function_privileges_match_actual_roles(self):
         allowed={'request_activation(text,text,integer)':{'alice','carol'},'approve_activation(text)':{'bob','carol'},
             'record_profile_person()':set(),
-            'revoke_credential(text)':{'revoker'},'revoke_all_after_restore()':{'revoker'},
+            'invalidate_registry_binding(text,text,text,text)':{'registry'},
+            'record_registry_binding(text,text,text,text,text,text,text,bigint,bigint,text,text)':{'registry'},
+            'revoke_credential(text)':{'revoker','continuity'},'revoke_all_after_restore()':set(),
+            'activation_context(text)':set(),'activation_snapshot(text)':{'continuity'},
+            'complete_activation(text,text,text[])':{'continuity'},
+            'confirm_external_revocation(text,text)':{'continuity'},
+            'confirm_intent_revocation(text,text,text)':{'continuity'},
+            'stage_revocation_contact(text,text,text,text)':{'contact'},
+            'bind_revocation_contact(text,text,text)':{'contact'},
             'purge_expired(integer,integer,integer)':{'maintenance'},
             'retain_consent_evidence(text,boolean,integer)':{'maintenance'},
             'reserve_biometric_attempt(text)':{'enroller'},'security_code_status(text)':{'wallet'},
@@ -970,6 +1710,7 @@ class ClusterTests(unittest.TestCase):
                         self.sql(role,statement)
 
     def test_operator_temp_tables_cannot_shadow_privileged_registry_access(self):
+        self.registry_binding()
         with self.psycopg.connect(self.dsns['alice'],options='-c search_path=openid,pg_catalog') as db:
             for name in ('credentials','profiles','activation_proposals','operator_events'):
                 db.execute('CREATE TEMP TABLE '+name+'(id text)')
@@ -979,10 +1720,12 @@ class ClusterTests(unittest.TestCase):
             for name in ('credentials','profiles','persons','activation_proposals','operator_events','events'):
                 db.execute('CREATE TEMP TABLE '+name+'(id text)')
                 db.execute('GRANT ALL ON pg_temp.'+name+' TO openid_owner')
-            db.execute('SELECT openid.approve_activation(%s)',(proposal,))
+            intent=db.execute('SELECT openid.approve_activation(%s)',(proposal,)).fetchone()[0]
+        self.controller.complete(intent)
         self.assertEqual('ACTIVE',self.b.execute(self.signed())['state'])
 
     def test_no_unverified_profile_or_expired_proposal(self):
+        self.registry_binding()
         ident=self.enroller.enroll(self.keys[1]['publicKey'])['id']
         with self.assertRaises(self.psycopg.Error):self.sql('alice','SELECT request_activation(%s,%s,%s)',(ident,'REVIEW-no-pass',24))
         proposal=self.sql('alice','SELECT request_activation(%s,%s,%s)',(self.ident,'REVIEW-expired',24))[0][0]
@@ -1052,7 +1795,166 @@ class ClusterTests(unittest.TestCase):
         self.sql('revoker','SELECT revoke_credential(%s)',(self.ident,))
         self.assertFalse(call('check',**check)['ok'])
 
+    def bridge_runtime(self, profile='private', *, container=False, start=True):
+        """Real command, PG/SCRAM/TLS and Transit; independent authority is synthetic."""
+        from raft_test_support import RaftCluster
+        from transit import TransitVault
+        from ipc_support import LocalService, request
+        from postgres_continuity import dispatch
+        from psycopg.conninfo import conninfo_to_dict,make_conninfo
+        import threading
+        cls=type(self)
+        if not hasattr(cls,'bridge_raft'):
+            cls.bridge_raft=RaftCluster(cls.root/'bridge-raft')
+            cls.addClassCleanup(cls.bridge_raft.close)
+            cls.bridge_node=cls.bridge_raft.start()
+            token,_=cls.bridge_raft.initialize(cls.bridge_node)
+            cls.bridge_tokens=cls.bridge_raft.provision(cls.bridge_node,token)
+        for wallet,role in ((self.enroller,'enroller'),(self.a,'wallet'),(self.b,'wallet'),(self.registry_store,'registry')):
+            wallet.vault=TransitVault(cls.bridge_node['address'],cls.bridge_tokens[role],str(cls.bridge_raft.cert))
+        # This disposable test gets profiles bound to the TLS Transit service.
+        with self.psycopg.connect(DSN) as owner:
+            owner.execute('TRUNCATE openid.credentials,openid.persons RESTART IDENTITY CASCADE')
+        self.ident=self.enroller.enroll(self.keys[0]['publicKey'],document())['id']
+        directory=Path(tempfile.mkdtemp(prefix='bridge-',dir=self.root))
+        for name in ('federation','notice','controller'):
+            (directory/name).mkdir(mode=0o2710);(directory/name).chmod(0o2710)
+        controller_socket=directory/'controller'/'authority.sock'
+        endpoint=LocalService(controller_socket,os.getgid(),lambda data:dispatch(self.controller,data))
+        thread=threading.Thread(target=endpoint.serve_forever,daemon=True);thread.start()
+        self.addCleanup(endpoint.close)
+        options=conninfo_to_dict(self.dsns['wallet'])
+        self.assertEqual('verify-full',options.get('sslmode'))
+        ca=directory/'postgres-ca.pem';ca.write_bytes(Path(options['sslrootcert']).read_bytes())
+        options['sslrootcert']=str(ca)
+        secrets_files={'database':make_conninfo(**options),'token':cls.bridge_tokens['wallet'].read_text(),
+            'continuity.json':json.dumps({'version':1,'socket':str(controller_socket),'authority':self.controller.reference})}
+        for name,value in secrets_files.items():
+            path=directory/name;path.write_text(value);path.chmod(0o600)
+        (directory/'bao-ca.pem').write_bytes(cls.bridge_raft.cert.read_bytes())
+        (directory/'profile.json').write_text(json.dumps({'version':1,'profile':profile}))
+        (directory/'origins.json').write_text(json.dumps({'idp':'https://idp.example.test','sp':'https://sp.example.test'}))
+        config={'databaseFile':str(directory/'database'),'baoAddress':cls.bridge_node['address'],
+            'baoTokenFile':str(directory/'token'),'baoCA':str(directory/'bao-ca.pem'),'origin':self.a.origin,
+            'socket':str(directory/'federation'/'federation.sock'),'federationGroup':os.getgid(),
+            'noticeSocket':str(directory/'notice'/'notice.sock'),'noticeGroup':os.getgid(),
+            'continuityFile':str(directory/'continuity.json'),'federationFile':str(directory/'profile.json'),
+            'originsFile':str(directory/'origins.json')}
+        path=directory/'bridge.json';path.write_text(json.dumps(config));path.chmod(0o600)
+        image=os.environ.get('OPENID_TEST_CONTAINER') if container else None
+        def call(operation,audience='https://sp.example.test/sp',**data):
+            return request(config['socket'],{'operation':operation,'audience':audience,**data})
+        logs=[]
+        def spawn(*, expect_ready=True):
+            log=open(directory/('process-'+str(len(logs))+'.log'),'w+');logs.append(log);self.addCleanup(log.close)
+            command=[sys.executable,str(Path(__file__).with_name('cluster_bridge.py')),'--config',str(path)]
+            name=None
+            if image:
+                name='openid-bridge-'+secrets.token_hex(8)
+                command=['docker','run','--name',name,'--network','host','--read-only','--cap-drop','ALL',
+                    '--security-opt','no-new-privileges','--pids-limit','128','--memory','256m','--cpus','1',
+                    '--user',str(os.getuid())+':'+str(os.getgid()),'--tmpfs','/tmp:size=32m,mode=1777',
+                    '-v',str(directory)+':'+str(directory)+':ro',
+                    '-v',str(directory/'federation')+':'+str(directory/'federation'),
+                    '-v',str(directory/'notice')+':'+str(directory/'notice'),
+                    '--entrypoint','python',image,'cluster_bridge.py','--config',str(path)]
+                self.addCleanup(lambda n=name:subprocess.run(['docker','rm','--force',n],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL))
+            process=subprocess.Popen(command,stdout=log,stderr=log)
+            def stop():
+                if process.poll() is None:
+                    if name:subprocess.run(['docker','stop','--time','20',name],check=True,stdout=subprocess.DEVNULL)
+                    else:process.terminate()
+                    self.assertEqual(0,process.wait(timeout=25))
+            self.addCleanup(stop)
+            if expect_ready:
+                for _ in range(150):
+                    if process.poll() is not None:
+                        log.seek(0);self.fail('Bridge startup failed: '+log.read())
+                    try:
+                        if call('health')=={'state':'READY'}:break
+                    except (OSError,ValueError):pass
+                    time.sleep(.1)
+                else:self.fail('Bridge did not become ready')
+            return process,stop
+        result={'config':config,'call':call,'spawn':spawn,'directory':directory,'logs':logs}
+        if start:result['process'],result['stop']=spawn()
+        return result
+
+    def test_bridge_command_private_profile_signing_notices_and_external_revocation(self):
+        from ipc_support import request
+        from notice_exporter import deliver_once
+        from unittest.mock import Mock
+        runtime=self.bridge_runtime(container=True);call=runtime['call'];self.activate()
+        notice=runtime['config']['noticeSocket']
+        message=request(notice,{'operation':'next'})
+        self.assertEqual({'event','contactVersion','kind','created'},set(message))
+        queue=Mock();queue.send_message.side_effect=OSError('synthetic queue outage')
+        with self.assertRaises(OSError):deliver_once(notice,queue,'https://queue.example.invalid')
+        first=queue.send_message.call_args.kwargs['MessageBody']
+        queue.send_message.side_effect=None;queue.send_message.return_value={'MessageId':'SYNTHETIC_QUEUE_RECEIPT'}
+        self.assertTrue(deliver_once(notice,queue,'https://queue.example.invalid'))
+        self.assertEqual(first,queue.send_message.call_args.kwargs['MessageBody'])
+        self.assertFalse(deliver_once(notice,queue,'https://queue.example.invalid'))
+        with self.assertRaises(ValueError):request(notice,{'operation':'get-profile','credential':self.ident})
+        for wrong in ('https://testclient.sandbox.swedenconnect.se/testsp1','https://unknown.example.test/sp'):
+            with self.assertRaises(ValueError):call('start',audience=wrong,binding='_unknown_recipient')
+        pending=call('start',binding='_bridge_login')
+        args={'id':pending['id'],'secret':pending['secret'],'binding':'_bridge_login'}
+        self.a.execute(self.signed('approve',pending['id']))
+        result=call('consume',**args);self.assertEqual('ALICE SYNTHETIC',result['identity']['displayName'])
+        with self.assertRaises(ValueError):call('consume',**args)
+        self.a.execute(self.signed('set-pin')|{'newPin':'482917'})
+        pending=call('start',binding='_bridge_signing',signMessage='SYNTHETIC exact signing text',verification='pin')
+        with self.assertRaises(ValueError):self.a.challenge({'credentialId':self.ident,'action':'approve','requestId':pending['id']})
+        self.a.execute(self.signed('sign',pending['id'])|{'pin':'482917'})
+        signed=call('consume',id=pending['id'],secret=pending['secret'],binding='_bridge_signing')
+        self.assertEqual(hashlib.sha256(b'SYNTHETIC exact signing text').hexdigest(),signed['signMessageSha256'])
+        self.assertEqual('pin',signed['verification'])
+        pending=call('start',binding='_before_external_revoke');self.a.execute(self.signed('approve',pending['id']))
+        args={'id':pending['id'],'secret':pending['secret'],'binding':'_before_external_revoke'}
+        self.synthetic.outage=True
+        try:
+            with self.assertRaises(ValueError):call('consume',**args)
+        finally:self.synthetic.outage=False
+        # Only the independent authority changes; the local row is still ACTIVE.
+        self.synthetic.authority.revoke(self.ident)
+        self.assertEqual([('ACTIVE',)],self.raw_sql('backup','SELECT state FROM credentials'))
+        with self.assertRaises(ValueError):call('consume',**args)
+        with self.assertRaises(ValueError):call('check',credentialId=self.ident,subject=result['subject'],version=result['version'])
+        runtime['stop']()
+        for log in runtime['logs']:
+            log.seek(0);text=log.read()
+            for private in (self.ident,'ALICE','482917',self.bridge_tokens['wallet'].read_text()):self.assertNotIn(private,text)
+
+    def test_bridge_command_sandbox_profile_binds_audiences_and_restarts(self):
+        from federation_parties import SANDBOX_PARTIES
+        from ipc_support import request
+        runtime=self.bridge_runtime('sweden-connect-sandbox');call=runtime['call'];self.activate()
+        sp,signer=list(SANDBOX_PARTIES)[0],list(SANDBOX_PARTIES)[-1]
+        pending=call('start',audience=sp,binding='_sandbox_login');self.a.execute(self.signed('approve',pending['id']))
+        args={'id':pending['id'],'secret':pending['secret'],'binding':'_sandbox_login'}
+        with self.assertRaises(ValueError):call('consume',audience=signer,**args)
+        result=call('consume',audience=sp,**args)
+        self.assertEqual({'givenName':'ALICE','surname':'SYNTHETIC'},result['sandboxIdentity'])
+        pending=call('start',audience=signer,binding='_sandbox_sign',signMessage='SYNTHETIC sandbox text')
+        self.a.execute(self.signed('sign',pending['id']))
+        self.assertIn('signMessageSha256',call('consume',audience=signer,id=pending['id'],secret=pending['secret'],binding='_sandbox_sign'))
+        with self.assertRaises(ValueError):call('start',audience='https://unknown.example.test/sp',binding='_unknown')
+        notice=runtime['config']['noticeSocket'];before=request(notice,{'operation':'next'})
+        runtime['stop']();process,stop=runtime['spawn']()
+        self.assertEqual(before,request(notice,{'operation':'next'}))
+        self.assertEqual({'state':'READY'},call('health',audience=sp));stop()
+
+    def test_bridge_command_partial_start_failure_releases_federation_socket(self):
+        runtime=self.bridge_runtime(start=False)
+        notice=Path(runtime['config']['noticeSocket']);notice.write_text('existing owner file')
+        process,_=runtime['spawn'](expect_ready=False)
+        self.assertEqual(2,process.wait(timeout=15))
+        self.assertEqual('existing owner file',notice.read_text())
+        self.assertFalse(Path(runtime['config']['socket']).exists())
+
     def test_parallel_proposals_have_single_winner(self):
+        self.registry_binding()
         def attempt(_):
             try:self.sql('alice','SELECT request_activation(%s,%s,%s)',(self.ident,'REVIEW-concurrent',24));return True
             except self.psycopg.Error:return False
@@ -1093,7 +1995,7 @@ class ClusterTests(unittest.TestCase):
 
     def test_restore_revokes_every_key_and_invalidates_pending_approvals(self):
         self.activate(); signed=self.signed()
-        self.sql('revoker','SELECT revoke_all_after_restore()')
+        with self.psycopg.connect(DSN) as owner:owner.execute('SELECT openid.revoke_all_after_restore()')
         with self.assertRaises(ValueError):self.b.execute(signed)
         self.assertEqual('REVOKED',self.b.execute(self.signed())['state'])
 
@@ -1103,7 +2005,7 @@ class ClusterTests(unittest.TestCase):
         with self.psycopg.connect(DSN,autocommit=True) as admin:
             admin.execute(sql.SQL('ALTER DATABASE {} ALLOW_CONNECTIONS true').format(sql.Identifier(name)))
             if grant:
-                admin.execute(sql.SQL('GRANT CONNECT ON DATABASE {} TO test_wallet,test_enroller,test_alice,test_bob').format(sql.Identifier(name)))
+                admin.execute(sql.SQL('GRANT CONNECT ON DATABASE {} TO test_wallet,test_enroller,test_registry,test_alice,test_bob,test_contact,test_continuity').format(sql.Identifier(name)))
         return make_conninfo(**(conninfo_to_dict(DSN)|{'dbname':name}))
 
     def restore_target(self):
@@ -1127,6 +2029,7 @@ class ClusterTests(unittest.TestCase):
         self.a.execute(self.signed('approve',request['id']))
         signed=self.signed()
         other=self.enroller.enroll(self.keys[1]['publicKey'],document())['id']
+        self.registry_binding(other)
         proposal=self.sql('alice','SELECT request_activation(%s,%s,%s)',(other,'REVIEW-before-backup',24))[0][0]
         destination=self.root/('backup-'+secrets.token_hex(8))
         saved=backup(self.dsns['backup'],destination,local_test=True)
@@ -1146,7 +2049,10 @@ class ClusterTests(unittest.TestCase):
         # Even reopening the listener does not grant application access.
         with self.assertRaises(self.psycopg.Error):self.psycopg.connect(dsn('wallet'))
         self.restored_database(target,grant=True)
-        restored=PostgresWallet(dsn('wallet'),self.a.origin,self.a.vault,local_test=True)
+        from postgres_continuity import PostgresContinuity
+        restored_controller=PostgresContinuity(dsn('continuity'),self.synthetic.authority,local_test=True)
+        self.addCleanup(restored_controller.close)
+        restored=PostgresWallet(dsn('wallet'),self.a.origin,self.a.vault,local_test=True,revocation=restored_controller)
         self.addCleanup(restored.close)
         with self.assertRaises(ValueError):restored.execute(signed)
         with self.assertRaises(ValueError):restored.consume_result(request['id'],request['secret'])
@@ -1160,6 +2066,8 @@ class ClusterTests(unittest.TestCase):
                           lambda:enroller.enroll(self.keys[2]['publicKey'],document())):
             with self.assertRaises(EnrollmentQuarantine):operation()
         with self.psycopg.connect(admin_dsn) as admin:
+            self.assertEqual(0,admin.execute('SELECT count(*) FROM openid.registry_bindings').fetchone()[0])
+            self.assertEqual(2,admin.execute('SELECT count(*) FROM openid.registry_evidence').fetchone()[0])
             self.assertEqual(2,admin.execute('SELECT cardinality(times) FROM openid.biometric_attempts').fetchone()[0])
             self.assertGreaterEqual(admin.execute('SELECT until_epoch-extract(epoch FROM clock_timestamp()) FROM openid.enrollment_quarantine').fetchone()[0],86390)
             # Test-only boundary simulation. No service role has this update permission.
@@ -1167,9 +2075,14 @@ class ClusterTests(unittest.TestCase):
         self.assertEqual(2,enroller.biometric_attempt(document()))  # spent attempts survive COPY/restore
         with self.assertRaises(ValueError):enroller.enroll(self.keys[0]['publicKey'],document())
         ident=enroller.enroll(self.keys[2]['publicKey'],document())['id']
+        registry=PostgresWallet(dsn('registry'),self.a.origin,self.registry_store.vault,local_test=True)
+        self.addCleanup(registry.close)
+        self.registry_binding(ident,wallet=registry)
         with self.psycopg.connect(dsn('alice')) as operator:
             fresh=operator.execute('SELECT openid.request_activation(%s,%s,%s)',(ident,'REVIEW-after-restore',24)).fetchone()[0]
-        with self.psycopg.connect(dsn('bob')) as operator:operator.execute('SELECT openid.approve_activation(%s)',(fresh,))
+        with self.psycopg.connect(dsn('bob')) as operator:
+            intent=operator.execute('SELECT openid.approve_activation(%s)',(fresh,)).fetchone()[0]
+        restored_controller.complete(intent)
         self.assertEqual('ACTIVE',restored.execute(self.signed(key=2,store=restored))['state'])
 
         with self.psycopg.connect(admin_dsn) as admin:
@@ -1179,7 +2092,7 @@ class ClusterTests(unittest.TestCase):
 
     def test_restore_hold_cannot_be_reset_or_shadowed_by_a_service(self):
         from wallet import EnrollmentQuarantine
-        self.sql('revoker','SELECT revoke_all_after_restore()')
+        with self.psycopg.connect(DSN) as owner:owner.execute('SELECT openid.revoke_all_after_restore()')
         with self.assertRaises(EnrollmentQuarantine):self.enroller.enrollment_available()
         with self.assertRaises(EnrollmentQuarantine):self.enroller.biometric_attempt(document())
         for role in self.dsns:
@@ -1312,6 +2225,7 @@ with ExitStack() as stack:
         with self.psycopg.connect(DSN,autocommit=True) as admin:
             admin.execute('TRUNCATE openid.erasure_runs,openid.credentials,openid.persons,openid.operator_events,openid.maintenance_runs,openid.biometric_attempts RESTART IDENTITY CASCADE')
         self.enroller.vault=TransitVault(source['address'],tokens['enroller'],str(cluster.cert))
+        self.registry_store.vault=TransitVault(source['address'],tokens['registry'],str(cluster.cert))
         self.ident=self.enroller.enroll(self.keys[0]['publicKey'],document())['id'];self.activate()
         destination=self.root/('paired-'+secrets.token_hex(8))
         backup(self.dsns['backup'],destination,local_test=True)
@@ -1359,6 +2273,17 @@ with ExitStack() as stack:
         cert,key=directory/'cert.pem',directory/'key.pem'
         subprocess.run(['openssl','req','-x509','-newkey','rsa:2048','-nodes','-days','1','-subj','/CN=localhost',
             '-addext','subjectAltName=DNS:localhost','-keyout',str(key),'-out',str(cert)],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        from ipc_support import LocalService
+        from postgres_continuity import dispatch
+        import threading
+        directory.chmod(0o2710)
+        socket_path=directory/'continuity.sock'
+        endpoint=LocalService(socket_path,os.getgid(),lambda request:dispatch(self.controller,request))
+        thread=threading.Thread(target=endpoint.serve_forever,daemon=True);thread.start()
+        self.addCleanup(endpoint.close)
+        continuity_file=directory/'continuity.json'
+        continuity_file.write_text(json.dumps({'version':1,'socket':str(socket_path),'authority':self.controller.reference}))
+        continuity_file.chmod(0o600)
         context=ssl.create_default_context(cafile=str(cert));processes=[];ports=[];logs=[];container_names={}
         def stop(process):
             if process.pid in container_names:
@@ -1389,7 +2314,8 @@ with ExitStack() as stack:
                 path=directory/name;path.write_text(value);path.chmod(0o600)
             config={'bind':'127.0.0.1','port':ports[-1],'origin':self.a.origin,'workers':2,'role':'wallet',
                 'databaseFile':str(directory/'dsn'),'baoAddress':self.address,'baoTokenFile':str(directory/'wallet-token'),
-                'baoCA':str(cert),'tlsCert':str(cert),'tlsKey':str(key),'pairingFile':str(directory/'pairing'),'metricsFile':str(directory/'metrics')}
+                'continuityFile':str(continuity_file),'baoCA':str(cert),'tlsCert':str(cert),'tlsKey':str(key),'pairingFile':str(directory/'pairing'),'metricsFile':str(directory/'metrics')}
+            if index==0:config['trustedProxy']='127.0.0.1'
             path=directory/(str(index)+'.json');path.write_text(json.dumps(config))
             log=open(directory/(str(index)+'.log'),'w+');logs.append(log);self.addCleanup(log.close)
             command=[sys.executable,'-c','import json,sys;from cluster_serve import run;run(json.load(open(sys.argv[1])),local_test=True)',str(path)]
@@ -1408,7 +2334,8 @@ with ExitStack() as stack:
         def request(index,path,body=None,extra=None):
             c=http.client.HTTPSConnection('localhost',ports[index],context=context,timeout=10)
             try:
-                c.request('POST' if body is not None else 'GET',path,json.dumps(body) if body is not None else None,headers|(extra or {}))
+                proxy={'X-OpenID-Client-IP':'192.0.2.10'} if index==0 else {}
+                c.request('POST' if body is not None else 'GET',path,json.dumps(body) if body is not None else None,headers|proxy|(extra or {}))
                 r=c.getresponse();return r.status,json.loads(r.read())
             finally:c.close()
         for index in range(2):
@@ -1423,7 +2350,10 @@ with ExitStack() as stack:
         self.assertEqual(404,request(0,'/native/start',{})[0])
         self.assertEqual(403,request(0,'/metrics')[0])
         self.assertEqual(200,request(0,'/metrics',extra={'Authorization':'Bearer '+'y'*43})[0])
-        code,c=request(0,'/wallet/challenge',{'credentialId':self.ident,'action':'snapshot','requestId':None});self.assertEqual(200,code)
+        challenge={'credentialId':self.ident,'action':'snapshot','requestId':None}
+        self.assertEqual(403,request(0,'/wallet/challenge',challenge,{'X-OpenID-Client-IP':''})[0])
+        self.assertEqual(403,request(1,'/wallet/challenge',challenge,{'X-OpenID-Client-IP':'192.0.2.10'})[0])
+        code,c=request(0,'/wallet/challenge',challenge);self.assertEqual(200,code)
         signed={'challengeId':c['id'],'signature':crypt(op='sign',key=self.keys[0]['privateKey'],payload=c['signingInput'])}
         stop(processes[0])
         self.assertEqual(200,request(1,'/wallet/execute',signed)[0])

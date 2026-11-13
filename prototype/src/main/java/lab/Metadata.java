@@ -18,7 +18,7 @@ public final class Metadata {
     return (EntityDescriptor) XMLObjectSupport.unmarshallFromInputStream(
         XMLObjectProviderRegistrySupport.getParserPool(), new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
   }
-  private static String key(TestKeys keys, String alias) throws Exception {
+  private static String key(ServiceKeys keys, String alias) throws Exception {
     return "<md:KeyDescriptor><ds:KeyInfo><ds:X509Data><ds:X509Certificate>" +
         Base64.getEncoder().encodeToString(keys.certificate(alias).getEncoded()) +
         "</ds:X509Certificate></ds:X509Data></ds:KeyInfo></md:KeyDescriptor>";
@@ -26,10 +26,10 @@ public final class Metadata {
   private static String header(String entity) {
     return "<md:EntityDescriptor xmlns:md=\"urn:oasis:names:tc:SAML:2.0:metadata\" xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\" entityID=\"" + entity + "\">";
   }
-  public static String sp(TestKeys keys, String base) throws Exception {
+  public static String sp(ServiceKeys keys, String base) throws Exception {
     return sp(keys, base, false);
   }
-  public static String sp(TestKeys keys, String base, boolean phone) throws Exception {
+  public static String sp(ServiceKeys keys, String base, boolean phone) throws Exception {
     String requested = (phone ? lab.phone.PhoneIdentity.ATTRIBUTES : java.util.List.of(DISPLAY_NAME)).stream()
         .map(name -> "<md:RequestedAttribute Name=\""+name+"\" NameFormat=\"urn:oasis:names:tc:SAML:2.0:attrname-format:uri\" isRequired=\"true\"/>")
         .collect(java.util.stream.Collectors.joining());
@@ -44,7 +44,7 @@ public final class Metadata {
         """.formatted(base, phone ? "\n<md:AssertionConsumerService Binding=\"urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST\" Location=\"" + base + "/test/acs\" index=\"1\"/>" : "", requested);
   }
   /** The account service's signature service: a separate SAML entity with the sigservice entity category. */
-  public static String signService(TestKeys keys, String base) throws Exception {
+  public static String signService(ServiceKeys keys, String base) throws Exception {
     String requested = lab.phone.PhoneIdentity.ATTRIBUTES.stream()
         .map(name -> "<md:RequestedAttribute Name=\""+name+"\" NameFormat=\"urn:oasis:names:tc:SAML:2.0:attrname-format:uri\" isRequired=\"true\"/>")
         .collect(java.util.stream.Collectors.joining());
@@ -59,20 +59,15 @@ public final class Metadata {
         </md:SPSSODescriptor></md:EntityDescriptor>
         """.formatted(base, requested);
   }
-  public static String idp(TestKeys keys, String base) throws Exception {
+  public static String idp(ServiceKeys keys, String base) throws Exception {
     String credentials = key(keys, "idp");
-    var encryption = keys.directory().resolve("idp-encryption.crt");
-    if (java.nio.file.Files.exists(encryption)) {
-      try (var input = java.nio.file.Files.newInputStream(encryption)) {
-        var certificate = (java.security.cert.X509Certificate) java.security.cert.CertificateFactory.getInstance("X.509").generateCertificate(input);
+    var certificate = keys.encryptionCertificate();
+    if (certificate != null) {
         certificate.checkValidity();
-        if (!"CN=Tjipp-Sandbox-Encryption".equals(certificate.getSubjectX500Principal().getName()))
-          throw new IllegalArgumentException("Unexpected encryption certificate");
         credentials = credentials.replace("<md:KeyDescriptor>", "<md:KeyDescriptor use=\"signing\">") +
             "<md:KeyDescriptor use=\"encryption\"><ds:KeyInfo><ds:X509Data><ds:X509Certificate>" +
             Base64.getEncoder().encodeToString(certificate.getEncoded()) +
             "</ds:X509Certificate></ds:X509Data></ds:KeyInfo></md:KeyDescriptor>";
-      }
     }
     return header(base + "/idp") + """
         <md:IDPSSODescriptor WantAuthnRequestsSigned="true" protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">

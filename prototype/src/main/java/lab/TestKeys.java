@@ -8,7 +8,7 @@ import javax.net.ssl.*;
 import se.swedenconnect.security.credential.KeyStoreCredential;
 import se.swedenconnect.security.credential.PkiCredential;
 
-public final class TestKeys {
+public final class TestKeys implements ServiceKeys {
   public static final String PASSWORD = "test-only-changeit";
   private final Path directory;
 
@@ -70,4 +70,17 @@ public final class TestKeys {
     return context;
   }
   public Path directory() { return directory; }
+  @Override public X509Certificate encryptionCertificate() throws Exception {
+    Path path = directory.resolve("idp-encryption.crt");
+    if (!Files.exists(path)) return null;
+    try (var input = Files.newInputStream(path)) {
+      var certificate = (X509Certificate) java.security.cert.CertificateFactory.getInstance("X.509").generateCertificate(input);
+      certificate.checkValidity();
+      if (!"CN=Tjipp-Sandbox-Encryption".equals(certificate.getSubjectX500Principal().getName()))
+        throw new IllegalArgumentException("Unexpected lab encryption certificate");
+      return certificate;
+    }
+  }
+  public Path storePath(String alias) { return directory.resolve(alias + ".p12"); }
+  public String password(String alias) { return PASSWORD; }
 }

@@ -1,4 +1,25 @@
-# Privat pilotmiljö
+# Drift av Tjipp
+
+Den sammanhängande leveransen omfattar verifierare, register, profilnyckeltjänst,
+federationsbrygga, IdP, kontotjänst och avisering/spärr. Serverartefakten byggs
+en gång i [byggmiljön](build/README.md) och identifieras före installation.
+Appens version och driftkonfigurationen hör till samma granskningskandidat.
+
+Den varaktiga driftplattformen är under införande. De privata och publika
+pilotprofilerna nedan beskriver befintlig kod och historiska körsätt; de är
+inte en färdig produktionsdefinition. Den tidigare AWS-betan och privata
+piloten avvecklades den 10 november 2026. Deras register och nycklar ska inte
+återskapas för en ny driftsättning.
+
+Den [sammanhängande driftdefinitionen](production/README.md) samlar hela
+serverkedjan med skilda tjänstenycklar, oberoende spärr och stängd
+nyregistrering. Den är ingången för införande och granskning av den nya driften.
+
+Sweden Connects sandbox används för federationens anslutningsprov. Den
+fristående syntetiska Render-IdP:n och `ops`-containern ersätter inte den
+fullständiga serverleveransen.
+
+## Privat pilotprofil
 
 Verifieraren, bildmodellerna och den lokala inloggningstjänsten paketeras i
 Docker. Kör på en **Linux x86_64-dator i ett privat nätverk**. Telefonen behöver
@@ -7,7 +28,7 @@ nå datorns HTTPS-adress. Appen installeras separat från Xcode.
 Detta är en miljö för telefonprov. Den är inte öppnad för publik e-id-utgivning.
 Modellkalibrering, fysisk NFC/App Attest och oberoende granskning återstår.
 
-## Publik TestFlight-beta
+## Historisk TestFlight-betaprofil
 
 Serverpaket byggs och provas i den
 [separata byggmiljön](build/README.md), exporteras med proveniens och importeras
@@ -75,11 +96,13 @@ Detta begränsar processernas åtkomst; verifierare/brygga kan fortfarande begä
 dekryptering och en värdadministratör kontrollerar miljön. Det är inget HSM
 eller oberoende administrativ rollseparation.
 
-## Betans öppettider
+## Den avvecklade novemberpilotens slutplan
 
-Från 29 oktober 2026 kör den befintliga testservern **dygnet runt till och med
-30 november 2026**. Den stängs av **1 december 2026 kl. 00.00 svensk tid**
-(`Europe/Stockholm`), motsvarande 30 november kl. 23.00 UTC.
+Den tidigare planen var drift dygnet runt från 29 oktober till och med
+30 november 2026, följt av stopp 1 december kl. 00.00 svensk tid
+(`Europe/Stockholm`). Avvecklingen genomfördes i stället den 10 november.
+Den planerade novemberkampanjen och dess stopptimer ska inte användas
+som livslängd eller driftplan för den nya varaktiga plattformen.
 
 Den dagliga autostarten är avstängd. AWS-stoppschemat och serverns befintliga
 lokala avstängningstimer är båda satta till slutdatumet. Vid återskapande av

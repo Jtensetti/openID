@@ -2,7 +2,10 @@
 
 Samma låsta AWS SDK-graf används av den separata
 [arkivklienten](../archive/README.md). Den för inga nya paket till
-applikationens runtime och tar inga credentials från repot.
+applikationens tidigare beroendegraf och tar inga credentials från repot.
+Även PostgreSQL-imagen använder nu samma oförändrade, hashbundna SDK-graf
+för den separata kontinuitetsprocessen; installation och faktisk inventering
+kontrolleras mot profilen i `deployment/build/python-wheels.lock.json`.
 
 Kontrollerat 2026-10-20. `requirements.lock` låser AWS SDK och hela dess
 installerade Python-graf med hjulhashar. `sbom.cdx.json` innehåller dessa

@@ -22,7 +22,7 @@ def prepare(wallet, credential, recipient, evidence, client, ledger, contacts):
     # Persist the encrypted proof before any remote write so a retry uses the
     # same proof. Different AAD prevents swapping an identity profile for it.
     with wallet.transaction() as db:
-        row = wallet.credential(db, credential)
+        row = getattr(wallet, 'contact_registration', wallet.credential)(db, credential)
         if row['state'] not in {'PENDING_REVIEW', 'ACTIVE'}: raise ValueError('new registration required')
         if not db.execute('SELECT 1 FROM profiles WHERE credential=?', (credential,)).fetchone():
             raise ValueError('verified passport profile required')
@@ -31,8 +31,11 @@ def prepare(wallet, credential, recipient, evidence, client, ledger, contacts):
             version = secrets.token_hex(24)
             value = {'token': secrets.token_urlsafe(32)}
             sealed = wallet.vault.crypt('seal', credential, 'revocation-token-v1', value)
-            db.execute('INSERT INTO revocation_codes VALUES(?,?,?,?)',
-                (credential, json.dumps(sealed), version, evidence))
+            if hasattr(wallet, 'stage_contact'):
+                wallet.stage_contact(db, credential, json.dumps(sealed), version, evidence)
+            else:
+                db.execute('INSERT INTO revocation_codes VALUES(?,?,?,?)',
+                    (credential, json.dumps(sealed), version, evidence))
         else:
             if staged['evidence'] != evidence: raise ValueError('contact review changed')
             version = staged['contact_version']
@@ -54,7 +57,11 @@ def prepare(wallet, credential, recipient, evidence, client, ledger, contacts):
             raise ValueError('contact provisioning not confirmed') from None
     with wallet.transaction() as db:
         current = db.execute('SELECT * FROM notice_contacts WHERE credential=?', (credential,)).fetchone()
-        if current is None: bind_contact(db, credential, version, evidence)
+        if current is None:
+            if hasattr(wallet, 'bind_contact'):
+                wallet.bind_contact(db, credential, version, evidence)
+            else:
+                bind_contact(db, credential, version, evidence)
         elif current['contact_version'] != version or current['evidence'] != evidence:
             raise ValueError('immutable contact binding differs')
     return {'prepared': True, 'activationRequired': row['state'] == 'PENDING_REVIEW'}
@@ -63,7 +70,9 @@ def prepare(wallet, credential, recipient, evidence, client, ledger, contacts):
 def main():
     from aws_client import runtime_client
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--db', required=True)
+    backend = parser.add_mutually_exclusive_group(required=True)
+    backend.add_argument('--db')
+    backend.add_argument('--postgres-config')
     parser.add_argument('--credential', required=True)
     parser.add_argument('--evidence', required=True)
     parser.add_argument('--ledger', required=True)
@@ -71,7 +80,22 @@ def main():
     parser.add_argument('--independently-verified-contact', action='store_true', required=True)
     args = parser.parse_args()
     recipient = sys.stdin.readline(256).strip()
-    wallet = configured_wallet(args.db, 'continuity-operator')
+    if args.postgres_config:
+        from postgres import PostgresWallet
+        from postgres_continuity import configured_client
+        from serve import private_file
+        from transit import TransitVault
+        from native import unique_object
+        from runtime import validate_origin
+        config = json.loads(private_file(args.postgres_config), object_pairs_hook=unique_object)
+        if set(config) != {'databaseFile', 'origin', 'baoAddress', 'baoTokenFile', 'baoCA', 'continuityFile'}:
+            raise ValueError('private contact operator configuration required')
+        validate_origin(config['origin'])
+        wallet = PostgresWallet(private_file(config['databaseFile']).decode().strip(), config['origin'],
+            TransitVault(config['baoAddress'], config['baoTokenFile'], config['baoCA']),
+            revocation=configured_client(config['continuityFile']))
+    else:
+        wallet = configured_wallet(args.db, 'continuity-operator')
     client = runtime_client('dynamodb', read_timeout=5)
     try:
         result = prepare(wallet, args.credential, recipient, args.evidence, client, args.ledger, args.contacts)
@@ -79,6 +103,8 @@ def main():
     except Exception:
         print('Contact preparation not confirmed. No ID was activated.', file=sys.stderr)
         raise SystemExit(2)
+    finally:
+        if hasattr(wallet, 'close'): wallet.close()
 
 
 if __name__ == '__main__': main()

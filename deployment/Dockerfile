@@ -22,6 +22,10 @@ ADD --checksum=sha256:4ca4a9394b0c771238a4f73590fdbbc4debad85ed0fa63d026ae1b085d
 ADD --checksum=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8 https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl /wheels/typing_extensions-4.16.0-py3-none-any.whl
 ADD --checksum=sha256:0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3 https://files.pythonhosted.org/packages/92/9d/c4e665119135114480843e7ab388fa94d8480650450e6f8e26b70d323a4c/urllib3-2.8.0-py3-none-any.whl /wheels/urllib3-2.8.0-py3-none-any.whl
 
+ADD --checksum=sha256:a1db9f7148b06a28606767efaca51fa6f9398c5c0a3810519be69d7000bdb631 https://files.pythonhosted.org/packages/4e/de/748bd7609c71cae5d737f0ba9192f19329f70180ecda8fff3cac02c5abe3/psycopg-3.3.6-py3-none-any.whl /wheels/psycopg-3.3.6-py3-none-any.whl
+ADD --checksum=sha256:1679a1cb93fbe5a6d1fd58d82cbddcc6fcb8c61446ba7cae6eb2a7b19bc585de https://files.pythonhosted.org/packages/0a/42/948bb3d2617795093512613fd96ba380e922992c7908fbc073858147d196/psycopg_binary-3.3.6-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl /wheels/psycopg_binary-3.3.6-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+ADD --checksum=sha256:9b9cd6a4fcec47a410f7e82d408540e7f77b478509e91b44c1a5457a13e5ff37 https://files.pythonhosted.org/packages/5d/b4/452c6607a0f479465cd8a9b0d9956919fcb150050c1f83f9f11e6b8ee8dc/psycopg_pool-3.3.3-py3-none-any.whl /wheels/psycopg_pool-3.3.3-py3-none-any.whl
+
 FROM python:3.12.16-slim-trixie@sha256:8523d6abeb48ceae0b7240d30c5808fc26cb79c1a635bacdf19cf3baecfbec07 AS build-tools
 
 FROM build-tools AS python-base
@@ -69,7 +73,7 @@ ADD --checksum=sha256:5431b6d3ad286a41d9e20b9b0d37355f430046e333b4954c0814a8c301
 RUN chmod 644 /opt/java/openjdk/upstream-sbom.cdx.json
 FROM python-base AS pilot
 LABEL org.opencontainers.image.source="https://github.com/Jtensetti/openID"
-LABEL org.opencontainers.image.description="Private iPhone verification pilot"
+LABEL org.opencontainers.image.description="Common Tjipp application runtime"
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 JAVA_HOME=/opt/java/openjdk
 ENV PATH="/opt/java/openjdk/bin:$PATH"
 COPY --from=java-runtime /opt/java/openjdk /opt/java/openjdk
@@ -77,10 +81,11 @@ COPY --from=node-build /usr/local/bin/node /usr/local/bin/node
 COPY --from=node-build /usr/local/LICENSE /usr/share/doc/nodejs/LICENSE
 WORKDIR /app/verification
 COPY verification/http_transport.py verification/aws_client.py ./
-COPY verification/requirements.lock verification/rp-requirements.lock verification/runtime-requirements.lock ./
+COPY verification/aws_credential_process.py verification/aws_credential_rotate.py ./
+COPY verification/requirements.lock verification/rp-requirements.lock verification/runtime-requirements.lock verification/cluster-requirements.lock ./
 COPY deployment/aws/requirements.lock /app/aws-requirements.lock
 COPY deployment/build/python-wheels.lock.json /usr/share/doc/openid-python/python-wheels.lock.json
-RUN --network=none --mount=type=bind,from=python-wheels,source=/wheels,target=/wheels ["python", "-m", "pip", "--isolated", "--disable-pip-version-check", "install", "--no-index", "--find-links=/wheels", "--no-cache-dir", "--require-hashes", "--only-binary=:all:", "--report=/usr/share/doc/openid-python/wheel-installation.json", "-r", "requirements.lock", "-r", "rp-requirements.lock", "-r", "runtime-requirements.lock", "-r", "/app/aws-requirements.lock"]
+RUN --network=none --mount=type=bind,from=python-wheels,source=/wheels,target=/wheels ["python", "-m", "pip", "--isolated", "--disable-pip-version-check", "install", "--no-index", "--find-links=/wheels", "--no-cache-dir", "--require-hashes", "--only-binary=:all:", "--report=/usr/share/doc/openid-python/wheel-installation.json", "-r", "requirements.lock", "-r", "rp-requirements.lock", "-r", "runtime-requirements.lock", "-r", "cluster-requirements.lock", "-r", "/app/aws-requirements.lock"]
 RUN --network=none ["python", "-c", "from pathlib import Path; Path('/usr/share/doc/openid-python/wheel-profile.txt').write_text('pilot\\n')"]
 COPY --from=node-build /app/verification/node_modules ./node_modules
 COPY --from=java-verified /check/target/isolated-eid-lab.jar /app/prototype/target/isolated-eid-lab.jar
@@ -95,9 +100,14 @@ RUN ["python", "download_models.py"]
 COPY deployment/aws/licenses /app/licenses/aws
 COPY deployment/aws/THIRD_PARTY.md deployment/aws/sbom.cdx.json /app/licenses/aws/
 COPY verification/crypto_runtime.py verification/serve.py verification/runtime.py verification/biometric_worker.py verification/native.py verification/chip.py verification/server.py verification/wallet.py verification/wallet_cli.py verification/registry_binding.py verification/identity.py verification/recovery.py verification/relying_party.py ./
+COPY verification/postgres.py verification/postgres_continuity.py verification/transit.py verification/cluster_serve.py verification/cluster_bridge.py verification/cluster_operator.py verification/cluster_recovery.py verification/postgres_subject_access.py verification/maintenance.py verification/monitor.py ./
+COPY verification/spar_provider.py ./
+COPY deployment/cluster/schema.sql /app/deployment/cluster/schema.sql
+COPY deployment/cluster/probe.py ./cluster_probe.py
+COPY deployment/production/probe.py /app/deployment/production/probe.py
 COPY verification/crypto-worker.mjs verification/attest.mjs verification/device-signature.mjs verification/profile-crypto.mjs ./
 COPY verification/revocation.py verification/notices.py verification/notice_exporter.py verification/continuity_operator.py ./
-COPY verification/federation.py verification/federation_parties.py deployment/saml_bridge.py ./
+COPY verification/federation.py verification/federation_parties.py verification/federation_config.py deployment/saml_bridge.py ./
 COPY verification/ipc_support.py verification/vault_service.py verification/notice_ipc.py ./
 COPY verification/subject_access.py verification/audit_archive.py verification/crl_maintenance.py verification/ingress_client.py verification/sqlite_retention.py verification/recovery_binding.py ./
 COPY verification/enrollment_policy.py verification/acceptance_journal.py verification/consent_retention.py ./

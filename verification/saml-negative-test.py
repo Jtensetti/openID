@@ -14,6 +14,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from federation import FederationServer
+from federation_config import read_profile
+from runtime_test_fixture import RuntimeFixture
 from test_identity import document
 from test_wallet import crypt
 from wallet import Wallet
@@ -31,56 +33,67 @@ class Forms(HTMLParser):
         if tag=='form': self.current=None
 
 with tempfile.TemporaryDirectory() as tmp:
-    root=Path(tmp); keys=root/'keys'; jar=os.environ.get('OPENID_TEST_JAR', '/app/prototype/target/isolated-eid-lab.jar')
-    subprocess.run(['java','-jar',jar,'phone-init',str(keys)],check=True,stdout=subprocess.DEVNULL)
+    root=Path(tmp); jar=os.environ.get('OPENID_TEST_JAR', '/app/prototype/target/isolated-eid-lab.jar')
     sandbox = os.environ.get('OPENID_TEST_SANDBOX') == 'true'
+    fixture = None
+    ingress = None
     if sandbox:
+        keys=root/'keys'
+        subprocess.run(['java','-jar',jar,'phone-init',str(keys)],check=True,stdout=subprocess.DEVNULL)
         subprocess.run(['java','-jar',jar,'phone-sandbox-init',str(keys)],check=True,stdout=subprocess.DEVNULL)
+        idp_base,sp_base='https://localhost:8443','https://localhost:8444'
+        tls=ssl.create_default_context(cafile=str(keys/'tls.crt'))
+    else:
+        fixture=RuntimeFixture(root)
+        ingress=fixture.ingress()
+        idp_base,sp_base='https://idp.example.test','https://sp.example.test'
+        tls=fixture.public_tls
     offset=0
     wallet=Wallet(root/'wallet.sqlite','https://localhost:8765',clock=lambda:time.time()+offset)
-    bridge=FederationServer(root/'bridge.sock',wallet,sandbox=sandbox)
+    bridge=FederationServer(root/'bridge.sock',wallet,audience=sp_base+'/sp',sandbox=sandbox if fixture is None else read_profile(fixture.federation))
     children=[]
     log=open(root/'service.log','w+')
     try:
-        for mode in ('phone-sandbox-idp' if sandbox else 'phone-idp','phone-sp'):
-            children.append(subprocess.Popen(['java','-Xmx256m','-jar',jar,mode,str(keys),str(bridge.path)],stdout=log,stderr=log))
-        tls=ssl.create_default_context(cafile=str(keys/'tls.crt'))
+        for role in ('idp','sp'):
+            command=fixture.command(role,jar,bridge.path) if fixture else ['java','-Xmx256m','-jar',jar,
+                'phone-sandbox-idp' if role=='idp' else 'phone-sp',str(keys),str(bridge.path)]
+            children.append(subprocess.Popen(command,stdout=log,stderr=log))
         def client():
-            return urllib.request.build_opener(urllib.request.HTTPSHandler(context=tls),urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+            return urllib.request.build_opener(urllib.request.ProxyHandler({}),urllib.request.HTTPSHandler(context=tls),urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
         def request(c,url,fields=None):
-            headers={} if fields is None else {'Origin':'https://localhost:8443'}
+            headers={} if fields is None else {'Origin':idp_base}
             data=None if fields is None else urllib.parse.urlencode(fields).encode()
             try:
                 r=c.open(urllib.request.Request(url,data=data,headers=headers),timeout=10)
             except urllib.error.HTTPError as e: r=e
             return r.status,r.read().decode(),r.url
-        for port in (8443,8444):
+        for base,path in ((idp_base,'phone/page.css'),(sp_base,'health/ready')):
             for attempt in range(100):
                 try:
-                    status,_,_=request(client(),f'https://localhost:{port}/'+('phone/page.css' if port==8443 else 'health/ready'))
+                    status,_,_=request(client(),base+'/'+path)
                     if status==200: break
                 except OSError: pass
                 time.sleep(.3)
             else: raise AssertionError('startup failed')
-        assert request(client(),'https://localhost:8443/sign/')[0] != 200
+        assert request(client(),idp_base+'/sign/')[0] != 200
         key=json.loads(crypt(op='new'))
         ident=wallet.enroll(key['publicKey'],document())['id']; wallet.activate(ident,'REVIEW-negative-test-001')
         def sign(action,rid):
             challenge=wallet.challenge({'credentialId':ident,'action':action,'requestId':rid})
             return {'challengeId':challenge['id'],'signature':crypt(op='sign',key=key['privateKey'],payload=challenge['signingInput'])}
         def begin():
-            c=client(); status,html,_=request(c,'https://localhost:8444/login'); assert status==200
+            c=client(); status,html,_=request(c,sp_base+'/login'); assert status==200
             rid=re.search(r'openid://request/([a-f0-9]{64})',html).group(1)
             form=next(f for f in Forms(html).forms if f['action']=='/phone/complete')
             return c,rid,form['fields']
         def denied(c):
             for path in ('me','portrait'):
-                assert request(c,'https://localhost:8444/'+path)[0]==401, path
+                assert request(c,sp_base+'/'+path)[0]==401, path
         def complete(c,fields):
-            status,html,_=request(c,'https://localhost:8443/phone/complete',fields)
+            status,html,_=request(c,idp_base+'/phone/complete',fields)
             for form in Forms(html).forms:
                 if 'SAMLResponse' in form['fields']:
-                    assert form['action']=='https://localhost:8444/acs'
+                    assert form['action']==sp_base+'/acs'
                     return request(c,form['action'],form['fields'])
             return status,html,''
         def must_fail(fn):
@@ -88,28 +101,28 @@ with tempfile.TemporaryDirectory() as tmp:
             except ValueError: return
             raise AssertionError('operation unexpectedly accepted')
         c,rid,fields=begin(); wallet.execute(sign('approve',rid)); assert complete(c,fields)[0]==200
-        assert request(c,'https://localhost:8444/me')[0]==200
+        assert request(c,sp_base+'/me')[0]==200
         print('PASS positive control: signed device consent, SAML response and protected session',flush=True)
         for case in ('loa1', 'loa2', 'loa3'):
             probe=client()
-            status,html,_=request(probe,'https://localhost:8444/test/run/'+case)
+            status,html,_=request(probe,sp_base+'/test/run/'+case)
             form=next(f for f in Forms(html).forms if 'SAMLResponse' in f['fields'])
-            assert form['action']=='https://localhost:8444/test/acs'
+            assert form['action']==sp_base+'/test/acs'
             status,report,_=request(probe,form['action'],form['fields'])
             assert status==200 and 'Godkänt – IdP:n betedde sig som ramverket kräver.' in report
             assert 'NoAuthnContext' in report
         print('PASS assurance requests: levels 1, 2 and 3 return NoAuthnContext without downgrade',flush=True)
         for case in ('sign', 'sign-encrypted'):
             probe=client()
-            status,html,_=request(probe,'https://localhost:8444/test/run/'+case)
+            status,html,_=request(probe,sp_base+'/test/run/'+case)
             assert status==200
             rid=re.search(r'openid://request/([a-f0-9]{64})',html).group(1)
             fields=next(f for f in Forms(html).forms if f['action']=='/phone/complete')['fields']
             must_fail(lambda:wallet.execute(sign('approve',rid)))
             wallet.execute(sign('sign',rid))
-            status,html,_=request(probe,'https://localhost:8443/phone/complete',fields)
+            status,html,_=request(probe,idp_base+'/phone/complete',fields)
             form=next(f for f in Forms(html).forms if 'SAMLResponse' in f['fields'])
-            assert form['action']=='https://localhost:8444/sign/acs'
+            assert form['action']==sp_base+'/sign/acs'
             status,report,url=request(probe,form['action'],form['fields'])
             assert status==200 and 'Godkänt – IdP:n betedde sig som ramverket kräver.' in report
             assert 'SAD är signerad av IdP:n och bunden till begäran' in unescape(report)
@@ -117,13 +130,13 @@ with tempfile.TemporaryDirectory() as tmp:
             assert pdf.startswith(b'%PDF-') and b'/ETSI.CAdES.detached' in pdf and b'/ByteRange' in pdf
         print('PASS signing: separate intent, plaintext/encrypted SignMessage, SAD and PAdES signature',flush=True)
         c,rid,fields=begin(); late=sign('approve',rid); wallet.execute(sign('reject',rid))
-        assert 'APPROVED' not in request(c,'https://localhost:8443/phone/poll',fields)[1]
+        assert 'APPROVED' not in request(c,idp_base+'/phone/poll',fields)[1]
         must_fail(lambda:wallet.execute(late)); complete(c,fields); denied(c)
         print('PASS rejection: late approval and forced completion denied; /me and /portrait return 401',flush=True)
         c,rid,fields=begin(); late=sign('approve',rid)
         # Advance only the isolated registry clock, never the host or pilot clock.
         offset=121
-        assert json.loads(request(c,'https://localhost:8443/phone/poll',fields)[1])['state']=='EXPIRED'
+        assert json.loads(request(c,idp_base+'/phone/poll',fields)[1])['state']=='EXPIRED'
         must_fail(lambda:wallet.execute(late)); complete(c,fields); denied(c); offset=0
         print('PASS expired QR: +121 seconds; stale signature and forced completion denied; protected routes 401',flush=True)
         existing,rid,fields=begin(); wallet.execute(sign('approve',rid)); assert complete(existing,fields)[0]==200
@@ -133,9 +146,12 @@ with tempfile.TemporaryDirectory() as tmp:
         log.flush(); log.seek(0); logs=log.read()
         assert 'ALICE' not in logs and '900101' not in logs
         print('PASS synthetic identity absent from service logs',flush=True)
+    except Exception:
+        log.flush(); log.seek(0); print(log.read()[-14000:]); raise
     finally:
         for child in children: child.terminate()
         for child in children:
             try: child.wait(timeout=15)
             except subprocess.TimeoutExpired: child.kill(); child.wait()
         bridge.close(); log.close()
+        if ingress is not None: ingress.shutdown(); ingress.server_close()

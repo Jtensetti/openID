@@ -21,8 +21,7 @@ class AgeIssuanceTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
-        # The real mdoc integration validates against wall time. Freeze that clock
-        # before enrollment too, so the test ID does not expire as the test ages.
+        # Freeze current time before activation; the real mdoc verifier uses wall time.
         self.time = int(time.time())
         self.wallet = Wallet(Path(self.directory.name)/'wallet.sqlite', 'https://issuer.example', clock=lambda: self.time)
         identity = dict(givenNames='ALICE', familyName='SYNTHETIC', birthDateMrz='900101', nationality='UTO',

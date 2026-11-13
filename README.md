@@ -4,18 +4,30 @@ E-legitimation under utveckling för iPhone. Appen läser passets chip och
 använder en enhetsnyckel för inloggning och underskrift. Servern kontrollerar
 pass och ansiktsbilder samt hanterar godkännanden och spärr.
 
-**SAML har testats i Sweden Connects sandbox den 4 november 2026**, med
-syntetiska identiteter och extern testklient, inklusive Safari. Testet avser
-[revision 2e4d8c9 i PR 62](https://github.com/Jtensetti/openID/pull/62).
-Sandboxkoden är ännu inte mergad till `main`. Extern OIDC-verifiering,
-oberoende säkerhetsgranskning och Digg-godkännande återstår.
+## Granska den sammanhängande leveransen
 
-## Börja här
+Utgå från telefonflödet: app och API, passverifiering, register,
+användargodkännande, federation, underskrift och spärr. Komponenternas
+samband och tillitsgränser beskrivs i [arkitekturen](docs/arkitektur.md).
+
+| Del av leveransen | Huvudinstruktion |
+| --- | --- |
+| Bygg och identifiera samma serverartefakt | [Byggning och leverans](deployment/build/README.md) |
+| Processer, konfiguration och driftprofiler | [Drift av Tjipp](deployment/README.md) |
+| Verifiera kod och hela flöden | [Tester och deras avgränsning](docs/testning.md) |
+| Säkerhetsgränser och rapportering | [Säkerhet](SECURITY.md) |
+
+Ett granskningsunderlag ska ange källrevision, image-digest,
+driftkonfiguration och genomförda kontroller för den aktuella kandidaten.
+Källkoden i `main` och en installerad driftversion är separata objekt.
+Extern OIDC-verifiering, oberoende granskning och Digg-godkännande återstår.
+
+## Integration och utveckling
 
 | Uppgift | Instruktion |
 | --- | --- |
 | Förbered stöd i en e-tjänst | [Integration: SAML, testmiljö och exempel](integrations/README.md) |
-| Kör ett lokalt test utan pass | [SAML/WebAuthn-labb](prototype/README.md) |
+| Kör ett avgränsat protokollprov utan pass | [SAML/WebAuthn-labb](prototype/README.md) |
 | Bygg iPhone-appen | [iOS](ios/README.md) |
 | Förbered sandboxnycklar | [Certifikat och metadata](deployment/federation/README.md) |
 | Kör servern | [Verifierare](verification/README.md), [drift](deployment/README.md) |
@@ -23,9 +35,10 @@ oberoende säkerhetsgranskning och Digg-godkännande återstår.
 | Arbeta med koden | [Utveckling](docs/utveckling.md), [beroenden och attribution](THIRD_PARTY.md) |
 
 [Folkidentitet.se](https://folkidentitet.se) är projektets webbplats.
-App, pilotserver och sandbox har separata versioner och driftsättningar.
-[TestFlight-instruktionen](docs/testflight-beta.md) beskriver betans giltighet
-och [driftinstruktionen](deployment/README.md) dess öppettider.
+Sweden Connects sandbox är en extern federationsmiljö. Den
+[syntetiska IdP:n](deployment/sweden-connect-sandbox/README.md) är ett
+avgränsat protokollprov. Rotens `render.yaml` definierar en fristående
+hälsokontrollcontainer. Dessa beskriver inte hela Tjipps driftleverans.
 
 ## Licens
 
