@@ -25,7 +25,7 @@ import SwiftUI
                 #else
                 WalletRootView()
                 #endif
-            }.environmentObject(model)
+            }.environmentObject(model).tjippTheme()
                 .onOpenURL { model.open($0) }
                 .onChange(of: phase) { value in
                     if value == .background { model.lock() }
@@ -33,7 +33,7 @@ import SwiftUI
                 // Cover app-switcher snapshots and interruptions without cancelling an active Face ID/NFC prompt.
                 .overlay {
                     if phase != .active {
-                        ZStack { Palette.cardStart.ignoresSafeArea(); Label("Tjipp", systemImage: "lock.shield").font(.largeTitle.bold()).foregroundStyle(Palette.mint) }
+                        ZStack { Palette.paper.ignoresSafeArea(); VStack(spacing: 20) { TjippSymbol(size: 72); Text("Tjipp är låst").font(TjippLayout.title); Image(systemName: "lock").foregroundStyle(Palette.muted) } }
                     }
                 }
         }

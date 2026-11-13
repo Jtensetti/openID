@@ -23,7 +23,7 @@ struct RecoveryPreviewFixture: View {
             .safeAreaInset(edge: .top, spacing: 0) {
                 if ProcessInfo.processInfo.arguments.contains("--design-preview") {
                     Text("EXEMPELDATA · INGET VERKLIGT ID").font(.caption2.weight(.semibold))
-                        .padding(6).frame(maxWidth: .infinity).background(Palette.accentSurface)
+                        .padding(6).frame(maxWidth: .infinity).background(Palette.surface)
                 }
             }
     }

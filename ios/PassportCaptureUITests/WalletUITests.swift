@@ -2,6 +2,38 @@ import XCTest
 
 final class WalletUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
+    func testYellowThemeAcrossEveryTabAndHelp() {
+        let app = XCUIApplication(); app.launchArguments = []; app.launch()
+        app.buttons["Inställningar"].tap()
+        let appearance = app.buttons["settings.appearance"]
+        for _ in 0..<6 { if appearance.isHittable { break }; app.swipeUp() }
+        appearance.tap()
+        let yellow = app.buttons["appearance.color.sol"]
+        for _ in 0..<6 { if yellow.isHittable { break }; app.swipeUp() }
+        yellow.tap(); XCTAssertEqual(yellow.value as? String, "Vald")
+        app.terminate(); app.launch()
+        for tab in ["Mitt ID", "Legitimera", "Aktivitet", "Inställningar"] {
+            app.buttons[tab].tap()
+            if tab == "Mitt ID" {
+                XCTAssertEqual(app.staticTexts["home.heading"].label, "Mitt ID")
+                XCTAssertFalse(app.staticTexts["Ditt ID, nära till hands."].exists)
+            }
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = "Tjipp-Sol-" + tab; screenshot.lifetime = .keepAlways; add(screenshot)
+        }
+        let privacy = app.buttons["Personuppgifter och säkerhet"]
+        for _ in 0..<6 { if privacy.isHittable { break }; app.swipeUp() }
+        privacy.tap()
+        XCTAssertTrue(app.navigationBars["Integritet"].waitForExistence(timeout: 3))
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Tjipp-Sol-Integritet"; screenshot.lifetime = .keepAlways; add(screenshot)
+        app.terminate(); app.launchArguments = ["--design-preview", "--dark"]; app.launch()
+        for tab in ["Mitt ID", "Legitimera", "Aktivitet", "Inställningar"] {
+            app.buttons[tab].tap()
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = "Tjipp-Sol-mork-" + tab; screenshot.lifetime = .keepAlways; add(screenshot)
+        }
+    }
     func testLinkActionStaysAboveKeyboard() {
         let app = XCUIApplication(); app.launchArguments = ["--design-preview"]; app.launch()
         app.buttons["Legitimera"].tap()
@@ -298,7 +330,9 @@ final class WalletUITests: XCTestCase {
         let app = XCUIApplication(); app.launchArguments = []; app.launch()
         XCTAssertTrue(app.buttons["Inställningar"].waitForExistence(timeout: 5))
         app.buttons["Inställningar"].tap()
-        app.buttons["Personuppgifter och säkerhet"].tap()
+        let privacy = app.buttons["Personuppgifter och säkerhet"]
+        for _ in 0..<6 { if privacy.isHittable { break }; app.swipeUp() }
+        privacy.tap()
         XCTAssertTrue(app.navigationBars["Integritet"].waitForExistence(timeout: 3))
         XCTAssertFalse(app.buttons["Återaktivera"].exists)
     }

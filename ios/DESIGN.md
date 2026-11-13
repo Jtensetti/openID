@@ -19,16 +19,27 @@ revision `e73f0db79916c451caea7be65404d797f110d6b5`.
 | Sol / Lavendel | `#C08B22` / `#79719D` |
 | Ros / Grafit | `#B37583` / `#5F6669` |
 
-Personlig färg styr logotypvarianten och kortets svaga bakgrundston.
-Status, text och knappar har separata semantiska färger. Systemets mörka läge
-följs automatiskt. `PaletteTests` kontrollerar textkontrast och paketerade bilder.
+Personlig färg gäller hela appen: logotyp, huvudknappar, sekundärknappar,
+flikmarkeringar, länkar, ikoner och svaga bakgrundstoner. `TjippTheme` ärvs
+av alla vyer och modala flöden och uppdateras direkt när färgvalet ändras.
+Huvudknappen använder färgens originalvärde; ljus eller mörk knapptext väljs
+för kontrast. Textlänkar och små markeringar får en ljusare eller mörkare
+nyans av samma färg vid behov. Säkerhetsstatus visas fortsatt med text och
+symbol; fel och kamerans positioneringssignaler har egna semantiska färger.
+Systemets mörka läge har neutrala mörka ytor. `PaletteTests` kontrollerar
+kontrast för alla åtta teman i båda lägena samt paketerade bilder.
 
 Symbolerna och ordmärket i `Assets.xcassets/Tjipp*.imageset` är projektets
 tillhandahållna PNG-original från webbplatsen. De är kopierade utan omritning,
-filter eller nya konturer. `design-assets.json` binder filerna
+filter eller nya konturer. Ordmärkets originalform används som mask i gränssnittet,
+med läsbar textfärg och punkt i vald färg, utan en ljus platta i mörkt läge.
+`design-assets.json` binder filerna
 till respektive originaladress och SHA-256. Inga nya externa typsnitt används.
-Hälsning och underskriftsrubrik använder iOS serif med Dynamic Type; övriga
-texter använder systemets läsbara textstilar. Mönstren Papper, Ådring, Dyner
+Alla sidrubriker använder samma iOS serif med Dynamic Type. Underrubriker,
+brödtext och knappar använder samma systemtextstilar genom hela appen.
+`TjippPage`, `TjippSection`, `TjippFieldStyle` och knappstilarna samlar
+marginaler, paneler, inmatning och åtgärder. Startsidan visar en enda rubrik:
+Mitt ID när uppgifterna är dolda, annars den personliga hälsningen. Mönstren Papper, Ådring, Dyner
 och Ringar ritas separat som diskreta SwiftUI-bakgrunder.
 
 `tjipp.color` och `tjipp.pattern` sparas lokalt i UserDefaults. Inga ID- eller

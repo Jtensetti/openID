@@ -4,7 +4,7 @@ struct EnrollmentNoticeView: View {
     let notice: EnrollmentText
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Innan du registrerar dig").font(.title2.bold())
+            Text("Innan du registrerar dig").font(.title3.weight(.semibold))
             Text("Ansvarig: \(notice.controller)")
             Text("Kontakt: \(notice.contact)").textSelection(.enabled)
             Text("Version: \(notice.version)").font(.caption)
@@ -32,8 +32,8 @@ struct EnrollmentReceiptsView: View {
     }
 
     var body: some View {
-        List {
-            Section {
+        TjippPage(title: "Dina samtycken") {
+            TjippSection {
                 Text("Samtycket avser registreringens biometriska kontroll. När en återkallelse bekräftats stoppar den fortsatt registrering med samma kvitto. Redan utförd behandling kan inte göras ogjord. Ditt ID spärras separat under Inställningar.")
                 Text("För radering, andra rättigheter eller förlorad telefon använder du kontakten i informationen nedan. Återkallelse kräver att registreringsservern är tillgänglig.")
             }
@@ -41,7 +41,7 @@ struct EnrollmentReceiptsView: View {
                 Text("Inga versionsbundna kvitton finns för den här nyckeln på telefonen. Äldre registreringar behöver kontrolleras separat.")
             }
             ForEach(receipts) { receipt in
-                Section {
+                TjippSection {
                     if let text = try? receipt.notice.text() { EnrollmentNoticeView(notice: text) }
                     Text(receipt.state == .withdrawn ? "Återkallelsen är bekräftad" : receipt.state == .recorded ? "Valet är registrerat" : "Serverns mottagande är inte bekräftat")
                         .font(.headline)

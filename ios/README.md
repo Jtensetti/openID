@@ -14,7 +14,7 @@ Ingen appinstallation startar om testtjänsterna.
   Inskickad till Apples betagranskning den 29 oktober 2026. Då var status
   *Waiting for Review* och den publika inbjudningslänken avstängd. Kontrollera
   aktuell status i App Store Connect före nya inbjudningar. Piloten avser Sverige.
-- **Utvecklingsbygge: 0.2.0 (115)**. Har [Tjipps formspråk](DESIGN.md),
+- **Utvecklingsbygge: 0.2.0 (116)**. Har [Tjipps formspråk](DESIGN.md),
   åtta färgval, fyra mönster, runt passfoto och tangentbordsanpassade huvudknappar.
   Underskrift med säkerhetskod visar hela texten och båda beslutsvalen.
   Kameraramarnas geometri bevaras. Bygget är avsett för lokal provning.

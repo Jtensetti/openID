@@ -11,10 +11,10 @@ struct QRScanView: View {
             VStack(spacing: 24) {
                 Text("Skanna koden hos tjänsten där du startade inloggningen.").font(.headline).multilineTextAlignment(.center)
                 CameraPreview(session: reader.session).aspectRatio(3.0 / 4, contentMode: .fit).frame(maxHeight: 350).accessibilityHidden(true).clipShape(RoundedRectangle(cornerRadius: 24))
-                Text(reader.message).font(.subheadline).foregroundStyle(.secondary)
-                Text("Kan du inte skanna? Stäng kameran och välj Öppna en länk i stället under Legitimera.").font(.footnote).foregroundStyle(.secondary)
+                Text(reader.message).font(.subheadline).foregroundStyle(Palette.muted)
+                Text("Kan du inte skanna? Stäng kameran och välj Öppna en länk i stället under Legitimera.").font(.footnote).foregroundStyle(Palette.muted)
             }.padding(24)
-            }.navigationTitle("Skanna begäran").navigationBarTitleDisplayMode(.inline)
+            }.tjippScreen().navigationTitle("Skanna begäran").navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Avbryt") { dismiss() } } }
         }.task { await reader.start { selected($0) } }.onDisappear { reader.stop() }
     }

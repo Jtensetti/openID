@@ -36,10 +36,10 @@ struct PassportScanView: View {
                     Text("Fotograferas automatiskt när hela sidan och kodraderna kan läsas. Håll passet plant och undvik reflexer.")
                         .font(.subheadline).multilineTextAlignment(.center)
                     Text("Bilden används bara på telefonen för att läsa uppgifterna. Den sparas eller skickas inte.")
-                        .font(.footnote).foregroundStyle(.secondary)
+                        .font(.footnote).foregroundStyle(Palette.muted)
                 }.padding(20)
             }
-            .background(Palette.paper).foregroundStyle(Palette.ink)
+            .tjippScreen()
             .navigationTitle("Skanna passuppgifter").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Stäng") { dismiss() } } }
             .task {
