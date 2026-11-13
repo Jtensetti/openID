@@ -91,7 +91,7 @@ struct HomeView: View {
                 }
                 Button { guide = true } label: {
                     HStack { Text("Så fungerar Tjipp").font(.subheadline.weight(.medium)); Spacer(); Image(systemName: "arrow.up.right") }
-                }.accessibilityIdentifier("home.guide")
+                }.buttonStyle(TjippRowButtonStyle()).accessibilityIdentifier("home.guide")
             }.padding(24)
         }.tjippScreen()
             .toolbar(.hidden, for: .navigationBar)

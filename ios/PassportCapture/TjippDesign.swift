@@ -117,7 +117,7 @@ struct TjippWordmark: View {
                                .init(color: selectedColor.color, location: 1)],
                        startPoint: .leading, endPoint: .trailing)
             .frame(width: 94, height: 41)
-            .mask { Image("TjippWordmark").resizable().scaledToFit().colorInvert().luminanceToAlpha() }
+            .mask { Image("TjippWordmark").resizable().scaledToFit().saturation(0).colorInvert().brightness(0.3).contrast(4).luminanceToAlpha() }
             .accessibilityLabel("Tjipp")
     }
 }
