@@ -23,6 +23,7 @@ SCHEMA = 'tjipp-three-image-inventory-v1'
 CHECKS = {
     'actual_service_uid_gid_mount_capability_and_dual_stack_imds_isolation',
     'closed_registration_and_separate_api_roles',
+    'explicit_registration_notice_paired_session_and_required_production_attestation',
     'actual_controller_activation_atomic_outbox_role_scoped_sqs_retry_and_ack',
     'actual_pg_bridge_java_saml_signed_consent_and_session',
     'actual_pg_bridge_java_oidc_signed_consent_and_session',
@@ -221,7 +222,27 @@ def application_assessment(directory, image_id, revision):
         return {'state': 'rejected', 'reason': 'application evidence failed existing verification'}
 
 
-def collect(runtime_raw, revision, tree, image, audit, runner=command):
+def vendor_assessment(directory, role, revision):
+    from audit_vendors import verify
+    path = directory / role / 'assessment.json'
+    if not path.is_file():
+        return {'state': 'missing', 'reason': 'component-specific vendor assessment is absent'}
+    try:
+        value = json.loads(path.read_text())
+        require(value.get('imageID') == VENDORS[role]['id'] and value.get('sourceRevision') == revision,
+                'vendor source mismatch')
+        if value.get('complete') is not True:
+            return {'state': 'incomplete', 'reason': 'vendor assessment is incomplete'}
+        if value.get('passed') is not True:
+            return {'state': 'failed', 'reason': 'vendor findings remain unresolved',
+                    'unresolvedCount': value.get('unresolvedCount')}
+        verify(directory / role, role, revision, datetime.now(timezone.utc))
+        return {'state': 'passed', 'assessmentSha256': digest(path.read_bytes())}
+    except (ValueError, OSError, TypeError, KeyError):
+        return {'state': 'rejected', 'reason': 'vendor evidence verification failed'}
+
+
+def collect(runtime_raw, revision, tree, image, audit, runner=command, vendor_audit=None):
     runtime = json.loads(runtime_raw)
     runtime_binding(runtime, revision, image)
     require(re.fullmatch(r'[a-f0-9]{40}', tree or '') is not None, 'full source tree required')
@@ -233,8 +254,8 @@ def collect(runtime_raw, revision, tree, image, audit, runner=command):
             entry = {'role': role, 'imageID': image_id, 'inventoryComplete': False,
                      'source': VENDORS[role]['source'] if role in VENDORS else image_id,
                      'error': str(error)[:256] if isinstance(error, ValueError) else 'invalid image inventory metadata'}
-        entry['assessment'] = application_assessment(audit, image_id, revision) if role == 'application' else {
-            'state': 'missing', 'reason': 'component-specific assessment profile and evidence are not implemented'}
+        entry['assessment'] = (application_assessment(audit, image_id, revision) if role == 'application'
+                               else vendor_assessment(vendor_audit or audit / 'vendors', role, revision))
         images.append(entry)
     complete = all(i['inventoryComplete'] for i in images)
     blockers = [{'role': i['role'], 'kind': 'inventory'} for i in images if not i['inventoryComplete']]
@@ -248,7 +269,7 @@ def collect(runtime_raw, revision, tree, image, audit, runner=command):
             'limits': ['No image export/import or release approval is implemented by this inventory.',
                        'Source binding uses Docker daemon resolution, not independent registry attestation.',
                        'OS package inventory is not a vulnerability assessment or complete language/binary SBOM.',
-                       'Vendor assessment profiles are missing; application policy is never inherited.',
+                       'Vendor OS and Go assessments use their own locked coverage; application policy is never inherited.',
                        'The host, deployed settings, real people and external services remain outside this proof.']}
 
 
@@ -257,6 +278,7 @@ def main():
     parser.add_argument('--image', required=True)
     parser.add_argument('--runtime', type=Path, required=True)
     parser.add_argument('--os-audit', type=Path, required=True)
+    parser.add_argument('--vendor-audit', type=Path)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--require-release-ready', action='store_true')
     args = parser.parse_args()
@@ -264,7 +286,8 @@ def main():
         require(not command(['git', 'status', '--porcelain']).strip(), 'clean source checkout required')
         revision = command(['git', 'rev-parse', 'HEAD']).decode().strip()
         tree = command(['git', 'rev-parse', 'HEAD^{tree}']).decode().strip()
-        report = collect(args.runtime.read_bytes(), revision, tree, args.image, args.os_audit)
+        options = {'vendor_audit': args.vendor_audit} if args.vendor_audit is not None else {}
+        report = collect(args.runtime.read_bytes(), revision, tree, args.image, args.os_audit, **options)
     except (ValueError, OSError, TypeError, KeyError, UnicodeError):
         report = {'schema': SCHEMA, 'status': 'INCOMPLETE', 'inventoryComplete': False,
                   'releaseReady': False, 'releaseStatus': 'BLOCKED',

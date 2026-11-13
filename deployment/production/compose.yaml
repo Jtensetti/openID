@@ -36,7 +36,7 @@ services:
   postgres:
     <<: *runtime
     image: ${TJIPP_POSTGRES_IMAGE_ID:?Set verified image ID}
-    user: 999:999
+    user: 70:70
     mem_limit: 805306368
     memswap_limit: 805306368
     cpus: 1

@@ -1,5 +1,6 @@
 """Check the one PG/OpenBao runtime; never provisions resources or approves a release."""
 import argparse
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -11,6 +12,24 @@ from urllib.parse import urlsplit
 from contract import (VENDORS, IDENTITIES, GROUPS, LIMITS, MOUNTS, ENVIRONMENTS,
                       ENTRYPOINTS, COMMANDS, DEPENDENCIES, PRIVATE_FILES, HEALTH)
 ROOT = Path(__file__).resolve().parent
+ENROLLMENT_PATH = '/srv/openid/service/enrollment-policy.json'
+
+
+def enrollment_policy(value):
+    # Use the same notice validation as the serving process, from this source tree.
+    spec = importlib.util.spec_from_file_location('tjipp_enrollment_policy',
+                                                ROOT.parents[1] / 'verification/enrollment_policy.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.EnrollmentPolicy(value)
+
+
+def private_files(name, config):
+    names = set(PRIVATE_FILES[name])
+    if name == 'verifier' and config.get('newRegistrationsEnabled') is True:
+        require(config.get('enrollmentPolicyFile') == ENROLLMENT_PATH, 'pinned enrollment policy path required')
+        names.add('enrollment-policy.json')
+    return names
 
 
 def require(value, message):
@@ -86,6 +105,11 @@ def check_values(values):
     render(proofing, origins)
     for name, filename in [('verifier', 'runtime.example.json'), ('wallet', 'wallet.example.json'), ('bridge', 'bridge.example.json')]:
         config, expected = values[name], example(filename)
+        if name == 'verifier' and config.get('newRegistrationsEnabled') is True:
+            expected.update(newRegistrationsEnabled=True, enrollmentPolicyFile=ENROLLMENT_PATH)
+            enrollment_policy(values.get('enrollment'))
+        elif name == 'verifier':
+            require('enrollment' not in values, 'closed registration must not install enrollment information')
         require(set(config) == set(expected), 'explicit service fields required')
         for key, value in expected.items():
             if key in ('origin', 'team', 'bundle'): continue
@@ -121,10 +145,12 @@ def metadata(path, uid, gid, mode, *, directory=False):
             and (info.st_uid, info.st_gid, stat.S_IMODE(info.st_mode)) == (uid, gid, mode), 'runtime ownership or permissions changed')
 
 
-def private_json(path):
+def private_json(path, maximum=16384):
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
-    with os.fdopen(fd, 'rb') as stream: raw = stream.read(16385)
-    require(0 < len(raw) <= 16384, 'bounded configuration required')
+    with os.fdopen(fd, 'rb') as stream:
+        require(os.fstat(stream.fileno()).st_nlink == 1, 'configuration must not have hard links')
+        raw = stream.read(maximum + 1)
+    require(0 < len(raw) <= maximum, 'bounded configuration required')
     def unique(pairs):
         result = {}
         for key, value in pairs:
@@ -137,21 +163,26 @@ def private_json(path):
 def check_directory(root):
     require(root.is_absolute() and root == root.resolve(strict=True), 'real absolute runtime directory required')
     values = {}
-    for name, names in PRIVATE_FILES.items():
+    for name in PRIVATE_FILES:
         uid, gid = map(int, IDENTITIES[name].split(':')); directory = root / 'services' / name
         metadata(directory, uid, gid, 0o700, directory=True)
+        metadata(directory / 'runtime.json', uid, gid, 0o600)
+        config = private_json(directory / 'runtime.json')
+        names = private_files(name, config)
         require({p.name for p in directory.iterdir()} == names, 'unexpected private service file')
         for filename in names: metadata(directory / filename, uid, gid, 0o600)
-        values['rotation' if name == 'credential-rotator' else name] = private_json(directory / 'runtime.json')
+        values['rotation' if name == 'credential-rotator' else name] = config
+        if name == 'verifier' and 'enrollment-policy.json' in names:
+            values['enrollment'] = private_json(directory / 'enrollment-policy.json', 65536)
     for name, uid, gid, names in [
-        ('postgres/config', 999, 999, {'postgresql.conf', 'pg_hba.conf', 'server.pem', 'server.key'}),
+        ('postgres/config', 70, 70, {'postgresql.conf', 'pg_hba.conf', 'server.pem', 'server.key'}),
         ('openbao/config', 10008, 20008, {'openbao.json', 'tls.pem', 'tls.key'}),
         ('federation-idp', 10002, 20001, {'tls.p12', 'tls.password', 'idp.p12', 'idp.password', 'encryption.p12', 'encryption.password', 'sp.crt', 'subject-secret'}),
         ('federation-sp', 10003, 20001, {'tls.p12', 'tls.password', 'sp.p12', 'sp.password', 'idp.crt', 'idp-encryption.crt'})]:
         directory = root / name; metadata(directory, uid, gid, 0o700, directory=True)
         require({p.name for p in directory.iterdir()} == names, 'unexpected service key/configuration file')
         for filename in names: metadata(directory / filename, uid, gid, 0o600)
-    for name, uid, gid, mode in [('postgres/data', 999, 999, 0o700), ('openbao/data', 10008, 20008, 0o700),
+    for name, uid, gid, mode in [('postgres/data', 70, 70, 0o700), ('openbao/data', 10008, 20008, 0o700),
             ('openbao/audit', 10008, 20008, 0o700), ('federation-state', 10002, 20001, 0o700),
             ('ipc/continuity', 10007, 20004, 0o2710), ('ipc/federation', 10009, 20001, 0o2710),
             ('ipc/notice', 10009, 20003, 0o2710), ('aws/continuity', 0, 20004, 0o2710), ('aws/notices', 0, 20003, 0o2710)]:

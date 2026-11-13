@@ -1,0 +1,39 @@
+{
+  "postgres": {
+    "source": "postgres:18.7-alpine3.24@sha256:75dcac3dfb1cd01ca3536910bbc84128759362f8b118bf8c55b38a94f68f3b73",
+    "id": "sha256:0f6c51e48b3458e87ab43692e49c9dafc72ffe0a0dbde3fd8cdb6ab92d5c025e",
+    "uid": "70:70",
+    "osFamily": "alpine",
+    "osVersion": "3.24",
+    "version": "18.7",
+    "sourceRevision": "185fae3519025ac5715b35134e440af1948f4de2",
+    "license": "PostgreSQL",
+    "recipeLicense": "MIT",
+    "recipeLicenseSHA256": "87ffd2c45e3f90cfa3407b5c40ef8333e87c3e875e4895f8b64df758198deafc",
+    "languageTargets": [
+      "usr/local/bin/gosu"
+    ],
+    "localGoModules": []
+  },
+  "openbao": {
+    "source": "ghcr.io/openbao/openbao:2.7.2@sha256:5046911075e137e154ce49ab051502f4ec7cf367d484ae4a4dce665d9b90561f",
+    "id": "sha256:9089bc6d4aac6d69317f2faf7935135a6b48f949565b03c08677a7f15ff2454f",
+    "uid": "10008:20008",
+    "osFamily": "alpine",
+    "osVersion": "3.24",
+    "version": "2.7.2",
+    "sourceRevision": "9e0a0d3c3504a0a00b45e61355afac5e35c78379",
+    "license": "MPL-2.0",
+    "licenseSHA256": "d6b1a865f1c8c697d343bd4e0ce61025f91898486a1f00d727f32e8644af77d3",
+    "upstreamSBOMSHA256": "baf83d86c9f34d1a84fd72f86e3a199f5864fdd1d2a8834f57b2147229c7b37b",
+    "languageTargets": [
+      "usr/bin/bao"
+    ],
+    "localGoModules": [
+      "./api",
+      "./api/auth/kubernetes",
+      "./internal/helper/stubbolt",
+      "./sdk"
+    ]
+  }
+}
