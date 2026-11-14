@@ -4,7 +4,7 @@
   <parent>
     <groupId>se.swedenconnect.spring.authnserver</groupId>
     <artifactId>spring-authentication-server-parent</artifactId>
-    <version>1.0.3</version>
+    <version>1.1.0</version>
     <relativePath/>
   </parent>
   <groupId>io.github.jtensetti.openid</groupId>
